@@ -1,0 +1,44 @@
+{
+	"name": "root page",
+	"panels": [{
+		"name": "header",
+		"orientation": 1,
+		"view":
+		{ "config":"Views/header.json"		  
+		},
+		"inlinestyle": " background-color: #005686; color:white;height: 40px;"
+		},
+		{
+			"name": "content",
+			"orientation": 1,
+			"view": {
+				"name": "content01",
+				"config":"Views/content01.json"	
+			},
+			"inlinestyle": "height: 40%;"
+		},
+		{
+			"name": "sub_content",
+			"orientation": 1,
+			"view": {
+				"name": "test view",
+				"type": "view-type",
+				"content": "<div> this is the content </div><button type='button' uiaction='LOGOUT' onclick='buttonaction(this)'>logout</button>",
+				"inlinestyle": "height: 100%;",
+				"inlinescript":"function buttonaction(el){$Context.outputs.action='LOGOUT'; $Context.submit();}",
+				"inputs":{
+					"test": "test"
+				},
+				"outputs":{
+					"test": "test",
+					"action": ""
+				},
+				"actions":{
+					"SUBMIT": {"type": "page", "page": "home", "next": ""},
+					"LOGOUT": {"type": "page", "page": "pages/logon.json", "next": ""}
+				}
+			},
+			"inlinestyle": "height: 40%;"
+		}
+	]
+}

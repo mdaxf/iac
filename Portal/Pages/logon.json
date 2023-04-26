@@ -1,0 +1,32 @@
+{
+	"name": "Logon page",
+	"panels": [{
+			"name": "header",
+			"orientation": 1,
+			"view": {
+				"name": "generic header",
+				"type": "view-type",
+				"content": "<div> header content </div>",
+				"inlinestyle": "height: 100%;"
+			},
+			"inlinestyle": " background-color: #005686; color:white;height: 40px;"
+		},
+		{
+			"name": "content",
+			"orientation": 1,
+			"view": {
+				"name": "Logon View",
+				"type": "view-type",
+				"file": "Templates/logon.html",
+				"inlinestyle": " height: 100%;",
+				"outputs":{
+					"action": ""
+				},
+				"actions":{
+					"LOGIN": {"type": "page", "next": "","page": "pages/root.json"}
+				}
+			},
+			"inlinestyle": "height: 80%;"
+		}
+	]
+}

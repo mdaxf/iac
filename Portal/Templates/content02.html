@@ -1,0 +1,9 @@
+
+<div> this is the content 02</div><button type='button' action='CHANGE' onclick='changeview(this)'>change</button>
+<script>
+    function changeview(el){
+        $Context.outputs.action = el.attributes.action.value;
+        $Context.outputs.test = "this is a view of content 02 outputs value";
+        $Context.submit();
+    }
+</script>

@@ -1,0 +1,47 @@
+{
+  "port": 8080,
+  "controllers": [
+    {
+      "path": "user", 
+      "module": "UserController",    
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/users",
+          "handler": "List"
+        },
+        {
+          "method": "POST",
+          "path": "/login",
+          "handler": "Login"
+        },
+        {
+          "method": "POST",
+          "path": "/users",
+          "handler": "Create"
+        }
+      ]
+    },
+    {
+      "path": "role",
+      "module": "RoleController",    
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/roles",
+          "handler": "List"
+        },
+        {
+          "method": "POST",
+          "path": "/roles",
+          "handler": "Create"
+        }
+      ]
+    } 
+  ],
+  "portal":{
+    "path":"/portal",
+    "home":"/portal/UIPage.html?page=root",
+    "logon":"/portal/UIPage.html?page=logon"
+  }
+}

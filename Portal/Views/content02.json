@@ -1,0 +1,17 @@
+{
+    "name": "content02",
+    "type": "view-type",
+    "file": "templates/content02.html",
+    "inlinestyle": "height: 100%;",
+    "inputs":{
+        "test": "content011112"
+    },
+    "outputs":{
+        "test": "test",
+        "action": ""
+    },
+    "actions":{
+        "SUBMIT": {"type": "page", "target": "home", "next": ""},
+        "CHANGE": {"type": "view", "next": "","panels":[{"panel": "content","view":"views/content01.json"}]}
+    }
+}

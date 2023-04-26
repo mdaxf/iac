@@ -1,80 +1,127 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"log"
 	"net/http"
-	"path"
-	"path/filepath"
 
-	"github.com/auth0-community/go-auth0"
+	"plugin"
+	"reflect"
+
 	"github.com/gin-gonic/gin"
-	jose "gopkg.in/square/go-jose.v2"
-
-	"github.com/mdaxf/iac/handlers"
-)
-
-var (
-	audience string
-	domain   string
+	dbconn "github.com/mdaxf/iac/databases"
 )
 
 func main() {
-	setAuth0Variables()
-	r := gin.Default()
-
-	// This will ensure that the angular files are served correctly
-	r.NoRoute(func(c *gin.Context) {
-		dir, file := path.Split(c.Request.RequestURI)
-		ext := filepath.Ext(file)
-		if file == "" || ext == "" {
-			c.File("./ui/dist/ui/index.html")
-		} else {
-			c.File("./ui/dist/ui/" + path.Join(dir, file))
-		}
-	})
-
-	authorized := r.Group("/")
-	authorized.Use(authRequired())
-	authorized.GET("/todo", handlers.GetTodoListHandler)
-	authorized.POST("/todo", handlers.AddTodoHandler)
-	authorized.DELETE("/todo/:id", handlers.DeleteTodoHandler)
-	authorized.PUT("/todo", handlers.CompleteTodoHandler)
-
-	err := r.Run(":3000")
+	// Load configuration from the file
+	config, err := loadConfig()
 	if err != nil {
-		panic(err)
+		log.Fatalf("Failed to load configuration: %v", err)
 	}
-}
+	initialize()
 
-func setAuth0Variables() {
-	audience = "https://dev-b5d0658n.us.auth0.com/"
-	//os.Getenv("AUTH0_API_IDENTIFIER")
-	domain = "https:..//my-identify"
-	//os.Getenv("AUTH0_DOMAIN")
-}
+	defer dbconn.DB.Close()
+	// Initialize the Gin router
+	router := gin.Default()
 
-// ValidateRequest will verify that a token received from an http request
-// is valid and signyed by Auth0
-func authRequired() gin.HandlerFunc {
-	return func(c *gin.Context) {
+	// Load controllers dynamically based on the configuration file
+	plugincontrollers := make(map[string]interface{})
+	for _, controllerConfig := range config.PluginControllers {
 
-		var auth0Domain = "https://" + domain + "/"
-		client := auth0.NewJWKClient(auth0.JWKClientOptions{URI: auth0Domain + ".well-known/jwks.json"}, nil)
-		configuration := auth0.NewConfiguration(client, []string{audience}, auth0Domain, jose.RS256)
-		validator := auth0.NewValidator(configuration, nil)
-
-		_, err := validator.ValidateRequest(c.Request)
-
+		jsonString, err := json.Marshal(controllerConfig)
 		if err != nil {
-			log.Println(err)
-			terminateWithError(http.StatusUnauthorized, "token is not valid", c)
+			fmt.Println("Error marshaling json:", err)
 			return
 		}
-		c.Next()
+		fmt.Println(string(jsonString))
+		controllerModule, err := loadpluginControllerModule(controllerConfig.Path)
+		if err != nil {
+			fmt.Println(fmt.Sprintf("Failed to load controller module %s: %v", controllerConfig.Path, err))
+		}
+		plugincontrollers[controllerConfig.Path] = controllerModule
 	}
+
+	// Create endpoints dynamically based on the configuration file
+	for _, controllerConfig := range config.PluginControllers {
+		for _, endpointConfig := range controllerConfig.Endpoints {
+			method := endpointConfig.Method
+			path := fmt.Sprintf("/%s%s", controllerConfig.Path, endpointConfig.Path)
+			handler := plugincontrollers[controllerConfig.Path].(map[string]interface{})[endpointConfig.Handler].(func(*gin.Context))
+			router.Handle(method, path, handler)
+		}
+	}
+	router.GET("/test", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "pong",
+		})
+
+	})
+
+	loadControllers(router, config.Controllers)
+
+	// Start the portals
+	log.Println("Starting portals")
+
+	jsonString, err := json.Marshal(config.Portal)
+	if err != nil {
+		fmt.Println("Error marshaling json:", err)
+		return
+	}
+	fmt.Println(string(jsonString))
+
+	portal := config.Portal
+	log.Println(fmt.Sprintf("Starting portal on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
+	router.Static("/portal", "./portal")
+	router.LoadHTMLGlob("portal/*.html")
+	router.LoadHTMLGlob("portal/scripts/*.js")
+	router.GET(portal.Path, func(c *gin.Context) {
+		c.HTML(http.StatusOK, portal.Home, gin.H{})
+	})
+	//		router.Run(fmt.Sprintf(":%d", portal.Port))
+
+	// Start the server
+	router.Run(fmt.Sprintf(":%d", config.Port))
+
+	//defer dbconn.DB.Close()
 }
 
-func terminateWithError(statusCode int, message string, c *gin.Context) {
-	c.JSON(statusCode, gin.H{"error": message})
-	c.Abort()
+func loadpluginControllerModule(controllerPath string) (interface{}, error) {
+
+	modulePath := fmt.Sprintf("./plugins/%s/%s.so", controllerPath, controllerPath)
+	print(modulePath)
+	module, err := plugin.Open(modulePath)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to open controller module %s: %v", modulePath, err)
+	}
+	sym, err := module.Lookup(controllerPath + "Controller")
+	if err != nil {
+		return nil, fmt.Errorf("Failed to lookup symbol in controller module %s: %v", modulePath, err)
+	}
+	return sym, nil
+}
+
+func getpluginHandlerFunc(module reflect.Value, name string) gin.HandlerFunc {
+	method := module.MethodByName(name)
+	if !method.IsValid() {
+		return nil
+	}
+
+	return func(c *gin.Context) {
+		in := make([]reflect.Value, 1)
+		in[0] = reflect.ValueOf(c)
+		out := method.Call(in)
+		if len(out) > 0 {
+			if err, ok := out[0].Interface().(error); ok {
+				c.AbortWithError(http.StatusInternalServerError, err)
+				return
+			}
+			if data, ok := out[0].Interface().([]byte); ok {
+				c.Data(http.StatusOK, "application/json", data)
+				return
+			}
+		}
+		c.Status(http.StatusOK)
+	}
 }
