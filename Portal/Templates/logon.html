@@ -33,7 +33,7 @@
             }
             console.log("login")
             $Context.executeTransaction("http://127.0.0.1:8080/login",inputs,function(response){
-                console.log(response);
+                console.log("response:",response);
                 
                 $Context.outputs.action = "LOGIN";
                 $Context.submit();

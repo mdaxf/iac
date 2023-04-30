@@ -37,7 +37,18 @@
           "handler": "Create"
         }
       ]
-    } 
+    },
+    {
+      "path": "trans",
+      "module": "TranCodeController",    
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/exetrancode",
+          "handler": "ExecuteTranCode"
+        }
+      ]
+    }  
   ],
   "portal":{
     "path":"/portal",

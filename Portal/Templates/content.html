@@ -2,12 +2,32 @@
 <div> this is the content 01</div>
 <div id="input_test"></div>
 <button type='button' action='CHANGE' onclick='changeview(this)'>change</button>
+<button type='button' action='ExecuteTranCode' onclick='executecode(this)'>change</button>
 <script>
     function changeview(el){
         $Context.outputs.action = el.attributes.action.value;
         $Context.submit();
     }
     
+    function executecode(el){
+        let body = {
+                "code":"test",
+                "inputs":{}
+            }
+            console.log("login")
+            $Context.executeTransaction("http://127.0.0.1:8080/exetrancode",body,function(response){
+                console.log("response:",response);
+                
+              //  $Context.outputs.action = "LOGIN";
+              //  $Context.submit();
+            },function(error){
+                console.log(error);
+            })
+
+            
+    }
+
+
     $Context.onLoaded(function(){
         console.log("onloaded", $Context.inputs);
         var el = document.getElementById("input_test");

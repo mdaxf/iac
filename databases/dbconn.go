@@ -1,9 +1,21 @@
+// Copyright 2023 IAC. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package dbconn
 
 import (
 	"database/sql"
-	"encoding/json"
-	"fmt"
 	"sync"
 
 	_ "github.com/denisenkom/go-mssqldb"
@@ -28,24 +40,22 @@ var (
 )
 
 func ConnectDB() error {
-	/*once.Do(func() {
+	once.Do(func() {
 		DB, err = sql.Open(DatabaseType, DatabaseConnection)
 		if err != nil {
 			panic(err.Error())
 		}
-
-		//	defer DB.Close()
 		DB.SetMaxIdleConns(1000)
 		DB.SetMaxOpenConns(10000)
-	}) */
-	DB, err = sql.Open(DatabaseType, DatabaseConnection)
+	})
+	/*DB, err = sql.Open(DatabaseType, DatabaseConnection)
 	if err != nil {
 		panic(err.Error())
 	}
 
 	DB.SetMaxIdleConns(5)
 	DB.SetMaxOpenConns(10)
-
+	*/
 	return nil
 }
 
@@ -53,36 +63,4 @@ func DBPing() error {
 
 	return DB.Ping()
 
-}
-
-func Query(querystr string, args ...interface{}) (*sql.Rows, error) {
-	fmt.Println(string(querystr))
-	//fmt.Println(string(args))
-	stmt, err := DB.Prepare(querystr)
-	if err != nil {
-		return nil, err
-	}
-	defer stmt.Close()
-
-	jsonString, err := json.Marshal(stmt)
-	if err != nil {
-		fmt.Println("Error marshaling json:", err)
-
-	}
-	fmt.Println(string(jsonString))
-
-	rows, err := stmt.Query(args...)
-
-	if err != nil {
-		return nil, err
-	}
-
-	jsonString, err = json.Marshal(rows)
-	if err != nil {
-		fmt.Println("Error marshaling json:", err)
-
-	}
-	fmt.Println(string(jsonString))
-
-	return rows, nil
 }
