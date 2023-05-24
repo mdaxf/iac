@@ -52,6 +52,7 @@ function _0x30f6(_0x180a7f,_0x5d5a98){var _0x42049c=_0x4204();return _0x30f6=fun
 	$.import_js(path + "flow/joint.js")
 	$.import_js(path + "flow/svg-pan-zoom.js")  
 	$.import_js(path + "flow/filesave.js")  
+	$.import_js(path + "jsonmanager.js")  
 	$.import_js(path + "UIForm.js")  
 	$.import_js(path + "contextmenu/jquery.contextMenu.js")  
 
@@ -936,7 +937,9 @@ var ProcessFlow = (function(){
 							break;
 						}
 					}
-
+					var path = 'functiongroups/{"name":"'+that.flow.funcgroupname+'"}/functions/{"id":"'+that.data.id+'"}'
+					that.flow.FlowJsonObj.updateNode(path,that.data);
+					/*
 					for(var i=0;i<that.flow.flowobj.functiongroups.length;i++){
 						if(that.flow.flowobj.functiongroups[i].name == that.flow.funcgroupname){
 							for(var j=0;j<that.flow.flowobj.functiongroups[i].functions.length;j++){
@@ -948,7 +951,7 @@ var ProcessFlow = (function(){
 							break;
 						}
 					}
-
+					*/
 					break;
 				case "FUNCGROUP":
 					that.data = Object.assign(that.data,data);
@@ -964,13 +967,15 @@ var ProcessFlow = (function(){
 							break;
 						}
 					}
-
+					var path = 'functiongroups/{"id":"'+that.data.id+'"}'
+					that.flow.FlowJsonObj.updateNode(path,that.data);
+					/*
 					for(var i=0;i<that.flow.flowobj.functiongroups.length;i++){
 						if(that.flow.flowobj.functiongroups[i].id == that.data.id){						
 							that.flow.flowobj.functiongroups[i] = that.data;
 							break;
 						}
-					}  
+					}  */ 
 					break;
 				case "START":
 					that.data = Object.assign(that.data,data);
@@ -1189,8 +1194,8 @@ var ProcessFlow = (function(){
 				//	headeredRectangle.attr('root/title', this.data.FunctionName);
 					headeredRectangle.attr('nodeid', this.data.id);
 					headeredRectangle.attr('functionheader/fill', Function_Type_Color_List[this.data.functype]);
-					headeredRectangle.attr('functionheader/functionname', this.data.functionName);
-					headeredRectangle.attr('functionname/text', this.data.functionName);					
+					headeredRectangle.attr('functionheader/functionname', this.data.name);
+					headeredRectangle.attr('functionname/text', this.data.name);					
 					headeredRectangle.addTo(this.flow.Graph);
 				//	headeredRectangle.addPorts(ports);
 				//	console.log(headeredRectangle.getGroupPorts("input"))
@@ -1217,26 +1222,16 @@ var ProcessFlow = (function(){
 			if(index >=0)
 				that.flow.nodes.splice(index,1);
 			
-			for(var i=0;i<that.flow.flowobj.functiongroups.length;i++){
-				if(that.flow.flowobj.functiongroups[i].name == that.flow.funcgroupname){
-					let index = -1;
-						for(var j=0;j<that.flow.flowobj.functiongroups[i].functions.length;j++){
-							if(that.flow.flowobj.functiongroups[i].functions[j].id == that.data.id){
-								index = j;
-								break;
-							}
-						}
-						if(index >=0)
-							that.flow.flowobj.functiongroups[i].functions.splice(index,1);
-						break;
-				}
-			}
+			
+			let path = 'functiongroups/{"name":"'+that.flow.funcgroupname+'"}/functions/{"id":"'+that.data.id+'"}'
+			that.flow.FlowJsonObj.deleteNode(path);
 			
 		}
 
 		update(data, subtype=""){
 			let that = this;
 			// update block self
+			console.log(that.data);
 			if(subtype == ''){
 				that.data = Object.assign(that.data,data);
 				data = that.data;
@@ -1252,10 +1247,6 @@ var ProcessFlow = (function(){
 				for(var i=0;i<that.data.inputs.length;i++){
 					if(that.data.inputs[i].id == data.id){
 						that.data.inputs[i] = Object.assign(that.data.inputs[i],data);
-						that.remove_events();
-						that.node.shape.remove();
-						that.build_block();
-						that.set_events();
 						break;
 					}
 				}					
@@ -1265,33 +1256,22 @@ var ProcessFlow = (function(){
 				for(var i=0;i<that.data.outputs.length;i++){
 					if(that.data.outputs[i].id == data.id){
 						that.data.outputs[i] = Object.assign(that.data.outputs[i],data);
-						that.remove_events();
-						that.node.shape.remove();
-						that.build_block();
-						that.set_events();
 						break;
 					}
 				}					
 			}
 
+		//	console.log(that.data);
 			for(var i=0;i<that.flow.nodes.length;i++){
 				if(that.flow.nodes[i].id == that.data.id){
 					that.flow.nodes[i] = that.data;
 					break;
 				}
 			}
-
-			for(var i=0;i<that.flow.flowobj.functiongroups.length;i++){
-				if(that.flow.flowobj.functiongroups[i].name == that.flow.funcgroupname){
-					for(var j=0;j<that.flow.flowobj.functiongroups[i].functions.length;j++){
-						if(that.flow.flowobj.functiongroups[i].functions[j].id == that.data.id){
-							that.flow.flowobj.functiongroups[i].functions[j] = that.data;
-							break;
-						}
-					}
-					break;
-				}
-			}
+			let path = 'functiongroups/{"name":"'+that.flow.funcgroupname+'"}/functions/{"id":"'+that.data.id+'"}'
+			that.flow.FlowJsonObj.updateNodeValue(path,that.data);
+			if(subtype !='')
+				that.flow.reload();
 		}
 	
 	}
@@ -1368,13 +1348,9 @@ var ProcessFlow = (function(){
 							break;
 						}
 					}
-
-					for(var i=0;i<that.flow.flowobj.functiongroups.length;i++){
-						if(that.flow.flowobj.functiongroups[i].id == that.data.id){						
-							that.flow.flowobj.functiongroups[i] = that.data;
-							break;
-						}
-					}  
+					let path = 'functiongroups/{"id":"'+that.data.id+'"}'
+					that.flow.FlowJsonObj.updateNode(path,that.data);
+				//	that.flow.reload();
 		}
 
 	}
@@ -1463,31 +1439,12 @@ var ProcessFlow = (function(){
 					}
 				}
 			//	console.log('update flowobj:', this.funcgroup,this.flowobj )
-				for(var n=0;n<this.flowobj.functiongroups.length;n++){
-					if(this.flowobj.functiongroups[n].name == this.flow.funcgroupname){
-						//console.log('found function group:',n)
-						for(var i=0;i<this.flowobj.functiongroups[n].functions.length;i++){
-							if(this.flowobj.functiongroups[n].functions[i].id == targetfunctionid){
-							//	console.log('found functions', i, this.flowobj.functiongroups[n].functions[i].name)
-	
-								for(var j=0;j<this.flowobj.functiongroups[n].functions[i].outputs.length;j++){
-									if(this.flowobj.functiongroups[n].functions[i].inputs[j].id ==  targetinputid){
-									//	console.log('found input', j, this.flowobj.functiongroups[n].functions[i].inputs[j].name)
-	
-										this.flowobj.functiongroups[n].functions[i].inputs[j].source =0;
-										this.flowobj.functiongroups[n].functions[i].inputs[j].aliasname = ''
-										break;
-									}
-								}
-								break;	
-							}
-							
-						}
-						break;
-					}
-					
+				let path = 'functiongroups/{"name":"'+this.flow.funcgroupname+'"}/functions/{"id":"'+targetfunctionid+'"}/outputs/{"id":"'+targetinputid+'"}'
+				let data = {
+					source: 0,
+					aliasname: ''
 				}
-			
+				this.flow.FlowJsonObj.updateNode(path,data);			
 			
 			}
 		}
@@ -1924,27 +1881,14 @@ var ProcessFlow = (function(){
 		constructor(wrapper,flowobj, options, funcgroup){
 			this.flowobjchange = true;
 			let that = this;
-			
-			//this.originalflowobj = flowobj;
 
-			this.flowobj  = flowobj; /*new JSONWrapper(flowobj, (property, value) => {
-				console.log(`Property ${property} has been updated with value ${value}`);
-				that.flowobjchange = true;
-			  }); */
-			/*const handler = {
-				set(target, property, value) {
-				  console.log(`Property '${property}' changed to '${value}'`);
-				  that.flowobjchange = true;
-				  target[property] = value;
-				  return true;
-				}, 
-			};*/
-		//	const monitoredJSON = new Proxy(this.flowobj, handler);  
-
+			this.flowobj  = flowobj; 
+			this.FlowJsonObj = new UI.JSONManager(this.flowobj,{allowChanges:true})
+		
 			this.setup_wrapper(wrapper);
 
 			this.setup_objects(options, funcgroup);	
-		//	this.reload();
+
 		}
 
 		setup_objects(options, funcgroup){
@@ -1964,13 +1908,8 @@ var ProcessFlow = (function(){
 				this.options.width = $('#'+this.sectionwrapper).width();
 			if($('#'+this.sectionwrapper).height() > 600)
 				this.options.height = $('#'+this.sectionwrapper).height();
-
 			
 			this.setup_paper_fg();
-			/*if(this.options.flowtype == 'FUNCGROUP')
-				this.setup_paper_fg();
-			else 
-				this.setup_Paper(); */
 
 			this.setup_Toolbar();			
 
@@ -1983,14 +1922,19 @@ var ProcessFlow = (function(){
 			//	console.log(this.flowobj, funcgroup)
 				let fgobj ={};
 				if(funcgroup == "" || !funcgroup){
-					fgobj = this.flowobj.functiongroups[0]
-					this.funcgroupname = fgobj.name;
-				}
-				else{
-					fgobj = this.flowobj.functiongroups.find(fg=>fg.name == funcgroup)
+					fgobj = this.FlowJsonObj.getNode('functiongroups/0').value
+					/*
+					fgobj = this.flowobj.functiongroups[0] */
+					if(!fgobj)
+						this.funcgroupname = fgobj.name;					 
 
 				}
-				console.log(fgobj)
+				else{
+					//fgobj = this.flowobj.functiongroups.find(fg=>fg.name == funcgroup)
+					fgobj = this.FlowJsonObj.getNode('functiongroups/{"name":"'+funcgroup+'"}').value
+
+				}
+				//console.log(fgobj)
 				obj = this.get_process_Object(fgobj)				
 			}
 			else
@@ -2058,36 +2002,33 @@ var ProcessFlow = (function(){
 			section.style.height = "100%"
 			this.sectionwrapper = wrapper
 
-			let attrs={
+			let attrs=[{
 				'class':'processflow_container uiflow_process_flow_menubar_container',
 				'id':this.wrapper+'_flow_menu_panel'
-			}
-			this.menu_panel = (new UI.FormControl(section, 'div', attrs)).control;
-
-			this.wrapper = wrapper +'_flow_container'
-			attrs={
+			},
+			{
 				'class':'processflow_container',
 				'id':this.wrapper,
 				'style':'width:100%;height:100%;display:flex'
-			}
-			this.wrappercontainer = (new UI.FormControl(section, 'div', attrs)).control;
-			
-			attrs={
+			},
+			{
 				'class':'processflow_container',
 				'id':wrapper+'_flow_property_panel',
 				'style':'width:0px;height:100%;float:right;position:absolute;top:0px;right:0px;background-color:lightgrey;overflow:auto;' +
 								'border-left:2px solid #ccc;resize:horizontal;z-index:9'
-			}
-			this.property_panel = (new UI.FormControl(section, 'div', attrs)).control;
-
-			attrs={
+			},
+			{
 				'class':'processflow_items_panel',
 				'id':wrapper+'_flow_items_panel',
 				'style':'width:0px;height:100%;float:left;position:absolute;top:0px;left:0px;background-color:lightgrey;overflow:auto;' +
 								'border-left:2px solid #ccc;resize:horizontal;z-index:9'
-			}
-			this.item_panel = (new UI.FormControl(section, 'div', attrs)).control;
-			
+			}]
+			new UI.Builder(section, attrs)
+			this.menu_panel = document.getElementById(this.wrapper+'_flow_menu_panel')
+			this.wrappercontainer = document.getElementById(this.wrapper)
+			this.property_panel = document.getElementById(wrapper+'_flow_property_panel')
+			this.items_panel = document.getElementById(wrapper+'_flow_items_panel')
+
 		}
 
 		get_process_Object(flowobj){
@@ -2105,9 +2046,7 @@ var ProcessFlow = (function(){
 					mergegroups: mergegroups,
 				}
 
-			}
-
-			
+			}			
 
 			switch (this.options.flowtype.toUpperCase()) {
 				case 'PROCESS':
@@ -2186,7 +2125,7 @@ var ProcessFlow = (function(){
 					if(flowobj.functiongroups){
 						flowobj.functiongroups.forEach(functiongroup => {
 							let routerdef = functiongroup.routerdef;
-							console.log(functiongroup, routerdef)
+						//	console.log(functiongroup, routerdef)
 							if(routerdef){
 								let variable = routerdef.variable
 								let values = routerdef.values;
@@ -2314,20 +2253,7 @@ var ProcessFlow = (function(){
 						else
 							nodeid = functionobj.id;
 
-						let node = {
-							id: nodeid,
-							name: functionobj.name,	
-							functionName: functionobj.name,
-							description: functionobj.description,
-							content: functionobj.content,
-							functype: functionobj.functype,
-							inputs: inputs,
-							outputs: outputs,
-							type: "FUNCTION",
-							x: functionobj.x,
-							y: functionobj.y
-						};
-						nodes = nodes.concat(node);
+						nodes = nodes.concat(functionobj);
 						findex = findex + 1;
 					});						
 
@@ -2363,7 +2289,7 @@ var ProcessFlow = (function(){
 				drawGrid: this.options.drawgrid,
 				interactive: this.options.interactive,
 				addLinkFromMagnet: true,
-				magnetThreshold: 'onleave',
+			//	magnetThreshold: 'onleave',
 				background: {
 					color: this.options.backgroundcolor
 				},
@@ -2412,60 +2338,6 @@ var ProcessFlow = (function(){
 			});		
 			
 		//	this.Paper.options.highlighting.magnetAvailability = magnetAvailabilityHighlighter;
-		}
-		setup_Paper(){
-			
-		    this.Graph = new joint.dia.Graph;
-
-		    this.Paper = new joint.dia.Paper({
-				el: this.wrappercontainer, //document.getElementById(wrapper),
-				model: this.Graph,
-				marginx: this.marginx,
-				marginy:this.marginy,
-				width: this.options.width,
-				height: this.options.height,
-				gridSize: this.options.gridsize,
-				drawGrid: this.options.drawgrid,
-				interactive: this.options.interactive,
-				addLinkFromMagnet: true,
-			//	elementView: ClickableView,
-				magnetThreshold: 'onleave',
-				background: {
-					color: this.options.backgroundcolor
-				},
-				markAvailable: true,
-				snapLinks: { radius: 40 },
-			/*	defaultRouter: {
-					name: 'mapping',
-					args: { padding: 30 }
-				},  
-				defaultConnectionPoint: { name: 'anchor' },  */
-			//	defaultAnchor: { name: 'mapping' },
-				defaultConnector: {
-					name: 'jumpover',
-					args: { jump: 'cubic' }
-				},
-				highlighting: {
-					magnetAvailability: {
-						name: 'addClass',
-						options: {
-							className: 'record-item-available'
-						}
-					},
-					connecting: {
-						name: 'stroke',
-						options: {
-							padding: 8,
-							attrs: {
-								'stroke': 'none',
-								'fill': '#7c68fc',
-								'fill-opacity': 0.2
-							}
-						}
-					}
-				}
-			});
-
 		}
 		
 		setup_Menubar(){
@@ -2814,7 +2686,7 @@ var ProcessFlow = (function(){
 			
 			this.make_blocks();
 			
-			let flowarea = this.wrappercontainer ;// document.getElementById(this.wrapper)
+		//	let flowarea = this.wrappercontainer ;// document.getElementById(this.wrapper)
 			//let rect = flowarea.getBoundingClientRect();
 			//console.log('window resize',flowarea,rect);
 			
@@ -2832,8 +2704,6 @@ var ProcessFlow = (function(){
 			this.make_Toolbar();
 
 			this.make_Menubar();
-			//console.log(this.links, this.linklines)
-		//	this.auto_layout();
 
 			this.zoom();
 			
@@ -2856,13 +2726,7 @@ var ProcessFlow = (function(){
 			this.Graph.clear();
 			
 			this.make_blocks();
-			
-			let flowarea = document.getElementById(this.wrapper)
-		//	let rect = flowarea.getBoundingClientRect();
-			//console.log('window resize',flowarea,rect);
-			
-			
-		//	console.log(this.nodes, this.blocks)
+
 			this.make_mergepoint();
 			
 			if(this.options.flowtype =='FUNCGROUP')
@@ -2875,9 +2739,6 @@ var ProcessFlow = (function(){
 			this.make_Toolbar();
 
 			this.make_Menubar();
-			//console.log(this.links, this.linklines)
-						
-		//	this.auto_layout();
 
 			this.zoom();
 			
@@ -3216,30 +3077,11 @@ var ProcessFlow = (function(){
 				}
 			}
 		//	console.log('update flowobj:', this.funcgroup,this.flowobj )
-			for(var n=0;n<this.flowobj.functiongroups.length;n++){
-				if(this.flowobj.functiongroups[n].name == this.funcgroupname){
-					console.log('found function group:',this.flowobj.functiongroups[n])
-					for(var i=0;i<this.flowobj.functiongroups[n].functions.length;i++){
-						if(this.flowobj.functiongroups[n].functions[i].id == targetfunctionid){
-						//	console.log('found functions', i, this.flowobj.functiongroups[n].functions[i].name)
+			let path = 'functiongroups/{"name":"'+this.funcgroupname+'"}/functions/{"id":"'+targetfunctionid+'"}/inputs/{"id":"'+targetinputid+'"}'
+			let value={"source":1, "aliasname": sourcefunction.name +'.'+ sourceoutput}
+			this.FlowJsonObj.updateNode(path, value);
 
-							for(var j=0;j<this.flowobj.functiongroups[n].functions[i].inputs.length;j++){
-								if(this.flowobj.functiongroups[n].functions[i].inputs[j].id ==  targetinputid){
-								//	console.log('found input', j, this.flowobj.functiongroups[n].functions[i].inputs[j].name)
 
-									this.flowobj.functiongroups[n].functions[i].inputs[j].source = 1;
-									this.flowobj.functiongroups[n].functions[i].inputs[j].aliasname = sourcefunction.name +'.'+ sourceoutput
-									break;
-								}
-							}
-							break;	
-						}
-						
-					}
-					break;
-				}
-				
-			}
 		//	console.log('complete update:', )
 		}
 
@@ -3307,30 +3149,10 @@ var ProcessFlow = (function(){
 				}
 			}
 		//	console.log('update flowobj:', this.funcgroup,this.flowobj )
-			for(var n=0;n<this.flowobj.functiongroups.length;n++){
-				if(this.flowobj.functiongroups[n].name == this.funcgroupname){
-					//console.log('found function group:',n)
-					for(var i=0;i<this.flowobj.functiongroups[n].functions.length;i++){
-						if(this.flowobj.functiongroups[n].functions[i].id == targetfunctionid){
-						//	console.log('found functions', i, this.flowobj.functiongroups[n].functions[i].name)
+			let path = 'functiongroups/{"name":"'+this.funcgroupname+'"}/functions/{"id":"'+targetfunctionid+'"}/inputs/{"id":"'+targetinputid+'"}'
+			let value={"source":0, "aliasname": ""}
+			this.FlowJsonObj.update_flowobj(path, value);
 
-							for(var j=0;j<this.flowobj.functiongroups[n].functions[i].outputs.length;j++){
-								if(this.flowobj.functiongroups[n].functions[i].inputs[j].id ==  targetinputid){
-								//	console.log('found input', j, this.flowobj.functiongroups[n].functions[i].inputs[j].name)
-
-									this.flowobj.functiongroups[n].functions[i].inputs[j].source =0;
-									this.flowobj.functiongroups[n].functions[i].inputs[j].aliasname = ''
-									break;
-								}
-							}
-							break;	
-						}
-						
-					}
-					break;
-				}
-				
-			}
 		}	
 
 		make_blocklink(){
@@ -3420,40 +3242,36 @@ var ProcessFlow = (function(){
 				}
 
 				console.log('update flowobj:', sourceblock.id,targetblock.id,targetblock.data.name,sourceblock, targetblock)
-				for(var n=0;n<this.flowobj.functiongroups.length;n++){
-					if(this.flowobj.functiongroups[n].id == sourceblock.id){
-						let routerdef = this.flowobj.functiongroups[n].routerdef;
-						if(routerdef){
-							let nextfuncgroups = routerdef.nextfuncgroups;
-							let values = routerdef.values; 
-							index = -1;
-							if(nextfuncgroups.length > 0){
-								for(var j=0;j<nextfuncgroups.length;j++){
-									if(nextfuncgroups[j] == targetblock.data.name){
-										index = j;
-										break;
-									}
-								}
-									
-								if(index >=0 ){
-									nextfuncgroups = nextfuncgroups.splice(index,1);
-									values = values.splice(index,1);
-									
-								}
+				let path = 'functiongroups/{"id":"'+sourceblock.id+'"}/routerdef'
+				let routerdef = this.FlowJsonObj.getNode(path).value
+				if(routerdef){
+					let nextfuncgroups = routerdef.nextfuncgroups;
+					let values = routerdef.values; 
+					index = -1;
+					if(nextfuncgroups.length > 0){
+						for(var j=0;j<nextfuncgroups.length;j++){
+							if(nextfuncgroups[j] == targetblock.data.name){
+								index = j;
+								break;
 							}
-							
-
-							if(routerdef.defaultfuncgroup == targetblock.data.name){
-								routerdef.defaultfuncgroup = '';
-							}	
-							routerdef.nextfuncgroups = nextfuncgroups;
-							routerdef.values = values;
-							this.flowobj.functiongroups[n].routerdef = routerdef
-
 						}
-						break;
+							
+						if(index >=0 ){
+							nextfuncgroups = nextfuncgroups.splice(index,1);
+							values = values.splice(index,1);
+							
+						}
 					}
+					
+
+					if(routerdef.defaultfuncgroup == targetblock.data.name){
+						routerdef.defaultfuncgroup = '';
+					}	
+					routerdef.nextfuncgroups = nextfuncgroups;
+					routerdef.values = values;
+					this.FlowJsonObj.updateNode(path, routerdef);
 				}
+
 	
 		}
 
@@ -3626,473 +3444,17 @@ var ProcessFlow = (function(){
 			
 		}
 		
-		initial_const(){
-			let that = this;
-			/*
-			joint.linkTools.InfoButton = joint.linkTools.Button.extend({
-				name: 'edit-button',
-				options: {
-					markup: [{
-						tagName: 'circle',
-						selector: 'button',
-						attributes: {
-							'r': 7,
-							'fill': '#001DFF',
-							'cursor': 'pointer'
-						}
-					}, {
-						tagName: 'path',
-						selector: 'icon',
-						attributes: {
-							'd': 'M -2 4 2 4 M 0 3 0 0 M -2 -1 1 -1 M -1 -4 1 -4',
-							'fill': 'none',
-							'stroke': '#FFFFFF',
-							'stroke-width': 2,
-							'pointer-events': 'none'
-						}
-					}],
-					distance: 10,
-					offset: 0,
-					action: function(evt) {
-						let _link = that.get_link_bylinkview(this);
-					//	alert('View id: ' + this.id + '\n' + 'Model id: ' + this.model.id +'\n'+ _link.data);
-						
-						if(_link)
-							that.trigger_event('link_change', [_link,this]); 
-					}
-				}
-			});
-			
-			
-			joint.linkTools.mergeButton = joint.linkTools.Button.extend({
-				name: 'edit-button',
-				options: {
-					markup: [{
-						tagName: 'rect',
-						selector: 'button',
-						attributes: {
-							fill: 'darkblue', 
-							stroke: 'darkblue', 
-							"stroke-width":0.5,
-							width: 15, 
-							height: 15,
-							transform: 'rotate(45)',
-							cursor: 'pointer'
-						}
-					}],
-					distance: '80%',
-					offset: 0,
-					action: function(evt) {
-						let _link = that.get_link_bylinkview(this);
-					//	alert('View id: ' + this.id + '\n' + 'Model id: ' + this.model.id +'\n'+ _link.data);
-						console.log(_link)
-						let mgid = that.add_new_mergepoint(_link);
-						that.trigger_event('link_merge', [_link,this, mgid]); 
-					}
-				}
-			});
-		
-			const linkmergeButton = new joint.linkTools.mergeButton();
-			
-			const linkinfoButton = new joint.linkTools.InfoButton();
-
-			const linkremoveButton = new joint.linkTools.Remove({
-					useModelGeometry: true,
-					action: function(_evt, view) {
-					   let _link = that.get_link_bylinkview(this);
-					//   alert('View id: ' + this.id + '\n' + 'Model id: ' + this.model.id +'\n'+ _link.data);
-						console.log(_link)
-						if(_link)
-							that.trigger_event('link_remove', [_link,this]); 
-					}
-				});  */
-
-			/*var verticesTool = new joint.linkTools.Vertices();
-			var segmentsTool = new joint.linkTools.Segments();
-			var sourceArrowheadTool = new joint.linkTools.SourceArrowhead();
-			var targetArrowheadTool = new joint.linkTools.TargetArrowhead();
-			var sourceAnchorTool = new joint.linkTools.SourceAnchor();
-			var targetAnchorTool = new joint.linkTools.TargetAnchor();
-			var boundaryTool = new joint.linkTools.Boundary(); */
-		//	console.log(this.showlinkmergepoint)
-			
-		/*	if(!this.showlinkmergepoint)
-				this.linktoolsView = new joint.dia.ToolsView({
-					tools: [
-						linkinfoButton, linkremoveButton
-						
-					]
-				});
-			else  */
-		/*	if(that.options.flowtype == 'FUNCGROUP' || that.options.flowtype == 'TRANCODE'){
-			}
-			else if(that.options.flowtype != 'PROCESS' ){
-
-				this.linktoolsView = new joint.dia.ToolsView({
-					tools: [
-						linkinfoButton, linkremoveButton
-					]
-				});
-
-			}
-			else{
-				this.linktoolsView = new joint.dia.ToolsView({
-					tools: [
-						linkinfoButton, linkremoveButton,linkmergeButton
-					]
-				});				
-					
-			}
-			
-			const elementboundaryTool = new joint.elementTools.Boundary({
-					padding: 10,
-					rotate: true,
-					useModelGeometry: true
-				});
-				
-			const elementremoveButton = new joint.elementTools.Remove({
-					useModelGeometry: true,
-					action: function(_evt, view) {
-					   console.log('joint.elementTools.Remove',_evt,view);
-					   that.trigger_event('node_remove', [_link,this]); 
-					}
-				}); 
-			
-			const linkfromButton = new joint.elementTools.Button({
-					markup: [{
-						tagName: 'circle',
-						selector: 'button',
-						attributes: {
-							'r': 7,
-							'magnet': 'true',
-							'fill': '#025718',
-							'cursor': 'crosshair',
-							'stroke-width': 2,
-							'draggable':true
-						}
-					}],
-					x: '100%',
-					y: '50%',
-					offset: {
-						x: -5,
-						y: 0
-					},
-					rotate: true,
-					magnet: true,
-					action: function(evt,view) {
-						if(that.options.flowtype == "FUNCGROUP" || that.options.flowtype == "TRANCODE"){
-							
-							that.linkelements = null;
-							that.linkfromelementview = null;
-							that.linkline = null;
-							$('#uiflow_temp_link_line').remove()
-							return;
-						}
-							
-						evt.preventDefault()
-						that.linkelements = true;
-						that.linkfromelementview = view;
-					//	console.log('View id: ' + this.id + '\n' + 'Model id: ' + this.model.id, view);
-					//	this.addClass('dragging');
-						$('html,body').css('cursor','crosshair');
-						
-					//	evt.dataTransfer.setData('sourceview', view);
-					//	evt.dataTransfer.effectAllowed = "crosshair";
-						
-							joint.highlighters.mask.add(view, { selector: 'root' }, 'my-element-highlight', {
-								deep: true,
-								attrs: {
-									'stroke': '#3FFF33',
-									'stroke-width': 4
-								}
-							});	
-							
-						that.linkline = document.createElementNS("http://www.w3.org/2000/svg", "line");
-						that.linkline.setAttribute("marker-end", "url(#arrowhead)");
-						that.linkline.setAttribute("stroke", "red");
-						that.linkline.setAttribute("stroke-width", "2");
-						that.linkline.setAttribute("id", "uiflow_temp_link_line");
-						that.linkline.setAttribute("x1", evt.offsetX);
-						that.linkline.setAttribute("y1", evt.offsetY);
-						that.linkline.setAttribute("x2", evt.offsetX);
-						that.linkline.setAttribute("y2", evt.offsetY);
-						$("svg").append(that.linkline); 
-						//that.linkline = linkline; 
-						
-					}
-				});
-				
-			this.elementtoolsView = new joint.dia.ToolsView({
-					tools: [
-						elementboundaryTool,
-						elementremoveButton,
-						linkfromButton	//, linkfromButton,removeButton
-					]
-				});	 */
-		
-		}
-		
-		make_element_tools(){
-			if(!this.options.interactive)
-				return;
-			/*	
-			this.linkelements = false; 
-			
-
-			let that =this;
-			
-			
-			this.Paper.on('element:mouseenter', function(elementView) {
-			//	console.log("enter the element",elementView)
-				if(!that.linkelements || that.linkfromelementview != elementView){
-					
-					var color = '#FF4365'
-					
-					if(that.linkelements)
-						 color = '#3FFF33'
-					
-					
-						joint.highlighters.mask.add(elementView, { selector: 'root' }, 'my-element-highlight', {
-							deep: true,
-							attrs: {
-								'stroke': color,
-								'stroke-width': 2
-							}
-						});	
-				
-					that.svgZoom.disablePan();
-
-					if(that.options.flowtype != "FUNCGROUP" || that.options.flowtype != "TRANCODE")
-						elementView.addTools(that.elementtoolsView);
-				}
-			});
-			
-			this.Paper.on('element:mouseleave', function(elementView) {
-				
-				if(!that.linkelements || that.linkfromelementview != elementView){
-					elementView.hideTools();
-					joint.dia.HighlighterView.remove(elementView);					
-					that.svgZoom.enablePan();
-				}
-			});  */
-			
-		}
-		
 		create_events(){
 			
 			let that =this;
 
 			
-
-
-
-			/*
-			this.Paper.on('blank:pointerclick', function(){
-				
-				if(that.linkfromelementview){
-					that.linkfromelementview.hideTools();
-					
-					joint.dia.HighlighterView.remove(that.linkfromelementview);
-				}
-				
-				that.linkelements = null;
-				that.linkfromelementview = null;	
-
-				if(that.linkline)
-					$('#uiflow_temp_link_line').remove()
-				that.linkline = null;
-
-				$('html,body').css('cursor','pointer');
-			});
-			
-			this.Paper.on('blank:pointerdbclick', function(){
-				
-				if(that.linkfromelementview){
-					that.linkfromelementview.hideTools();
-					
-					joint.dia.HighlighterView.remove(that.linkfromelementview);
-				}
-				
-				that.linkelements = null;
-				that.linkfromelementview = null;
-				//that.linkline.remove();
-				if(that.linkline)
-					$('#uiflow_temp_link_line').remove()
-				that.linkline = null;
-
-				$('html,body').css('cursor','pointer');
-			});
-			
-			this.Paper.on('element:mouseover', function(elementView) {
-				
-				if(!that.linkelements || that.linkfromelementview != elementView){
-					var color = '#FF4365'
-					
-					if(that.linkelements)
-						 color = '#3FFF33'
-	
-				
-					joint.highlighters.mask.add(elementView, { selector: 'root' }, 'my-element-highlight', {
-						deep: true,
-						attrs: {
-							'stroke': color,
-							'stroke-width': 3
-						}
-					});				
-				}
-				
-			});
-
-			this.Paper.on('element:pointerdown', function(elementView) {
-	
-				joint.highlighters.mask.add(elementView, { selector: 'root' }, 'my-element-highlight', {
-					deep: true,
-					attrs: {
-						'stroke': '#FF4365',
-						'stroke-width': 3
-					}
-				});
-				
-				elementView.showTools();
-				
-			});
-
-			this.Paper.on('element:pointerup', function(elementView) {
-				
-			//	console.log('element:pointerup',that.linkelements, that.linkfromelementview,elementView)
-				if(that.linkelements && that.linkfromelementview && that.linkfromelementview != elementView)
-				{
-					//that.linkfromelementview,elementView, 
-					
-					let fromelement = that.get_object_byelementid(that.linkfromelementview.model.id)
-					let toelement = that.get_object_byelementid(elementView.model.id)
-					
-					if(fromelement.type =='block' && toelement.type == 'block'){
-							that.trigger_event('link_add', [fromelement.obj, toelement.obj,0]); 
-							//that.trigger_event('link_add', [that.get_block_byelementid(that.linkfromelementview.model.id), that.get_block_byelementid(elementView.model.id)]); 
-							that.add_link(fromelement.obj, toelement.obj,0)
-					}
-					else{
-						console.log(fromelement,toelement);
-						
-						if(fromelement.type =='mergepoint' && toelement.type== 'block'){
-							let nodes = that.get_mergepoint_linkedblock(fromelement.obj.data.id).fromnodes;
-							
-							for(var i=0;i<nodes.length;i++){
-								let block = that.get_block(nodes[i]);
-								
-								if(block){
-									that.add_link(block, toelement.obj,fromelement.obj.data.id)
-									that.trigger_event('link_add', [block, toelement.obj,fromelement.obj.data.id]); 
-								}
-							}
-							
-						}
-						else if(toelement.type=='mergepoint' && fromelement.type == 'block'){
-							let nodes = that.get_mergepoint_linkedblock(toelement.obj.data.id).fromnodes;
-							
-							for(var i=0;i<nodes.length;i++){
-								let block = that.get_block(nodes[i]);
-								
-								if(block){
-									that.add_link(fromelement.obj, block, toelement.obj.data.id)
-									that.trigger_event('link_add', [fromelement.obj, block, toelement.obj.data.id]); 
-								}
-							}
-							
-						}
-						
-					}
-				//	that.add_link(that.linkfromelementview, elementView); 
-					
-					that.linkfromelementview.hideTools();
-					
-					joint.dia.HighlighterView.remove(that.linkfromelementview);
-					
-					that.linkelements = null;
-					that.linkfromelementview = null;	
-					if(that.linkline)
-						$('#uiflow_temp_link_line').remove();
-					that.linkline = null;
-
-					 $('html,body').css('cursor','pointer');
-				}
-				else if((!that.linkelements || that.linkelements == undefined) && (that.linkfromelementview == undefined || !that.linkfromelementview ) ){
-					that.linkfromelementview = null;
-					that.linkelements = null;
-					
-					joint.highlighters.mask.add(elementView, { selector: 'root' }, 'my-element-highlight', {
-							deep: true,
-							attrs: {
-								'stroke': '#FF4365',
-								'stroke-width': 3
-							}
-						});
-						
-					var nodeid = elementView.model.attr('nodeid')
-				//	console.log(nodeid)
-					that.trigger_event('block_click', [nodeid]);		
-					
-				}
-				
-				that.linkfromelementview = null;
-				that.linkelements = null;
-				if(that.linkline)
-					$('#uiflow_temp_link_line').remove();
-			//	that.linkline.remove();
-				that.linkline = null;
-				
-				elementView.hideTools();
-				joint.dia.HighlighterView.remove(elementView);
-				that.svgZoom.enablePan();
-				$('html,body').css('cursor','pointer');				
-			});
-			
-			this.Paper.on('element:mouseout', function(elementView) {
-				//resetAll(this);
-				if(!that.linkelements || that.linkfromelementview != elementView)
-					joint.dia.HighlighterView.remove(elementView);
-				
-			});	
-
-			this.Paper.on('element:pointerdblclick', function(elementView) {
-				that.linkelements = null;
-				that.linkfromelementview = null;
-				
-				joint.highlighters.mask.add(elementView, { selector: 'root' }, 'my-element-highlight', {
-					deep: true,
-					attrs: {
-						'stroke': '#FF4365',
-						'stroke-width': 3
-					}
-				});
-				
-				var nodeid = elementView.model.attr('nodeid')
-		
-				that.trigger_event('block_dbclick', [nodeid]);
-				
-			});
-
-			this.Paper.on('element:pointerlclick', function(elementView) {
-				joint.highlighters.mask.add(elementView, { selector: 'root' }, 'my-element-highlight', {
-					deep: true,
-					attrs: {
-						'stroke': '#FF4365',
-						'stroke-width': 3
-					}
-				});
-				
-				var nodeid = elementView.model.attr('nodeid')
-				that.trigger_event('block_click', [nodeid]); 
-				
-			});		
-			*/
-
 			this.Paper.on('element:pointerdown', function(elementView) {
 				console.log(elementView, elementView.model)
 				if(that.selectedelement == elementView){
 					joint.dia.HighlighterView.remove(elementView);
 					that.selectedelement = null;
+					elementView.model.interactive = false;
 					return;
 				}					
 				/*
@@ -4140,37 +3502,8 @@ var ProcessFlow = (function(){
 				  cell.interactive = false;
 				});
 			});
-			/*
-			this.Paper.on('element:pointerlclick', function(elementView) {
-				joint.highlighters.mask.add(elementView, { selector: 'root' }, 'my-element-highlight', {
-					deep: true,
-					attrs: {
-						'stroke': '#FF4365',
-						'stroke-width': 3
-					}
-				});
-				
-				var nodeid = elementView.model.attr('nodeid')
-				that.trigger_event('block_click', [nodeid]); 
-				
-			});	
 
-			this.Paper.on('element:pointerdblclick', function(elementView) {
 			
-				joint.highlighters.mask.add(elementView, { selector: 'root' }, 'my-element-highlight', {
-					deep: true,
-					attrs: {
-						'stroke': '#FF4365',
-						'stroke-width': 3
-					}
-				});
-				
-				var nodeid = elementView.model.attr('nodeid')
-		
-				that.trigger_event('block_dbclick', [nodeid]);
-				
-			}); */
-
 			//if(this.options.flowtype == 'FUNCGROUP' || this.options.flowtype == 'TRANCODE'){
 				this.Paper.on('port:mouseenter', function(event, port) {
 					console.log('port:mouseenter', event, port)
@@ -4232,64 +3565,6 @@ var ProcessFlow = (function(){
 			this.attach_contextmenu();
 			
 			that.trigger_event('process_ready', this); 
-		/*	
-			this.Paper.el.addEventListener("mousemove", (event) =>  {
-				
-				if(that.linkline){
-					console.log(event)
-					that.linkline.setAttribute("x2", event.offsetX);
-					that.linkline.setAttribute("y2", event.offsetY);
-				}
-				else if($('#uiflow_temp_link_line').length > 0)
-					$('#uiflow_temp_link_line').remove();
-				
-				event.stopPropagation();
-			});  
-			this.Paper.el.addEventListener("mouseup", (event) =>  {
-				$('#uiflow_temp_link_line').remove();
-			//	that.linkline.remove();
-				that.linkline = null;
-				event.stopPropagation();
-			});   */
-
-			/*	
-			const dragEnter = event => {
-				console.log('drag enter element', event)
-				
-				event.preventDefault();
-				
-				event.currentTarget.classList.add('drop');
-			};
-		
-			const dragOver = event => {
-		//		console.log('drag over element', event)
-				
-				//event.preventDefault();
-				
-				return false;
-			};			
-
-			const dragLeave = event => {
-				console.log('drag leave element', event)
-			//	event.preventDefault();
-				
-				event.currentTarget.classList.remove('drop');
-			};	
-
-			const dragDrop= event => {
-				console.log('drag drop element', event)
-				event.preventDefault();
-			//	concole.log('drag drop elemen', event.dataTransfer.getData('text/html'));
-				event.currentTarget.classList.remove('drop');
-			};	
-			
-			document.querySelectorAll('.joint-element').forEach(join_element => {
-				join_element.addEventListener('dragenter', dragEnter);
-		//		join_element.addEventListener('dragover', dragOver);
-		//		join_element.addEventListener('dragleave', dragLeave);
-				join_element.addEventListener('drop', dragDrop);
-			});
-			*/
 			
 						
 		}
@@ -4706,31 +3981,19 @@ var ProcessFlow = (function(){
 					break;
 			}
 		}
+		disable_paperevents(){
+			this.Paper.model.getCells().forEach(function(cell) {
+				cell.interactive = false;
+			  });
 
+		}
 		attach_trancode_contextmenu(){
 			let that = this;
-			/*
-				contextmenu for the paper in the trancode flow
-			*/
-			/*
-				let node = {
-							id: nodeid,
-							name:fgname,
-							functiongroupname:functiongroup.name,
-							OprSequenceNo: functiongroup.name,
-							SequenceNo: 0,
-							StepName: functiongroup.name,
-							Description: functiongroup.description,
-							Elements: [],
-							routing:routing,
-							type: "FUNCGROUP"
-						};
-			*/
 
 			$.contextMenu({
 				selector: '.joint-paper', 
 				build:function($triggerElement,e){
-					
+					that.disable_paperevents();
 					return{
 						callback: function(key, options,e){
 							console.log(key, options,e)
@@ -4792,6 +4055,7 @@ var ProcessFlow = (function(){
 			$.contextMenu({
 				selector: '.joint-type-block-link[data-type="Block.Link"]', 
 				build:function($triggerElement,e){
+					that.disable_paperevents();
 					console.log('build the contextmenu:',$triggerElement,e,$triggerElement[0].getAttribute('model-id'))
 					let modelid = $triggerElement[0].getAttribute('model-id');
 					return{
@@ -4840,6 +4104,7 @@ var ProcessFlow = (function(){
 			$.contextMenu({
 				selector: 'g[data-type="ProcessFlow.StepBlock"]', 
 				build:function($triggerElement,e){
+					that.disable_paperevents();
 					console.log('build the contextmenu:',$triggerElement,e,$triggerElement[0].getAttribute('model-id'))
 					let block = that.get_block_byelementid($triggerElement[0].getAttribute('model-id'));
 
@@ -4931,14 +4196,11 @@ var ProcessFlow = (function(){
 
 		}
 		build_fg_properties(functiongroup){
-			console.log(functiongroup)
+		//	console.log(functiongroup)
 			let that = this;
 			let funcgroupobj = null;
-			for(var i=0;i<this.flowobj.functiongroups.length;i++)
-				if(this.flowobj.functiongroups[i].name == functiongroup){
-					funcgroupobj = this.flowobj.functiongroups[i];
-					break;
-				}
+			let path = 'functiongroups/{"name":"'+functiongroup+'"}';
+			funcgroupobj = that.FlowJsonObj.getNode(path).value;
 			
 			if(!funcgroupobj)
 				return;
@@ -4999,6 +4261,7 @@ var ProcessFlow = (function(){
 							funcgroupobj.name = newfuncgroupname;
 							funcgroupobj.description = newfuncgroupdescription;
 							funcgroupobj.routerdef.variable = newfuncgrouproutingvariable;
+							that.FlowJsonObj.updateNode(path, funcgroupobj);
 							that.property_panel.style.width = "0px";
 							that.property_panel.style.display = "none";
 							console.log('updated func group object:',funcgroupobj)
@@ -5035,7 +4298,7 @@ var ProcessFlow = (function(){
 						break;
 					}
 			}
-			console.log(outputs)
+		//	console.log(outputs)
 			return outputs;
 
 		}
@@ -5522,7 +4785,7 @@ var ProcessFlow = (function(){
 			let table = $('#trancodeparametertable_'+type);
 			let selectors = table.find('.parameter-selector');
 			//let selectedcout = 0;
-			console.log(table, selectors)
+		//	console.log(table, selectors)
 			let selectedparameters = [];
 			/*selectors.each(function(item){
 				console.log(item)
@@ -5652,16 +4915,21 @@ var ProcessFlow = (function(){
 			if(block){
 				block.update(data,'');
 				return true;
-			}
+			}			
 
 			for(var i=0;i<that.flowobj.functiongroups.length;i++){
-				routerdef = that.flowobj.functiongroups[i].routerdef;
+			//	routerdef = that.flowobj.functiongroups[i].routerdef;
+				let path = 'functiongroups/'+i+'/routerdef';
+				let routerdef = that.FlowJsonObj.getNode(path).value;
+
 				if(routerdef.defaultfuncgroup == oldname)
-					routerdef.defaultfuncgroup = newname;
+					that.FlowJsonObj.updateNode(path+'/defaultfuncgroup',newname);
+				//	routerdef.defaultfuncgroup = newname;
 				
 				for(var j=0;j<routerdef.nextfuncgroups.length;j++){
 					if(routerdef.nextfuncgroups[j] == oldname)
-						routerdef.nextfuncgroups[j] = newname;
+						that.FlowJsonObj.updateNode(path+'/nextfuncgroups/'+j,newname);
+						//routerdef.nextfuncgroups[j] = newname;
 				}	
 			}
 
@@ -5689,8 +4957,8 @@ var ProcessFlow = (function(){
 				width: this.options.nodewidth,
 				height: this.options.nodeheight
 			};
-
-			that.flowobj.functiongroups = that.flowobj.functiongroups.concat(newfg);
+			that.FlowJsonObj.insertNode('functiongroups',newfg);
+			//that.flowobj.functiongroups = that.flowobj.functiongroups.concat(newfg);
 		}
 
 
@@ -5706,23 +4974,18 @@ var ProcessFlow = (function(){
 				return;
 			}
 
-			for(var i=0;i<that.flowobj.functiongroups.length;i++){
-			//	console.log(that.flowobj.functiongroups[i],fromnode, tonode)
-				if(that.flowobj.functiongroups[i].id == fromnode.id){
-					
-					if(that.flowobj.functiongroups[i].routerdef.variable != "")
-					{
-						let values = that.flowobj.functiongroups[i].routerdef.values.concat(["new value"]);
-						let nextfuncgroups = that.flowobj.functiongroups[i].routerdef.nextfuncgroups.concat([targetblock.data.name]);
-						that.flowobj.functiongroups[i].routerdef.values = values;
-						that.flowobj.functiongroups[i].routerdef.nextfuncgroups = nextfuncgroups;
-					}
-					else 
-						that.flowobj.functiongroups[i].routerdef.defaultfuncgroup = targetblock.data.name;
-					
-					break;
-				}
+			let path = 'functiongroups/{"id":"'+fromnode.id+'"}/routerdef';
+			let routerdef = that.FlowJsonObj.getNode(path).value;
+			if(routerdef.variable != ""){
+				let values = routerdef.values.concat(["new value"]);
+				let nextfuncgroups = routerdef.nextfuncgroups.concat([targetblock.data.name]);
+				that.FlowJsonObj.updateNode(path+'/values',values);
+				that.FlowJsonObj.updateNode(path+'/nextfuncgroups',nextfuncgroups);
+
+			}else{
+				that.FlowJsonObj.updateNode(path+'/defaultfuncgroup',targetblock.data.name);
 			}
+			
 		//	console.log(that.flowobj)
 		}
 
@@ -5997,37 +5260,10 @@ var ProcessFlow = (function(){
 								case 'Delete':
 									var result = confirm("Are you sure you want to delete?");
 									if(result){
-										
-										for(var i=0;i<that.flowobj.functiongroups.length;i++){
-											if(that.flowobj.functiongroups[i].name == that.funcgroupname){
-												for(var j=0;j<that.flowobj.functiongroups[i].functions.length;j++){
-													if(that.flowobj.functiongroups[i].functions[j].id == node){
-														switch (type){
-															case 'input':
-																for(var k=0;k<that.flowobj.functiongroups[i].functions[j].inputs.length;k++){
-																	if(that.flowobj.functiongroups[i].functions[j].inputs[k].id == portid){
-																		that.flowobj.functiongroups[i].functions[j].inputs = that.flowobj.functiongroups[i].functions[j].inputs.splice(k,1);
-																		break;
-																	}
-																}
-															break;
-															case 'output':
-																for(var k=0;k<that.flowobj.functiongroups[i].functions[j].outputs.length;k++){
-																	if(that.flowobj.functiongroups[i].functions[j].outputs[k].id == portid){
-																		that.flowobj.functiongroups[i].functions[j].outputs = that.flowobj.functiongroups[i].functions[j].outputs.splice(k,1);
-																		break;
-																	}
-																}
-															break;	
-														}
-														that.reload();
-														break;
-													}
+										let path = 'functiongroups/{"name":"'+that.funcgroupname+'"}/functions/{"id":"'+node+"}/"+type+'s/{"id":"'+portid+'"}';
+										that.FlowJsonObj.deleteNode(path);
+										that.reload();
 
-												}
-												break;
-											}
-										}
 									}
 									break;
 							}
@@ -6065,27 +5301,7 @@ var ProcessFlow = (function(){
 		add_functionInput(block,  name, i,element){
 			let y= 25 + i*20;
 			let id = UIFlow.generateUUID();
-			/*let port = {
-				group: 'input',
-				id: id,
-				args: {x: 0, y: y},
-				attrs: { 
-					circle: { 									
-						fill: Function_DataType_Color_List[0],
-						functionid:block.data.id,
-						port: id,
-						portname: name,
-					},
-					FunctionInputName:{
-						port:id,
-						text: name,
-					},
-					rect:{
-						width: 0,
-						fill: 'none',
-					}
-				}
-			};	*/
+
 			let input={
 				id: id,
 				name: name,
@@ -6096,32 +5312,10 @@ var ProcessFlow = (function(){
 				aliasname: '',
 				defaultvalue: ""
 			}	
-			/*block.node.shape.addPort(port)
-			
-			let blockheight = element.find('rect[joint-selector="body"]').attr('height');
-			
-			if(blockheight < y+40){
-				element.find('rect[joint-selector="body"]').attr('height', y+40);
-			}
-			console.log(block,  name, i,element, input)
-			for(var i=0;i<this.nodes.length;i++){
-				if(this.nodes[i].id == block.data.id){
-					this.nodes[i].inputs.push(input);
-					break;
-				}
-			}
-			*/
-			for(var i=0;i<this.flowobj.functiongroups.length;i++){
-				if(this.flowobj.functiongroups[i].name == this.funcgroupname){
-					for(var j=0;j<this.flowobj.functiongroups[i].functions.length;j++){
-						if(this.flowobj.functiongroups[i].functions[j].id == block.data.id){
-							this.flowobj.functiongroups[i].functions[j].inputs.push(input);
-							break;
-						}
-					}
 
-				}
-			}
+			let path = 'functiongroups/{"name":"'+this.funcgroupname+'"}/functions/{"id":"'+block.data.id+'"}';
+			this.FlowJsonObj.addNode(path+'/inputs',input);
+
 			this.reload();
 		}
 
@@ -6129,27 +5323,7 @@ var ProcessFlow = (function(){
 			let y= 25 + i*20;
 			let x = block.data.width +6;
 			let id = UIFlow.generateUUID();
-			/*let port = {
-				group: 'output',
-				id: id,
-				args: {x: x, y: y},
-				attrs: { 
-					circle: { 									
-						fill: Function_DataType_Color_List[0],
-						functionid:block.data.id,
-						port: id,
-						portname: name,
-					},
-					FunctionOutputName:{
-						port:id,
-						text: name,
-					},
-					rect:{
-						width: 0,
-						fill: 'none',
-					}
-				}
-			};	*/
+
 			let output={
 				id: id,
 				name: name,
@@ -6159,34 +5333,10 @@ var ProcessFlow = (function(){
 				aliasname: [],
 				defaultvalue: ""
 			}	
-			/*
-			block.node.shape.addPort(port)
-			
-			let blockheight = element.find('rect[joint-selector="body"]').attr('height');
-			
-			if(blockheight < y+40){
-				element.find('rect[joint-selector="body"]').attr('height', y+40);
-			}
-			
-			for(var i=0;i<this.nodes.length;i++){
-				if(this.nodes[i].id == block.data.id){
-					this.nodes[i].outputs.push(output);
-					break;
-				}
-			}
-			*/
-			
-			for(var i=0;i<this.flowobj.functiongroups.length;i++){
-				if(this.flowobj.functiongroups[i].name == this.funcgroupname){
-					for(var j=0;j<this.flowobj.functiongroups[i].functions.length;j++){
-						if(this.flowobj.functiongroups[i].functions[j].id == block.data.id){
-							this.flowobj.functiongroups[i].functions[j].outputs.push(output);
-							break;
-						}
-					}
+	
+			let path = 'functiongroups/{"name":"'+this.funcgroupname+'"}/functions/{"id":"'+block.data.id+'"}';
+			this.FlowJsonObj.addNode(path+'/outputs',output);
 
-				}
-			}
 			this.reload();
 		}
 
@@ -6235,7 +5385,14 @@ var ProcessFlow = (function(){
 					id: nodeid,
 					name: newname,
 				}
-				block.update(data,'');
+				
+				let path = 'functiongroups/{"name":"'+this.funcgroupname+'"}/functions/{"id":"'+nodeid+'"}';
+				let value ={
+					functionName: newname,
+					name: newname,
+				}
+				this.FlowJsonObj.updateNode(path,value);
+				this.reload();
 				return true;
 
 			}
@@ -6269,9 +5426,6 @@ var ProcessFlow = (function(){
 				height: this.options.nodeheight
 			};
 
-		//	this.nodes.push(node);
-		//	let block = new FunctionBlock(this, node);
-		//	this.blocks.push(block);
 			this.add_functiontoflowobj(node)
 			this.reload();
 		}
@@ -6285,6 +5439,7 @@ var ProcessFlow = (function(){
 				description: funcobj.description,
 				content: funcobj.content,
 				functype: parseInt(funcobj.functype),
+				type: "FUNCTION",
 				inputs: [],
 				outputs: [],
 				x: funcobj.x,
@@ -6292,19 +5447,10 @@ var ProcessFlow = (function(){
 				width: funcobj.width,
 				height: funcobj.height
 			}
-		//	console.log(that.funcgroupname, funcobj, functionobj)
-			
-			for(var i=0;i< that.flowobj.functiongroups.length ;i++){
-				if(that.flowobj.functiongroups[i].name == that.funcgroupname){
-					if(!that.flowobj.functiongroups[i].functions){
-						that.flowobj.functiongroups[i].functions=[];
-					}
-					that.flowobj.functiongroups[i].functions.push(functionobj)
-					console.log(that.flowobj)
-					return;
-				}
 
-			}
+			let path = 'functiongroups/{"name":"'+that.funcgroupname+'"}/functions';
+			this.FlowJsonObj.addNode(path,functionobj);
+
 		}
 	
 		build_function_property_panel(functionid){
@@ -6315,21 +5461,11 @@ var ProcessFlow = (function(){
 			}
 
 			let that = this;
-			let functionobj = null;
-		//	let functionobj = this.get_node(functionid);
-			for(var i=0;i<this.flowobj.functiongroups.length;i++){
-				if(this.flowobj.functiongroups[i].name == this.funcgroupname){
-					for(var j=0;j<this.flowobj.functiongroups[i].functions.length;j++){
-						if(this.flowobj.functiongroups[i].functions[j].id == functionid){
-							functionobj = this.flowobj.functiongroups[i].functions[j];
-							break;
-						}
-					}
-					break;
-				}
-			}
 
-			console.log(functionobj)
+			let path = 'functiongroups/{"name":"'+that.funcgroupname+'"}/functions/{"id":"'+functionid+'"}';
+
+			let functionobj = this.FlowJsonObj.getNode(path).value;
+
 			if(!functionobj)
 				return;
 			
@@ -6554,21 +5690,14 @@ var ProcessFlow = (function(){
 				else
 					functioncontent = {'value':$('#functioncontent').val()};
 
-				console.log(functioncontent)
-					for(var i=0;i<that.flowobj.functiongroups.length;i++){
-						if(that.flowobj.functiongroups[i].name == that.funcgroupname){
-							for(var j=0;j<that.flowobj.functiongroups[i].functions.length;j++){
-								if(that.flowobj.functiongroups[i].functions[j].id == functionid){
-									that.flowobj.functiongroups[i].functions[j].functype = parseInt(functiontype);
-									that.flowobj.functiongroups[i].functions[j].content = functioncontent;
-									that.flowobj.functiongroups[i].functions[j].description = functiondescription;
-									break;
-								}
-							}
-							break;
-						}
-					}
-				
+			//	console.log(functioncontent)
+				let value={
+					"functype": parseInt(functiontype),
+					"content": functioncontent,
+					"description": functiondescription
+				}
+			//	console.log(path, value)
+				that.FlowJsonObj.updateNode(path,value);
 				that.reload();
 
 				that.property_panel.style.width = "0px";
@@ -6714,7 +5843,7 @@ var ProcessFlow = (function(){
 					cells.push({data:{selected:0}})
 					cell={data:{value: ""}}
 					cells.push(cell)
-					console.log(table)
+					//console.log(table)
 					table.AddRow(cells,table.tbody.control)
 					}
 				}
@@ -6950,6 +6079,7 @@ var ProcessFlow = (function(){
 				// Handle the JSON data
 					console.log(jsonData);
 					that.flowobj = jsonData;
+					that.FlowJsonObj = new UIFlow.JSONManager(jsonData, {allowChanges: true});
 					let newoptions = that.options					
 					newoptions.flowtype = 'TRANCODE'
 					that.destry();

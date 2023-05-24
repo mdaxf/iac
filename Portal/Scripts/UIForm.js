@@ -286,6 +286,8 @@ var UI = UI || {};
             let attrs = {};
             if(control.hasOwnProperty('attrs'))
                 attrs = Object.assign(attrs, control.attrs);
+            else 
+                attrs = Object.assign(attrs, control);
             let events = {};
             if(control.hasOwnProperty('events'))
                 events = Object.assign(events, control.events);
