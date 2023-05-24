@@ -1,4 +1,4 @@
-IAC (Industry Accelerator Collection) is a comprehensive solution that provides modern industry application solutions. It is designed to supply a framework that can adapt to different solutions. The features of IAC are designed to provide a high-performance backend, support cloud or local deployment, support the BPM flow definition and execution, message bus, database connection, and microservices.
+IACF (Industry Accelerator Framework) is a comprehensive solution that provides modern industry application solutions. It is designed to supply a framework that can adapt to different solutions. The features of IAC are designed to provide a high-performance backend, support cloud or local deployment, support the BPM flow definition and execution, message bus, database connection, and microservices.
 
 The IAC backend is built using the Go language, which is known for its high-performance and scalability. This makes IAC an ideal choice for applications that require high throughput and low latency. Go also has built-in concurrency support, which allows IAC to handle large numbers of concurrent connections efficiently.
 
