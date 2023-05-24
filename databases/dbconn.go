@@ -37,7 +37,7 @@ var (
 		user:password@tcp(localhost:3306)/mydb
 		server=%s;port=%d;user id=%s;password=%s;database=%s
 	*/
-	DatabaseConnection = "server=delsrv000039;user id=flxadmin;password=DS@3ds23;database=LPM23"
+	DatabaseConnection = "server=host;user id=xxx;password=xxx;database=xxx"
 
 	once sync.Once
 	err  error
