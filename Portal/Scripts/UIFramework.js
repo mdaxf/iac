@@ -1,3 +1,17 @@
+// Copyright 2023 IAC. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 var UI;
 (function (UI) {
  /*
@@ -31,8 +45,29 @@ var UI;
               });
             }
           
-            get(url, stream) {
+            getbyurl(url, stream) {
               return this.initializeRequest('GET', url, stream);
+            }
+
+            get(url, data, stream) {
+                return new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('GET', `${url}`, true);                
+                //    xhr.setRequestHeader('Authorization', `Bearer ${this.token}`);
+                    if (stream) {
+                      xhr.responseType = 'stream';
+                    }
+                    xhr.onload = () => {
+                      if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve(xhr.response);
+                      } else {
+                        reject(xhr.statusText);
+                      }
+                    };
+                    xhr.onerror = () => reject(xhr.statusText);
+                    xhr.onabort = () => reject('abort');
+                    xhr.send(data);
+                  });
             }
           
             post(url, data) {
@@ -72,6 +107,35 @@ var UI;
         return uuid;    
     }
     UI.generateUUID = generateUUID;
+
+    function isScriptLoaded(scriptSrc) {
+        let arr = Array.from(document.getElementsByTagName('script'))
+        console.log(scriptSrc, arr);
+        for(var i=0;i<arr.length;i++)
+        {
+            let script = arr[i];
+           
+            if(script.src == null || script.src == undefined || script.src=="")
+            {
+                continue;
+            }else{
+
+                let src = script.src.toLowerCase();
+                let checkedsrc = scriptSrc.toLowerCase();
+                let check = src.indexOf(checkedsrc) != -1 || checkedsrc.indexOf(src) != -1;
+
+                console.log(src, checkedsrc, check);
+
+                if (check)
+                    return true;
+            }
+        };
+        return false;
+        //return Array.from(document.getElementsByTagName('script'))
+        //  .some(script => (script.src.toLowerCase().indexOf(scriptSrc.toLowerCase()) !=-1 || scriptSrc.toLowerCase().indexOf(script.src.toLowerCase()) !=-1) );
+    }
+    UI.isScriptLoaded = isScriptLoaded;
+
     function safeName(name){
         return name.replace(/[^a-zA-Z0-9]/g, "_");
     }
@@ -185,6 +249,26 @@ var UI;
         joinObject(target, source) {
             return Object.assign({}, target, source);    
         }
+        clear(){
+            this.stack = [];
+            this.snapshoot ={
+                "stack":[],
+                "configurator":{},
+                "sessionData":{},
+                "immediateData":{}
+            };
+            this._item = {};
+            this._inputs = {};
+            this._outputs = {};
+            this.model = {};
+            this.children = [];
+            this.views = {};
+            this.panels={};
+            this.pages={};
+            this.viewResponsitory = {};
+            this.pageResponsitory = {};
+            this.fileResponsitory = {};
+        }
     }
     UI.Session = UISession;
     Session = new UI.Session();
@@ -277,6 +361,10 @@ var UI;
         constructor(page,configuration){
             this.page = page;
             this.configuration  = configuration;
+            this.configuration.orientation = this.configuration.orientation || 0;
+            this.configuration.inlinestyle = this.configuration.inlinestyle || "";
+            this.configuration.view = this.configuration.view || {};
+            this.configuration.panels = this.configuration.panels || [];
             this.view = null;
             this.panel = null;
             this.name = UI.safeName(this.configuration.name);
@@ -293,8 +381,18 @@ var UI;
             this.panelElement = this.panel;
             if(this.configuration.inlinestyle){
                 this.panelElement.setAttribute("style", this.configuration.inlinestyle);
-            }   
-            this.displayview();
+            }
+            
+            if(this.configuration.panels.length > 0){
+                for(let panel of this.configuration.panels){
+                    let p = new Panel(this.page,panel);
+                    p.create();
+                    this.panel.appendChild(p.panel);
+                }
+            }
+            else{
+                this.displayview();
+            }
             this.page.pageElement.appendChild(this.panel);
             this.panelElement.addEventListener("SUBMIT_EVENT_ID", this.submitPanel.bind(this, this.panelId));
             Session.panels[UI.safeId(this.name)] = this;
@@ -368,6 +466,7 @@ var UI;
             await this.loadviewconfiguration(configuration);   
         }
         builview(){
+            this.loaded = false;
             console.log(this.configuration)
             if(!this.configuration.name)
             {
@@ -386,13 +485,17 @@ var UI;
             this.Context = this.id;
             this.inputs={};
             this.outputs ={};
+            this.promiseCount =0;
+            this.Promiseitems = {};
             this.create();
-            this.fireOnLoaded();
+                        
         }
         clear(){
             this.fireOnUnloading();
             console.log("clear view",this);
-            const elements = document.querySelectorAll(`[viewID="${this.id}"]`);
+            delete Session.views[this.id];
+       //     const elements = document.querySelectorAll(`[viewID="${this.id}"]`);
+            const elements = document.querySelectorAll(`[id="${this.id}"]`);
             console.log(elements)
             for (let i = 0; i < elements.length; i++) {
                 elements[i].remove();
@@ -408,11 +511,18 @@ var UI;
      
             if(this.configuration.content){                
                 this.content = this.configuration.content;
-                this.view.innerHTML = this.createcontext(this.content);
+                this.view.innerHTML = UI.createFragment(this.createcontext(this.content));
             }
             if(this.configuration.file)
                 this.loadfile(this.configuration.file)
             
+            if(this.configuration.form)
+                this.buildform(this.configuration.form);
+
+            if(this.configuration.code){
+                this.createwithCode(this.configuration.code);
+            }
+
             if(this.configuration.style){
                 this.createStyleContent(this.configuration.style);                
             }  
@@ -422,12 +532,7 @@ var UI;
             } 
                         
             if(this.configuration.script){
-                this.loadfile(this.configuration.script).then((response) => {    
-                    this.script = response.data;
-                    this.createScriptContent(this.script);
-                }).catch((error) => {   
-                    console.log(error);
-                })  
+                this.createScript(this.configuration.script);
             }
 
             if(this.configuration.inlinescript){
@@ -439,6 +544,9 @@ var UI;
 
             console.log(this,this.onLoaded)
             
+            if(this.promiseCount == 0)
+                this.fireOnLoaded();
+
             return this;
         }
         async loadviewconfiguration(configuration){
@@ -454,7 +562,7 @@ var UI;
 
             let ajax = new UI.Ajax(""); 
         
-            ajax.get(configuration.config,false).then((response) => {  
+            await ajax.get(configuration.config,false).then((response) => {  
               //  return JSON.parse(response);
                 Session.fileResponsitory[configuration.config] = response;
 
@@ -469,25 +577,62 @@ var UI;
         }
 
         async loadfile(file){
-
+            let that = this
+            
             if(file in Session.fileResponsitory){
 
                 this.buildviewwithresponse(Session.fileResponsitory[file]);
                 return;
             }
 
+            this.promiseCount = this.promiseCount+1;
+            this.Promiseitems[file] = true;
+
             let ajax = new UI.Ajax("");
-            ajax.get(file,false).then((response) => {
+            await ajax.get(file,false).then((response) => {
             //    console.log(response)
                 Session.fileResponsitory[file] = response;
                 //return response;
-                this.buildviewwithresponse(response);
+                that.buildviewwithresponse(response);
+
+                that.promiseCount = that.promiseCount-1;
+                this.Promiseitems[file] = false;
+                if(that.promiseCount == 0)
+                    that.fireOnLoaded();
 
             }).catch((error) => {
                 console.log(error);
             })
         }
+        createwithCode(code){
+              
+            let that = this;
+            // load codecontent from the database
+
+            let ajax = new UI.Ajax("");
+            ajax.get(code,false).then((response) => {
+                that.buildviewwithresponse(response.data);
+            }).catch((error) => {
+                console.log(error)
+            })
+        }
+        buildform(form){
+            // the inputs which needs to be replaced will be liked as {key1}
+            let that = this;
+            let text = JSON.stringify(form);
+
+            let result = text.replace(/\{([^}]+)\}/g, function(match, key) {
+                if (that.inputs.hasOwnProperty(key)) {
+                  return that.inputs[key];
+                }
+                return match;
+              });
+
+            let response = JSON.parse(result);  
+            new UI.Builder(this.view,response);
+        }
         buildviewwithresponse(response){
+            let that = this;
             const parser = new DOMParser();
             const doc = parser.parseFromString(response, 'text/html');
             const head = doc.querySelector('head');
@@ -505,9 +650,10 @@ var UI;
                 else if(styles[i].textContent)
                     this.createStyleContent(styles[i].textContent);
             }
-            console.log(scripts)
+            console.log('scripts:',scripts)
             for (let i = 0; i < scripts.length; i++) {
                 if(scripts[i].src){
+                    
                     this.createScript(scripts[i].src);
                     continue;
                 }
@@ -521,16 +667,20 @@ var UI;
                 script.remove();
             }) 
             
-            this.view.appendChild(UI.createFragment(body.innerHTML));
+            
             console.log(scripts)
             for (let i = 0; i < scripts.length; i++) {
-                if(scripts[i].src){
+                if(scripts[i].src){                
+
                     this.createScript(scripts[i].src);
                     continue;
                 }
                 else if(scripts[i].textContent)
                     this.createScriptContent(scripts[i].textContent);
             }
+            
+            this.view.appendChild(UI.createFragment(this.createcontext(body.innerHTML)));
+
         }
         createinputs(inputs){
             let inputscript = "";
@@ -571,19 +721,36 @@ var UI;
             return outputs;
         }
         createScript(path) {
+            let that = this;
+
+            if(UI.isScriptLoaded(path))
+                return;
+
+            this.Promiseitems[path] = true;
+            that.promiseCount = that.promiseCount+1; 
+           
             var s = document.createElement("script");
             s.src = path;
+            s.async = false;
             s.setAttribute("viewid", this.id);
-            document.head.appendChild(s);
+
+            s.onload = function () {
+                that.Promiseitems[path] = false;
+                that.promiseCount = that.promiseCount-1;
+                if(that.promiseCount == 0)
+                    that.fireOnLoaded();
+            };
+            document.head.appendChild(s);            
             return s;
         }
         createScriptContent(Content) {
+            
             var s = document.createElement("script");
             s.type = "text/javascript";
             s.setAttribute("viewid", this.id);
             
             s.textContent =this.createcontext(Content)
-            console.log(s);
+        //    console.log(s);
             this.view.appendChild(s);
            // document.head.appendChild(s);
             return s;
@@ -604,45 +771,65 @@ var UI;
             document.head.appendChild(s);
             return s;
         }        
-        createcontext(content){     
-               
+        createcontext(content){
             let newcontent = content.replaceAll("$Context", 'Session.views["'+UI.safeId(this.id)+'"]');
-            
             return newcontent;
-                    
         }
         submit(){
         //    console.log("submit",this.inputs,this.outputs);
             Session.snapshoot.sessionData =  Object.assign({},Session.snapshoot.sessionData, this.getoutputs());
-        //    console.log(Session.snapshoot.sessionData)
 
             if(this.outputs.action){
-            //    console.log(this.configuration.actions[this.outputs.action])
-                if(this.configuration.actions[this.outputs.action]){
-                    var action = this.configuration.actions[this.outputs.action];
-                //    console.log("selected action:",this.outputs.action,action)
-                    if(action.type == "view"){
-                        if(action.panels){
-                            console.log("actions:",action.panels)
-                            for (var i=0; i<action.panels.length; i++){
-                                let viewpanel = action.panels[i].panel;
-                                let panel = Session.panels[UI.safeId(viewpanel)];
-                                if(panel){
-                                    panel.changeview(action.panels[i].view);
+                this.executeactionchain();
+            }
+        }
+        executeactionchain(){
+            if(Session.snapshoot.sessionData.action){
+                //    console.log(this.configuration.actions[this.outputs.action])
+                    if(this.configuration.actions[this.outputs.action]){
+                        var action = this.configuration.actions[this.outputs.action];
+                    //    console.log("selected action:",this.outputs.action,action)
+                        if(action.type == "Transaction"){
+                            let url = "/exetrancode";
+                            let data = {
+                                "code":action.code,
+                                "inputs":Session.snapshoot.sessionData,
+                            }
+                            this.executeTransaction(url,data, this.updateoutputs, function(error){console.log(error)});
+                            if(Session.snapshoot.sessionData.action !="")
+                                this.executeactionchain();
+                        }
+                        else if(action.type == "Home"){
+                            Session.clear();
+                            let page = new Page({"file":"page/home.json"});
+                        }
+                        else if(action.type == "view"){
+                            if(action.panels){
+                                console.log("actions:",action.panels)
+                                for (var i=0; i<action.panels.length; i++){
+                                    let viewpanel = action.panels[i].panel;
+                                    let panel = Session.panels[UI.safeId(viewpanel)];
+                                    if(panel){
+                                        panel.changeview(action.panels[i].view);
+                                    }
                                 }
                             }
+                        }                    
+                        else if(action.type == "page"){
+                            if(action.page.toLowerCase().indexOf("page/home.json") !=-1){
+                                Session.clear();
+                            }                    
+                            let page = new Page({"file":action.page});
+    
                         }
-                    }                    
-                    else if(action.type == "page"){
-                    //    console.log("page:",action)
-                    //    window.location.href = "UIPage.html?page="+ action.page;
-                        let page = new Page({"file":action.page});
-
+    
                     }
+    
+            }  
 
-                }
-
-            }
+        }
+        updateoutputs(outputs){
+            Session.snapshoot.sessionData =  Object.assign({},Session.snapshoot.sessionData, outputs);
         }
         executeTransaction(url,inputs, func, fail){
             UI.ajax.post(url, inputs).then((response) => {
@@ -655,13 +842,40 @@ var UI;
                     console.log(error);
                 });
         }
+        executeLoadData(url,inputs, func, fail){
+            console.log('execute loading data')
+            UI.ajax.get(url, inputs, false).then((response) => {
+                if(typeof(func) == 'function')
+                    func(response); 
+     
+                }).catch((error) => {    
+                    if(typeof(fail) == 'function')
+                        fail(error);
+                        console.log(error);
+                });
+        }
         onLoaded(func) {   
             console.log(func)        
             this.addEventListener("loaded", func);
+            this.loaded = true;
+            let readyevent = new CustomEvent("Viewready");
+            this.view.dispatchEvent(readyevent);
         }
         fireOnLoaded() {
-            this.fireEvent("loaded");
-            this.clearListeners("loaded");
+            let that = this
+            if(that.loaded){
+                console.log("fireOnLoaded",document.readyState)
+                this.fireEvent("loaded");
+                this.clearListeners("loaded");
+            }
+            else{
+                this.view.addEventListener("Viewready", function() {
+                    console.log("fireOnLoaded with Viewready event")
+                    that.fireEvent("loaded");
+                    that.clearListeners("loaded");
+                    that.view.removeEventListener("Viewready",this);
+                });
+            }
         }
         onUnloading(func) {
             this.addEventListener("unloading", func);
@@ -716,7 +930,8 @@ var UI;
             for (let i = 0; i < elements.length; i++) {
                 elements[i].remove();
             }
-            
+            this.configuration.title = this.configuration.title || this.configuration.name;
+
             if(configuration.name in Session.pages)
             {
                 this.configuration = Session.pages[configuration.name];
@@ -750,21 +965,50 @@ var UI;
             })
 
         }
-        create(){
-            
+        create(){            
             console.log(this.configuration)
             let page = document.createElement("div");
             page.className = "ui-page";
             let id = 'page_'+UI.generateUUID();
             page.setAttribute("id", id);
-            page.setAttribute("style", "width:100%;height:100%;position:absolute;top:0;left:0;")
+            
+            this.configuration.attrs = this.configuration.attrs || {};
+            this.configuration.orientation = this.configuration.orientation || 0;
+
+            for (var key in this.configuration.attrs) {
+                page.setAttribute(key, this.configuration.attrs[key]);
+            }
+            let width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+            let height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+            
+            page.style.width = width + "px";
+            page.style.height = height + "px";
+            page.style.display = "flex";
+            page.style.flexWrap = "nowrap";
+            page.style.overflow = "hidden";
+            page.style.alignItems = "flex-start";
+            switch (this.configuration.orientation) {                
+                case 0:
+                    page.style.flexDirection = "row";
+                    break;
+                case 1:
+                    page.style.flexDirection = "column";
+                    break;
+                case 3:
+                    page.style.flexDirection = "floating";
+                default:
+                    page.style.flexDirection = "row";
+                    break;
+            }
             this.page.id = id;
             this.id = id;
             this.page.element = page;
             this.pageElement = page;
+            document.title = this.configuration.title || this.configuration.name;
             this.buildpagepanels();
             document.body.appendChild(page);
             Session.pages[this.id] = this;
+            this.setevents();
             return page;
         }
         buildpagepanels(){
@@ -780,10 +1024,26 @@ var UI;
             this.panels.each((panel) => {
                 panel.clear();
             }); */
+            
+            let that =this;
+            window.removeEventListener("resize", that.resize)
             document.getElementById(this.id).remove();
             this.panels = [];
             this.page={};
-        }          
+        }  
+        setevents(){
+            console.log('set events')
+            let that = this;
+            window.addEventListener("resize", that.resize)
+        }
+        resize(){
+         //   console.log('start to resize')
+            let width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+            let height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+            $('.ui-page').css('width',width+'px');
+            $('.ui-page').css('height',height+'px');
+
+        }
 
     }
     UI.Page = Page;
@@ -816,6 +1076,7 @@ var UI;
     UI.startbyconfig = startbyconfig;
 })(UI || (UI = {}));
 
+/*
 console.log("UI loaded");
 console.log(UI.Ajax);
-
+*/

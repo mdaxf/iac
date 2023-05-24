@@ -16,7 +16,7 @@ package user
 
 import (
 	"fmt"
-	"log"
+
 	"net/http"
 	"time"
 
@@ -25,18 +25,32 @@ import (
 	dbconn "github.com/mdaxf/iac/databases"
 
 	"github.com/mdaxf/iac/config"
+	"github.com/mdaxf/iac/logger"
 )
 
 func execLogin(ctx *gin.Context, username string, password string) {
 
+	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+	log.Debug("Login execution function is called.")
 	querystr := fmt.Sprintf(LoginQuery, username)
-	log.Println(fmt.Sprintf("query:%s", querystr))
 
-	rows, err := dbconn.DB.Query(querystr)
+	log.Debug(fmt.Sprintf("Query:%s", querystr))
+
+	iDBTx, err := dbconn.DB.Begin()
+	defer iDBTx.Rollback()
+
+	if err != nil {
+		log.Error(fmt.Sprintf("Begin error:%s", err.Error()))
+		ctx.JSON(http.StatusInternalServerError, "Login failed")
+	}
+
+	dboperation := dbconn.NewDBOperation(username, iDBTx, "User Login")
+
+	rows, err := dboperation.Query(querystr)
 	defer rows.Close()
 	if err != nil {
-		panic(err.Error())
 
+		log.Error(fmt.Sprintf("Query error:%s", err.Error()))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -48,23 +62,32 @@ func execLogin(ctx *gin.Context, username string, password string) {
 
 		err = rows.Scan(&ID, &Name, &FamilyName)
 		if err != nil {
-			panic(err.Error())
+			log.Error(fmt.Sprintf("Row Scan error:%s", err.Error()))
+			ctx.JSON(http.StatusInternalServerError, "Login failed")
+			return
 		}
-		log.Println(fmt.Sprintf("ID:%d  Name:%s  FamilyName:%s", ID, Name, FamilyName))
+		log.Debug(fmt.Sprintf("ID:%d  Name:%s  FamilyName:%s", ID, Name, FamilyName))
 
 		user := User{ID: ID, Username: Name + " " + FamilyName, Email: "", Password: password, SessionID: uuid.New().String()}
 
+		log.Debug(fmt.Sprintf("user:%v", user))
+
 		Columns := []string{"LastSignOnDate", "LastUpdateOn", "LastUpdatedBy"}
-		Values := []interface{}{time.Now().Format("2006-01-02 15:04:05"), time.Now().Format("2006-01-02 15:04:05"), username}
+		Values := []string{time.Now().Format("2006-01-02 15:04:05"), time.Now().Format("2006-01-02 15:04:05"), username}
+		datatypes := []int{0, 0, 0}
 		Wherestr := fmt.Sprintf("ID= %d", ID)
 
-		whereArgs := []interface{}{}
+		index, errr := dboperation.TableUpdate(TableName, Columns, Values, datatypes, Wherestr)
 
-		index, errr := dbconn.TableUpdate(TableName, Columns, Values, Wherestr, whereArgs)
 		if errr != nil {
-			panic(errr.Error())
+			log.Error(fmt.Sprintf("TableUpdate error:%s", errr.Error()))
+			ctx.JSON(http.StatusInternalServerError, "Login failed")
+			return
 		}
-		log.Println(fmt.Sprintf("index:%d", index))
+		log.Debug(fmt.Sprintf("index:%d", index))
+
+		iDBTx.Commit()
+
 		exist, err := config.SessionCache.IsExist(ctx, "USER_"+string(rune(ID)))
 
 		if err != nil && exist {
@@ -72,10 +95,12 @@ func execLogin(ctx *gin.Context, username string, password string) {
 
 		}
 		config.SessionCache.Put(ctx, "USER_"+string(rune(ID)), user, 10*time.Minute)
+		log.Debug(fmt.Sprintf("User:%s login successful!", user))
 
 		ctx.JSON(http.StatusOK, user)
 		return
 	}
+	log.Error(fmt.Sprintf("Login failed for user:%s", username))
 
 	ctx.JSON(http.StatusNotFound, "Login failed")
 

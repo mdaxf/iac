@@ -26,6 +26,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	admin "github.com/mdaxf/iac/framework/job/admin"
 )
 
 // bounds provides a range of acceptable values (plus a map of name to value).
@@ -832,4 +834,68 @@ func all(r bounds) uint64 {
 
 func init() {
 	globalJobManager = newJobManager()
+}
+
+type listJobCommand struct{}
+
+func (l *listJobCommand) Execute(params ...interface{}) *admin.Result {
+	resultList := make([][]string, 0, len(globalJobManager.adminJobList))
+	for tname, tk := range globalJobManager.adminJobList {
+		result := []string{
+			template.HTMLEscapeString(tname),
+			template.HTMLEscapeString(tk.GetSpec(nil)),
+			template.HTMLEscapeString(tk.GetStatus(nil)),
+			template.HTMLEscapeString(tk.GetPrev(context.Background()).String()),
+		}
+		resultList = append(resultList, result)
+	}
+
+	return &admin.Result{
+		Status:  200,
+		Content: resultList,
+	}
+}
+
+type runJobCommand struct{}
+
+func (r *runJobCommand) Execute(params ...interface{}) *admin.Result {
+	if len(params) == 0 {
+		return &admin.Result{
+			Status: 400,
+			Error:  errors.New("job name not passed"),
+		}
+	}
+
+	tn, ok := params[0].(string)
+
+	if !ok {
+		return &admin.Result{
+			Status: 400,
+			Error:  errors.New("parameter is invalid"),
+		}
+	}
+
+	if t, ok := globalJobManager.adminJobList[tn]; ok {
+		err := t.Run(context.Background())
+		if err != nil {
+			return &admin.Result{
+				Status: 500,
+				Error:  err,
+			}
+		}
+		return &admin.Result{
+			Status:  200,
+			Content: t.GetStatus(context.Background()),
+		}
+	} else {
+		return &admin.Result{
+			Status: 400,
+			Error:  errors.New(fmt.Sprintf("job with name %s not found", tn)),
+		}
+	}
+}
+
+func registerCommands() {
+	admin.RegisterCommand("job", "list", &listJobCommand{})
+	admin.RegisterCommand("job", "run", &runJobCommand{})
 }

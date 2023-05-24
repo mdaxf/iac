@@ -16,13 +16,17 @@ package dbconn
 
 import (
 	"database/sql"
+	"fmt"
 	"sync"
+
+	"github.com/mdaxf/iac/logger"
 
 	_ "github.com/denisenkom/go-mssqldb"
 	_ "github.com/go-sql-driver/mysql"
 )
 
 var DB *sql.DB
+
 var (
 	/*
 		mysql,sqlserver, goracle
@@ -40,6 +44,9 @@ var (
 )
 
 func ConnectDB() error {
+	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Database"}
+	iLog.Info(fmt.Sprintf("Connect Database: %s %s", DatabaseType, DatabaseConnection))
+
 	once.Do(func() {
 		DB, err = sql.Open(DatabaseType, DatabaseConnection)
 		if err != nil {

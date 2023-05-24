@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+<meta charset="UTF-8">
+<link rel='stylesheet' href='styles/codemirror.css'>
+
+</head>
+<body translate="no" >
+<section>
+<div class="container">
+    <div class="tab_menu">
+        <div class="tab_item active" value="Editor">Editor</div>
+        <div class="tab_item" value="Preview">Preview</div>
+    </div>
+    <div class="code-container">
+        <textarea id="html-code"></textarea>
+    </div>
+    <iframe id="code_result" width="100%" height="500px" style="border: 0.5px solid gray; display:none">
+    </iframe>
+
+</div>
+</section>
+<script src='Scripts/codemirror5/lib/codemirror.js'></script>
+<script src='Scripts/codemirror5/mode/xml/xml.js'></script>
+<script src='Scripts/codemirror5/mode/css/css.js'></script>
+<script src='Scripts/codemirror5/mode/javascript/javascript.js'></script>
+<script src='Scripts/codemirror5/mode/htmlmixed/htmlmixed.js'></script>
+<!--script src='Scripts/codemirror5/addon/edit/closebracket.js'></script>
+<script src='Scripts/codemirror5/addon/edit/closetag.js'></script>
+<script src='Scripts/codemirror5/addon/edit/matchbrackets.js'></script>
+<script src='Scripts/codemirror5/addon/edit/matchtags.js'></script>
+<script src='Scripts/codemirror5/addon/edit/tailingspace.js'></script>
+<script src='Scripts/codemirror5/addon/edit/continuelist.js'></script>-->
+<script src='Scripts/codemirror5/addon/fold/foldcode.js'></script>
+<script src='Scripts/codemirror5/addon/fold/foldgutter.js'></script>
+<script src='Scripts/codemirror5/addon/fold/brace-fold.js'></script>
+<script src='Scripts/codemirror5/addon/fold/xml-fold.js'></script>
+<script src='Scripts/codemirror5/addon/fold/comment-fold.js'></script> 
+<script id="rendered-js" >
+    var html_value;
+    var html_editor;
+    $Context.onLoaded(function(){
+        $('code_result').css('height', $(window).height() - 200);
+        $('#code_result').hide();
+        let width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+        let height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+        height = height - $('.tab_menu').height()-70;
+        width = width - 80;
+        $('.code-container').css('height', height);
+        $('.code-container').css('width', width);
+   //     console.log(width,height)
+        $('.tab_item').click(function(){
+            $('.tab_item').removeClass('active');
+            $(this).addClass('active');
+            console.log($(this).attr('value'));
+            if($(this).attr('value') == 'Preview'){
+                $('.code-container').hide();
+                $('#code_result').show();
+                run_preview_code();
+            }else{
+                
+                $('.code-container').show();
+                $('#code_result').hide();
+                
+            }
+        })
+       
+        html_editor = CodeMirror.fromTextArea(document.getElementById("html-code"), {
+            styleActiveLine: true,
+            lineNumbers: true,
+            matchBrackets: true,
+            autoCloseBrackets: true,
+            autoCloseTags: true,
+            matchTags: {bothTags: true},
+         //   extraKeys: {"Ctrl-J": "toMatchingTag"},
+            mode: "htmlmixed",
+            lineWrapping: true,
+            extraKeys: {"Ctrl-Q": function(cm){ cm.foldCode(cm.getCursor()); }},
+            foldGutter: true,
+            gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
+        });
+     //   html_editor.foldCode(CodeMirror.Pos(0, 0));
+     //   html_editor.foldCode(CodeMirror.Pos(34, 0));
+     //   console.log(html_editor)
+        if(html_editor)
+            html_editor.setSize(width, height);
+    })
+
+    function run_preview_code() {
+        var doc = document.getElementById('code_result').contentWindow.document;
+        html_value = html_editor.getValue();
+        doc.open();
+        doc.write(html_value);
+        doc.close();
+        let width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+        let height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+        height = height - $('.tab_menu').height()-70;
+        width = width - 80;
+        document.getElementById('code_result').setAttribute('width', width+'px');
+        document.getElementById('code_result').setAttribute('height', height+'px');
+    }
+
+    window.addEventListener('resize',function(){
+        let width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+        let height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+        height = height - $('.tab_menu').height()-70;
+        width = width - 80;
+        $('.code-container').css('height', height);
+        $('.code-container').css('width', width);
+        html_editor.setSize(width, height);
+        document.getElementById('code_result').setAttribute('width', width+'px');
+        document.getElementById('code_result').setAttribute('height', height+'px');
+
+    })
+
+</script>
+<style>
+    *, *:after, *:before {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    }
+    .CodeMirror {
+        height: 100%;
+        border: 1px solid #eee;
+    }
+    /* ----------
+    WRAPPERS & CONTAINERS
+    ---------- */
+    section {
+        position: relative;
+        padding: 2.5rem 0;
+        width: 100%;
+        height:100%;
+    }
+    .container {
+        position: relative;
+        margin: auto;
+        padding: 0 20px;
+        width: 100%;
+        height:100%;
+    }
+    section:after, .container:after, .row:after {
+        display: table;
+        content: '';
+        clear: both;
+
+    }
+    /* ----------
+    CODE BLOCK
+    ---------- */
+    .code-container {
+        position: relative;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        border-radius: 3px;
+        box-shadow: 3px 3px 6px rgba(0, 0, 0, .3);
+        width: 100%;
+        height:100%;
+    }
+    .code-container:last-child {
+        margin-bottom: 0;
+    }
+    
+    .btn {
+        background-color: #ed9d0a;
+        color: #fff;
+        padding: 4px 10px;
+        text-decoration: none;
+        border-radius: 3px;
+        box-shadow: 0 8px 6px -6px rgba(0, 0, 0, .15);
+        -webkit-backface-visibility: hidden;
+        -webkit-transition: 200ms -webkit-transform ease, 200ms transform ease, 200ms box-shadow ease;
+        transition: 200ms -webkit-transform ease, 200ms transform ease, 200ms box-shadow ease;
+    }
+    .btn:hover {
+        box-shadow: 0 6px 6px -4px rgba(0, 0, 0, .2);
+        -webkit-transform: translateY(-2px);
+        transform: translateY(-2px);
+    }
+    .btn.btn-left {
+    float: left;
+    }
+    .btn.btn-right {
+    float: right;
+    }
+    .row {
+    margin-bottom: 1.5rem;
+    width: 100%;
+    }
+    .row:last-child {
+    margin-bottom: 0;
+    }
+    .tab_menu {
+        display: inline-block;
+        width: 100%;
+        margin-bottom: 20px;
+    }
+    .tab_item {
+        display: inline-block;
+        padding: 10px 20px;
+        border: 1px solid #ccc;
+        border-bottom: none;
+        border-radius: 5px 5px 0 0;
+        cursor: pointer;
+        background: #fff;
+        width: 100px;
+        height:30px;
+    }
+    .tab_item.active {
+        background: #ed9d0a;
+        color: #fff;
+        border-bottom: 1px solid #ed9d0a;
+    }
+    
+    </style>
+</body>
+
+</html>

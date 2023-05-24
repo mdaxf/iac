@@ -10,12 +10,25 @@ type QueryFuncs struct {
 }
 
 func (cf *QueryFuncs) Execute(f *Funcs) {
-	namelist, valuelist, _ := f.SetInputs()
+	f.iLog.Debug(fmt.Sprintf("Start process %s : %s", "QueryFuncs.Execute", f.Fobj.Name))
+
+	namelist, _, inputs := f.SetInputs()
+
+	var user string
+
+	if f.SystemSession["User"] != nil {
+		user = f.SystemSession["User"].(string)
+	} else {
+		user = "System"
+	}
 
 	// Create SELECT clause with aliases
-	outputs, err := dbconn.QuerybyList(f.Fobj.Content, namelist, valuelist)
+	dboperation := dbconn.NewDBOperation(user, f.DBTx, "Execute Query Function")
+
+	outputs, err := dboperation.QuerybyList(f.Fobj.Content, namelist, inputs, f.Fobj.Inputs)
 	if err != nil {
-		fmt.Println(err)
+		f.iLog.Error(fmt.Sprintf("Error in QueryFuncs.Execute: %s", err.Error()))
+		return
 	}
 
 	f.SetOutputs(f.convertMap(outputs))

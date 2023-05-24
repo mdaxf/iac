@@ -1,0 +1,67 @@
+<body>
+    <div class="ui container">
+      <div class="ui four cards">
+        <div class="card">
+          <div class="content">
+            <i class="fa-solid fa-warehouse"></i>
+            <div class="header">Warehosue</div>
+          </div>
+        </div>
+        <div class="card">
+            <div class="content">
+                <i class="fa-regular fa-industry-windows"></i>
+              <div class="header">Factory</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="content">
+                <i class="fa-solid fa-city"></i>
+              <div class="header">Company</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="content">
+                <i class="fa-solid fa-person"></i>
+              <div class="header">Users</div>
+            </div>
+        </div>
+        <div data-key="BusinessLogic" class="card">
+            <div class="content">
+                <i class="fa-solid fa-vector-polygon"></i>
+              <div class="header">Business Logics</div>
+            </div>
+        </div>
+        <div data-key="ViewEditor" class="card">
+            <div class="content">
+                <i  class="fa-solid fa-vector-polygon"></i>
+              <div class="header">View Editor</div>
+            </div>
+        </div>
+        <div data-key="LayoutEditor" class="card">
+          <div class="content">
+              <i  class="fa-solid fa-vector-polygon"></i>
+            <div class="header">Layout Editor</div>
+          </div>
+      </div>
+        <!-- Add more cards for other application screens -->
+      </div>
+    </div>
+</body>
+
+<script>
+    $Context.onLoaded(function(){
+        console.log('home loaded')
+        var el = $(".ui.container").find('.card');
+        el.on("click",function(e){
+            console.log("click",$(e.target));
+            let dk = $(e.target).closest(".card").attr("data-key");
+            if(dk){
+                $Context.outputs.action = dk;
+                console.log(dk)
+                $Context.submit();
+            }
+        })
+
+
+    });
+</script>

@@ -10,12 +10,15 @@ type JSFuncs struct {
 }
 
 func (cf *JSFuncs) Execute(f *Funcs) {
-	namelist, valuelist, _ := f.SetInputs()
+	f.iLog.Debug(fmt.Sprintf("Start process %s : %s", "JSFuncs.Execute", f.Fobj.Name))
+
+	namelist, _, inputs := f.SetInputs()
 
 	vm := otto.New()
 	for i := 0; i < len(namelist); i++ {
-		vm.Set(namelist[i], valuelist[i])
+		vm.Set(namelist[i], inputs[namelist[i]])
 	}
+	f.iLog.Debug(fmt.Sprintf("Fucntion %s script: %s", f.Fobj.Name, f.Fobj.Content))
 
 	vm.Run(f.Fobj.Content)
 
@@ -25,7 +28,8 @@ func (cf *JSFuncs) Execute(f *Funcs) {
 		if value, err := vm.Get(f.Fobj.Outputs[i].Name); err == nil {
 			outputs[f.Fobj.Outputs[i].Name] = value.String()
 		} else {
-			fmt.Println(err)
+			f.iLog.Error(fmt.Sprintf("Error in JSFuncs.Execute: %s", err.Error()))
+			return
 		}
 	}
 

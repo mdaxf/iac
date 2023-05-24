@@ -17,17 +17,53 @@ package dbconn
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"strings"
+
+	"github.com/mdaxf/iac/engine/types"
+	"github.com/mdaxf/iac/logger"
 
 	_ "github.com/denisenkom/go-mssqldb"
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func Query(querystr string, args ...interface{}) (*sql.Rows, error) {
-	fmt.Println(string(querystr))
+type DBOperation struct {
+	DBTx       *sql.Tx
+	ModuleName string
+	iLog       logger.Log
+	User       string
+}
+
+func NewDBOperation(User string, DBTx *sql.Tx, moduleName string) *DBOperation {
+	if moduleName == "" {
+		moduleName = logger.Database
+	}
+	return &DBOperation{
+		DBTx:       DBTx,
+		ModuleName: moduleName,
+		iLog:       logger.Log{ModuleName: moduleName, User: User, ControllerName: "Database"},
+		User:       User,
+	}
+}
+
+func (db *DBOperation) Query(querystr string, args ...interface{}) (*sql.Rows, error) {
+
+	db.iLog.Debug(fmt.Sprintf("Query: %s %s...", querystr, args))
+
+	idbtx := db.DBTx
+	blocaltx := false
+
+	if idbtx == nil {
+		idbtx, err = DB.Begin()
+		blocaltx = true
+		if err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to begin database transaction with error: %s", err.Error()))
+			return nil, err
+		}
+		defer idbtx.Commit()
+	}
+
 	//fmt.Println(string(args))
-	stmt, err := DB.Prepare(querystr)
+	stmt, err := idbtx.Prepare(querystr)
 	if err != nil {
 		return nil, err
 	}
@@ -36,64 +72,414 @@ func Query(querystr string, args ...interface{}) (*sql.Rows, error) {
 	rows, err := stmt.Query(args...)
 
 	if err != nil {
+		db.iLog.Error(fmt.Sprintf("There is error to query database with error: %s", err.Error()))
 		return nil, err
 	}
 	defer rows.Close()
 
+	if blocaltx {
+		idbtx.Commit()
+	}
+
 	return rows, nil
 }
 
-func QuerybyList(querystr string, namelist []string, valuelist []string, dbTx ...*sql.Tx) (map[string][]interface{}, error) {
+func (db *DBOperation) QuerybyList(querystr string, namelist []string, inputs map[string]interface{}, finputs []types.Input) (map[string][]interface{}, error) {
+
+	db.iLog.Debug(fmt.Sprintf("Query: %s {%s} {%s}", querystr, namelist, inputs))
+
 	// create a slice to hold the parameter values in the same order as they appear in the SQL query
 	var values []interface{}
 
 	// Execute the SQL statement with the given inputs
 	for i := range namelist {
 		paramPlaceholder := "@" + namelist[i]
-		paramValuePlaceholder := fmt.Sprintf("'%v'", valuelist[i])
+		paramValuePlaceholder := ""
+		switch finputs[i].Datatype {
+		case types.Integer:
+			paramValuePlaceholder = fmt.Sprintf("%d", inputs[namelist[i]])
+		case types.Float:
+			paramValuePlaceholder = fmt.Sprintf("%f", inputs[namelist[i]])
+		case types.Bool:
+			paramValuePlaceholder = fmt.Sprintf("%t", inputs[namelist[i]])
+		default:
+			paramValuePlaceholder = fmt.Sprintf("'%v'", inputs[namelist[i]])
+		}
 		querystr = strings.Replace(querystr, paramPlaceholder, paramValuePlaceholder, -1)
-		values = append(values, valuelist[i])
+		values = append(values, inputs[namelist[i]])
 	}
 
-	idbTx := append(dbTx, nil)[0]
+	idbtx := db.DBTx
+	blocaltx := false
+
+	if idbtx == nil {
+		idbtx, err = DB.Begin()
+		blocaltx = true
+		if err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to begin database transaction with error: %s", err.Error()))
+			return nil, err
+		}
+		defer idbtx.Commit()
+	}
+
 	var stmt *sql.Stmt
 
-	if idbTx != nil {
-		stmt, err := idbTx.Prepare(querystr)
-		if err != nil {
-			return nil, err
-		}
-		defer stmt.Close()
-
-	} else {
-		// Prepare the SQL statement with placeholders
-		stmt, err := DB.Prepare(querystr)
-		if err != nil {
-			return nil, err
-		}
-		defer stmt.Close()
+	stmt, err := idbtx.Prepare(querystr)
+	if err != nil {
+		db.iLog.Error(fmt.Sprintf("There is error to prepare the query: %s with error: %s", querystr, err.Error()))
+		return nil, err
 	}
+	defer stmt.Close()
 
 	rows, err := stmt.Query(values...)
 	if err != nil {
+		db.iLog.Error(fmt.Sprintf("There is error to execute the query: %s with error: %s", querystr, err.Error()))
 		return nil, err
 	}
 	defer rows.Close()
 
-	return Conto_JsonbyList(rows)
+	if blocaltx {
+		idbtx.Commit()
+	}
+
+	return db.Conto_JsonbyList(rows)
 }
 
-func Query_Json(querystr string, args ...interface{}) ([]map[string]interface{}, error) {
-	rows, err := Query(querystr, args...)
+func (db *DBOperation) Query_Json(querystr string, args ...interface{}) ([]map[string]interface{}, error) {
+	db.iLog.Debug(fmt.Sprintf("Query with json object result: %s %s...", querystr, args))
+	rows, err := db.Query(querystr, args...)
 	if err != nil {
+		db.iLog.Error(fmt.Sprintf("There is error to query database with error: %s", err.Error()))
 		return nil, err
 	}
-	return Conto_Json(rows)
+	return db.Conto_Json(rows)
 }
-func Conto_JsonbyList(rows *sql.Rows) (map[string][]interface{}, error) {
+
+func (db *DBOperation) ExecSP(procedureName string, args ...interface{}) error {
+
+	db.iLog.Debug(fmt.Sprintf("start execute the Store procedure: %s with parameters %s...", procedureName, args))
+
+	idbtx := db.DBTx
+	blocaltx := false
+
+	if idbtx == nil {
+		idbtx, err = DB.Begin()
+		blocaltx = true
+		if err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to begin database transaction with error: %s", err.Error()))
+			return err
+		}
+		defer idbtx.Commit()
+	}
+
+	// Construct the stored procedure call with placeholders for each parameter
+	placeholders := make([]string, len(args))
+	for i := range args {
+		placeholders[i] = "?"
+	}
+	call := fmt.Sprintf("CALL %s(%s)", procedureName, strings.Join(placeholders, ","))
+
+	db.iLog.Debug(fmt.Sprintf("Call the stored procedure %s with the dynamic parameters %s...", call, args))
+
+	// Call the stored procedure with the dynamic parameters
+	_, err := idbtx.Exec(call, args...)
+	if err != nil {
+		db.iLog.Error(fmt.Sprintf("There is error to execute the Store procedure: %s with parameters %s with error: %s", procedureName, args, err.Error()))
+		return err
+	}
+
+	if blocaltx {
+		idbtx.Commit()
+	}
+
+	return nil
+}
+
+func (db *DBOperation) ExeSPwithRow(procedureName string, args ...interface{}) (*sql.Rows, error) {
+	// Construct the stored procedure call with placeholders for each parameter and the output parameter
+	db.iLog.Debug(fmt.Sprintf("start execute the Store procedure to return rows: %s with parameters %s...", procedureName, args))
+
+	idbtx := db.DBTx
+	blocaltx := false
+
+	if idbtx == nil {
+		idbtx, err = DB.Begin()
+		blocaltx = true
+		if err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to begin database transaction with error: %s", err.Error()))
+			return nil, err
+		}
+		defer idbtx.Commit()
+	}
+
+	var outputparameters []string
+	placeholders := make([]string, len(args))
+	for i := range args {
+		output, parameter := db.chechoutputparameter(args[i].(string))
+		if output {
+			outputparameters = append(outputparameters, parameter)
+		}
+		placeholders[i] = "?"
+	}
+	//placeholders = append(placeholders, "@output_param")
+	call := fmt.Sprintf("CALL %s(%s)", procedureName, strings.Join(placeholders, ","))
+
+	// Call the stored procedure with the dynamic parameters and the output parameter
+
+	rows, err := idbtx.Query(call, args...)
+	if err != nil {
+		db.iLog.Error(fmt.Sprintf("There is error to execute the Store procedure: %s with parameters %s with error: %s", procedureName, args, err.Error()))
+		return nil, err
+	}
+
+	if blocaltx {
+		idbtx.Commit()
+	}
+
+	return rows, nil
+}
+
+func (db *DBOperation) ExecSP_Json(procedureName string, args ...interface{}) ([]map[string]interface{}, error) {
+	db.iLog.Debug(fmt.Sprintf("start execute the Store procedure: %s with parameters %s...", procedureName, args))
+	rows, err := db.ExeSPwithRow(procedureName, args...)
+	if err != nil {
+		db.iLog.Error(fmt.Sprintf("There is error to execute the Store procedure: %s with parameters %s with error: %s", procedureName, args, err.Error()))
+		return nil, err
+	}
+	return db.Conto_Json(rows)
+}
+
+func (db *DBOperation) chechoutputparameter(str string) (bool, string) {
+	db.iLog.Debug(fmt.Sprintf("start to check the output parameter: %s...", str))
+	output := false
+	parameter := str
+	if strings.Contains(str, " output") {
+		parts := strings.Split(str, " ")
+		output = true
+		parameter = parts[0]
+
+	}
+	db.iLog.Debug(fmt.Sprintf("the output parameter: %s is %s...", parameter, output))
+	return output, parameter
+
+}
+
+func (db *DBOperation) TableInsert(TableName string, Columns []string, Values []string) (int64, error) {
+	db.iLog.Debug(fmt.Sprintf("start to insert the table: %s with columns: %s and values: %s...", TableName, Columns, Values))
+
+	idbtx := db.DBTx
+	blocaltx := false
+
+	if idbtx == nil {
+		idbtx, err = DB.Begin()
+		blocaltx = true
+		if err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to begin database transaction with error: %s", err.Error()))
+			return 0, err
+		}
+		defer idbtx.Commit()
+	}
+
+	var querystr string
+
+	args := make([]interface{}, len(Values))
+	querystr = "INSERT INTO " + TableName + "(" + strings.Join(Columns, ",") + ") VALUES (" + strings.Repeat("?,", len(Columns)-1) + "?)"
+
+	for i, s := range Values {
+		args[i] = s
+	}
+
+	fmt.Println(querystr)
+	fmt.Println(args)
+	stmt, err := idbtx.Prepare(querystr)
+	if err != nil {
+		db.iLog.Error(fmt.Sprintf("There is error to prepare the insert statement with error: %s", err.Error()))
+		return 0, err
+	}
+	res, err := stmt.Exec(args...)
+	if err != nil {
+		db.iLog.Error(fmt.Sprintf("There is error to execute the insert statement with error: %s", err.Error()))
+		return 0, err
+	}
+	lastId, err := res.LastInsertId()
+	if err != nil {
+		db.iLog.Error(fmt.Sprintf("There is error to get the last insert id with error: %s", err.Error()))
+	}
+
+	if blocaltx {
+		idbtx.Commit()
+	}
+
+	return lastId, err
+}
+
+func (db *DBOperation) TableUpdate(TableName string, Columns []string, Values []string, datatypes []int, Where string) (int64, error) {
+
+	db.iLog.Debug(fmt.Sprintf("start to update the table: %s with columns: %s and values: %s data type: %s", TableName, Columns, Values, datatypes))
+
+	//fmt.Println(WhereArgs)
+	//fmt.Println(Values)
+	var querystr string
+	var args []interface{}
+
+	idbtx := db.DBTx
+	blocaltx := false
+
+	if idbtx == nil {
+		idbtx, err = DB.Begin()
+		blocaltx = true
+		if err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to begin database transaction with error: %s", err.Error()))
+			return 0, err
+		}
+		defer idbtx.Commit()
+	}
+
+	switch DatabaseType {
+	case "sqlserver":
+		setPlaceholders := make([]string, len(Columns))
+		for i, column := range Columns {
+
+			switch datatypes[i] {
+			case int(types.Integer):
+				setPlaceholders[i] = fmt.Sprintf("%s = %d", column, Values[i])
+			case int(types.Float):
+				setPlaceholders[i] = fmt.Sprintf("%s = %f", column, Values[i])
+
+			case int(types.Bool):
+				setPlaceholders[i] = fmt.Sprintf("%s = %t", column, Values[i])
+
+			default:
+				setPlaceholders[i] = fmt.Sprintf("%s = '%v'", column, Values[i])
+
+			}
+
+			//	setPlaceholders[i] = fmt.Sprintf("%s = '%s'", column, Values[i])
+		}
+		setClause := strings.Join(setPlaceholders, ", ")
+		querystr := fmt.Sprintf("UPDATE %s SET %s WHERE %s", TableName, setClause, Where)
+		args = []interface{}{}
+
+		db.iLog.Debug(fmt.Sprintf("The update query string is: %s  parametrs: %s...", querystr, args))
+
+		stmt, err := DB.Prepare(querystr)
+		if err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to prepare the update statement with error: %s", err.Error()))
+			idbtx.Rollback()
+			return 0, err
+		}
+
+		res, err := stmt.Exec(args...)
+		if err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to execute the update statement with error: %s", err.Error()))
+			idbtx.Rollback()
+			return 0, err
+		}
+
+		rowcount, err := res.RowsAffected()
+		if err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to get the affected rows with error: %s", err.Error()))
+			idbtx.Rollback()
+			return 0, err
+		}
+
+		if blocaltx {
+			idbtx.Commit()
+		}
+
+		return rowcount, err
+
+	default:
+		//	case "mysql":
+
+		querystr = "UPDATE " + TableName + " SET " + strings.Join(Columns, "=?,") + "=? WHERE " + Where
+
+		args := make([]interface{}, len(Values))
+
+		for i, s := range Values {
+			args[i] = s
+		}
+
+		//fmt.Println(querystr)
+		//fmt.Println(args)
+		db.iLog.Debug(fmt.Sprintf("The update query string is: %s  parametrs: %s...", querystr, args))
+
+		stmt, err := idbtx.Prepare(querystr)
+		if err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to prepare the update statement with error: %s", err.Error()))
+			return 0, err
+		}
+		res, err := stmt.Exec(args...)
+		if err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to execute the update statement with error: %s", err.Error()))
+			return 0, err
+		}
+		rowcount, err := res.RowsAffected()
+
+		if blocaltx {
+			idbtx.Commit()
+		}
+
+		return rowcount, err
+	}
+
+}
+
+func (db *DBOperation) TableDelete(TableName string, Where string) (int64, error) {
+
+	db.iLog.Debug(fmt.Sprintf("Start to delete the table: %s with where: %s and whereargs: ", TableName, Where))
+
+	idbtx := db.DBTx
+	blocaltx := false
+
+	if idbtx == nil {
+		idbtx, err = DB.Begin()
+		blocaltx = true
+		if err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to begin database transaction with error: %s", err.Error()))
+			return 0, err
+		}
+		defer idbtx.Commit()
+	}
+
+	var querystr string
+	var args []interface{}
+	querystr = "DELETE FROM " + TableName + " WHERE " + Where
+
+	db.iLog.Debug(fmt.Sprintf("The delete query string is: %s  parametrs: %s...", querystr, args))
+
+	//fmt.Println(querystr)
+	//fmt.Println(args)
+	stmt, err := idbtx.Prepare(querystr)
+	if err != nil {
+		db.iLog.Error(fmt.Sprintf("There is error to prepare the delete statement with error: %s", err.Error()))
+		return 0, err
+	}
+	res, err := stmt.Exec(args...)
+	if err != nil {
+		db.iLog.Error(fmt.Sprintf("There is error to execute the delete statement with error: %s", err.Error()))
+		return 0, err
+	}
+	lastId, err := res.LastInsertId()
+	if err != nil {
+		db.iLog.Error(fmt.Sprintf("There is error to get the last insert id with error: %s", err.Error()))
+		return 0, err
+	}
+
+	if blocaltx {
+		idbtx.Commit()
+	}
+
+	return lastId, err
+}
+
+func (db *DBOperation) Conto_JsonbyList(rows *sql.Rows) (map[string][]interface{}, error) {
+
+	db.iLog.Debug(fmt.Sprintf("Start to convert the rows to json...%s", rows))
 	cols, err := rows.ColumnTypes()
 	if err != nil {
-		log.Fatal(err)
+		db.iLog.Error(fmt.Sprintf("There is error to get the column types with error: %s", err.Error()))
+		return nil, err
 	}
 	data := make(map[string][]interface{})
 	colNames := make([]string, len(cols))
@@ -110,7 +496,9 @@ func Conto_JsonbyList(rows *sql.Rows) (map[string][]interface{}, error) {
 		}
 		err := rows.Scan(values...)
 		if err != nil {
-			log.Fatal(err)
+			db.iLog.Debug(fmt.Sprintf("There is error to scan the row with error: %s", err.Error()))
+			return nil, err
+
 		}
 		for i, name := range colNames {
 			data[name] = append(data[name], *(values[i].(*interface{})))
@@ -119,16 +507,23 @@ func Conto_JsonbyList(rows *sql.Rows) (map[string][]interface{}, error) {
 	}
 
 	if err := rows.Err(); err != nil {
-		log.Fatal(err)
+		db.iLog.Error(fmt.Sprintf("There is error to get the rows with error: %s", err.Error()))
 	}
+
+	db.iLog.Debug(fmt.Sprintf("The result of the conversion is: %s", data))
 
 	return data, nil
 
 }
-func Conto_Json(rows *sql.Rows) ([]map[string]interface{}, error) {
+func (db *DBOperation) Conto_Json(rows *sql.Rows) ([]map[string]interface{}, error) {
+
+	db.iLog.Debug(fmt.Sprintf("Start to convert the rows to json...%s", rows))
+
 	cols, err := rows.ColumnTypes()
 	if err != nil {
-		log.Fatal(err)
+		db.iLog.Error(fmt.Sprintf("There is error to get the column types with error: %s", err.Error()))
+		return nil, err
+
 	}
 
 	colNames := make([]string, len(cols))
@@ -145,7 +540,9 @@ func Conto_Json(rows *sql.Rows) ([]map[string]interface{}, error) {
 		}
 		err := rows.Scan(values...)
 		if err != nil {
-			log.Fatal(err)
+			db.iLog.Error(fmt.Sprintf("There is error to scan the row with error: %s", err.Error()))
+			return nil, err
+
 		}
 		for i, name := range colNames {
 			row[name] = *(values[i].(*interface{}))
@@ -154,159 +551,9 @@ func Conto_Json(rows *sql.Rows) ([]map[string]interface{}, error) {
 	}
 
 	if err := rows.Err(); err != nil {
-		log.Fatal(err)
+		db.iLog.Error(fmt.Sprintf("There is error to get the rows with error: %s", err.Error()))
 	}
+	db.iLog.Debug(fmt.Sprintf("The result of the conversion is: %s", data))
 
 	return data, nil
-}
-
-func ExecSP(procedureName string, args ...interface{}) error {
-	// Construct the stored procedure call with placeholders for each parameter
-	placeholders := make([]string, len(args))
-	for i := range args {
-		placeholders[i] = "?"
-	}
-	call := fmt.Sprintf("CALL %s(%s)", procedureName, strings.Join(placeholders, ","))
-
-	// Call the stored procedure with the dynamic parameters
-	_, err := DB.Exec(call, args...)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func ExeSPwithRow(procedureName string, args ...interface{}) (*sql.Rows, error) {
-	// Construct the stored procedure call with placeholders for each parameter and the output parameter
-	var outputparameters []string
-	placeholders := make([]string, len(args))
-	for i := range args {
-		output, parameter := chechoutputparameter(args[i].(string))
-		if output {
-			outputparameters = append(outputparameters, parameter)
-		}
-		placeholders[i] = "?"
-	}
-	//placeholders = append(placeholders, "@output_param")
-	call := fmt.Sprintf("CALL %s(%s)", procedureName, strings.Join(placeholders, ","))
-
-	// Call the stored procedure with the dynamic parameters and the output parameter
-
-	rows, err := DB.Query(call, args...)
-	if err != nil {
-		return nil, err
-	}
-	return rows, nil
-}
-
-func ExecSP_Json(procedureName string, args ...interface{}) ([]map[string]interface{}, error) {
-	rows, err := ExeSPwithRow(procedureName, args...)
-	if err != nil {
-		return nil, err
-	}
-	return Conto_Json(rows)
-}
-
-func chechoutputparameter(str string) (bool, string) {
-	output := false
-	parameter := str
-	if strings.Contains(str, " output") {
-		parts := strings.Split(str, " ")
-		output = true
-		parameter = parts[0]
-
-	}
-	return output, parameter
-
-}
-
-func TableInsert(TableName string, Columns []string, Values []interface{}) (int64, error) {
-	var querystr string
-	var args []interface{}
-	querystr = "INSERT INTO " + TableName + "(" + strings.Join(Columns, ",") + ") VALUES (" + strings.Repeat("?,", len(Columns)-1) + "?)"
-	args = Values
-	fmt.Println(querystr)
-	fmt.Println(args)
-	stmt, err := DB.Prepare(querystr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	res, err := stmt.Exec(args...)
-	if err != nil {
-		log.Fatal(err)
-	}
-	lastId, err := res.LastInsertId()
-	if err != nil {
-		log.Fatal(err)
-	}
-	return lastId, err
-}
-
-func TableUpdate(TableName string, Columns []string, Values []interface{}, Where string, WhereArgs []interface{}) (int64, error) {
-
-	fmt.Println(WhereArgs)
-	fmt.Println(Values)
-	var querystr string
-	var args []interface{}
-
-	switch DatabaseType {
-	case "sqlserver":
-		setPlaceholders := make([]string, len(Columns))
-		for i, column := range Columns {
-			setPlaceholders[i] = fmt.Sprintf("%s = '%s'", column, Values[i])
-		}
-		setClause := strings.Join(setPlaceholders, ", ")
-		querystr := fmt.Sprintf("UPDATE %s SET %s WHERE %s", TableName, setClause, Where)
-		args = []interface{}{}
-		fmt.Println(querystr)
-		fmt.Println(args)
-		stmt, err := DB.Prepare(querystr)
-
-		res, err := stmt.Exec(args...)
-
-		rowcount, err := res.RowsAffected()
-		return rowcount, err
-
-	default:
-	case "mysql":
-
-		querystr = "UPDATE " + TableName + " SET " + strings.Join(Columns, "=?,") + "=? WHERE " + Where
-		args = append(Values, WhereArgs...)
-		fmt.Println(querystr)
-		fmt.Println(args)
-
-		stmt, err := DB.Prepare(querystr)
-		if err != nil {
-			log.Fatal(err)
-		}
-		res, err := stmt.Exec(args...)
-		if err != nil {
-			log.Fatal(err)
-		}
-		rowcount, err := res.RowsAffected()
-		return rowcount, err
-	}
-	return 0, nil
-}
-
-func TableDelete(TableName string, Where string, WhereArgs []interface{}) (int64, error) {
-	var querystr string
-	var args []interface{}
-	querystr = "DELETE FROM " + TableName + " WHERE " + Where
-	args = WhereArgs
-	fmt.Println(querystr)
-	fmt.Println(args)
-	stmt, err := DB.Prepare(querystr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	res, err := stmt.Exec(args...)
-	if err != nil {
-		log.Fatal(err)
-	}
-	lastId, err := res.LastInsertId()
-	if err != nil {
-		log.Fatal(err)
-	}
-	return lastId, err
 }

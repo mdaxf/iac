@@ -16,16 +16,20 @@ package user
 
 import (
 	"fmt"
-	"log"
+	//"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mdaxf/iac/logger"
 )
 
 type UserController struct{}
 
 func (c *UserController) Login(ctx *gin.Context) {
 	// Retrieve a list of users from the database
+	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+	log.Debug("Login handle function is called.")
+
 	var user LoginUserData
 	if err := ctx.BindJSON(&user); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -34,7 +38,8 @@ func (c *UserController) Login(ctx *gin.Context) {
 
 	username := user.Username
 	password := user.Password
-	log.Println(fmt.Sprintf("Login:%s  %s", username, password))
+
+	log.Debug(fmt.Sprintf("Login:%s  %s", username, password))
 
 	execLogin(ctx, username, password)
 

@@ -1,5 +1,6 @@
 {
 	"name": "Logon page",
+	"orientation": 2,
 	"panels": [{
 			"name": "header",
 			"orientation": 1,

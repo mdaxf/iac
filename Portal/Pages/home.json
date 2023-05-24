@@ -1,0 +1,35 @@
+{
+	"name": "IAC Home",
+	"version": "1.0.0",
+	"isdefault": true,
+	"orientation": 0,
+	"initcode":"",
+	"onloadcode": "",
+	"attrs": {
+		"style": "width: 100%; height: 100%;"
+	},
+	"panels": [
+		{
+			"name": "content",
+			"orientation": 1,
+			"view": {
+				"name": "home",
+				"type": "view-type",
+				"file": "templates/home.html",
+				"inlinestyle": "height: 100%;",
+				"inputs":{       
+				},
+				"outputs":{
+					"action": ""
+				},
+				"actions":{
+					"BusinessLogic": {"type": "page", "next": "","page":"pages/bl.json"},
+                    "ViewEditor": {"type": "page", "next": "","page":"pages/vieweditor.json"},
+					"LayoutEditor": {"type": "page", "next": "","page":"pages/layout.json"}
+				},
+				"initcode": ""				
+			},
+			"inlinestyle": "width: 100%;height:100%"
+		}
+	]
+}

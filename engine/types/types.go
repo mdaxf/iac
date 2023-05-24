@@ -1,62 +1,95 @@
 package types
 
 type TranCode struct {
-	Name           string   "operation name"
-	Version        string   "operation version"
-	Status         Status   "operation status"
-	Inputs         []Input  // trancode inputs
-	Outputs        []Output // trancode outputs
-	Functiongroups []FuncGroup
-	Workflow       map[string]interface{}
-	Firstfuncgroup string
+	ID             string                 "json:'_id'"
+	UUID           string                 "json:'uuid'"
+	Name           string                 "json:'trancodename'"
+	Version        string                 "json:'version'"
+	IsDefault      bool                   "json:'isdefault'"
+	Status         Status                 "json:'status'"
+	Inputs         []Input                "json:'inputs'"
+	Outputs        []Output               "json:'outputs'"
+	Functiongroups []FuncGroup            "json:'functiongroups'"
+	Workflow       map[string]interface{} "json:'workflow'"
+	Firstfuncgroup string                 "json:'firstfuncgroup'"
+	SystemData     SystemData             "json:'system'"
+	Description    string                 "json:'description'"
+}
+
+type SystemData struct {
+	CreatedBy string "json:'createdby'"
+	CreatedOn string "json:'createdon'"
+	UpdatedBy string "json:'updatedby'"
+	UpdatedOn string "json:'updatedon'"
 }
 
 type FuncGroup struct {
-	Name              string     "function group name"
-	Functions         []Function "functions"
-	Executionsequence string     "functions execution sequence"
-	Session           map[string]interface{}
-	RouterDef         RouterDef
+	ID                string                 "json:'id'"
+	Name              string                 "json:'name'"
+	Functions         []Function             "json:'functions'"
+	Executionsequence string                 "json:'sequence'"
+	Session           map[string]interface{} "json:'session'"
+	RouterDef         RouterDef              "json:'routerdef'"
+	functiongroupname string                 "json:'functiongroupname'"
+	Description       string                 "json:'description'"
+	routing           bool                   "json:'routing'"
+	Type              string                 "json:'type'"
+	x                 int                    "json:'x'"
+	y                 int                    "json:'y'"
+	width             int                    "json:'width'"
+	height            int                    "json:'height'"
 }
 
 type RouterDef struct {
-	Variable         string
-	Vartype          string
-	Values           []string
-	Nextfuncgroups   []string
-	Defaultfuncgroup string
+	Variable         string   "json:'variable'"
+	Vartype          string   "json:'vartype'"
+	Values           []string "json:'values'"
+	Nextfuncgroups   []string "json:'nextfuncgroups'"
+	Defaultfuncgroup string   "json:'defaultfuncgroup'"
 }
 
 type Function struct {
-	Name     string       "function name"
-	Version  string       "function version"
-	Status   Status       "function status"
-	Functype FunctionType "function type"
-	Inputs   []Input      "function inputs"
-	Outputs  []Output     "function	outputs"
-	Content  string
+	ID           string       "json:'id'"
+	Name         string       "json:'name'"
+	Version      string       "json:'version'"
+	Status       Status       "json:'status'"
+	Functype     FunctionType "json:'functype'"
+	Inputs       []Input      "json:'inputs'"
+	Outputs      []Output     "json:'outputs'"
+	Content      string       "json:'content'"
+	FunctionName string       "json:'functionname'"
+	Description  string       "json:'description'"
+	Type         string       "json:'type'"
+	x            int          "json:'x'"
+	y            int          "json:'y'"
+	width        int          "json:'width'"
+	height       int          "json:'height'"
 }
 
 type Input struct {
-	Name         string      "input name"
-	Source       InputSource "input type"      // 0: constant, 1: function, 2: session
-	Datatype     DataType    "input data type" // 0: string, 1: int, 2: float, 3: bool, 4: datetime	5: object (json)
-	Inivalue     string      "input initial value constant"
-	Defaultvalue string      "input default value"
-	Value        string      "input value"
-	List         bool        "input is list"
-	Aliasname    string      "input session"
+	ID           string      "json:'id'"
+	Name         string      "json:'name'"
+	Source       InputSource "json:'source'"   // 0: constant, 1: function, 2: session
+	Datatype     DataType    "json:'datatype'" // 0: string, 1: int, 2: float, 3: bool, 4: datetime	5: object (json)
+	Inivalue     string      "json:'initialvalue'"
+	Defaultvalue string      "json:'defaultvalue'"
+	Value        string      "json:'value'"
+	List         bool        "json:'list'"
+	Aliasname    string      "json:'aliasname'"
+	Description  string      "json:'description'"
 }
 
 type Output struct {
-	Name         string       "output name"
-	Outputdest   []OutputDest "output type"      // 0:none, 1:session, 2:engine
-	Datatype     DataType     "output data type" // 0: string, 1: int, 2: float, 3: bool, 4: datetime	5: object (json)
-	Inivalue     string       "output initial value constant"
-	Defaultvalue string       "output default value"
-	Value        string       "input value"
-	List         bool         "output is list"
-	Aliasname    []string     "input session"
+	ID           string       "json:'id'"
+	Name         string       "json:'name'"
+	Outputdest   []OutputDest "json:'outputdest'" // 0:none, 1:session, 2:engine
+	Datatype     DataType     "json:'datatype'"   // 0: string, 1: int, 2: float, 3: bool, 4: datetime	5: object (json)
+	Inivalue     string       "json:'initialvalue'"
+	Defaultvalue string       "json:'defaultvalue'"
+	Value        string       "json:'value'"
+	List         bool         "json:'list'"
+	Aliasname    []string     "json:'aliasname'"
+	Description  string       "json:'description'"
 }
 
 type FunctionType int
@@ -68,6 +101,9 @@ const (
 	Query
 	StoreProcedure
 	SubTranCode
+	TableInsert
+	TableUpdate
+	TableDelete
 )
 
 type Status int
@@ -107,3 +143,5 @@ const (
 	Tosession
 	Toexternal
 )
+
+var DateTimeFormat string = "2006-01-02 15:04:05"

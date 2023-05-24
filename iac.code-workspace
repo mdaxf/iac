@@ -19,6 +19,12 @@
 		},
 		{
 			"path": "../golongpoll"
+		},
+		{
+			"path": "../../../Downloads/joint-master"
+		},
+		{
+			"path": "../../../Downloads/jsbin-master (1)/jsbin-master"
 		}
 	],
 	"settings": {}

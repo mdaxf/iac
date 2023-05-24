@@ -1,0 +1,61 @@
+{
+	"name": "View Editor",
+	"version": "1.0.0",
+	"isdefault": true,
+	"orientation": 0,
+	"initcode":"",
+	"onloadcode": "",
+	"attrs": {
+		"style": "width: 100%; height: 100%;"
+	},
+	"panels": [{
+		"name": "slide_icon",
+		"orientation": 2,
+		"view": {
+			"name": "slide_menu",
+			"config":"Views/slidemenu.json"
+		},
+		"inlinestyle": "display: float; left:0px; bottom:0px; height: 45px; width:0px;"
+		},
+		{
+			"name": "vieweditor_slide_menu",
+			"orientation": 1,
+			"view": {
+				"name": "vieweditor_slide_menu",
+				"file": "templates/vieweditor_slidemenu.html",
+				"inlinestyle": "height: 100%;width:45px;",
+				"inputs":{       
+				},
+				"outputs":{
+					"action": ""
+				},
+				"actions":{
+					
+				},
+				"initcode": ""	
+			},
+			"inlinestyle": "display: float; left:0px; bottom:0px; height: 100%; width:45px;background-color:#c9cbcc;"
+			
+		},
+		{
+			"name": "content",
+			"orientation": 1,
+			"view": {
+				"name": "layoutditor",
+				"type": "view-type",
+				"file": "templates/layout.html",
+				"inlinestyle": "height: 100%;",
+				"inputs":{       
+				},
+				"outputs":{
+					"action": ""
+				},
+				"actions":{
+					
+				},
+				"initcode": ""				
+			},
+			"inlinestyle": "width: 100%;height:100%"
+		}
+	]
+}

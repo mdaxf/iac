@@ -1,12 +1,15 @@
 package funcgroup
 
 import (
+	"fmt"
+	"reflect"
 	"strings"
 
 	"database/sql"
 
 	funcs "github.com/mdaxf/iac/engine/function"
 	"github.com/mdaxf/iac/engine/types"
+	"github.com/mdaxf/iac/logger"
 )
 
 type FGroup struct {
@@ -18,9 +21,19 @@ type FGroup struct {
 	Externalinputs      map[string]interface{} // {sessionanme: value}
 	Externaloutputs     map[string]interface{} // {sessionanme: value}
 	funcCachedVariables map[string]interface{}
+	iLog                logger.Log
 }
 
 func NewFGroup(dbTx *sql.Tx, fgobj types.FuncGroup, nextfuncgroup string, systemSession, userSession, externalinputs, externaloutputs map[string]interface{}) *FGroup {
+	log := logger.Log{}
+	log.ModuleName = logger.TranCode
+	log.ControllerName = "Function Group"
+	if systemSession["User"] != nil {
+		log.User = systemSession["User"].(string)
+	} else {
+		log.User = "System"
+	}
+
 	return &FGroup{
 		FGobj:               fgobj,
 		DBTx:                dbTx,
@@ -30,10 +43,16 @@ func NewFGroup(dbTx *sql.Tx, fgobj types.FuncGroup, nextfuncgroup string, system
 		Externalinputs:      externalinputs,
 		Externaloutputs:     externaloutputs,
 		funcCachedVariables: map[string]interface{}{},
+		iLog:                log,
 	}
 
 }
 func (c *FGroup) Execute() {
+	c.iLog.Info(fmt.Sprintf("Start process function group %s's %s ", c.FGobj.Name, reflect.ValueOf(c.Execute).Kind().String()))
+	c.iLog.Debug(fmt.Sprintf("systemSession: %s", logger.ConvertJson(c.SystemSession)))
+	c.iLog.Debug(fmt.Sprintf("userSession: %s", logger.ConvertJson(c.UserSession)))
+	c.iLog.Debug(fmt.Sprintf("externalinputs: %s", logger.ConvertJson(c.Externalinputs)))
+	c.iLog.Debug(fmt.Sprintf("externaloutputs: %s", logger.ConvertJson(c.Externaloutputs)))
 
 	systemSession := c.SystemSession
 	userSession := c.UserSession
@@ -63,9 +82,20 @@ func (c *FGroup) Execute() {
 	c.Externalinputs = externalinputs
 	c.Externaloutputs = externaloutputs
 	c.Nextfuncgroup = c.CheckRouter(c.FGobj.RouterDef)
+
+	c.iLog.Info(fmt.Sprintf("End process function group %s's %s ", c.FGobj.Name, reflect.ValueOf(c.Execute).Kind().String()))
+	c.iLog.Debug(fmt.Sprintf("systemSession: %s", logger.ConvertJson(c.SystemSession)))
+	c.iLog.Debug(fmt.Sprintf("userSession: %s", logger.ConvertJson(c.UserSession)))
+	c.iLog.Debug(fmt.Sprintf("externalinputs: %s", logger.ConvertJson(c.Externalinputs)))
+	c.iLog.Debug(fmt.Sprintf("externaloutputs: %s", logger.ConvertJson(c.Externaloutputs)))
+	c.iLog.Debug(fmt.Sprintf("nextfuncgroup: %s", c.Nextfuncgroup))
+
 }
 
 func (c *FGroup) CheckRouter(RouterDef types.RouterDef) string {
+	c.iLog.Info(fmt.Sprintf("Start process function group %s's %s ", c.FGobj.Name, reflect.ValueOf(c.CheckRouter).Kind().String()))
+	c.iLog.Debug(fmt.Sprintf("RouterDef: %s", logger.ConvertJson(RouterDef)))
+
 	variable := RouterDef.Variable
 	vartype := RouterDef.Vartype
 	values := RouterDef.Values
@@ -77,6 +107,7 @@ func (c *FGroup) CheckRouter(RouterDef types.RouterDef) string {
 		if c.SystemSession[variable] != nil {
 			for i, value := range values {
 				if c.SystemSession[variable] == value {
+					c.iLog.Info(fmt.Sprintf("End process function group %s's %s 's Next func group: %s", c.FGobj.Name, reflect.ValueOf(c.CheckRouter).Kind().String(), nextfuncgroups[i]))
 					return nextfuncgroups[i]
 				}
 			}
@@ -85,6 +116,7 @@ func (c *FGroup) CheckRouter(RouterDef types.RouterDef) string {
 		if c.UserSession[variable] != nil {
 			for i, value := range values {
 				if c.UserSession[variable] == value {
+					c.iLog.Info(fmt.Sprintf("End process function group %s's %s 's Next func group: %s", c.FGobj.Name, reflect.ValueOf(c.CheckRouter).Kind().String(), nextfuncgroups[i]))
 					return nextfuncgroups[i]
 				}
 			}
@@ -98,6 +130,7 @@ func (c *FGroup) CheckRouter(RouterDef types.RouterDef) string {
 				if tempobj[arr[1]] != nil {
 					for i, value := range values {
 						if tempobj[arr[1]] == value {
+							c.iLog.Info(fmt.Sprintf("End process function group %s's %s 's Next func group: %s", c.FGobj.Name, reflect.ValueOf(c.CheckRouter).Kind().String(), nextfuncgroups[i]))
 							return nextfuncgroups[i]
 						}
 					}
@@ -105,5 +138,8 @@ func (c *FGroup) CheckRouter(RouterDef types.RouterDef) string {
 			}
 		}
 	}
+
+	c.iLog.Info(fmt.Sprintf("End process function group %s's %s 's Next func group: %s", c.FGobj.Name, reflect.ValueOf(c.CheckRouter).Kind().String(), defaultfuncgroup))
+
 	return defaultfuncgroup
 }

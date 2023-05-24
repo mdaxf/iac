@@ -15,43 +15,60 @@
 package main
 
 import (
+	"fmt"
+
 	config "github.com/mdaxf/iac/config"
 	dbconn "github.com/mdaxf/iac/databases"
+	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/framework/cache"
 	"github.com/mdaxf/iac/integration/messagebus/nats"
 	"github.com/mdaxf/iac/logger"
 )
 
 var err error
+var ilog logger.Log
 
 func initialize() {
-
+	ilog = logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Initialization"}
+	initializeloger()
 	config.SessionCacheTimeout = 1800
 	initializecache()
 	initializeDatabase()
 	nats.MB_NATS_CONN, err = nats.ConnectNATSServer()
-	initializeloger()
+
+	initializedDocuments()
+
 }
 
 func initializeDatabase() {
 
+	ilog.Debug("initialize Database")
+
 	err := dbconn.ConnectDB()
 	if err != nil {
-		panic(err.Error())
+		ilog.Error(fmt.Sprintf("initialize Database error: %s", err.Error()))
 	}
 }
 
 func initializecache() {
-	var err error
+
+	ilog.Debug("initialize Chche")
 
 	config.SessionCache, err = cache.NewCache("memory", `{"interval":60}`)
 	if err != nil {
-		panic(err.Error())
+		ilog.Error(fmt.Sprintf("initialize cache error: %s", err.Error()))
 	}
 }
 
 func initializeloger() {
-
 	logger.Init()
-	logger.Debug("start logger")
+	ilog.Debug("initialize logger")
+}
+
+func initializedDocuments() {
+	ilog.Debug("initialize Documents")
+	var DatabaseType = "mongodb"
+	var DatabaseConnection = "mongodb://localhost:27017"
+	var DatabaseName = "IAC_CFG"
+	documents.ConnectDB(DatabaseType, DatabaseConnection, DatabaseName)
 }

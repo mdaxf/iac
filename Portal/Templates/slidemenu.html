@@ -1,0 +1,27 @@
+<div class="ui_page_home_silde_icon-menu">
+    <div data-key="Home" class="ui_page_silde_icon-menu-item ui_page_silde_icon-menu-item-icononly">
+      <i data-key="Home" class="ui_page_silde_icon-menu-item-big fa-sharp fa-light fa-home"></i>
+    </div>
+</div>
+
+<script>
+    $Context.onLoaded(function(){
+        
+        el = $(".ui_page_home_silde_icon-menu").find('.ui_page_silde_icon-menu-item');
+
+        el.on("click",function(e){
+            console.log("click",e.target);
+            if(e.target.attributes["data-key"]){
+                $Context.outputs.action = e.target.attributes["data-key"].value;
+                console.log(e.target.attributes["data-key"].value)
+                $Context.submit();
+            }
+        })
+
+
+    });
+</script>
+
+
+
+

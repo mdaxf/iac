@@ -46,6 +46,19 @@
           "method": "POST",
           "path": "/exetrancode",
           "handler": "ExecuteTranCode"
+        },{
+          "method": "GET",
+          "path": "/trancodelist",
+          "handler": "GetTranCodeListFromRespository"
+        },{
+          "method": "POST",
+          "path": "/trancode",
+          "handler": "GetTranCodeDetailFromRespository"
+        }
+        ,{
+          "method": "POST",
+          "path": "/updatetrancode",
+          "handler": "UpdateTranCodeToRespository"
         }
       ]
     }  

@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -24,8 +25,10 @@ import (
 	"plugin"
 	"reflect"
 
+	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	dbconn "github.com/mdaxf/iac/databases"
+	mongodb "github.com/mdaxf/iac/documents"
 )
 
 func main() {
@@ -33,11 +36,13 @@ func main() {
 	config, err := loadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
+		//	ilog.Error("Failed to load configuration: %v", err)
 	}
 
 	initialize()
 
 	defer dbconn.DB.Close()
+	defer mongodb.DocDBCon.MongoDBClient.Disconnect(context.Background())
 	// Initialize the Gin router
 	router := gin.Default()
 
@@ -47,13 +52,14 @@ func main() {
 
 		jsonString, err := json.Marshal(controllerConfig)
 		if err != nil {
-			fmt.Println("Error marshaling json:", err)
+
+			ilog.Error(fmt.Sprintf("Error marshaling json: %v", err))
 			return
 		}
 		fmt.Println(string(jsonString))
 		controllerModule, err := loadpluginControllerModule(controllerConfig.Path)
 		if err != nil {
-			fmt.Println(fmt.Sprintf("Failed to load controller module %s: %v", controllerConfig.Path, err))
+			ilog.Error(fmt.Sprintf("Failed to load controller module %s: %v", controllerConfig.Path, err))
 		}
 		plugincontrollers[controllerConfig.Path] = controllerModule
 	}
@@ -68,23 +74,32 @@ func main() {
 		}
 	}
 
+	// Load controllers statically based on the configuration file
+	ilog.Info("Loading controllers")
 	loadControllers(router, config.Controllers)
 
 	// Start the portals
-	log.Println("Starting portals")
+	ilog.Info("Starting portals")
 
 	jsonString, err := json.Marshal(config.Portal)
 	if err != nil {
-		fmt.Println("Error marshaling json:", err)
+		ilog.Error(fmt.Sprintf("Error marshaling json: %v", err))
 		return
 	}
 	fmt.Println(string(jsonString))
 
 	portal := config.Portal
-	log.Println(fmt.Sprintf("Starting portal on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
-	router.Static("/portal", "./portal")
+
+	ilog.Info(fmt.Sprintf("Starting portal on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
+
+	router.Use(static.Serve("/portal", static.LocalFile("./portal", true)))
+	router.Use(static.Serve("/portal/scripts", static.LocalFile("./portal/scripts", true)))
+	router.LoadHTMLGlob("portal/Scripts/UIForm.js")
+	router.LoadHTMLGlob("portal/Scripts/UIFramework.js")
+
+	/*router.Static("/portal", "./portal")
 	router.LoadHTMLGlob("portal/*.html")
-	router.LoadHTMLGlob("portal/scripts/*.js")
+	router.LoadHTMLGlob("portal/Scripts/UIFramework.js") */
 	router.GET(portal.Path, func(c *gin.Context) {
 		c.HTML(http.StatusOK, portal.Home, gin.H{})
 	})
@@ -93,15 +108,19 @@ func main() {
 	// Start the server
 	router.Run(fmt.Sprintf(":%d", config.Port))
 
+	ilog.Info(fmt.Sprintf("Started portal on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
 	//defer dbconn.DB.Close()
 }
 
 func loadpluginControllerModule(controllerPath string) (interface{}, error) {
 
+	ilog.Info(fmt.Sprintf("Loading plugin controllers %s", controllerPath))
+
 	modulePath := fmt.Sprintf("./plugins/%s/%s.so", controllerPath, controllerPath)
 	print(modulePath)
 	module, err := plugin.Open(modulePath)
 	if err != nil {
+
 		return nil, fmt.Errorf("Failed to open controller module %s: %v", modulePath, err)
 	}
 	sym, err := module.Lookup(controllerPath + "Controller")
@@ -112,6 +131,9 @@ func loadpluginControllerModule(controllerPath string) (interface{}, error) {
 }
 
 func getpluginHandlerFunc(module reflect.Value, name string) gin.HandlerFunc {
+
+	ilog.Info(fmt.Sprintf("Loading plugin handler function: %s", name))
+
 	method := module.MethodByName(name)
 	if !method.IsValid() {
 		return nil

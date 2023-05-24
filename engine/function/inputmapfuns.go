@@ -28,7 +28,6 @@ func (cf *InputMapFuncs) Execute(f *Funcs) {
 				outputs[key] = valuelist[i]
 			}
 		}
-
 	}
 
 	f.SetOutputs(outputs)

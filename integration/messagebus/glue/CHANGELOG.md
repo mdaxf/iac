@@ -14,7 +14,7 @@ All notable changes to this project will be documented in this file. This projec
 - OnRead callbacks are now called in a new goroutine.
 
 ## 1.8.0 - 2015-11-26
-- Added support for the Cross-Origin Resource Sharing (CORS) mechanism. Added new option EnableCORS.
+- Added support for the Cross-Origin Resource Sharing (CORS) mechanism. Added new UI.Option EnableCORS.
 
 ## 1.7.0 - 2015-11-15
 - Added CheckOrigin option.

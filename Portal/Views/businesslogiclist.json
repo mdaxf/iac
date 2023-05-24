@@ -1,0 +1,15 @@
+{
+    "name": "businesslogiclist",
+    "type": "view-type",
+    "file": "templates/bllist.html",
+    "inlinestyle": "height: 100%;",
+    "inputs":{       
+    },
+    "outputs":{
+        "selectedname": "",
+        "action": ""
+    },
+    "actions":{
+        "SELECT": {"type": "view", "next": "","panels":[{"panel": "content","view":"views/businesslogiceditor.json"}]}
+    }
+}
