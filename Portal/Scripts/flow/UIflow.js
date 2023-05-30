@@ -53,12 +53,13 @@ function _0x30f6(_0x180a7f,_0x5d5a98){var _0x42049c=_0x4204();return _0x30f6=fun
 	$.import_js(path + "flow/svg-pan-zoom.js")  
 	$.import_js(path + "flow/filesave.js")  
 	$.import_js(path + "jsonmanager.js")  
+	$.import_js(path + "jstree.js")  
 	$.import_js(path + "UIForm.js")  
 	$.import_js(path + "contextmenu/jquery.contextMenu.js")  
 
 })() 
 
-var UIFlow;
+var UIFlow = UIFlow || {};
 (function (UIFlow) {   
 	function generateUUID(){
 		var d = new Date().getTime();
@@ -89,7 +90,7 @@ var UIFlow;
 	
 })(UIFlow || (UIFlow = {}));
 
-UIFlow = UIFlow || {};
+
 
 joint.shapes.basic.MergePoint = joint.shapes.basic.Generic.extend({
 
@@ -2027,7 +2028,7 @@ var ProcessFlow = (function(){
 			this.menu_panel = document.getElementById(this.wrapper+'_flow_menu_panel')
 			this.wrappercontainer = document.getElementById(this.wrapper)
 			this.property_panel = document.getElementById(wrapper+'_flow_property_panel')
-			this.items_panel = document.getElementById(wrapper+'_flow_items_panel')
+			this.item_panel = document.getElementById(wrapper+'_flow_items_panel')
 
 		}
 
@@ -2343,9 +2344,9 @@ var ProcessFlow = (function(){
 		setup_Menubar(){
 			let menubars=[];
 			menubars.push({
-				type: 'Repository',
-				datakey: 'Repository',
-				description: 'Repository',
+				type: 'Tree',
+				datakey: 'Tree',
+				description: 'Flow tree',
 				category: 'trancode'
 			})
 			menubars.push({
@@ -2367,9 +2368,9 @@ var ProcessFlow = (function(){
 				category: 'trancode'
 			})
 			menubars.push({
-				type: 'Load',
-				datakey: 'Load',
-				description: 'Load',
+				type: 'Change',
+				datakey: 'Change',
+				description: 'Change?',
 				category: 'trancode'
 			})
 			menubars.push({
@@ -2396,7 +2397,12 @@ var ProcessFlow = (function(){
 				description: 'Parameters',
 				category: 'trancode'
 			})
-
+			menubars.push({
+				type: 'Repository',
+				datakey: 'Repository',
+				description: 'Repository',
+				category: 'trancode'
+			})
 			this.Menubars = menubars;
 		}
 		setup_Toolbar(){
@@ -5018,27 +5024,32 @@ var ProcessFlow = (function(){
 									while (divsToRemove.length > 0) {
 										divsToRemove[0].parentNode.removeChild(divsToRemove[0]);
 									}
-									let title = document.createElement('div');
-									title.innerHTML = 'Select the function type to add a new Function';
-									title.className = 'container-fluid';
-									that.property_panel.appendChild(title);
 
-									let property_container = document.createElement('div');
-									property_container.setAttribute('class','container-fluid');	
-									property_container.style.width = '100%';
-									property_container.style.height = '95%';
-									property_container.style.marginLeft = '10px';
-									property_container.style.marginRight = '10px';
-									that.property_panel.appendChild(property_container);									
+									let attrs={class:"container-fluid", style:"width:90%;height:95%;margin-left:10px;margin-right:10px;"}
+									let container = (new UI.FormControl(that.property_panel, 'div', {})).control;
 
-									property_container.innerHTML = html;
+									new UI.FormControl(container, 'h3', {innerHTML: 'Select the function type to add a new Function'});
+
+									let events ={
+										click: function(){                    
+											that.property_panel.style.display = "none";
+											$('.container-fluid').remove();
+										}
+									}
+									attrs={class: 'btn btn-danger', id: 'closefunction', innerHTML:'X',style: 'float:right;top:2px;right:2px;position:absolute;'}
+						
+									new UI.FormControl(container, 'button', attrs, events);
+
+									attrs={class:"container-fluid", style:"width:90%;height:95%;margin-left:10px;margin-right:10px;", innerHTML:html}
+									let property_container = (new UI.FormControl(container, 'div', attrs)).control;
+
 									that.property_panel.style.display = 'block';
 									that.property_panel.style.width = '300px';
 								//	console.log(property_container.getElementsByClassName('function_type'))
 									for(var i=0;i<property_container.getElementsByClassName('function_type').length;i++){
 										let ele = property_container.getElementsByClassName('function_type')[i];
 										ele.addEventListener('click',	function(e){
-											console.log('Select the function type:',e.target.value)
+											//console.log('Select the function type:',e.target.value)
 											that.property_panel.style.display = 'none';
 											that.property_panel.innerHTML  = "" 
 											that.add_function(e.target.value)
@@ -5407,16 +5418,27 @@ var ProcessFlow = (function(){
 			return true;
 		}
 		add_function(functype){
-			
+			let inputs = [];
+			if(functype == 6 || functype == 7 || functype == 8){
+				inputs = [{
+					id:UIFlow.generateUUID(),
+					name: "TableName",
+					datatype: 0,
+					value:'',
+					defaultvalue:'',
+					source:0
+				}]
+			}
 			let nodeid = UIFlow.generateUUID();
+			let name = this.getfunctionname(Function_Type_List[functype])
 			let node = {
 				id: nodeid,
-				name: Function_Type_List[functype],	
-				functionName: Function_Type_List[functype],
-				description: Function_Type_List[functype],
+				name: name,	
+				functionName: name,
+				description: name,
 				content: {},
 				functype: parseInt(functype),
-				inputs: [],
+				inputs: inputs,
 				outputs: [],
 				type: "FUNCTION",
 				position: {},
@@ -5425,11 +5447,23 @@ var ProcessFlow = (function(){
 				width: this.options.nodewidth,
 				height: this.options.nodeheight
 			};
-
+		//	console.log(node)
 			this.add_functiontoflowobj(node)
 			this.reload();
 		}
-
+		getfunctionname(name){
+			find = true;
+			let index=0;
+			let newname = name + index.toString().padStart(2, '0')
+			while(find && index < 100){
+				index +=1;
+				newname = name + index.toString().padStart(2, '0')
+				let fgobj = this.FlowJsonObj.getdata('functiongroups/{"name":"'+this.funcgroupname+'"}/functions/{"name":"'+newname+'"');
+				if(!fgobj)
+					find = false;
+			}
+			return newname;
+		}
 		add_functiontoflowobj(funcobj){
 			
 			let that = this
@@ -5440,15 +5474,22 @@ var ProcessFlow = (function(){
 				content: funcobj.content,
 				functype: parseInt(funcobj.functype),
 				type: "FUNCTION",
-				inputs: [],
-				outputs: [],
+				inputs: funcobj.inputs,
+				outputs: funcobj.outputs,
 				x: funcobj.x,
 				y: funcobj.y,
 				width: funcobj.width,
 				height: funcobj.height
 			}
-
+			
 			let path = 'functiongroups/{"name":"'+that.funcgroupname+'"}/functions';
+		//	console.log(path,functionobj )
+			if(!(this.FlowJsonObj.getdata(path))){
+				let value={
+					functions:[]
+				}
+				this.FlowJsonObj.addNode('functiongroups/{"name":"'+that.funcgroupname+'"}', value)
+			}
 			this.FlowJsonObj.addNode(path,functionobj);
 
 		}
@@ -5966,23 +6007,13 @@ var ProcessFlow = (function(){
 			let that = this;
 			console.log(menudata, this)
 			switch(menudata.type){
-				case "Repository":
-					if(that.flowobjchange){
-						let result = confirm("Do you want to save the flow?");
-		
-						if(result){
-							this.trigger_event("save_flow", [that.flowobj]);
-							that.flowobjchange = false;
-						}	
-					}
-					this.trigger_event("go_back", []);
+				case "Tree":
+					this.show_flowtree();
 					break;
 				case "Save":
 					this.trigger_event("save_flow", [that.flowobj]);
 					that.flowobjchange = false;
-					break;
-
-				
+					break;				
 				case "Sessions":
 					this.show_Sessions();
 					break;
@@ -5998,7 +6029,61 @@ var ProcessFlow = (function(){
 				case "New":
 					this.new_flow();
 					break;
+				case "Change":
+					this.FlowJsonObj.showRedlines();
+					break;
+				case "Repository":
+					if(that.flowobjchange){
+						let result = confirm("Do you want to save the flow?");
+		
+						if(result){
+							this.trigger_event("save_flow", [that.flowobj]);
+							that.flowobjchange = false;
+						}	
+					}
+					this.trigger_event("go_back", []);
+					break;
 			}
+		}
+		
+		show_flowtree(){
+			let that = this;
+			this.item_panel.innerHTML  = "" 
+			var divsToRemove = this.item_panel.getElementsByClassName("container-fluid");
+			while (divsToRemove.length > 0) {
+				divsToRemove[0].parentNode.removeChild(divsToRemove[0]);
+			}
+			let attrs={class: 'container-fluid',style: 'width: 90%;height:95%;margin-left:10px;margin-right:10px;'}
+			let container_fluid = (new UI.FormControl(this.item_panel, 'div', attrs)).control;
+			
+			attrs={class: 'btn btn-danger', id: 'closefunction', innerHTML:'X',style: 'float:right;top:2px;right:2px;position:absolute;'}
+			let events={click: function(){
+				that.item_panel.style.width = "0px";
+				that.item_panel.style.display = "none";
+				that.item_panel.innerHTML  = "" }};
+			new UI.FormControl(container_fluid, 'button', attrs, events);
+			new UI.FormControl(container_fluid, 'div', {id:'flowtree',class:'tree',style:'width:100%;height:100%;'});
+			that.item_panel.style.width = "350px";
+			that.item_panel.style.display = "flex";
+			var options = {
+				showlabelonly:true,
+				editable:true,
+				openlevel: -1
+			}
+			let rootdata ={
+
+				text: that.flowobj.trancodename + '   ' + that.flowobj.version,
+				state: { opened: true },
+				children: that.FlowJsonObj.formatJSONforjstree(options),
+			}
+			
+			$(function() {
+			  $('#flowtree').jstree({
+				'core': {
+				  'data': rootdata
+				}
+			  });		
+			});  
 		}
 		new_flow(){
 			let that = this;

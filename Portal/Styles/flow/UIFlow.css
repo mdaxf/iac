@@ -58,15 +58,17 @@
 .uiflow_process_flow_menubar_container .uiflow_menubar_Save:before{
 	content: '\f35b'; 
 }
-
+.uiflow_process_flow_menubar_container .uiflow_menubar_Tree:before{
+	content: '\f802'; 
+}
 
 .uiflow_process_flow_menubar_container .uiflow_menubar_Saveas:before{
 	content: '\f15b'; 
 }
 
 
-.uiflow_process_flow_menubar_container .uiflow_menubar_Load:before{
-	content: '\f07c'; 
+.uiflow_process_flow_menubar_container .uiflow_menubar_Change:before{
+	content: '\e13a'; 
 }
 
 
@@ -409,3 +411,34 @@ g.joint-type-processflow-stepblock tspan{
 #closePopupButton {
 	margin-top: 10px;
   }
+
+     /* Additional CSS for CodeMirror diff styling */
+     .CodeMirror-merge {
+		height: 300px;
+		border: 1px solid #ccc;
+	  }
+  
+	  .CodeMirror-merge .CodeMirror-merge-pane {
+		width: 50%;
+		height: 100%;
+		box-sizing: border-box;
+		float: left;
+	  }
+  
+	  .CodeMirror-merge .CodeMirror-merge-pane-right {
+		border-left: 1px solid #ddd;
+	  }
+  
+	  .CodeMirror-merge .CodeMirror-merge-collapsed {
+		background: #f8f8f8;
+		color: #888;
+		text-decoration: line-through;
+	  }
+  
+	  .CodeMirror-merge .CodeMirror-merge-collapsed-widget {
+		color: #bbb;
+		background: #f8f8f8;
+		border: 1px solid #ddd;
+		box-shadow: 2px 2px 3px rgba(0, 0, 0, 0.1);
+		padding: 2px 0px 2px 4px;
+	  }

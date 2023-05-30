@@ -13,8 +13,8 @@ var LayoutEditor = {
         grid: null,
         Options: null,
         subOptions: null,
-        cellHeight: 50,
-        cellWidth: 50,
+        cellHeight: 1,
+        cellWidth: 1,
         initialize: function (){
              console.log(CustomGridStack)
             let width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
@@ -32,6 +32,8 @@ var LayoutEditor = {
             LayoutEditor.Options = { // main grid options
                 cellHeight: LayoutEditor.cellHeight, // should be 50 - top/bottom
                 cellWidth: LayoutEditor.cellWidth, // should be 50 - left/right
+                verticalMargin: 1,
+                horizontalMargin: 1,
                 margin: 1,
                 minRow: 2, // don't collapse when empty
                 disableOneColumnMode: true,
@@ -62,13 +64,13 @@ var LayoutEditor = {
           let node={
             x:0,
             y:0,
-            w:3,
-            h:3,
+            w:100,
+            h:100,
             content: 'The panel can include other panels',
             id: 'sub_grid'+ (LayoutEditor.Options.length+1),
             name: 'sub_grid'+ (LayoutEditor.Options.length+1),
-            width: 3,
-            height: 3,
+            width: 100,
+            height: 100,
             subGridOpts: {children: [], id:'sub_grid'+ (LayoutEditor.Options.length+1), class: 'sub_grid', ...LayoutEditor.subOptions}
           }
           
@@ -82,7 +84,7 @@ var LayoutEditor = {
         addPanel: function (){
             let count = $('.grid-stack-item').length + 1;
             let content = '<div class="layout_panel_operations" style="display:inline-block"><div>panel'+count+'" ></div></div>'            
-             let cell = LayoutEditor.grid.addWidget({x:0, y:100, content:content, w:3, h:3, id:'panel'+count, name:'panel'+count,width:3,height:3,view:'',class:'layout_panel'});
+             let cell = LayoutEditor.grid.addWidget({x:0, y:100, content:content, w:100, h:100, id:'panel'+count, name:'panel'+count,width:100,height:100,view:'',class:'layout_panel'});
             LayoutEditor.addSelectEvent(cell)
         },
         render:function() {

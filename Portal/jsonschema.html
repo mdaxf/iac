@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="scripts/UIFramework.js"></script>
+    <script src="scripts/jsonmanager.js"></script>
+</head>
+<body>
+<script>
+    let schema = {};
+    document.addEventListener("DOMContentLoaded", function(){
+        
+        let ajax = new UI.Ajax("");
+        ajax.get('datasets/schemas/trancode.json',false).then((response) => {
+            console.log(JSON.parse(response))
+            
+        }).catch((error) => {
+            console.log(error);
+        })
+    });
+    
+</script>
+</body>
+</html>

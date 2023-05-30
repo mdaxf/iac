@@ -65,7 +65,7 @@
   ],
   "portal":{
     "path":"/portal",
-    "home":"/portal/UIPage.html?page=root",
+    "home":"/portal/UIPage.html",
     "logon":"/portal/UIPage.html?page=logon"
   }
 }

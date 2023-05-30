@@ -1,33 +1,136 @@
+<!DOCTYPE html>
 <html>
 <head>
-    <script src="Scripts/jquery.min.js" type="text/javascript" ></script>
-    <script src="scripts/UIForm.js" type="text/javascript" ></script>
-    <script src="Scripts/UIFramework.js" type="text/javascript" ></script>
-    <script src="Scripts/jsonmanager.js"></script>
+  <link rel="stylesheet" href="styles/jstree/jstree.css" />
+  <script src="scripts/jquery.min.js"></script>
+  <script src="scripts/jstree.js"></script>
+  <script src="scripts/UIForm.js"></script>
+  <script src="scripts/UIFramework.js"></script>
+  <script src="scripts/jsonmanager.js"></script>
+  <script src="scripts/jeditor.js"></script>
+  <script src='Scripts/codemirror5/lib/codemirror.js'></script>
+  <script src='Scripts/codemirror5/lib/diff_match_patch.js'></script>
+  <script src='Scripts/codemirror5/addon/merge/merge.js'></script>
+  
+  <!--script src='Scripts/codemirror5/mode/xml/xml.js'></script>
+  <script src='Scripts/codemirror5/mode/css/css.js'></script>
+  <script src='Scripts/codemirror5/mode/javascript/javascript.js'></script>
+  <script src="Scripts/codemirror5/mode/clike/clike.js"></script>
+  <script src="Scripts/codemirror5/mode/sql/sql.js"></script>
+  <script src='Scripts/codemirror5/mode/htmlmixed/htmlmixed.js'></script>
+  script src='Scripts/codemirror5/addon/edit/closebracket.js'></script>
+  <script src='Scripts/codemirror5/addon/edit/closetag.js'></script>
+  <script src='Scripts/codemirror5/addon/edit/matchbrackets.js'></script>
+  <script src='Scripts/codemirror5/addon/edit/matchtags.js'></script>
+  <script src='Scripts/codemirror5/addon/edit/tailingspace.js'></script>
+  <script src='Scripts/codemirror5/addon/edit/continuelist.js'></script>>
+  <script src='Scripts/codemirror5/addon/fold/foldcode.js'></script>
+  <script src='Scripts/codemirror5/addon/fold/foldgutter.js'></script>
+  <script src='Scripts/codemirror5/addon/fold/brace-fold.js'></script>
+  <script src='Scripts/codemirror5/addon/fold/xml-fold.js'></script>
+  <script src='Scripts/codemirror5/addon/fold/comment-fold.js'></script --> 
+  <link rel='stylesheet' href='styles/codemirror.css'>
+  <link rel='stylesheet' href='Scripts/codemirror5/addon/merge/merge.css'>
+  <link rel='stylesheet' href='styles/UIPage.css'>
+  <style>
+
+    select
+    {
+        margin-left: 5px;
+        padding-left:5px;
+        position:absolute;
+        left:400px;
+        width: 300px;
+        z-index:1;
+    }
+    input{
+        margin-left: 5px;
+        padding-left:5px;
+        position:absolute;
+        left:400px;
+        width: 300px;
+        z-index:1;
+    }
+
+    li.jstree_selected_node{
+      background-color: darkcyan;
+    }
+
+    li.jstree-node[nodestatus="invalidate_node"]{
+      background-color:rgb(255, 196, 0) !important;
+      
+    }
+    li.jstree-node[missed="true"]{
+      color:rgb(255, 0, 0);
+      
+    }
+    li.changed{
+      background-color:rgb(30, 255, 0) !important;
+    }
+    li.jstree-node[hidenode="true"]{
+      display:none;
+    }
+     /* Additional CSS for CodeMirror diff styling */
+     .CodeMirror-merge {
+      height: 300px;
+      border: 1px solid #ccc;
+    }
+
+    .CodeMirror-merge .CodeMirror-merge-pane {
+      width: 50%;
+      height: 100%;
+      box-sizing: border-box;
+      float: left;
+    }
+
+    .CodeMirror-merge .CodeMirror-merge-pane-right {
+      border-left: 1px solid #ddd;
+    }
+
+    .CodeMirror-merge .CodeMirror-merge-collapsed {
+      background: #f8f8f8;
+      color: #888;
+      text-decoration: line-through;
+    }
+
+    .CodeMirror-merge .CodeMirror-merge-collapsed-widget {
+      color: #bbb;
+      background: #f8f8f8;
+      border: 1px solid #ddd;
+      box-shadow: 2px 2px 3px rgba(0, 0, 0, 0.1);
+      padding: 2px 0px 2px 4px;
+    }
+    </style>
 </head>
 <body>
-    <div id="json"></div>
-    <script>
-        document.addEventListener("DOMContentLoaded", function(event) {
-            console.log("DOM fully loaded and parsed");
-            let ajax = new UI.Ajax("");
-            ajax.get("test.json").then((response) => {
-                //console.log(response)
-                
-                var json = new UI.JSONManager(response);
-                console.log('panels:', json.getNode('functiongroups/{"id":"bf99330c_eafc_4211_ae09_24ade30cb775"}/functions/{"id":"4337c0a1_2766_4bbc_a80f_a7e93b3fa355"}'))
+  <div id="tree"></div>
 
-                json.updateNodeValue('functiongroups/{"id":"bf99330c_eafc_4211_ae09_24ade30cb775"}/functions/{"id":"4337c0a1_2766_4bbc_a80f_a7e93b3fa355"}/inputs/{"id": "8c9b4986_5454_498e_8d6f_90c1ce041be0"}', '{"name":"test", "aliasname":"test"}')
-                console.log('panels:', json.getNode('functiongroups/{"id":"bf99330c_eafc_4211_ae09_24ade30cb775"}/functions/{"id":"4337c0a1_2766_4bbc_a80f_a7e93b3fa355"}'),json.changed)
-                json.deleteNode('functiongroups/{"id":"bf99330c_eafc_4211_ae09_24ade30cb775"}/functions/0')
-                console.log('function:', json.getNode('functiongroups/{"id":"bf99330c_eafc_4211_ae09_24ade30cb775"}/functions/0'),json.changed)
-
-            }).catch((error) => {
-                console.log(error);
-            })           
-           
-        });
+  <script>
+  let schema = {};
+  var jeditor
+    document.addEventListener("DOMContentLoaded", function(){
         
-    </script>
+        let ajax = new UI.Ajax("");
+        ajax.get('datasets/schemas/trancode.json',false).then((response) => {
+            console.log(JSON.parse(response))
+            var options = {
+                allowChanges:true,
+                showlabelonly:false,
+                editable:true,
+                openlevel:1,
+                schema:JSON.parse(response)
+            }
+            var data = {"functiongroups":[{"id":"bf99330c_eafc_4211_ae09_24ade30cb775","name":"NewFunctiongroupName01","functiongroupname":"NewFunctiongroupName01","description":"NewFunctiongroupName01","elements":[],"routerdef":{"variable":"","value":[],"nextfuncgroups":[],"defaultfuncgroup":"NewFunctiongroupName02"},"routing":false,"type":"FUNCGROUP","x":-260,"y":-180,"width":250,"height":100,"functions":[{"id":"4337c0a1_2766_4bbc_a80f_a7e93b3fa355","name":"Javascript","functionName":"Javascript","description":"Javascript","content":"","functype":"2","inputs":[{"id":"8c9b4986_5454_498e_8d6f_90c1ce041be0","name":"input0","datatype":0,"description":"input0","value":"","source":0,"aliasname":"","defaultvalue":""},{"id":"bd3325d0_b825_45a4_a726_88a96beed1c0","name":"input1","datatype":0,"description":"input1","value":"","source":0,"aliasname":"","defaultvalue":""}],"outputs":[{"id":"895542ef_dc4c_44f6_960d_9557b18d235b","name":"output0","datatype":0,"description":"output0","outputdest":[],"aliasname":[],"defaultvalue":""},{"id":"041313b6_3e35_447f_b801_a00e2e466626","name":"output1","datatype":0,"description":"output1","outputdest":[],"aliasname":[],"defaultvalue":""}],"type":"FUNCTION","position":{},"x":310,"y":-300,"width":250,"height":100},{"id":"2d0bb08a_e77d_40d1_a3f6_ec89d0ae60cb","name":"ParameterMap","functionName":"ParameterMap","description":"ParameterMap","content":{"output0":"input0","output1":"input1"},"functype":"0","inputs":[{"id":"ef4121ed_4dbd_4029_bd60_1022e707dfb1","name":"input0","datatype":"1","description":"","source":"2","aliasname":"UTCTime","defaultvalue":""},{"id":"9dc38326_8401_4ed3_8396_87cdd7be0045","name":"input1","datatype":"1","description":"","source":"3","aliasname":"Parameter1","defaultvalue":""},{"id":"abe0ea5f_91a6_4bc7_9924_4c8d1aeca20d","name":"input2","datatype":0,"description":"input2","source":0,"aliasname":"","defaultvalue":""},{"id":"d5ac39ca_29db_45b5_87fb_03525e97da9e","name":"input3","datatype":0,"description":"input3","source":0,"aliasname":"","defaultvalue":""}],"outputs":[{"id":"a4e8a5fa_d3b6_4938_84c8_c27e96686ed5","name":"output0","datatype":0,"description":"output0","outputdest":[],"aliasname":[],"defaultvalue":""},{"id":"b17787b6_252e_4696_8f7d_f878d6021b4d","name":"output1","datatype":0,"description":"output1","outputdest":[],"aliasname":[],"defaultvalue":""},{"id":"e7f611d5_909b_442b_8eef_2821cf891448","name":"output2","datatype":"0","description":"","outputdest":["1"],"aliasname":["Parameter1"],"defaultvalue":""},{"id":"96b622cd_5ee6_4031_8ec9_eea37902ef0d","name":"output3","datatype":0,"description":"output3","outputdest":[],"aliasname":[],"defaultvalue":""}],"type":"FUNCTION","x":230,"y":-670,"width":250,"height":100},{"id":"95e5b58c_24f6_44bd_84ad_a4a799009bde","name":"SubTranCode","functionName":"SubTranCode","description":"SubTranCode","content":"","functype":"5","inputs":[],"outputs":[],"type":"FUNCTION","position":{},"x":-180,"y":-540,"width":250,"height":100},{"id":"6fe825b0_037c_41bb_b29f_cd4be06b82f5","name":"Javascript","functionName":"Javascript","description":"Javascript","content":"","functype":"2","inputs":[],"outputs":[],"type":"FUNCTION","position":{},"x":-280,"y":-830,"width":250,"height":100},{"id":"6681642c_4499_4382_8382_9a1b1fb2b234","name":"StoreProcedure","functionName":"StoreProcedure","description":"StoreProcedure","content":"","functype":"4","inputs":[],"outputs":[],"type":"FUNCTION","position":{},"x":-340,"y":-300,"width":250,"height":100},{"id":"272fd87c_03e9_4ed4_810d_a314aa90ad77","name":"Database Query","functionName":"Database Query","description":"Database Query","content":"","functype":"3","inputs":[],"outputs":[],"type":"FUNCTION","position":{},"x":390,"y":-920,"width":250,"height":100}]},{"id":"6b784704_02d0_4cdb_8a41_c78f0e4d97ce","name":"NewFunctiongroupName02","functiongroupname":"NewFunctiongroupName02","description":"NewFunctiongroupName02","routerdef":{"variable":"","value":[],"destinations":[]},"elements":[],"x":100,"y":-10,"routing":false,"type":"FUNCGROUP","width":250,"height":100,"functions":[]}],"trancodename":"test","version":"1.0","description":"this is a test trancode","inputs":[{"name":"parameter1","datatype":"1","list":true,"default":"1"},{"name":"parameter2","datatype":"0","list":false,"default":""}],"outputs":[{"name":"parameter1","datatype":"1","list":true,"default":"1"},{"name":"parameter1","datatype":"0","list":false,"default":""}]}
+            
+            jeditor = new UIJEditor.JsonEditor('tree', data, data.trancodename + '   ' + data.version,options);         
+        }).catch((error) => {
+            console.log(error);
+        })
+    });
+
+    function itemchange(e){
+      console.log('item changed',e)
+    }
+  </script>
 </body>
 </html>
