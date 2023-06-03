@@ -39,25 +39,25 @@
       ]
     },
     {
-      "path": "trans",
+      "path": "trancode",
       "module": "TranCodeController",    
       "endpoints": [
         {
           "method": "POST",
-          "path": "/exetrancode",
+          "path": "/execute",
           "handler": "ExecuteTranCode"
         },{
           "method": "GET",
-          "path": "/trancodelist",
+          "path": "/list",
           "handler": "GetTranCodeListFromRespository"
         },{
           "method": "POST",
-          "path": "/trancode",
+          "path": "/detail",
           "handler": "GetTranCodeDetailFromRespository"
         }
         ,{
           "method": "POST",
-          "path": "/updatetrancode",
+          "path": "/update",
           "handler": "UpdateTranCodeToRespository"
         }
       ]

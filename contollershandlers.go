@@ -30,7 +30,7 @@ func loadControllers(router *gin.Engine, controllers []Controller) {
 	for _, controllerConfig := range controllers {
 		ilog.Info(fmt.Sprintf("loadControllers:%s", controllerConfig.Module))
 
-		err := createEndpoints(router, controllerConfig.Module, controllerConfig.Endpoints)
+		err := createEndpoints(router, controllerConfig.Module, controllerConfig.Path, controllerConfig.Endpoints)
 		if err != nil {
 			ilog.Error(fmt.Sprintf("Failed to load controller module %s: %v", controllerConfig.Module, err))
 		}
@@ -57,7 +57,7 @@ func getModule(module string) reflect.Value {
 	return reflect.Value{}
 }
 
-func createEndpoints(router *gin.Engine, module string, endpoints []Endpoint) error {
+func createEndpoints(router *gin.Engine, module string, modulepath string, endpoints []Endpoint) error {
 
 	ilog.Info(fmt.Sprintf("Create the endpoints for the module:%s", module))
 
@@ -78,15 +78,15 @@ func createEndpoints(router *gin.Engine, module string, endpoints []Endpoint) er
 		// Add the API endpoint to the router
 		switch endpoint.Method {
 		case http.MethodGet:
-			router.GET(endpoint.Path, handler)
+			router.GET(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
 		case http.MethodPost:
-			router.POST(endpoint.Path, handler)
+			router.POST(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
 		case http.MethodPut:
-			router.PUT(endpoint.Path, handler)
+			router.PUT(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
 		case http.MethodPatch:
-			router.PATCH(endpoint.Path, handler)
+			router.PATCH(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
 		case http.MethodDelete:
-			router.DELETE(endpoint.Path, handler)
+			router.DELETE(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
 		default:
 			return fmt.Errorf("unsupported HTTP method '%s'", endpoint.Method)
 		}

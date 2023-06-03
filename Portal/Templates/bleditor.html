@@ -65,7 +65,7 @@
                 "code": $Context.inputs.selectedname
             }
             console.log(inputs)
-            ajax.post('/trancode',inputs).then((response) => {
+            ajax.post('/trancode/detail',inputs).then((response) => {
                 console.log(JSON.parse(response))
                 let width = $('#fg_processflow').width()
                 let height = $('#fg_processflow').height()

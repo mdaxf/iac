@@ -19,7 +19,7 @@
         console.log('ajax call')
 
             let ajax = new UI.Ajax("");
-            ajax.get('/trancodelist',false).then((response) => {
+            ajax.get('/trancode/list',{},false).then((response) => {
              //   console.log(response)
                 data = JSON.parse(response)["Outputs"];
               //  console.log(data)
