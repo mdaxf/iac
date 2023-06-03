@@ -15,13 +15,16 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 
 	config "github.com/mdaxf/iac/config"
 	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/framework/cache"
 	"github.com/mdaxf/iac/integration/messagebus/nats"
+	"github.com/mdaxf/iac/integration/mqttclient"
 	"github.com/mdaxf/iac/logger"
 )
 
@@ -33,11 +36,11 @@ func initialize() {
 	initializeloger()
 	config.SessionCacheTimeout = 1800
 	initializecache()
-	initializeDatabase()
+	go initializeDatabase()
 	nats.MB_NATS_CONN, err = nats.ConnectNATSServer()
 
-	initializedDocuments()
-
+	go initializedDocuments()
+	initializeMqttClient()
 }
 
 func initializeDatabase() {
@@ -71,4 +74,29 @@ func initializedDocuments() {
 	var DatabaseConnection = "mongodb://localhost:27017"
 	var DatabaseName = "IAC_CFG"
 	documents.ConnectDB(DatabaseType, DatabaseConnection, DatabaseName)
+}
+
+func initializeMqttClient() {
+	ilog.Debug("initialize MQTT Client")
+
+	data, err := ioutil.ReadFile("mqttconfig.json")
+	if err != nil {
+		ilog.Debug(fmt.Sprintf("failed to read configuration file: %v", err))
+
+	}
+	ilog.Debug(fmt.Sprintf("MQTT Clients configuration file: %s", string(data)))
+	var mqttconfig mqttclient.MqttConfig
+	err = json.Unmarshal(data, &mqttconfig)
+	if err != nil {
+		ilog.Debug(fmt.Sprintf("failed to unmarshal the configuration file: %v", err))
+
+	}
+	ilog.Debug(fmt.Sprintf("MQTT Clients configuration: %v", logger.ConvertJson(mqttconfig)))
+
+	for _, mqttcfg := range mqttconfig.Mqtts {
+		ilog.Debug(fmt.Sprintf("MQTT Client configuration: %s", logger.ConvertJson(mqttcfg)))
+		go mqttclient.NewMqttClient(mqttcfg)
+
+	}
+
 }

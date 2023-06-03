@@ -103,7 +103,7 @@
                             "data": flowobj
                         }
                         console.log(inputs)
-                        ajax.post('/updatetrancode',inputs).then((response) => {
+                        ajax.post('/trancode/update',inputs).then((response) => {
                             console.log(response)
                         }).catch((error) => {
                             console.log(error);

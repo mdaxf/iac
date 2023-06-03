@@ -1,0 +1,20 @@
+{
+    "name": "Page List",
+    "type": "view-type",
+    "file": "templates/datalist.html",
+    "inlinestyle": "height: 100%;",
+    "inputs":{    
+        "ui_dataschema":"uipage"
+    },
+    "outputs":{
+        "selectedKey": "",
+        "datasource":"",
+        "datasourcetype":"",
+        "ui_dataschema":"uipage",
+        "ui_schema":null,   
+        "action": ""
+    },
+    "actions":{
+        "SELECT":{"type": "page", "next": "","page":"pages/pageeditor.json","panels":[]}
+    }
+}

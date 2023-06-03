@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mdaxf/iac/controllers/collectionop"
 	"github.com/mdaxf/iac/controllers/role"
 	"github.com/mdaxf/iac/controllers/trans"
 	"github.com/mdaxf/iac/controllers/user"
@@ -53,7 +54,13 @@ func getModule(module string) reflect.Value {
 	case "TranCodeController":
 		moduleInstance := &trans.TranCodeController{}
 		return reflect.ValueOf(moduleInstance)
+
+	case "CollectionController":
+		moduleInstance := &collectionop.CollectionController{}
+		return reflect.ValueOf(moduleInstance)
+
 	}
+
 	return reflect.Value{}
 }
 

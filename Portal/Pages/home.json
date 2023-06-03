@@ -25,7 +25,7 @@
 				"actions":{
 					"BusinessLogic": {"type": "page", "next": "","page":"pages/bl.json"},
                     "ViewEditor": {"type": "page", "next": "","page":"pages/vieweditor.json"},
-					"LayoutEditor": {"type": "page", "next": "","page":"pages/layout.json"}
+					"LayoutEditor": {"type": "page", "next": "","page":"pages/pagelist.json"}
 				},
 				"initcode": ""				
 			},

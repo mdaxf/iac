@@ -21,6 +21,7 @@ var UI = UI || {};
             this.attrs = attrs;
             this.data = data;
             this.tag = tag;
+            
         //    console.log(this.parent,this.attrs, this.tag, this.events, this.data)
             this.build();
             this.setevents();
@@ -37,7 +38,7 @@ var UI = UI || {};
                 else
                     this.control.setAttribute(key, this.attrs[key]);
             }
-            this.control.classList.add("ui");
+        //    this.control.classList.add("ui");
             this.parent.appendChild(this.control);
         }
         setevents(){

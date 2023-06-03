@@ -408,7 +408,10 @@ var UI = UI || {};
         getPropertiesFromSchema(path){
           if(!this.schema || this.schema =={})
             return null;
-          
+
+          if(this.schemaRootNode == null){
+                this.getSchemaDefinitions();
+          }
           if(path.startsWith('#/'))
               path = path.replace('#/','')
 
@@ -424,7 +427,7 @@ var UI = UI || {};
           let isArray = false;
           for(var i=0;i<keys.length;i++){
             let key = keys[i]
-         //   console.log(schemaNode,key)
+            console.log(this.schema,schemaNode,key)
             if(!schemaNode.properties.hasOwnProperty(key))
                 return null;
 
@@ -777,6 +780,70 @@ var UI = UI || {};
                 return item;
 
         }
+        ShowTree(){
+            
+            $('#ui_left_float_panel').remove();
+
+            let attrs = {
+				'class':'ui_left_float_panel',
+				'id':'ui_left_float_panel',
+				'style':'width:0px;height:100%;float:left;position:absolute;top:0px;left:0px;background-color:lightgrey;overflow:auto;' +
+								'border-left:2px solid #ccc;resize:horizontal;z-index:9'
+			}
+            this.item_panel = (new UI.FormControl(document.body, 'div', attrs)).control;
+
+            let that = this;
+			this.item_panel.innerHTML  = "" 
+			var divsToRemove = this.item_panel.getElementsByClassName("container-fluid");
+			while (divsToRemove.length > 0) {
+				divsToRemove[0].parentNode.removeChild(divsToRemove[0]);
+			}
+			attrs={class: 'container-fluid',style: 'width: 90%;height:95%;margin-left:10px;margin-right:10px;'}
+			let container_fluid = (new UI.FormControl(this.item_panel, 'div', attrs)).control;
+			
+			attrs={class: 'btn btn-danger', id: 'closefunction', innerHTML:'X',style: 'float:right;top:2px;right:2px;position:absolute;'}
+			let events={click: function(){
+				that.item_panel.style.width = "0px";
+				that.item_panel.style.display = "none";
+				that.item_panel.innerHTML  = "" }};
+			new UI.FormControl(container_fluid, 'button', attrs, events);
+			new UI.FormControl(container_fluid, 'div', {id:'ui-json-object-tree',class:'tree',style:'width:100%;height:100%;'});
+			that.item_panel.style.width = "350px";
+			that.item_panel.style.display = "flex";
+			var options = {
+				showlabelonly:true,
+				editable:true,
+				openlevel: -1
+			}
+            let title = 'root'
+            if(that.data.hasOwnProperty('name')){
+                title = that.data['name']
+                if(that.data.hasOwnProperty('version'))
+                    title += ' - '+that.data['version']
+
+            }else if(that.schema && that.schema !={}){
+                if(that.schema.hasOwnProperty('$ref'))
+                {
+                    let ref = that.schema['$ref']
+                    refs = ref.split('/')
+                    title = refs[refs.length-1]
+                }
+            }
+			let rootdata ={
+				text: title,
+				state: { opened: true },
+				children: that.formatJSONforjstree(that.data),
+			}
+			
+			$(function() {
+			  $('#ui-json-object-tree').jstree({
+				'core': {
+				  'data': rootdata
+				}
+			  });		
+			});  
+
+        }
         ExportJSON(){          
             return JSON.stringify(this.data);
         }
@@ -880,4 +947,203 @@ var UI = UI || {};
           }
     }
     UI.JSONManager = JSONManager
+
+    class JSONSchema{
+        constructor(schema){
+            this.schema = schema || {};
+            this.getSchemaRootDefinitions();
+        }
+        getSchemaRootDefinitions(){
+            //    console.log(this.schema)
+            this.schemaRootNode = null
+            if(this.schema !=null && this.schema !={}){
+                if(this.schema.hasOwnProperty('definitions') && this.schema.hasOwnProperty("$ref")){
+                    this.schemaDefinitions = this.schema['definitions'];
+                    let rootpath = this.schema["$ref"];
+                    if(rootpath.startsWith('#/'))
+                        rootpath = rootpath.replace('#/','')
+                    
+                    let paths = rootpath.includes('/')? rootpath.split('/'):[rootpath];
+                    let currentNode = this.schema
+                    for(var i=0;i<paths.length;i++){
+                        let path = paths[i];
+                        currentNode =currentNode[path]        
+                    }
+                    this.schemaRootNode = currentNode;
+                }
+            }
+                   
+        }
+        getPropertiesFromSchema(path){
+            if(!this.schema || this.schema =={})
+              return null;
+  
+            if(this.schemaRootNode == null){
+                  this.getSchemaRootDefinitions();
+            }
+            if(path.startsWith('#/'))
+                path = path.replace('#/','')
+  
+            if(path =='')
+              return {
+                  node:this.schemaRootNode
+              }
+           //  functiongroups/functions/inputs/datatype
+            const keys = path.toString().includes("/")? path.toString().split("/"): [path];
+            let Properties = {};
+            let schemaNode = this.schemaRootNode
+          //  console.log(schemaNode, path, keys)
+            let isArray = false;
+            for(var i=0;i<keys.length;i++){
+              let key = keys[i]
+              console.log(this.schema,schemaNode,key)
+              if(!schemaNode.properties.hasOwnProperty(key))
+                  return null;
+  
+              Properties = schemaNode.properties[key];
+           //   console.log(key, Properties)
+              if(Properties.hasOwnProperty('$ref') || (Properties.hasOwnProperty('type') && Properties['type'] == 'array')){
+                  let nodepath = '';
+                  
+                  if(Properties.hasOwnProperty('type') && Properties['type'] == 'array')
+                      isArray =true;
+                  else 
+                      isArray = false;
+  
+                  if(Properties.hasOwnProperty('$ref'))
+                      nodepath = Properties['$ref']                
+                  else if(Properties['items'].hasOwnProperty('$ref') && (i<keys.length-1))
+                      nodepath = Properties['items']['$ref'];
+                  else 
+                      return {
+                          node:schemaNode,
+                          properties: Properties,
+                          isArray: isArray
+                      }
+  
+                  if(nodepath.startsWith('#/'))
+                      nodepath = nodepath.replace('#/','')
+                  
+                  let paths = nodepath.includes('/')? nodepath.split('/'):[nodepath];
+              //    console.log(paths)
+                  let currentNode = this.schema
+                  for(var j=0;j<paths.length;j++){
+                      let path1 = paths[j];
+                      currentNode =currentNode[path1]                    
+                  }
+             //    console.log(i, key, keys,schemaNode,currentNode)
+                  if(currentNode.hasOwnProperty('type')){
+                      if(currentNode['type'] == 'object'){
+                          if(i == keys.length-1){
+                              let pro =  currentNode.hasOwnProperty('properties')? currentNode['properties']: currentNode
+                              pro = Object.assign(pro, Properties)
+                              return {
+                                  node: schemaNode,
+                                  properties: pro,
+                                  isArray: isArray 
+                              }
+                          }else
+                              schemaNode = currentNode;
+                      }
+                      else{
+                          let pro =  currentNode.hasOwnProperty('properties')? currentNode['properties']: currentNode
+                      //    console.log(key, path, pro, Properties)
+                          pro = Object.assign(pro, Properties)
+                          return{
+                              node: schemaNode,
+                              properties: pro,
+                              isArray: isArray
+                          }
+                      }
+                  }else if(i == keys.length-1)
+                      return {
+                          node: schemaNode,
+                          properties: pro,
+                          isArray: isArray 
+                      }
+  
+                  schemaNode = currentNode;
+              }
+              else{
+                  return{
+                      node: schemaNode,
+                      properties: Properties,
+                      isArray: isArray
+                  }
+              }
+            }
+            return null;
+  
+          }
+          getSchemaDefinition(path){
+  
+            if(!this.schema || this.schema =={})
+              return null;
+            
+            if(path.startsWith('#/'))
+                path = path.replace('#/','')
+  
+            if(path =='')
+              return this.schemaRootNode
+  
+            const keys = path.toString().includes("/")? path.toString().split("/"): [path];
+            
+            let Properties = {};
+            let schemaNode = this.schemaRootNode
+          //  console.log('get the schema definition:',path)
+  
+            for(var i=0;i<keys.length;i++){
+              let key = keys[i]
+           //   console.log(schemaNode)
+              if(!schemaNode.properties.hasOwnProperty(key))
+                  return null;
+  
+              Properties = schemaNode.properties[key];
+            //  console.log(key, Properties)
+              if(Properties.hasOwnProperty('$ref') || (Properties.hasOwnProperty('type') && Properties['type'] == 'array')){
+                  let nodepath = '';
+                  if(Properties.hasOwnProperty('$ref'))
+                      nodepath = Properties['$ref']                
+                  else if(Properties['items'].hasOwnProperty('$ref'))
+                      nodepath = Properties['items']['$ref'];
+                  else 
+                      return  schemaNode              
+  
+                  if(nodepath.startsWith('#/'))
+                      nodepath = nodepath.replace('#/','')
+                  
+                  let paths = nodepath.includes('/')? nodepath.split('/'):[nodepath];
+            //      console.log(paths)
+                  let currentSchemaDefinition = this.schema
+                  for(var j=0;j<paths.length;j++){
+                      let path1 = paths[j];
+                      currentSchemaDefinition =currentSchemaDefinition[path1]                    
+                  }
+               //   console.log(currentSchemaDefinition, i, keys)
+  
+                  if(currentSchemaDefinition.hasOwnProperty('type')){
+                      if(currentSchemaDefinition['type'] == 'object'){
+                          if(i== keys.length -1)
+                              return currentSchemaDefinition;
+                          else
+                              schemaNode = currentSchemaDefinition;
+                      }
+                      else{
+                          return schemaNode
+                      }
+                  }
+                  else if(i== keys.length -1)
+                      return currentSchemaDefinition;
+  
+                  schemaNode = currentSchemaDefinition;
+              }
+              else{
+                  return schemaNode
+              }
+            }
+            return null;           
+          }
+    }
+    UI.JSONSchema = JSONSchema
+    
 })(UI || (UI = {}));

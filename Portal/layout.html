@@ -11,12 +11,12 @@
   <script src="scripts/gridstack/gridstack-all.js"></script>
 </head>
 <body>
-  <div class="button_menu" style="display:inline-flex">
+  <!---<div class="button_menu" style="display:inline-flex">
     <button class="btn btn_primary" value="Save" onclick="LayoutEditor.save(true,false)">Save</button>
     <button class="btn btn_primary" value="AddContainer" onclick="LayoutEditor.addPanelContainer()">Add Container</button>
     <button class="btn btn_primary" value="AddPanel" onclick="LayoutEditor.addPanel()">Add Panel</button>
     <button class="btn btn_secondary btn_removepanel" value="RemovePanel" onclick="LayoutEditor.removeSelected()">Remove Panel</button>
-  </div>
+  </div>  -->
   <div class="container-fluid">
   <script type="text/javascript">
     $Context.onLoaded(function() {
@@ -87,8 +87,8 @@
           let node={
             x:0,
             y:0,
-            w:3,
-            h:3,
+            w:100,
+            h:100,
             content: 'The panel can include other panels',
             subGridOpts: {children: [], id:'sub_grid'+ (LayoutEditor.Options.length+1), class: 'sub_grid', ...LayoutEditor.subOptions}
           }
@@ -102,7 +102,7 @@
             let content = '<div class="layout_panel_operations"><div><input style="min-width:50px;" value="panel'+count+'" />'
               content +='<button class="btn htn_primary" style="position: absolute; right: 5px;">...</button></div>'
               content +='<div><span class="linke_view"></span><i class="fa fa-link"></i><i class="fa fa-unlink"></i></div></div>'
-            let cell = LayoutEditor.grid.addWidget({x:0, y:100, content:content, w:3, h:3, id:'panel'+count, class:'layout_panel'});
+            let cell = LayoutEditor.grid.addWidget({x:0, y:100, content:content, w:100, h:100, id:'panel'+count, class:'layout_panel'});
           //  console.log(cell)
             LayoutEditor.addSelectEvent(cell)
         },
@@ -163,7 +163,7 @@
           let width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
             let height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
             width = width - 50;
-            height = height - 100;
+            height = height - 20;
             $($('.container-fluid').find('.grid-stack')[0] ).css('width', width+'px');
             $($('.container-fluid').find('.grid-stack')[0] ).css('height', height+'px');
         }

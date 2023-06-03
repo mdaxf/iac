@@ -1,0 +1,24 @@
+{
+    "mqtts": [
+      {
+        "type": "",
+        "broker": "broker.hivemq.com",
+        "port": "1883",
+        "certFile": "",
+        "keyFile": "",
+        "caFile": "",
+        "topics": [
+          {
+            "topic": "test",
+            "qos": "0",
+            "handler": "publish"
+          },
+          {
+            "topic": "test2",
+            "qos": "0",
+            "handler": "publish"
+          }
+        ]
+      }
+    ]
+  }

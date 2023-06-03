@@ -239,12 +239,13 @@ func (e *TranCodeController) UpdateTranCodeToRespository(ctx *gin.Context) {
 		idata["system.createdby"] = "system"
 
 		iLog.Debug(fmt.Sprintf("Insert transaction code to respository with code: %s", name))
-		err := documents.DocDBCon.InsertCollection("Transaction_Code", idata)
+		insertResult, err := documents.DocDBCon.InsertCollection("Transaction_Code", idata)
 		if err != nil {
 			iLog.Error(fmt.Sprintf("failed to insert transaction code: %v", err))
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		id = insertResult.InsertedID.(primitive.ObjectID).Hex()
 	} else if idata != nil {
 
 		parsedObjectID, err := primitive.ObjectIDFromHex(id)
@@ -271,7 +272,11 @@ func (e *TranCodeController) UpdateTranCodeToRespository(ctx *gin.Context) {
 		}
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"Outputs": "Success"})
+	result := map[string]interface{}{
+		"id":     id,
+		"status": "Success",
+	}
+	ctx.JSON(http.StatusOK, gin.H{"Outputs": result})
 
 }
 

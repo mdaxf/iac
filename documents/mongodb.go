@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -100,7 +101,36 @@ func (doc *DocDB) QueryCollection(collectionname string, filter bson.M, projecti
 
 	return results, nil
 }
+func (doc *DocDB) GetItembyID(collectionname string, id string) (bson.M, error) {
 
+	MongoDBCollection := doc.MongoDBDatabase.Collection(collectionname)
+
+	objectid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		doc.iLog.Error(fmt.Sprintf("failed to convert id to objectid with error: %s", err))
+	}
+
+	filter := bson.M{"_id": objectid}
+
+	doc.iLog.Debug(fmt.Sprintf("GetItembyID: %s from collection:%s", filter, collectionname))
+	//var result bson.Raw
+	var result bson.M
+	err = MongoDBCollection.FindOne(context.Background(), filter).Decode(&result)
+
+	if err != nil {
+		doc.iLog.Error(fmt.Sprintf("failed to get data from collection with error: %s", err))
+	}
+	doc.iLog.Debug(fmt.Sprintf("GetItembyID: %s", result))
+	/*
+		jsonBytes, err := bson.MarshalExtJSON(result, true, false)
+		if err != nil {
+			doc.iLog.Error(fmt.Sprintf("failed to convert data to json with error: %s", err))
+		}
+		jsonString := string(jsonBytes)
+		doc.iLog.Debug(fmt.Sprintf("GetItembyID result: %s", jsonString))
+	*/
+	return result, err
+}
 func (doc *DocDB) UpdateCollection(collectionname string, filter bson.M, update bson.M, idata interface{}) error {
 
 	MongoDBCollection := doc.MongoDBDatabase.Collection(collectionname)
@@ -128,23 +158,23 @@ func (doc *DocDB) UpdateCollection(collectionname string, filter bson.M, update 
 
 }
 
-func (doc *DocDB) InsertCollection(collectionname string, idata interface{}) error {
+func (doc *DocDB) InsertCollection(collectionname string, idata interface{}) (*mongo.InsertOneResult, error) {
 
 	MongoDBCollection := doc.MongoDBDatabase.Collection(collectionname)
 
 	data, err := doc.convertToBsonM(idata)
 	if err != nil {
 		doc.iLog.Error(fmt.Sprintf("failed to update data from collection with error: %s", err))
-		return err
+		return nil, err
 	}
 
-	_, err = MongoDBCollection.InsertOne(context.Background(), data)
+	insertResult, err := MongoDBCollection.InsertOne(context.Background(), data)
 
 	if err != nil {
 		doc.iLog.Error(fmt.Sprintf("failed to insert data from collection with error: %s", err))
 	}
 
-	return err
+	return insertResult, err
 }
 
 func (doc *DocDB) convertToBsonM(data interface{}) (bson.M, error) {

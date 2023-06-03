@@ -1,0 +1,73 @@
+{
+	"name": "View Editor",
+	"version": "1.0.0",
+	"isdefault": true,
+	"orientation": 0,
+	"initcode":"",
+	"onloadcode": "",
+	"inlinestyle": "width: 100%; height: 100%;",
+  	"system":{
+      "createdby":"",
+      "createdon":"2023-01-01",
+      "updatedby":"",
+      "updatedon":"2023-02-01"
+    },
+    "workspace":{
+    	"sys": "RWP",
+        "common": "R"
+    },
+    "actions":{
+		"abc": {"type": "page", "page":"src0", "panels":[]},
+        "abd": {"type": "page", "page":"src2","panels":[]}
+				},
+	"panels": [{
+		"name": "slide_icon",
+		"orientation": 2,
+		"view": {
+			"name": "slide_menu",
+			"config":"Views/slidemenu.json"
+		},
+		"inlinestyle": "display: float; left:0px; bottom:0px; height: 45px; width:0px;"
+		},
+		{
+			"name": "vieweditor_slide_menu",
+			"orientation": 1,
+			"view": {
+				"name": "vieweditor_slide_menu",
+				"file": "templates/layouteditor_slidemenu.html",
+				"inlinestyle": "height: 100%;width:45px;",
+				"inputs":{       
+				},
+				"outputs":{
+					"action": ""
+				},
+				"actions":{
+					
+				},
+				"initcode": ""	
+			},
+			"inlinestyle": "display: float; left:0px; bottom:0px; height: 100%; width:45px;background-color:#c9cbcc;"
+			
+		},
+		{
+			"name": "content",
+			"orientation": 1,
+			"view": {
+				"name": "layoutditor",
+				"type": "view-type",
+				"file": "templates/layout.html",
+				"inlinestyle": "height: 100%;",
+				"inputs":{       
+				},
+				"outputs":{
+					"action": ""
+				},
+				"actions":{
+					
+				},
+				"initcode": ""				
+			},
+			"inlinestyle": "width: 100%;height:100%"
+		}
+	]
+}

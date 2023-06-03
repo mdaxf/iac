@@ -1,0 +1,181 @@
+package mqttclient
+
+import (
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/google/uuid"
+	"github.com/mdaxf/iac/logger"
+)
+
+type MqttConfig struct {
+	Mqtts []Mqtt `json:"mqtts"`
+}
+
+type Mqtt struct {
+	Type       string      `json:"type"` // tcp, ws, wss
+	Broker     string      `json:"broker"`
+	Port       string      `json:"port"`
+	CertFile   string      `json:"certFile"`
+	KeyFile    string      `json:"keyFile"`
+	CaCertFile string      `json:"caFile"`
+	Username   string      `json:"username"`
+	Password   string      `json:"password"`
+	Topics     []MqttTopic `json:"topics"`
+}
+
+type MqttTopic struct {
+	Topic   string `json:"topic"`
+	Qos     byte   `json:"qos"`
+	Handler string `json:"handler"`
+}
+
+type MqttClient struct {
+	mqttBrokertype string
+	mqttBroker     string
+	mqttPort       string
+	certFile       string
+	keyFile        string
+	caCertFile     string
+	username       string
+	password       string
+	mqttClientID   string
+	mqttTopics     []MqttTopic
+	iLog           logger.Log
+	client         mqtt.Client
+}
+
+func NewMqttClient(configurations Mqtt) *MqttClient {
+	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "MqttClient"}
+
+	iLog.Debug(fmt.Sprintf(("Create MqttClient with configuration : %s"), logger.ConvertJson(configurations)))
+
+	mqttclient := &MqttClient{
+		mqttBrokertype: configurations.Type, // tcp, ws, wss
+		mqttBroker:     configurations.Broker,
+		mqttPort:       configurations.Port,
+		certFile:       configurations.CertFile,
+		keyFile:        configurations.KeyFile,
+		caCertFile:     configurations.CaCertFile,
+		mqttClientID:   (uuid.New()).String(),
+		mqttTopics:     configurations.Topics,
+		iLog:           iLog,
+	}
+	iLog.Debug(fmt.Sprintf(("Create MqttClient: %s"), logger.ConvertJson(mqttclient)))
+
+	mqttclient.Initialize_mqttClient()
+	return mqttclient
+}
+
+func (mqttClient *MqttClient) Initialize_mqttClient() {
+	// Create an MQTT client options
+	opts := mqtt.NewClientOptions()
+	opts.SetCleanSession(true)
+	opts.SetAutoReconnect(true)
+	opts.SetClientID(mqttClient.mqttClientID)
+	opts.SetUsername(mqttClient.username)
+	opts.SetPassword(mqttClient.password)
+	mqttClient.iLog.Debug(fmt.Sprintf("%s://%s:%s", mqttClient.mqttBrokertype, mqttClient.mqttBroker, mqttClient.mqttPort))
+
+	if mqttClient.mqttBrokertype == "" {
+		opts.AddBroker(fmt.Sprintf("%s:%s", mqttClient.mqttBroker, mqttClient.mqttPort)) // Replace with your MQTT broker address
+	} else {
+		opts.AddBroker(fmt.Sprintf("%s://%s:%s", mqttClient.mqttBrokertype, mqttClient.mqttBroker, mqttClient.mqttPort)) // Replace with your MQTT broker address
+	}
+
+	if mqttClient.mqttBrokertype == "ssl" {
+		// Load client cert
+		cert, err := tls.LoadX509KeyPair(mqttClient.certFile, mqttClient.keyFile)
+		if err != nil {
+			mqttClient.iLog.Critical(fmt.Sprintf("Failed to load client certificates: %v", err))
+
+		}
+		opts.SetTLSConfig(&tls.Config{
+			Certificates: []tls.Certificate{cert},
+			RootCAs:      mqttClient.loadCACert(mqttClient.caCertFile),
+		})
+	}
+	// Create an MQTT client
+	client := mqtt.NewClient(opts)
+	mqttClient.client = client
+	// Create a channel to receive MQTT messages
+	messageChannel := make(chan mqtt.Message)
+
+	// Define the MQTT message handler
+	messageHandler := func(client mqtt.Client, msg mqtt.Message) {
+		messageChannel <- msg
+	}
+
+	// Set the message handler
+	//client.SetDefaultPublishHandler(messageHandler)
+
+	// Connect to the MQTT broker
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		mqttClient.iLog.Critical(fmt.Sprintf("Failed to connect to MQTT broker: %v", token.Error()))
+
+	}
+
+	// Subscribe to the desired MQTT topic(s)
+	for _, data := range mqttClient.mqttTopics {
+		//topic := data["topic"].(string)
+
+		topic := data.Topic
+		qos := data.Qos
+		if token := client.Subscribe(topic, qos, messageHandler); token.Wait() && token.Error() != nil {
+			mqttClient.iLog.Error(fmt.Sprintf("Failed to subscribe to MQTT topic: %v", token.Error()))
+		}
+		mqttClient.iLog.Debug(fmt.Sprintf("Subscribed to topic: %s", topic))
+	}
+
+	// Start a goroutine to handle MQTT messages
+	go func() {
+		for {
+			select {
+			case msg := <-messageChannel:
+				// Process the received MQTT message
+				mqttClient.iLog.Debug(fmt.Sprintf("Received message: %s from topic: %s , %s ,%s", msg.Payload(), msg.Topic(), msg.MessageID(), msg.Qos()))
+
+			}
+		}
+	}()
+
+	// Wait for termination signal to gracefully shutdown
+	mqttClient.waitForTerminationSignal()
+}
+func (mqttClient *MqttClient) Publish(topic string, payload string) {
+
+	token := mqttClient.client.Publish(topic, 0, false, payload)
+	token.Wait()
+	if token.Error() != nil {
+		mqttClient.iLog.Debug(fmt.Sprintf("Failed to publish message: topic %s, payload %s\n %s\n with error:", topic, payload, token.Error()))
+	} else {
+		mqttClient.iLog.Debug(fmt.Sprintf("Message published successfully: topic %s, payload %s\n", topic, payload))
+	}
+}
+
+func (mqttClient *MqttClient) loadCACert(caCertFile string) *x509.CertPool {
+	caCert, err := ioutil.ReadFile(caCertFile)
+	if err != nil {
+		mqttClient.iLog.Error(fmt.Sprintf("Failed to read CA certificate: %v", err))
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+	return caCertPool
+}
+
+func (mqttClient *MqttClient) waitForTerminationSignal() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	<-c
+	fmt.Println("\nShutting down...")
+	mqttClient.client.Disconnect(250)
+	time.Sleep(2 * time.Second) // Add any cleanup or graceful shutdown logic here
+	os.Exit(0)
+}

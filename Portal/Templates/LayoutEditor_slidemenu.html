@@ -1,0 +1,66 @@
+<body>
+    <div class="sidebar menu_items">
+
+      <div data-key="Tree" onclick="LayoutEditor.ShowTree()"  class="item ui_page_silde_icon-menu-item">
+        <i class="icon tree"></i>
+        <span>Tree</span>
+      </div>
+      <div data-key="Properties" onclick="LayoutEditor.ShowRootProperties()"  class="item ui_page_silde_icon-menu-item">
+        <i class="icon Properties"></i>
+        <span>Tree</span>
+      </div>
+      <div data-key="New"  class="item ui_page_silde_icon-menu-item">
+        <i class="icon piper"></i>
+        <span>New</span>
+      </div>
+      <div data-key="AddContainer"  onclick="LayoutEditor.addPanelContainer()" class="item ui_page_silde_icon-menu-item">
+        <i class="icon plus"></i>
+        <span>Add Container</span>
+      </div>      
+      <div data-key="AddPanel"  onclick="LayoutEditor.addPanel()" class="item ui_page_silde_icon-menu-item">
+        <i class="icon plus"></i>
+        <span>Add Panel</span>
+      </div>
+      <div data-key="Save"  onclick="LayoutEditor.savelayout()"  class="item ui_page_silde_icon-menu-item">
+        <i class="icon save"></i>
+        <span>Save</span>
+      </div>      
+      <div data-key="SaveAs"  class="item ui_page_silde_icon-menu-item">
+        <i class="icon saveas"></i>
+        <span>Save As</span>
+      </div>
+      <div data-key="Compare"  onclick="LayoutEditor.ShowRedlines()" class="item ui_page_silde_icon-menu-item">
+        <i class="icon Compare"></i>
+        <span>Redlines</span>
+      </div>
+      <div data-key="Export"  class="item ui_page_silde_icon-menu-item">
+        <i class="icon export"></i>
+        <span>Export</span>
+      </div>
+      <div data-key="Import" onclick="LayoutEditor.loadLayout()" class="item ui_page_silde_icon-menu-item">
+        <i class="icon import"></i>
+        <span>Import</span>
+      </div>      
+    </div>
+  
+<script>
+    $Context.onLoaded(function(){
+        
+        $('.menu_items').find('.item:not([onclick])').on("click",function(e){
+            let element = $(e.target);
+            let dk = element.closest(".item").attr("data-key");
+            if(dk){
+                $Context.outputs.action = dk;
+                console.log(dk)
+             //   $Context.submit();
+            }
+        })
+
+
+    });
+
+</script>
+</body>
+
+
+

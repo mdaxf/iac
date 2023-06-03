@@ -49,7 +49,7 @@ var UI;
               return this.initializeRequest('GET', url, stream);
             }
 
-            get(url, data, stream) {
+            get(url, data, stream= false) {
                 return new Promise((resolve, reject) => {
                     const xhr = new XMLHttpRequest();
                     xhr.open('GET', `${url}`, true);                
@@ -66,7 +66,7 @@ var UI;
                     };
                     xhr.onerror = () => reject(xhr.statusText);
                     xhr.onabort = () => reject('abort');
-                    xhr.send(data);
+                    xhr.send(JSON.stringify(data));
                   });
             }
           
@@ -182,6 +182,11 @@ var UI;
     }
     UI.createFragment = createFragment;
 
+    ShowError = function (error) {
+        alert(error);
+        console.log(error);
+    }
+    UI.ShowError = ShowError;
 })(UI || (UI = {}));
 
 

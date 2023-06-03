@@ -1,0 +1,279 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "$ref": "#/definitions/UIPage",
+    "datasourcetype": "collection",
+    "datasource": "UI_Page",
+    "listfields":["name","version","isdefault","orientation","system.createdby", "system.createdon","workspace", "_id"],
+    "keyfield":"_id",
+    "definitions": {
+        "UIPage": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "_id": {
+                    "type": "string",
+                    "lng":{
+                        "code": "DB_ID",
+                        "default":"ID"
+                    } 
+                },
+                "uuid": {
+                    "type": "string",
+                    "lng":{
+                        "code": "UUID",
+                        "default":"UUID"
+                    } 
+                },
+                "name": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Name",
+                        "default":"Name"
+                    } 
+                },
+                "version": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Version",
+                        "default":"Version"
+                    } 
+                },
+                "isdefault": {
+                    "type": "boolean",
+                    "lng":{
+                        "code": "IsDefault",
+                        "default":"is Default?"
+                    } 
+                },
+                "orientation": {
+                    "type": "integer",
+                    "lng":{
+                        "code": "Orientation",
+                        "default":"Orientation"
+                    } ,
+                    "options":{
+                        "value": [0,1,2],
+                        "lngcode":["vertical", "horizontal", "floating"],
+                        "default": ["vertical", "horizontal", "floating"]
+                     }
+                },
+                "initcode": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Initialize_Code",
+                        "default":"Initialize Code"
+                    } 
+                },
+                "onloadcode": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Onload_Code",
+                        "default":"Onload Code"
+                    } 
+                },
+                "inlinestyle": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Styles",
+                        "default":"Styles"
+                    } 
+                },
+                "system": {
+                    "$ref": "#/definitions/System",
+                    "lng":{
+                        "code": "System",
+                        "default":"System"
+                    }
+                },
+                "workspace": {
+                    "type": "object",
+                    "lng":{
+                        "code": "WorkSpaces",
+                        "default":"WorkSpaces"
+                    } 
+                },
+                "actions": {
+                    "type": "object",
+                    "lng":{
+                        "code": "Actions",
+                        "default":"Actions"
+                    } 
+                },
+                "panels": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Panel"
+                    },
+                    "lng":{
+                        "code": "Panels",
+                        "default":"Panels"
+                    } 
+                }
+            },
+            "required": ["uuid",
+                "isdefault",
+                "name",
+                "orientation",
+                "panels",
+                "system",
+                "version",
+                "workspace"
+            ],
+            "unchangable": ["_id","uuid", "name"],
+            "hidden": ["_id"],
+            
+            "title": "UI Page"
+        },
+        "Panel": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Name",
+                        "default":"Name"
+                    } 
+                },
+                "orientation": {
+                    "type": "integer",
+                    "lng":{
+                        "code": "Orientation",
+                        "default":"Orientation"
+                    } 
+                },
+                "view": {
+                    "$ref": "#/definitions/View"
+                },
+                "inlinestyle": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Styles",
+                        "default":"Styles"
+                    } 
+                }
+            },
+            "required": [
+                "name",
+                "orientation",
+                "view"
+            ],
+            "title": "Panel"
+        },
+        "View": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Name",
+                        "default":"Name"
+                    } 
+                },
+                "config": {
+                    "type": "object",
+                    "lng":{
+                        "code": "Configuration",
+                        "default":"Configuration"
+                    } 
+                },
+                "file": {
+                    "type": "string",
+                    "lng":{
+                        "code": "File",
+                        "default":"File"
+                    } 
+                },
+                "inlinestyle": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Styles",
+                        "default":"Styles"
+                    } 
+                },
+                "inputs": {
+                    "type": "object",
+                    "lng":{
+                        "code": "Inputs",
+                        "default":"Inputs"
+                    }
+                },
+                "outputs": {
+                    "type": "object",
+                    "lng":{
+                        "code": "Outputs",
+                        "default":"Outputs"
+                    }
+                },
+                "actions": {
+                    "type": "object",
+                    "lng":{
+                        "code": "Actions",
+                        "default":"Actions"
+                    }
+                },
+                "initcode": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Initialize_Code",
+                        "default":"Initialize Code"
+                    }
+                },
+                "type": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Type",
+                        "default":"Type"
+                    }
+                }
+            },
+            "required": [
+                "name"
+            ],
+            "title": "View"
+        },     
+        "System": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "createdby": {
+                    "type": "string",
+                    "lng":{
+                        "code": "CreatedBy",
+                        "default":"Created By"
+                    }
+                },
+                "createdon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "lng":{
+                        "code": "CreatedOn",
+                        "default":"Created On"
+                    }
+
+                },
+                "updatedby": {
+                    "type": "string",
+                    "lng":{
+                        "code": "UpdatedBy",
+                        "default":"Updated By"
+                    }
+                },
+                "updatedon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "lng":{
+                        "code": "UpdatedOn",
+                        "default":"Updated On"
+                    }
+
+                }
+            },
+            "required": ["createdby", "createdon"],
+            "unchangable": ["id", "name"],
+            "hidden": [],
+            "title": "System"
+        }
+    }
+}

@@ -39,6 +39,28 @@
       ]
     },
     {
+      "path": "collection",
+      "module": "CollectionController",    
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/list",
+          "handler": "GetListofCollectionData"
+        },{
+          "method": "POST",
+          "path": "/update",
+          "handler": "UpdateCollectionData"
+        },{
+          "method": "POST",
+          "path": "/detail",
+          "handler": "GetDetailCollectionData"
+        },{
+          "method": "POST",
+          "path": "/id",
+          "handler": "GetDetailCollectionDatabyID"
+        }
+      ]},
+    {
       "path": "trancode",
       "module": "TranCodeController",    
       "endpoints": [
