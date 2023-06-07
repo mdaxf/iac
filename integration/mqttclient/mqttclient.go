@@ -7,11 +7,13 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
+	"github.com/mdaxf/iac/framework/queue"
 	"github.com/mdaxf/iac/logger"
 )
 
@@ -50,6 +52,7 @@ type MqttClient struct {
 	mqttTopics     []MqttTopic
 	iLog           logger.Log
 	client         mqtt.Client
+	queue          *queue.MessageQueue
 }
 
 func NewMqttClient(configurations Mqtt) *MqttClient {
@@ -69,6 +72,9 @@ func NewMqttClient(configurations Mqtt) *MqttClient {
 		iLog:           iLog,
 	}
 	iLog.Debug(fmt.Sprintf(("Create MqttClient: %s"), logger.ConvertJson(mqttclient)))
+	uuid := uuid.New().String()
+
+	mqttclient.queue = queue.NewMessageQueue(uuid, "mqttclient")
 
 	mqttclient.Initialize_mqttClient()
 	return mqttclient
@@ -140,7 +146,38 @@ func (mqttClient *MqttClient) Initialize_mqttClient() {
 			select {
 			case msg := <-messageChannel:
 				// Process the received MQTT message
-				mqttClient.iLog.Debug(fmt.Sprintf("Received message: %s from topic: %s , %s ,%s", msg.Payload(), msg.Topic(), msg.MessageID(), msg.Qos()))
+				mqttClient.iLog.Debug(fmt.Sprintf("Received message: %s from topic: %s , %d ,%d", msg.Payload(), msg.Topic(), msg.MessageID(), msg.Qos()))
+				handler := ""
+				for _, data := range mqttClient.mqttTopics {
+					if data.Topic == msg.Topic() {
+						handler = data.Handler
+						break
+					}
+				}
+				/*			data := map[string]interface{}{"Topic": msg.Topic(), "Payload": msg.Payload()}
+							jsonData, err := json.Marshal(data)
+							if err != nil {
+								mqttClient.iLog.Error(fmt.Sprintf("Failed to marshal data: %v", err))
+							}
+							rawMessage := json.RawMessage(jsonData)  */
+				/*var jsonData interface{}
+				err := json.Unmarshal(msg.Payload(), &jsonData)
+				if err != nil {
+					mqttClient.iLog.Error(fmt.Sprintf("Failed to unmarshal data: %v", err))
+					return
+				} */
+				message := queue.Message{
+					Id:        strconv.FormatUint(uint64(msg.MessageID()), 10),
+					UUID:      uuid.New().String(),
+					Retry:     3,
+					Execute:   0,
+					Topic:     msg.Topic(),
+					PayLoad:   string(msg.Payload()),
+					Handler:   handler,
+					CreatedOn: time.Now(),
+				}
+				mqttClient.iLog.Debug(fmt.Sprintf("Push message %s to queue: %s", message, mqttClient.queue.QueueID))
+				mqttClient.queue.Push(message)
 
 			}
 		}

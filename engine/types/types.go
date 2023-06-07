@@ -104,6 +104,11 @@ const (
 	TableInsert
 	TableUpdate
 	TableDelete
+	CollectionInsert
+	CollectionUpdate
+	CollectionDelete
+	ThrowError
+	SendMessage
 )
 
 type Status int

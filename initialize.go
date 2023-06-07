@@ -23,8 +23,10 @@ import (
 	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/framework/cache"
+	iacmb "github.com/mdaxf/iac/framework/messagebus"
 	"github.com/mdaxf/iac/integration/messagebus/nats"
 	"github.com/mdaxf/iac/integration/mqttclient"
+	"github.com/mdaxf/iac/integration/opcclient"
 	"github.com/mdaxf/iac/logger"
 )
 
@@ -36,11 +38,13 @@ func initialize() {
 	initializeloger()
 	config.SessionCacheTimeout = 1800
 	initializecache()
-	go initializeDatabase()
+	initializeDatabase()
 	nats.MB_NATS_CONN, err = nats.ConnectNATSServer()
 
-	go initializedDocuments()
+	initializedDocuments()
 	initializeMqttClient()
+	//	initializeOPCClient()
+	initializeIACMessageBus()
 }
 
 func initializeDatabase() {
@@ -99,4 +103,48 @@ func initializeMqttClient() {
 
 	}
 
+}
+
+func initializeOPCClient() {
+	ilog.Debug("initialize OPC Client")
+	data, err := ioutil.ReadFile("opcuaclient.json")
+	if err != nil {
+		ilog.Debug(fmt.Sprintf("failed to read configuration file: %v", err))
+
+	}
+	ilog.Debug(fmt.Sprintf("OPC UA Clients configuration file: %s", string(data)))
+
+	var config opcclient.OPCConfig
+
+	err = json.Unmarshal(data, &config)
+
+	if err != nil {
+		ilog.Debug(fmt.Sprintf("failed to unmarshal the configuration file: %v", err))
+	}
+	for _, opcuaclient := range config.OPCClients {
+		ilog.Debug(fmt.Sprintf("OPC UA Client configuration: %s", logger.ConvertJson(opcuaclient)))
+		go opcclient.Initialize(opcuaclient)
+	}
+}
+
+func initializeIACMessageBus() {
+	wg.Add(1)
+	go func() {
+		ilog.Debug("initialize IAC Message Bus")
+		defer wg.Done()
+
+		iacmb.Initialize(8888, "IAC")
+
+		ilog.Debug(fmt.Sprintf("IAC Message bus: %v", iacmb.IACMB))
+
+		iacmb.IACMB.Channel.OnRead(func(data string) {
+			ilog.Debug(fmt.Sprintf("IAC Message bus channel read: %s", data))
+		})
+
+		iacmb.IACMB.Channel.Write("Start the Message bus channel IAC")
+
+		data := map[string]interface{}{"name": "IAC", "type": "messagebus", "port": 8888, "channel": "IAC"}
+		iacmb.IACMB.Channel.Write(logger.ConvertJson(data))
+		iacmb.IACMB.Channel.Write("Start the Message bus channel IAC")
+	}()
 }

@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta Access-Control-Allow-Origin="*" />
 	<meta charset="utf8" />
 	<title>Glue Socket Test</title>
-  <script src="/dist/glue.js"></script>
+  <script src="/portal/scripts/glue.js"></script>
 </head>
 <body>
 	<h1>Glue Socket Test</h1>
@@ -11,7 +12,7 @@
     <button id="b1">Button</button>
 
 	<script>
-		var socket = glue();
+		var socket = glue('http://127.0.0.1:8888');
 
         socket.onMessage(function(data) {
             console.log("onMessage: " + data);

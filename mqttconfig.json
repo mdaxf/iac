@@ -9,12 +9,12 @@
         "caFile": "",
         "topics": [
           {
-            "topic": "test",
+            "topic": "test123/machien01",
             "qos": "0",
             "handler": "publish"
           },
           {
-            "topic": "test2",
+            "topic": "test123/machien02",
             "qos": "0",
             "handler": "publish"
           }

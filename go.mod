@@ -21,6 +21,7 @@ require (
 	github.com/gin-gonic/contrib v0.0.0-20221130124618-7e01895a63f2 // indirect
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/gopcua/opcua v0.3.15 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/golang-lru v1.0.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect

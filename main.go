@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"log"
 	"net/http"
@@ -31,8 +32,11 @@ import (
 	mongodb "github.com/mdaxf/iac/documents"
 )
 
+var wg sync.WaitGroup
+
 func main() {
 	// Load configuration from the file
+
 	config, err := loadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
@@ -100,6 +104,16 @@ func main() {
 	/*router.Static("/portal", "./portal")
 	router.LoadHTMLGlob("portal/*.html")
 	router.LoadHTMLGlob("portal/Scripts/UIFramework.js") */
+	router.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "127.0.0.1:8888") // Replace "*" with the specific origin you want to allow
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(200)
+			return
+		}
+		c.Next()
+	})
 	router.GET(portal.Path, func(c *gin.Context) {
 		c.HTML(http.StatusOK, portal.Home, gin.H{})
 	})
@@ -110,6 +124,8 @@ func main() {
 
 	ilog.Info(fmt.Sprintf("Started portal on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
 	//defer dbconn.DB.Close()
+
+	wg.Wait()
 }
 
 func loadpluginControllerModule(controllerPath string) (interface{}, error) {

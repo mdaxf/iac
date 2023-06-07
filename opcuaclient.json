@@ -1,0 +1,28 @@
+{
+    "opcclients":[
+        {
+            "host":"localhost",
+            "endpoint":"opc.tcp://10.5.16.193:49320",
+            "name":"opcuaclient",
+            "namespace":"urn:NodeOPCUA-Server-default",
+            "certFile":"",
+            "keyFile":"",
+            "caFile":"",
+            "subgroups":[
+                {
+                    "triggerTags":["Channel1.Device1.Tag1"],
+                    "triggerType":"value",
+                    "triggerValue":[0],
+                    "trigger":""
+                },
+                {
+                    "triggerTags":["Channel1.Device1.Tag2"],
+                    "triggerType":"value",
+                    "triggerValue":[0],
+                    "trigger":""
+                }
+            ]
+
+        }
+    ]
+}

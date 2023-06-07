@@ -324,6 +324,25 @@ func (f *Funcs) Execute() {
 		td := TableDeleteFuncs{}
 		td.Execute(f)
 
+	case types.CollectionInsert:
+		ci := CollectionInsertFuncs{}
+		ci.Execute(f)
+
+	case types.CollectionUpdate:
+		cu := CollectionUpdateFuncs{}
+		cu.Execute(f)
+
+	case types.CollectionDelete:
+		cd := CollectionDeleteFuncs{}
+		cd.Execute(f)
+
+	case types.ThrowError:
+		te := ThrowErrorFuncs{}
+		te.Execute(f)
+
+	case types.SendMessage:
+		sm := SendMessageFuncs{}
+		sm.Execute(f)
 	}
 }
 
