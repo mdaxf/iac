@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/mdaxf/iac/integration/messagebus/glue/backend"
+	"github.com/mdaxf/iac/integration/messagebus/glue/log"
 )
 
 //####################//
@@ -168,6 +169,9 @@ func (s *Server) Release() {
 // This is a blocking method.
 func (s *Server) Run() error {
 	// Skip if set to none.
+	log.L.Debug("start the glue server")
+	log.L.Debug("HTTPSocketType: %v", s.options.HTTPSocketType)
+	log.L.Debug("HTTPHandleURL: %v", s.options.HTTPHandleURL)
 	if s.options.HTTPSocketType != HTTPSocketTypeNone {
 		// Set the base glue HTTP handler.
 		http.Handle(s.options.HTTPHandleURL, s)

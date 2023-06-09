@@ -39,6 +39,31 @@
       ]
     },
     {
+      "path": "sqldata",
+      "module": "DBController",    
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/get",
+          "handler": "GetDataFromTables"
+        },
+        {
+          "method": "POST",
+          "path": "/update",
+          "handler": "UpdateDataToTable"
+        },
+        {
+          "method": "POST",
+          "path": "/insert",
+          "handler": "InsertDataToTable"
+        },
+        {
+          "method": "POST",
+          "path": "/delete",
+          "handler": "DeleteDataFromTable"
+        }
+      ]},
+    {
       "path": "collection",
       "module": "CollectionController",    
       "endpoints": [

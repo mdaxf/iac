@@ -37,6 +37,7 @@ func NewDBOperation(User string, DBTx *sql.Tx, moduleName string) *DBOperation {
 	if moduleName == "" {
 		moduleName = logger.Database
 	}
+
 	return &DBOperation{
 		DBTx:       DBTx,
 		ModuleName: moduleName,
@@ -147,12 +148,47 @@ func (db *DBOperation) QuerybyList(querystr string, namelist []string, inputs ma
 
 func (db *DBOperation) Query_Json(querystr string, args ...interface{}) ([]map[string]interface{}, error) {
 	db.iLog.Debug(fmt.Sprintf("Query with json object result: %s %s...", querystr, args))
-	rows, err := db.Query(querystr, args...)
+
+	idbtx := db.DBTx
+	blocaltx := false
+
+	if idbtx == nil {
+		idbtx, err = DB.Begin()
+		blocaltx = true
+		if err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to begin database transaction with error: %s", err.Error()))
+			return nil, err
+		}
+		defer idbtx.Commit()
+	}
+
+	//fmt.Println(string(args))
+	stmt, err := idbtx.Prepare(querystr)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(args...)
+
 	if err != nil {
 		db.iLog.Error(fmt.Sprintf("There is error to query database with error: %s", err.Error()))
 		return nil, err
 	}
-	return db.Conto_Json(rows)
+	defer rows.Close()
+
+	db.iLog.Debug(fmt.Sprintf("Query with json object result:%v...", rows))
+	jsondata, err := db.Conto_Json(rows)
+	if err != nil {
+		db.iLog.Error(fmt.Sprintf("There is error to convert the rows to json with error: %s", err.Error()))
+		return nil, err
+	}
+
+	if blocaltx {
+		idbtx.Commit()
+	}
+
+	return jsondata, nil
 }
 
 func (db *DBOperation) ExecSP(procedureName string, args ...interface{}) error {

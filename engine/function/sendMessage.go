@@ -3,8 +3,6 @@ package funcs
 import (
 	"encoding/json"
 	"fmt"
-
-	iacmb "github.com/mdaxf/iac/framework/messagebus"
 )
 
 type SendMessageFuncs struct {
@@ -29,7 +27,8 @@ func (cf *SendMessageFuncs) Execute(f *Funcs) {
 	// Convert JSON byte array to string
 	jsonString := string(jsonData)
 
-	iacmb.IACMB.Channel.Write(jsonString)
+	f.iLog.Debug(fmt.Sprintf("SendMessageFuncs Execute: %v", jsonString))
+	//iacmb.IACMB.Channel.Write(jsonString)
 }
 
 func (cf *SendMessageFuncs) Validate(f *Funcs) (bool, error) {

@@ -1,6 +1,7 @@
 package funcgroup
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -15,6 +16,8 @@ import (
 type FGroup struct {
 	FGobj               types.FuncGroup
 	DBTx                *sql.Tx
+	Ctx                 context.Context
+	CtxCancel           context.CancelFunc
 	Nextfuncgroup       string
 	SystemSession       map[string]interface{} // {sessionanme: value}
 	UserSession         map[string]interface{} // {sessionanme: value}
@@ -24,7 +27,7 @@ type FGroup struct {
 	iLog                logger.Log
 }
 
-func NewFGroup(dbTx *sql.Tx, fgobj types.FuncGroup, nextfuncgroup string, systemSession, userSession, externalinputs, externaloutputs map[string]interface{}) *FGroup {
+func NewFGroup(dbTx *sql.Tx, fgobj types.FuncGroup, nextfuncgroup string, systemSession, userSession, externalinputs, externaloutputs map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc) *FGroup {
 	log := logger.Log{}
 	log.ModuleName = logger.TranCode
 	log.ControllerName = "Function Group"
@@ -37,6 +40,8 @@ func NewFGroup(dbTx *sql.Tx, fgobj types.FuncGroup, nextfuncgroup string, system
 	return &FGroup{
 		FGobj:               fgobj,
 		DBTx:                dbTx,
+		Ctx:                 ctx,
+		CtxCancel:           ctxcancel,
 		Nextfuncgroup:       nextfuncgroup,
 		SystemSession:       systemSession,
 		UserSession:         userSession,

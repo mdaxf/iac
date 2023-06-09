@@ -1,6 +1,7 @@
 package trancode
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -16,13 +17,15 @@ import (
 type TranFlow struct {
 	Tcode           types.TranCode
 	DBTx            *sql.Tx
+	Ctx             context.Context
+	CtxCancel       context.CancelFunc
 	Externalinputs  map[string]interface{} // {sessionanme: value}
 	externaloutputs map[string]interface{} // {sessionanme: value}
 	SystemSession   map[string]interface{}
 	ilog            logger.Log
 }
 
-func NewTranFlow(tcode types.TranCode, externalinputs, systemSession map[string]interface{}, dbTx ...*sql.Tx) *TranFlow {
+func NewTranFlow(tcode types.TranCode, externalinputs, systemSession map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc, dbTx ...*sql.Tx) *TranFlow {
 	log := logger.Log{}
 	log.ModuleName = logger.TranCode
 	log.ControllerName = "Trancode"
@@ -33,9 +36,13 @@ func NewTranFlow(tcode types.TranCode, externalinputs, systemSession map[string]
 	}
 
 	idbTx := append(dbTx, nil)[0]
+
 	return &TranFlow{
 		Tcode:           tcode,
 		DBTx:            idbTx,
+		Ctx:             ctx,
+		CtxCancel:       ctxcancel,
+		ilog:            log,
 		Externalinputs:  externalinputs,
 		externaloutputs: map[string]interface{}{},
 		SystemSession:   systemSession,
@@ -66,12 +73,18 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 		defer t.DBTx.Rollback()
 	}
 
+	if t.Ctx == nil {
+		t.Ctx, t.CtxCancel = context.WithCancel(context.Background())
+
+		defer t.CtxCancel()
+	}
+
 	t.ilog.Debug(fmt.Sprintf("Start process transaction code %s's first func group: %s ", t.Tcode.Name, t.Tcode.Firstfuncgroup))
 	fgroup, code := t.getFGbyName(t.Tcode.Firstfuncgroup)
 	t.ilog.Debug(fmt.Sprintf("start first function group:", logger.ConvertJson(fgroup)))
 
 	for code == 1 {
-		fg := funcgroup.NewFGroup(t.DBTx, fgroup, "", systemSession, userSession, externalinputs, externaloutputs)
+		fg := funcgroup.NewFGroup(t.DBTx, fgroup, "", systemSession, userSession, externalinputs, externaloutputs, t.Ctx, t.CtxCancel)
 		fg.Execute()
 		externalinputs = fg.Externalinputs
 		externaloutputs = fg.Externaloutputs
@@ -85,6 +98,7 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 		err := t.DBTx.Commit()
 		if err != nil {
 			t.ilog.Error(fmt.Sprintf("Error in Trancode.Execute during DB transaction commit: %s", err.Error()))
+			t.CtxCancel()
 			return map[string]interface{}{}, err
 		}
 	}
@@ -151,7 +165,7 @@ type TranCodeData struct {
 type TranFlowstr struct {
 }
 
-func (t *TranFlowstr) Execute(tcode string, inputs map[string]interface{}, dbTx ...*sql.Tx) (map[string]interface{}, error) {
+func (t *TranFlowstr) Execute(tcode string, inputs map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc, dbTx ...*sql.Tx) (map[string]interface{}, error) {
 	tc, err := GetTransCode(tcode)
 
 	if err != nil {
@@ -162,7 +176,7 @@ func (t *TranFlowstr) Execute(tcode string, inputs map[string]interface{}, dbTx 
 
 	idbTx := append(dbTx, nil)[0]
 
-	tf := NewTranFlow(tc, externalinputs, systemSession, idbTx)
+	tf := NewTranFlow(tc, externalinputs, systemSession, ctx, ctxcancel, idbTx)
 
 	return tf.Execute()
 }

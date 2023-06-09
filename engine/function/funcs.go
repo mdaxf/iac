@@ -1,6 +1,7 @@
 package funcs
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -17,6 +18,8 @@ import (
 type Funcs struct {
 	Fobj                types.Function
 	DBTx                *sql.Tx
+	Ctx                 context.Context
+	CtxCancel           context.CancelFunc
 	SystemSession       map[string]interface{} // {sessionanme: value}
 	UserSession         map[string]interface{} // {sessionanme: value}
 	Externalinputs      map[string]interface{} // {sessionanme: value}
@@ -25,7 +28,7 @@ type Funcs struct {
 	iLog                logger.Log
 }
 
-func NewFuncs(dbTx *sql.Tx, fobj types.Function, systemSession, userSession, externalinputs, externaloutputs, funcCachedVariables map[string]interface{}) *Funcs {
+func NewFuncs(dbTx *sql.Tx, fobj types.Function, systemSession, userSession, externalinputs, externaloutputs, funcCachedVariables map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc) *Funcs {
 	log := logger.Log{}
 	log.ModuleName = logger.TranCode
 	log.ControllerName = "Function"
@@ -38,6 +41,8 @@ func NewFuncs(dbTx *sql.Tx, fobj types.Function, systemSession, userSession, ext
 	return &Funcs{
 		Fobj:                fobj,
 		DBTx:                dbTx,
+		Ctx:                 ctx,
+		CtxCancel:           ctxcancel,
 		SystemSession:       systemSession,
 		UserSession:         userSession,
 		Externalinputs:      externalinputs,
@@ -344,6 +349,20 @@ func (f *Funcs) Execute() {
 		sm := SendMessageFuncs{}
 		sm.Execute(f)
 	}
+}
+
+func (f *Funcs) Validate() (bool, error) {
+
+	return true, nil
+}
+
+func (f *Funcs) CancelExecution(errormessage string) {
+
+	f.iLog.Error(fmt.Sprintf("There is error during functoin %s execution: %s", f.Fobj.Name, errormessage))
+	f.DBTx.Rollback()
+	f.CtxCancel()
+	f.Ctx.Done()
+	return
 }
 
 func (f *Funcs) convertMap(m map[string][]interface{}) map[string]interface{} {

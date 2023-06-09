@@ -1,12 +1,13 @@
 package funcs
 
 import (
+	"context"
 	"database/sql"
 	"log"
 )
 
 type TransCodeInterface interface {
-	Execute(string, map[string]interface{}, *sql.Tx) (map[string]interface{}, error)
+	Execute(string, map[string]interface{}, context.Context, context.CancelFunc, *sql.Tx) (map[string]interface{}, error)
 }
 
 type SubTranCodeFuncs struct {
@@ -24,7 +25,7 @@ func (cf *SubTranCodeFuncs) Execute(f *Funcs) {
 	tcode := f.Fobj.Content
 	_, _, mappedinputs := f.SetInputs()
 
-	outputs, err := cf.TranFlowstr.Execute(tcode, mappedinputs, f.DBTx)
+	outputs, err := cf.TranFlowstr.Execute(tcode, mappedinputs, f.Ctx, f.CtxCancel, f.DBTx)
 	if err != nil {
 		log.Println(err)
 		return

@@ -40,7 +40,7 @@ func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 	//log.Print(tcdata.TranCode)
 	iLog.Info(fmt.Sprintf("Start process transaction code %s's %s ", tcdata.TranCode, "Execute"))
 	//tcode, err := e.getTransCode(tcdata.TranCode)
-	filter := bson.M{"trancodename": tcdata.TranCode}
+	filter := bson.M{"trancodename": tcdata.TranCode, "isdefault": true}
 
 	tcode, err := documents.DocDBCon.QueryCollection("Transaction_Code", filter, nil)
 
@@ -70,7 +70,7 @@ func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 		return
 	}
 
-	tf := trancode.NewTranFlow(code, tcdata.inputs, map[string]interface{}{}, nil)
+	tf := trancode.NewTranFlow(code, tcdata.inputs, map[string]interface{}{}, nil, nil, nil)
 	outputs, err := tf.Execute()
 
 	if err == nil {

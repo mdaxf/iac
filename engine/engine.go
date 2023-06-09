@@ -1,10 +1,11 @@
 package engine
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/mdaxf/iac/engine/trancode"
 	"github.com/mdaxf/iac/engine/types"
+	"github.com/mdaxf/iac/logger"
 )
 
 type Engine struct {
@@ -16,9 +17,14 @@ func NewEngine(trancode types.TranCode) *Engine {
 }
 
 func (e *Engine) Execute() {
-	tf := trancode.NewTranFlow(e.trancode, map[string]interface{}{}, map[string]interface{}{})
+	iLog := logger.Log{}
+	iLog.ModuleName = logger.TranCode
+	iLog.ControllerName = "Engine"
+	iLog.User = "System"
+
+	tf := trancode.NewTranFlow(e.trancode, map[string]interface{}{}, map[string]interface{}{}, nil, nil)
 	_, err := tf.Execute()
 	if err != nil {
-		log.Println(err)
+		iLog.Error(fmt.Sprintf("Execute the trancode error: %v", err.Error()))
 	}
 }

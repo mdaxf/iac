@@ -33,6 +33,7 @@ import (
 )
 
 var wg sync.WaitGroup
+var router *gin.Engine
 
 func main() {
 	// Load configuration from the file
@@ -48,7 +49,7 @@ func main() {
 	defer dbconn.DB.Close()
 	defer mongodb.DocDBCon.MongoDBClient.Disconnect(context.Background())
 	// Initialize the Gin router
-	router := gin.Default()
+	router = gin.Default()
 
 	// Load controllers dynamically based on the configuration file
 	plugincontrollers := make(map[string]interface{})
@@ -104,16 +105,26 @@ func main() {
 	/*router.Static("/portal", "./portal")
 	router.LoadHTMLGlob("portal/*.html")
 	router.LoadHTMLGlob("portal/Scripts/UIFramework.js") */
-	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "127.0.0.1:8888") // Replace "*" with the specific origin you want to allow
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(200)
-			return
-		}
-		c.Next()
-	})
+	/*
+		corsconfig := cors.DefaultConfig()
+		corsconfig.AllowAllOrigins = true
+		//corsconfig.AllowOrigins = []string{"http://localhost:8888"} // Replace with your origin
+		corsconfig.AllowedMethods = []string{"GET", "POST", "PUT"}
+		corsconfig.AllowedHeaders = []string{"Content-Type", "Authorization"}
+		corsconfig.AllowCredentials = true
+		router.Use(cors.New(corsconfig))  */
+	/*
+		router.Use(func(c *gin.Context) {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", "127.0.0.1:8888") // Replace "*" with the specific origin you want to allow
+			c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+			c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			if c.Request.Method == "OPTIONS" {
+				c.AbortWithStatus(200)
+				return
+			}
+			c.Next()
+		}) */
+
 	router.GET(portal.Path, func(c *gin.Context) {
 		c.HTML(http.StatusOK, portal.Home, gin.H{})
 	})
@@ -123,7 +134,6 @@ func main() {
 	router.Run(fmt.Sprintf(":%d", config.Port))
 
 	ilog.Info(fmt.Sprintf("Started portal on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
-	//defer dbconn.DB.Close()
 
 	wg.Wait()
 }
@@ -170,5 +180,23 @@ func getpluginHandlerFunc(module reflect.Value, name string) gin.HandlerFunc {
 			}
 		}
 		c.Status(http.StatusOK)
+	}
+}
+
+func GinMiddleware(allowOrigin string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", allowOrigin)
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, Content-Length, X-CSRF-Token, Token, session, Origin, Host, Connection, Accept-Encoding, Accept-Language, X-Requested-With")
+
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Request.Header.Del("Origin")
+
+		c.Next()
 	}
 }

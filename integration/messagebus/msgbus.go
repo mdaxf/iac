@@ -57,6 +57,7 @@ func (mb *MessageBus) CreateServer() *glue.Server {
 
 	server := glue.NewServer(glue.Options{
 		HTTPListenAddress: port,
+		HTTPSocketType:    glue.HTTPSocketTypeTCP,
 	})
 	return server
 }

@@ -44,7 +44,7 @@ func initialize() {
 	initializedDocuments()
 	initializeMqttClient()
 	//	initializeOPCClient()
-	initializeIACMessageBus()
+	//	initializeIACMessageBus()
 }
 
 func initializeDatabase() {
@@ -73,58 +73,70 @@ func initializeloger() {
 }
 
 func initializedDocuments() {
+
 	ilog.Debug("initialize Documents")
 	var DatabaseType = "mongodb"
 	var DatabaseConnection = "mongodb://localhost:27017"
 	var DatabaseName = "IAC_CFG"
 	documents.ConnectDB(DatabaseType, DatabaseConnection, DatabaseName)
+
 }
 
 func initializeMqttClient() {
-	ilog.Debug("initialize MQTT Client")
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-	data, err := ioutil.ReadFile("mqttconfig.json")
-	if err != nil {
-		ilog.Debug(fmt.Sprintf("failed to read configuration file: %v", err))
+		ilog.Debug("initialize MQTT Client")
 
-	}
-	ilog.Debug(fmt.Sprintf("MQTT Clients configuration file: %s", string(data)))
-	var mqttconfig mqttclient.MqttConfig
-	err = json.Unmarshal(data, &mqttconfig)
-	if err != nil {
-		ilog.Debug(fmt.Sprintf("failed to unmarshal the configuration file: %v", err))
+		data, err := ioutil.ReadFile("mqttconfig.json")
+		if err != nil {
+			ilog.Debug(fmt.Sprintf("failed to read configuration file: %v", err))
 
-	}
-	ilog.Debug(fmt.Sprintf("MQTT Clients configuration: %v", logger.ConvertJson(mqttconfig)))
+		}
+		ilog.Debug(fmt.Sprintf("MQTT Clients configuration file: %s", string(data)))
+		var mqttconfig mqttclient.MqttConfig
+		err = json.Unmarshal(data, &mqttconfig)
+		if err != nil {
+			ilog.Debug(fmt.Sprintf("failed to unmarshal the configuration file: %v", err))
 
-	for _, mqttcfg := range mqttconfig.Mqtts {
-		ilog.Debug(fmt.Sprintf("MQTT Client configuration: %s", logger.ConvertJson(mqttcfg)))
-		go mqttclient.NewMqttClient(mqttcfg)
+		}
+		ilog.Debug(fmt.Sprintf("MQTT Clients configuration: %v", logger.ConvertJson(mqttconfig)))
 
-	}
+		for _, mqttcfg := range mqttconfig.Mqtts {
+			ilog.Debug(fmt.Sprintf("MQTT Client configuration: %s", logger.ConvertJson(mqttcfg)))
+			mqttclient.NewMqttClient(mqttcfg)
+
+		}
+
+	}()
 
 }
 
 func initializeOPCClient() {
-	ilog.Debug("initialize OPC Client")
-	data, err := ioutil.ReadFile("opcuaclient.json")
-	if err != nil {
-		ilog.Debug(fmt.Sprintf("failed to read configuration file: %v", err))
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ilog.Debug("initialize OPC Client")
+		data, err := ioutil.ReadFile("opcuaclient.json")
+		if err != nil {
+			ilog.Debug(fmt.Sprintf("failed to read configuration file: %v", err))
 
-	}
-	ilog.Debug(fmt.Sprintf("OPC UA Clients configuration file: %s", string(data)))
+		}
+		ilog.Debug(fmt.Sprintf("OPC UA Clients configuration file: %s", string(data)))
 
-	var config opcclient.OPCConfig
+		var config opcclient.OPCConfig
 
-	err = json.Unmarshal(data, &config)
+		err = json.Unmarshal(data, &config)
 
-	if err != nil {
-		ilog.Debug(fmt.Sprintf("failed to unmarshal the configuration file: %v", err))
-	}
-	for _, opcuaclient := range config.OPCClients {
-		ilog.Debug(fmt.Sprintf("OPC UA Client configuration: %s", logger.ConvertJson(opcuaclient)))
-		go opcclient.Initialize(opcuaclient)
-	}
+		if err != nil {
+			ilog.Debug(fmt.Sprintf("failed to unmarshal the configuration file: %v", err))
+		}
+		for _, opcuaclient := range config.OPCClients {
+			ilog.Debug(fmt.Sprintf("OPC UA Client configuration: %s", logger.ConvertJson(opcuaclient)))
+			opcclient.Initialize(opcuaclient)
+		}
+	}()
 }
 
 func initializeIACMessageBus() {
@@ -133,18 +145,20 @@ func initializeIACMessageBus() {
 		ilog.Debug("initialize IAC Message Bus")
 		defer wg.Done()
 
-		iacmb.Initialize(8888, "IAC")
+		iacmb.Initialize()
 
-		ilog.Debug(fmt.Sprintf("IAC Message bus: %v", iacmb.IACMB))
+		/*	iacmb.Initialize(8888, "IAC")
 
-		iacmb.IACMB.Channel.OnRead(func(data string) {
-			ilog.Debug(fmt.Sprintf("IAC Message bus channel read: %s", data))
-		})
+			ilog.Debug(fmt.Sprintf("IAC Message bus: %v", iacmb.IACMB))
 
-		iacmb.IACMB.Channel.Write("Start the Message bus channel IAC")
+			iacmb.IACMB.Channel.OnRead(func(data string) {
+				ilog.Debug(fmt.Sprintf("IAC Message bus channel read: %s", data))
+			})
 
-		data := map[string]interface{}{"name": "IAC", "type": "messagebus", "port": 8888, "channel": "IAC"}
-		iacmb.IACMB.Channel.Write(logger.ConvertJson(data))
-		iacmb.IACMB.Channel.Write("Start the Message bus channel IAC")
+			iacmb.IACMB.Channel.Write("Start the Message bus channel IAC")
+
+			data := map[string]interface{}{"name": "IAC", "type": "messagebus", "port": 8888, "channel": "IAC"}
+			iacmb.IACMB.Channel.Write(logger.ConvertJson(data))
+			iacmb.IACMB.Channel.Write("Start the Message bus channel IAC") */
 	}()
 }

@@ -19,8 +19,11 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gin-contrib/static v0.0.1 // indirect
 	github.com/gin-gonic/contrib v0.0.0-20221130124618-7e01895a63f2 // indirect
+	github.com/gofrs/uuid v4.2.0+incompatible // indirect
 	github.com/golang/snappy v0.0.3 // indirect
+	github.com/gomodule/redigo v2.0.0+incompatible // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/googollee/go-socket.io v1.7.0 // indirect
 	github.com/gopcua/opcua v0.3.15 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/golang-lru v1.0.1 // indirect
