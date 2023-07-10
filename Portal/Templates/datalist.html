@@ -12,19 +12,21 @@
     <link href="styles/dataTables.css" rel="stylesheet"/> 
     <script src="scripts/datatables.js"></script>
     <script src="scripts/jsonmanager.js"></script>
-<head>
+</head>
 <body>
+    <input type="button" onclick="addnewrecord()" style="float:right;" value="Add"><br/>
     <div id="myGrid" style="width:100%;height:100%;"></div>
    <script>
-
+        var schema = null;
         $Context.onLoaded(function(){
             
             if($Context.inputs.ui_dataschema == ''){
                 UI.ShowError('No Data Schema Specified');
                 return;
             } 
-            let schema = null;
+            
             let ajax = new UI.Ajax("");
+            console.log($Context.inputs.ui_dataschema)
             ajax.get('/portal/datasets/schemas/'+ $Context.inputs.ui_dataschema + '.json').then((response) => {
                 schema = JSON.parse(response);
                 if(schema == null){
@@ -58,18 +60,41 @@
                         fieldpropertiesobj[listfields[i]] = null;
                     
                 }
+
+                console.log(fieldpropertiesobj)
                 let keyfield = "";
                 if(schema.hasOwnProperty('keyfield'))
                     keyfield = schema.keyfield;
+                let url = "";
 
+                let inputs={};
                 if(type == "collection" && datasource !='' && data != '{}'){
-                    let inputs={};
+                    
                     inputs["collectionname"] = datasource;                 
                     inputs["data"] = data;
                     inputs["operation"] = "list";
- 
-                //    console.log(inputs, JSON.stringify(data))
-                    ajax.post('/collection/list',inputs).then((response) => {
+                    url = '/collection/list'
+                }
+                else if(type == "table" && datasource !=''){
+                   
+                    inputs["tablename"] = datasource;                 
+                    inputs["operation"] = "list";
+                    data ={}                    
+                    data[datasource] = {
+                        "fields":listfields
+                    }
+                    inputs["data"] = data;
+                    inputs["where"] = {};
+                    
+                    url = '/sqldata/get'
+                }
+                else {
+                    UI.ShowError('Data Source Not Found');
+                    return;
+                }
+             //   {
+                    console.log(url,inputs, JSON.stringify(data))
+                    ajax.post(url,inputs).then((response) => {
                         data = JSON.parse(response)["data"];
                         console.log(response,data)
                         rows =[];
@@ -196,7 +221,7 @@
                     })
 
                     
-                }
+             //   }
 
 
             }).catch((error) => {
@@ -206,5 +231,15 @@
 
 
         })
+
+        function addnewrecord(){
+
+            console.log("add new record")
+            $Context.outputs.action="NEW";
+            $Context.outputs.selectedKey = "";
+            $Context.outputs.ui_dataschema =  $Context.inputs.ui_dataschema;
+            $Context.outputs.ui_schema = schema;
+            $Context.submit();
+        }
     </script>
 </body>

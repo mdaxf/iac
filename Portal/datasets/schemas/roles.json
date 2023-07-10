@@ -1,0 +1,178 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "$ref": "#/definitions/Role",
+    "datasourcetype": "table",
+    "datasource": "roles",
+    "listfields":["Name","Description", "CreatedBy", "CreatedOn", "UpdatedBy","UpdatedOn", "ID"],
+    "keyfield":"ID",
+    "detailpage":{
+        "tabs": {
+            "General": {
+                "lng":{
+                    "code": "General",
+                    "default":"General"
+                },
+                "index": 0 
+            },
+            "Links":{
+                "lng":{
+                    "code": "Links",
+                    "default":"Links"
+                },
+                "index": 1             
+            },
+            "System": {
+                "lng":{
+                    "code": "System",
+                    "default":"System"
+                },
+                "index": 4 
+            }
+        },
+        "General":{
+            "tables": [{
+                "cols": 1,         
+                "fields": [
+                    "Name",  
+                    "Description", 
+                    "Active"
+                ]
+            }
+        ]
+        },
+        "System":{
+            "tables": [{
+                "cols": 2,
+                "fields":["createdby", "createdon", "updatedby", "updatedon"]
+            }]
+        },
+        "Links":{
+            "tables": [{
+                "cols": 1,
+                "fields": [                    
+                    {"User":{
+                        "type": "link",
+                        "table": "userroles",
+                        "linkfields": [
+                            {"ID": "RoleID"}
+                        ],
+                        "subtable": {
+                            "table": "users",
+                            "fields": ["Name", "LoginName", "LoginCode", "Active"],
+                            "linkfields": [
+                                {"UserID": "ID"}
+                            ]
+                        }                        
+                    }}
+                ]
+            }]
+        },
+        "Query":{
+            "tablename": "roles",
+            "fields": [
+                "ID",
+                "Name",
+                "Description",
+                "Active"
+            ],
+            "where": "id = :id"
+        }
+    },    
+    "definitions": {
+        "Role": {
+            "type": "object",
+            "additionalProperties": false,            
+            "properties": {
+                "ID": {
+                    "type": "string",
+                    "lng":{
+                        "code": "DB_ID",
+                        "default":"ID"
+                    } 
+                },
+                "UUID": {
+                    "type": "string",    
+                    "format": "uuid",               
+                    "lng":{
+                        "code": "UUID",
+                        "default":"UUID"
+                    } 
+                },
+                "Name": {
+                    "type": "string",                   
+                    "lng":{
+                        "code": "Name",
+                        "default":"Name"
+                    } 
+                },
+                "Description": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Description",
+                        "default":"Description"
+                    } 
+                },                
+                "Active": {
+                    "type": "boolean",
+                    "readonly": true,
+                    "lng":{
+                        "code": "Active",
+                        "default":"Active"
+                    }
+                },
+                "workspaceSchema": {
+                    "type": "object",
+                    "lng":{
+                        "code": "WorkSpaces",
+                        "default":"WorkSpaces"
+                    } 
+                },                
+                "createdby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedBy",
+                        "default":"Created By"
+                    }
+                },
+                "createdon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedOn",
+                        "default":"Created On"
+                    }
+
+                },
+                "updatedby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedBy",
+                        "default":"Updated By"
+                    }
+                },
+                "updatedon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedOn",
+                        "default":"Updated On"
+                    }
+
+                }
+            },
+            "required": ["uuid",
+                "Name",
+                "Description",
+                "WorkSpaceSchema"
+            ],
+            "unchangable": ["id","uuid"],
+            "hidden": ["id"],
+            
+            "title": "Role"
+        }
+    }
+}

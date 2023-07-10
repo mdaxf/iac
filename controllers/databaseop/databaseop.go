@@ -93,6 +93,8 @@ func (db *DBController) GetDataFromTables(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	iLog.Debug(fmt.Sprintf("Get data from table result: %s", gin.H{"data": result}))
+	//jsondata, err := json.Marshal(result)
 
 	ctx.JSON(http.StatusOK, gin.H{"data": result})
 }
@@ -235,18 +237,26 @@ func (db *DBController) InsertDataToTable(ctx *gin.Context) error {
 	datatype := []int{}
 	for key, value := range data.Data {
 		fields = append(fields, key)
-		values = append(values, value.(string))
+
 		switch value.(type) {
 		case string:
 			datatype = append(datatype, 0)
+			values = append(values, value.(string))
 		case float64:
 			datatype = append(datatype, 2)
+			v := fmt.Sprintf("%f", value.(float64))
+			values = append(values, v)
 		case bool:
 			datatype = append(datatype, 3)
+			v := fmt.Sprintf("%t", value.(bool))
+			values = append(values, v)
 		case int:
 			datatype = append(datatype, 1)
+			v := fmt.Sprintf("%d", value.(int))
+			values = append(values, v)
 		default:
 			datatype = append(datatype, 0)
+			values = append(values, value.(string))
 		}
 	}
 
@@ -292,18 +302,25 @@ func (db *DBController) UpdateDataToTable(ctx *gin.Context) error {
 	datatype := []int{}
 	for key, value := range data.Data {
 		fields = append(fields, key)
-		values = append(values, value.(string))
 		switch value.(type) {
 		case string:
 			datatype = append(datatype, 0)
+			values = append(values, value.(string))
 		case float64:
 			datatype = append(datatype, 2)
+			v := fmt.Sprintf("%f", value.(float64))
+			values = append(values, v)
 		case bool:
 			datatype = append(datatype, 3)
+			v := fmt.Sprintf("%t", value.(bool))
+			values = append(values, v)
 		case int:
 			datatype = append(datatype, 1)
+			v := fmt.Sprintf("%d", value.(int))
+			values = append(values, v)
 		default:
 			datatype = append(datatype, 0)
+			values = append(values, value.(string))
 		}
 	}
 

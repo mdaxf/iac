@@ -9,6 +9,7 @@ var UI = UI || {};
           this.changed = false;
           this.schemafile = options.schemafile || '';
           this.schema = this.options.schema || null;
+          this.jschema = new JSONSchema(this.schema);
           this.loadschema();
         //  console.log(this.schemafile,this.schema)
         }
@@ -844,6 +845,480 @@ var UI = UI || {};
 			});  
 
         }
+        showdetailpage(wrapper){
+            let that = this;
+            let attrs ={};
+            let srcdata = this.jschema.getdatadetail();
+            
+            if(srcdata == null && srcdata =={})
+                return;
+
+            if(!srcdata.hasOwnProperty("detailpage"))
+                return;
+
+            let data = srcdata['detailpage'];
+            let defaulttab ="";
+
+            if(data.hasOwnProperty("tabs")){
+                attrs={
+                    "name": "ui-json-detail-page-tabs",
+                    "id": "ui-json-detail-page-tabs",
+                    "class": "ui-json-detail-page-tabs",
+                    "style": "width:100%;height:30px;"
+                }
+                if(wrapper == null)
+                    wrapper = document.body;
+                let tabs = (new UI.FormControl(wrapper, 'div',attrs)).control;
+
+                let tabitems = data['tabs']
+                for(const key in tabitems){
+                    if(defaulttab == "")
+                        defaulttab = key
+
+                    let item = tabitems[key]; 
+                    let lngcode =""
+                    let lngdefault = key
+                    if(item.hasOwnProperty("lng"))
+                    {
+                        let lng = item['lng']
+                        if(lng.hasOwnProperty('code'))
+                            lngcode = lng['code'];
+                        if(lng.hasOwnProperty('default'))
+                            lngdefault=lng["default"];
+                    }
+                    attrs={
+                        "name": "ui-json-detail-page-tab-"+key,
+                        "id": "ui-json-detail-page-tab-"+key,
+                        "tab-key": key,
+                        "class": "ui-json-detail-page-tab",
+                        "style": "width:100px;height:30px;float:left;",
+                        "lngcode": lngcode,
+                        "innerHTML": lngdefault
+                    }
+
+                    if(key == defaulttab)
+                        attrs["class"] = "ui-json-detail-page-tab ui-json-detail-page-tab-active"
+
+                    let events={
+                        "click": function(){
+                            let id = $(this).attr('id');
+                            let tabid = id.replace('ui-json-detail-page-tab-','');
+                            let tabkey = $(this).attr('tab-key');
+                            $('.ui-json-detail-page-tab').removeClass('ui-json-detail-page-tab-active');
+                            $('#'+id).addClass('ui-json-detail-page-tab-active');
+                            $('.ui-json-detail-page-tab-content').hide();
+                            $('.ui-json-detail-page-tab-content[tab-key="'+tabkey +'"]').show();
+                        }
+                    }
+                    let tab = (new UI.FormControl(tabs, 'div',attrs,events)).control;
+                }
+                
+            }
+            
+
+            let actionbar = (new UI.FormControl(wrapper, 'div',{"style":"display:inline-block;height:30px; float:right"})).control;
+            attrs={
+                "name": "ui-json-detail-page-save",
+                "id": "ui-json-detail-page-save",
+                "class": "ui-json-detail-page-save btn btn-primary",
+                "style": "width:100px;height:30px;float:right;",
+                "innerHTML": "Save",
+                "lngcode": "Save"
+            }
+            let events={
+                "click": function(){
+                    that.trigger_event("save", [that.data]);
+                }}
+            new UI.FormControl(actionbar, 'button',attrs,events)
+            attrs={
+                "name": "ui-json-detail-page-cancel",
+                "id": "ui-json-detail-page-cancel",
+                "class": "ui-json-detail-page-save btn btn-secondary",
+                "style": "width:100px;height:30px;float:right;",
+                "innerHTML": "Cancel",
+                "lngcode": "Cancel"
+            }
+            events={
+                "click": function(){
+                    that.canceldetail();
+                }}
+            new UI.FormControl(actionbar, 'button',attrs,events)            
+
+            attrs={
+                "name": "ui-json-detail-page-tab-content",
+                "id": "ui-json-detail-page-tab-content",
+                "class": "ui-json-detail-page-tab-content-container",
+                "style": "width:100%;min-height:500px; height:calc(100% - 60px);"
+            }
+            let tabcontent = (new UI.FormControl(wrapper, 'div',attrs)).control;
+
+            for(const key in data){
+                if(key == "tabs" || key == "Query")
+                    continue;
+                
+                let item = data[key];
+
+                attrs = {
+                    "name": "ui-json-detail-page-tab-content-"+key,
+                    "id": "ui-json-detail-page-tab-content-"+key,
+                    "class": "ui-json-detail-page-tab-content",
+                    "tab-key": key
+                  //  "style": "width:100%;height:100%;display:block;"
+                }
+
+                if(key == defaulttab)
+                    attrs["style"] = "width:100%;height:100%;display:block;"
+                else 
+                    attrs["style"] = "width:100%;height:100%;display:none;"
+
+                let tabcontentitem = (new UI.FormControl(tabcontent, 'div',attrs)).control;
+
+                let tables = item["tables"]
+            //    console.log(tables)
+                if(tables != null && tables != undefined && tables !={})
+                for(var i=0;i<tables.length;i++){
+                    let key1 = tables[i];
+                    let table = (new UI.FormControl(tabcontentitem, 'table',{"class":"table table-bordered table-hover"})).control;
+                    let cols = 1
+                    if(key1.hasOwnProperty("cols"))
+                        cols = key1["cols"]
+                    
+                    let rows = -1;
+                    if(key1.hasOwnProperty("rows"))
+                    rows = tables[i]["rows"]
+
+                    let fields = key1["fields"]
+                    
+                    let cellnumber = 0;
+                    let tr = (new UI.FormControl(table, 'tr',{"class": "ui-json-detail-page-tab-content-tr-"+cols,})).control;
+                    for(var j=0;j<fields.length;j++){
+                        let field = fields[j];
+
+                        if(cellnumber >= cols){
+                            let width = 100/cols;
+                            tr = (new UI.FormControl(table, 'tr',{"class": "ui-json-detail-page-tab-content-tr-"+cols,})).control;
+                            cellnumber = 0;
+                        }
+                        cellnumber += 1
+
+                        if(typeof field == "object"){
+                            let fieldkey = Object.keys(field)[0];
+                            let fieldvalue = field[fieldkey];
+
+                        //    console.log(fieldkey, fieldvalue)
+                            let type =""
+                            if(fieldvalue.hasOwnProperty("type"))
+                                type = fieldvalue["type"]
+                            
+                            if(type == "link"){
+                                let attrs ={
+                                    "name": "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber,                                    
+                                    "innerHTML": fieldkey,
+                                }
+                                let td = (new UI.FormControl(tr, 'td',{})).control;
+                                let link = (new UI.FormControl(td, "a",attrs)).control;
+                                
+                                $(link).click(function(){                                                                     
+                                    that.displayhyperlinks(wrapper,fieldvalue);
+                                })
+                            }
+                            else{
+
+                                let tag = "input"
+                                if(fieldvalue.hasOwnProperty("tag"))
+                                    tag = fieldvalue["tag"]
+
+                                if(fieldvalue.hasOwnProperty("link")){
+                                    this.createcellelement(tr, fieldkey, key, i,rows,cellnumber,wrapper, fieldvalue)
+                                }
+                                else{                                
+                                    let attrs = fieldvalue["attrs"]                                
+                                    let td = (new UI.FormControl(tr, 'td',attrs)).control;
+        
+                                    let node = that.getNode(fieldkey);
+                                    
+                                    let value = "";
+                                    if(node.hasOwnProperty("value")){
+                                        value = node.value
+                                    }
+        
+                                    if(tag != "input" ||tag != "select")
+                                        attrs ={
+                                            "name": "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber,
+                                            "innerHTML": value,
+                                        }
+                                    else
+                                    attrs ={
+                                        "name": "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber,
+                                        "value": value,                                        
+                                        "data-key": field,
+                                    }
+        
+                                    new UI.FormControl(td, tag,attrs);
+                                }
+                            }
+                            
+                        }else{
+                            this.createcellelement(tr, field, key, i,rows,wrapper,cellnumber,null)
+                        }
+                    }
+
+                }
+            }
+
+            $('.ui-json-detail-page-tab-content-container').find('input').change(function(){
+                let key = $(this).attr('data-key');
+                
+                let value = $(this).val();
+           //     console.log('change:',key, value)
+                that.updateNode(key, value);
+            })
+            $('.ui-json-detail-page-tab-content-container').find('select').change(function(){
+                let key = $(this).attr('data-key');
+                let value = $(this).val();
+                that.updateNode(key, value);
+            })
+        }
+
+        createcellelement(tr, field,key, i,rows,cellnumber,wrapper,linkobj){
+            let that = this;
+            let attrs = {};
+            let td = (new UI.FormControl(tr, 'td',attrs)).control;
+            //   console.log(field)
+            if(field != "dummy" && field != "save" && field != "cancel"){
+                let node = that.getNode(field);
+                console.log(field, node)
+                let value = "";
+                   if(node)
+                   if(node.hasOwnProperty("value")){
+                       value = node.value
+                   }
+                   let datatype = "string"
+                   let lng={};
+                   let schemaoptions ={}
+                   
+                   let schemadata = that.jschema.getPropertiesFromSchema(field);
+                   let schemaformate ="";
+                   let schemareadonly = false;
+               //    console.log(field, value, schemadata)
+                   if(schemadata.properties.hasOwnProperty("type"))
+                       datatype = schemadata.properties["type"]
+               
+                   if(schemadata.properties.hasOwnProperty("lng"))
+                       lng = schemadata.properties["lng"]
+                   
+                   if(schemadata.properties.hasOwnProperty("options"))
+                       schemaoptions = schemadata.properties["options"] 
+
+                   if(schemadata.properties.hasOwnProperty("readonly"))
+                       schemareadonly = schemadata.properties["readonly"]
+                  
+                   if(schemadata.properties.hasOwnProperty("format"))
+                       schemaformate = schemadata.properties["format"]
+
+                   let lngcode = lng['code']
+                   let lngdefault = lng['default']    
+                   attrs={
+                    "styles": "width:100%"
+                    }
+                   let div = "" ;//(new UI.FormControl(td, 'div',attrs)).control;
+                   attrs ={
+                       lngcode: lngcode,
+                       "for": "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber,
+                       "innerHTML": lngdefault,
+                   }
+
+                   new UI.FormControl(td, 'label',attrs);
+
+
+                   attrs={
+                    "styles": "width:100%"
+                   }
+                //   div = (new UI.FormControl(td, 'div',attrs)).control;
+                   div = td;
+                   if(datatype == 'boolean'){
+                       try{
+                           if(value == 'true' || value == true)
+                               attrs = {
+                                   "name": "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber,
+                                   "id":"ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber,
+                                   "type": "checkbox",
+                                   "data-key": field,
+                                   "checked": true,
+                               }
+                           else 
+                               attrs = {
+                                   "name": "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber,
+                                   "id":"ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber,
+                                   "data-key": field,
+                                   "type": "checkbox",
+                               }
+                       }catch(e){
+                           attrs = {
+                               "name": "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber,
+                               "id":"ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber,
+                               "data-key": field,
+                               "type": "checkbox",
+                           }
+                       }
+
+                       if(schemareadonly)
+                           attrs["disabled"] = true;
+
+                       new UI.FormControl(div, 'input',attrs);
+                   
+                   }
+                   else if(schemaoptions && schemaoptions !={} ){
+                       let values = schemaoptions['value']
+                       let optionlngcodes  = schemaoptions['lngcode']  
+                       let optiondefaults = schemaoptions['default']
+                       let nodeeditablevalue ='';
+                       if(Array.isArray(values)){
+                           if(schemareadonly)
+                               nodeeditablevalue =  '<select class="node_input" disabled data-key="'+field+'" id="ui-json-detail-page-tab-content-'+key+'-table-'+i+'-row-'+rows+'-cell-'+cellnumber+'" >'
+                           else
+                               nodeeditablevalue =  '<select class="node_input"  data-key="'+field+'" id="ui-json-detail-page-tab-content-'+key+'-table-'+i+'-row-'+rows+'-cell-'+cellnumber+'" >'
+                           for(var n=0;n<values.length;n++){
+                            //   console.log(node[key],values[n],optionlngcodes[n], optiondefaults[n])
+                               nodeeditablevalue += '<option value="'+values[n]+'" lngcode="'+optionlngcodes[n]+'" '+(value == values[n]? 'selected':'') +' >' + optiondefaults[n] + '</option>'
+                           }
+                           nodeeditablevalue += '</select>'
+
+                           td.innerHTML = nodeeditablevalue;
+                       }
+                       else{
+                           attrs = {
+                               "name": "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber,
+                               "id":"ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber,
+                               "data-key": field,
+                               "value": value,
+                           }
+
+                           if(schemareadonly)
+                           attrs["disabled"] = true;
+
+                           if(schemaformate == "datetime")
+                               attrs["type"] = "datetime-local"
+
+                           new UI.FormControl(div, 'input',attrs);   
+                       }         
+
+                   }else{
+                       attrs = {
+                           "name": "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber,
+                           "id":"ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber,
+                           "data-key": field,
+                           "value": value,
+                       }
+                       
+                       if(schemaformate == "datetime")
+                           attrs["type"] = "datetime-local"
+
+                       if(schemareadonly)
+                           attrs["disabled"] = true;
+                       new UI.FormControl(div, 'input',attrs);   
+                   }
+                   
+                   if(linkobj != null){
+                        attrs = {
+                            "name": "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber+ "-link",
+                            "id":"ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber+ "-link",
+                            "data-key": field,
+                            "class": "fa-solid fa-link",
+                        }
+                        let link = (new UI.FormControl(div, 'i',attrs)).control;
+                        $(link).click(function(){
+                            let inputid = $(this).closest('td').find('input').attr('id');
+                            let schema = linkobj.schema;
+                            let field = linkobj.field;
+                            that.displaylinkeditem(wrapper,inputid, schema, field);
+                        })
+                        attrs = {
+                            "name": "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber+ "-unlink",
+                            "id":"ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber+ "-unlink",
+                            "data-key": field,
+                            "class": "fa-solid fa-link-slash",
+                        }
+                        let unlink = (new UI.FormControl(div, 'i',attrs)).control;
+                        $(unlink).click(function(){
+                            $(this).closest('td').find('input').val('');
+                        })
+                        
+                   }
+               } 
+        }
+        displaylinkeditem(wrapper, fieldid, schema, field){
+            let attrs = {
+                "name": "ui-json-detail-page-linked-item-section",
+                "id": "ui-json-detail-page-linked-item-section",
+                "style": "width:100%;height:100%; display:float; left:0px; top:0px; position:absolute; background-color:white; z-index:10;"
+            }
+            let section = (new UI.FormControl(wrapper, 'div',attrs)).control;
+            let that = this;
+            let panel = {};
+            panel.panelElement = section;
+            // let div = document.createElement('div');
+           // div.innerHTML = "<h3>Linked Item</h3>"
+           // panel.panelElement.appendChild(div);
+            let cfg = {
+                "file":"templates/datalist.html", 
+                "name": "skills list", 
+                "actions": {
+                    "SELECT":{"type": "script", "next": "","page":"","panels":[], "script": "selectitem"},
+                }
+            }
+         //   console.log(cfg)
+            let inputs = {}
+            inputs.ui_dataschema = schema
+        //    console.log(inputs)
+            cfg.inputs = inputs;
+            cfg.actions.SELECT.script = function(data){
+                console.log(data)
+                $('#'+fieldid).val(data.selectedKey);
+                $('#ui-json-detail-page-linked-item-section').remove();
+            }
+            Session.snapshoot.sessionData.ui_dataschema = schema
+            console.log(cfg)
+            new UI.View(panel,cfg)
+        }
+        displayhyperlinks(wrapper,fieldvalue){
+            let attrs = {
+                "name": "ui-json-detail-page-linked-item-section",
+                "id": "ui-json-detail-page-linked-item-section",
+                "style": "width:100%;height:100%; display:float; left:0px; top:0px; position:absolute; background-color:white; z-index:10;"
+            }
+            let section = (new UI.FormControl(wrapper, 'div',attrs)).control;
+            let that = this;
+            let panel = {};
+            panel.panelElement = section;
+            // let div = document.createElement('div');
+           // div.innerHTML = "<h3>Linked Item</h3>"
+           // panel.panelElement.appendChild(div);
+            let cfg = {
+                "file":"templates/datalist.html", 
+                "name": "skills list", 
+                "actions": {
+                    "SELECT":{"type": "script", "next": "","page":"","panels":[], "script": "selectitem"},
+                }
+            }
+         //   console.log(cfg)
+            let inputs = {}
+            inputs.ui_sourcetype = "list"
+            inputs.ui_dataschema = ""
+            inputs.ui_data = fieldvalue
+            console.log(fieldvalue)
+            inputs.ui_datakey = (that.getNode(fieldvalue['keyfield'])).value
+            console.log(inputs)
+            cfg.inputs = inputs;
+            cfg.actions.SELECT.script = function(data){
+                console.log(data)                
+                $('#ui-json-detail-page-linked-item-section').remove();
+            }
+            Session.snapshoot.sessionData.ui_dataschema = "users"
+            console.log(cfg)
+            new UI.View(panel,cfg)
+        
+        }
         ExportJSON(){          
             return JSON.stringify(this.data);
         }
@@ -925,7 +1400,7 @@ var UI = UI || {};
             }
           }
         
-          compareArray(original, updated, changes, path) {
+        compareArray(original, updated, changes, path) {
             if (original.length !== updated.length) {
               changes[path] = {
                 oldValue: original,
@@ -944,7 +1419,13 @@ var UI = UI || {};
                 };
               }
             }
-          }
+        }
+        trigger_event(event, args) {
+            console.log(event,args)
+			if (this.options['on_' + event]) {
+				this.options['on_' + event].apply(null, args);
+			}
+		}
     }
     UI.JSONManager = JSONManager
 
@@ -952,6 +1433,18 @@ var UI = UI || {};
         constructor(schema){
             this.schema = schema || {};
             this.getSchemaRootDefinitions();
+        }
+        loadschema(file){
+            let that = this;
+            $.ajax({
+                url: file,
+                dataType: 'json',
+                async: false,
+                success: function(data) {
+                    that.schema = data;
+                    that.getSchemaRootDefinitions();
+                }
+            });
         }
         getSchemaRootDefinitions(){
             //    console.log(this.schema)
@@ -973,6 +1466,156 @@ var UI = UI || {};
                 }
             }
                    
+        }
+        getfields(){
+            let fields = [];
+            if(this.schema !=null && this.schema !={}){
+                if(this.schema.hasOwnProperty('definitions') && this.schema.hasOwnProperty("$ref")){
+                    this.schemaDefinitions = this.schema['definitions'];
+                    let rootpath = this.schema["$ref"];
+                    if(rootpath.startsWith('#/'))
+                        rootpath = rootpath.replace('#/','')
+                    
+                    let paths = rootpath.includes('/')? rootpath.split('/'):[rootpath];
+                    let currentNode = this.schema
+                    for(var i=0;i<paths.length;i++){
+                        let path = paths[i];
+                        currentNode =currentNode[path]        
+                    }
+                    this.schemaRootNode = currentNode;
+                }
+            }
+            if(this.schemaRootNode != null){
+                for(const key in this.schemaRootNode.properties){
+                    fields.push(key);
+                }
+            }
+            return fields;
+        }
+        parsedata(data){
+           for(const key in this.schemaRootNode.properties){
+                if(this.schemaRootNode.properties[key]['type'] == "string" ){
+                    if(this.schemaRootNode.properties[key].hasOwnProperty('format')){
+                        if(this.schemaRootNode.properties[key]['format'] == 'uuid'){
+                            if(!data.hasOwnProperty(key)){
+                                data[key] = this.generateUUID();
+                            }
+                        }
+                    }
+                }
+
+                if(data.hasOwnProperty(key)){
+                    switch (this.schemaRootNode.properties[key]['type']){
+                        case "integer":
+                            try{
+                                data[key] = parseInt(data[key]);
+                            }catch(e){
+                                data[key] = 0;
+                            }
+                            break;
+                        case "number":
+                            try{
+                                data[key] = parseFloat(data[key]);
+                            }catch(e){
+                                data[key] = 0.0;
+                            }
+                            break;
+                        case "boolean":
+                            try{
+                                data[key] = (data[key] == 'true' || data[key] == true)? 1:0;
+                            }catch(e){
+                                data[key] = 0;
+                            }
+                            break;
+                        case "string":
+                            try{
+                                if(this.schemaRootNode.properties[key].hasOwnProperty('format')){
+                                    if(this.schemaRootNode.properties[key]['format'] == 'datetime'){
+                                        data[key] = new Date(data[key]).toISOString().slice(0, 19).replace('T', ' ');
+                                        if(data[key] == '1970-01-01 00:00:00')
+                                            delete data[key];
+                                    }
+                                    else
+                                        data[key] = data[key].toString();
+                                }                                
+                                else
+                                        data[key] = data[key].toString();
+                            }catch(e){
+                                if(this.schemaRootNode.properties[key].hasOwnProperty('format')){
+                                    if(this.schemaRootNode.properties[key]['format'] == 'datetime'){                                       
+
+                                        data[key] = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+                                        if(data[key] == '1970-01-01 00:00:00')
+                                            delete data[key];
+                                    }
+                                    else
+                                        data[key] = "";
+                                }
+                                else
+                                        data[key] = "";
+                            }
+                            break;
+                        default:
+                            data[key] = data[key].toString();
+
+                    }
+                }
+           }
+           return data;
+        }
+        createemptydata(){
+            let data ={};
+            for(const key in this.schemaRootNode.properties){
+                var value = "";
+                if(this.schemaRootNode.properties[key].hasOwnProperty('type')){
+                    switch (this.schemaRootNode.properties[key]['type'])
+                    {
+                        case "integer":
+                            value = 0;
+                            break;
+                        case "number":
+                            value = 0.0;
+                            break;
+                       // case "boolean":
+                        //    value = false;
+                        //    break;
+                        case "string": 
+                            if(this.schemaRootNode.properties[key].hasOwnProperty('format')){
+                                if(this.schemaRootNode.properties[key]['format'] == 'datetime')
+                                    value = "NULL"
+                            }
+                            else 
+                                value = "";
+                            break;
+                        default:    
+                            value = "";
+                            break;
+                    }
+
+                }
+                if(value != "NULL")
+                    data[key] = value
+
+            }
+
+            return data;
+        }
+        getdatadetail(){
+            let data={};
+            if(this.schema !=null && this.schema !={}){
+                if(this.schema.hasOwnProperty("datasourcetype"))
+                    data.datasourcetype = this.schema["datasourcetype"];
+                if(this.schema.hasOwnProperty("datasource"))
+                    data.datasource = this.schema["datasource"];
+                if(this.schema.hasOwnProperty("listfields"))
+                    data.listfields = this.schema["listfields"];
+                if(this.schema.hasOwnProperty("keyfield"))
+                    data.keyfield = this.schema["keyfield"];
+                if(this.schema.hasOwnProperty("detailpage"))
+                    data.detailpage = this.schema["detailpage"];                    
+            }
+            return data;
         }
         getPropertiesFromSchema(path){
             if(!this.schema || this.schema =={})

@@ -22,7 +22,7 @@
 			"orientation": 1,
 			"view": {
 				"name": "pagelist",
-				"config": "Views/pagelist.json",
+				"config": "Views/users.json",
 				"initcode": ""
 			},
 			"inlinestyle": "width: 100%;height:100%"

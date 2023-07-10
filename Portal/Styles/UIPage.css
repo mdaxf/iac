@@ -208,3 +208,68 @@ i.icon.saveas:before{
             color: #fff;
             border-bottom: 1px solid #ed9d0a;
         }
+.ui-json-detail-page-tab-active {
+    background: #ed9d0a !important;
+    color: #fff;
+    border-bottom: 1px solid #ed9d0a !important;
+}
+.ui-json-detail-page-tab {
+    display: inline-block;
+    padding: 10px 20px;
+    border: 1px solid #ccc;
+    border-bottom: none;
+    border-radius: 5px 5px 0 0;
+    cursor: pointer;
+    background: #fff;
+    width: 100px;
+    height:30px;
+}
+
+.ui-json-detail-page-tab-content {
+    display: flex;
+    padding: 10px 20px;
+    border: 1px solid #ccc;
+    border-top: none;
+    border-radius: 0 0 5px 5px;
+    background: #fff;
+    overflow: auto;
+}
+
+.ui-json-detail-page-tab-content > table {
+    width: 95%;
+    border-collapse: collapse;
+    border-spacing: 0;
+    
+    border-radius: 0 0 5px 5px;
+    background: #fff;
+    padding: 5px 5px 5px 5px;
+    display: flex;
+    flex-direction: column;
+
+}
+
+
+.ui-json-detail-page-tab-content > table > tr > td{
+    padding: 5px 5px 5px 5px;
+}
+
+.ui-json-detail-page-tab-content > table > tr > td > label{
+    display:block;
+    width:100%;
+}
+.ui-json-detail-page-tab-content > table > tr > td:has(> i) > input 
+{
+    width:80%;
+
+}
+
+.ui-json-detail-page-tab-content > table > tr > td:not(:has(> i)) > input 
+{
+    width:100%;
+
+}
+.ui-json-detail-page-tab-content > table > tr > td > select 
+{
+    width: 100%;
+
+}

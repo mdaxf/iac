@@ -1,0 +1,501 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "$ref": "#/definitions/User",
+    "datasourcetype": "table",
+    "datasource": "users",
+    "listfields":["Name","FirstName","LastName","BadgeNo","LoginName", "CreatedBy", "CreatedOn", "UpdatedBy","UpdatedOn", "ID"],
+    "keyfield":"ID",
+    "detailpage":{
+        "tabs": {
+            "General": {
+                "lng":{
+                    "code": "General",
+                    "default":"General"
+                },
+                "index": 0 
+            },
+            "Links":{
+                "lng":{
+                    "code": "Links",
+                    "default":"Links"
+                },
+                "index": 1             
+            },
+            "System": {
+                "lng":{
+                    "code": "System",
+                    "default":"System"
+                },
+                "index": 4 
+            }
+        },
+        "General":{
+            "tables": [{
+                "cols": 3,
+                "rows": 3,            
+                "fields": [
+                    {"PictureUrl": {"tag": "img", "attrs":{"rowspan": 3, "class": "img-thumbnail", "style": "width: 100px; height: 100px;"}}},
+                    "Name", "dummy", 
+                    "FirstName", 
+                    "MiddleName", 
+                    "LastName",
+                    "Email",
+                    "Phone",
+                    "CellPhone"
+                ]
+            },{
+                "cols": 3,
+                "fields":["LoginName", "LoginCode", "ExternalLogin", 
+                        "BadgeNo","Password", "ForcePasswordChange", 
+                        "LastSignOnDate", "LastSignOffDate", "LoginExpirationDate",
+                        "UserValidDate", "LoginLockoutDate", "PasswordLastChangeDate",
+                        "CurrencyCode", "DefaultPage", "dummy",
+                        {"Company":{"link": "companies", "schema":"users", "field": "Name"}}, 
+                        {"Factory":{"link": "factories", "schema":"users", "field": "Name"}}, 
+                        {"Department":{"link": "departments", "schema":"departments", "field": "Name"}},
+                        {"ProductionLineNo":{"link": "lines", "schema":"lines", "field": "Name"}}, 
+                        {"WorkCenter":{"link": "work_centers", "schema":"work_centers", "field": "Name"}}, "CostCenter", 
+                        "Title", "UserClass", "UserType",
+                        "Active"
+                ]
+            },
+            {
+                "cols":2,
+                "type": "action",
+                "fields":["save", "cancel"]
+            }
+        ]
+        },
+        "System":{
+            "tables": [{
+                "cols": 2,
+                "fields":["createdby", "createdon", "updatedby", "updatedon"]
+            }]
+        },
+        "Links":{
+            "tables": [{
+                "cols": 1,
+                "fields": [
+                    {"Addresss": {
+                        "type": "link",
+                        "keyfield": "AddressID",
+                        "linkfields": [
+                            {"AddressID": "ID"}
+                        ],
+                        "data":{
+                            "addresses": {
+                                "fields": ["Address1", "Address2", "City", "State", "ZipCode", "Country"]
+                            }
+                        },
+                        "lng":{
+                            "code": "Addresses",
+                            "default":"Addresses"
+                        }                          
+                    }},
+                    {"ContactID": {
+                        "type": "link",
+                        "keyfield": "ContactID",
+                        "linkfields": [
+                            {"ContactID": "ID"}
+                        ],
+                        "data":{
+                            "contacts": {
+                                "fields": ["Phone", "CellPhone", "Email"]
+                            }
+                        },
+                        "lng":{
+                            "code": "Contacts",
+                            "default":"Contacts"
+                        }                                                 
+                    }},
+                    {"Skill":{
+                        "type": "link",
+                        "keyfield": "ID",
+                        "linkfields": [
+                            {"ID": "UserID"}
+                        ],
+                        "data":{
+                           "userskills":{
+                                "fields": ["Certification", "ExpirationDate"],                                
+                                "subtables": {                          
+                                    "skills":{
+                                        "fields": ["Name", "Description", "Level"],
+                                        "links": ["userskills.SkillID = skills.ID"]
+                                    }
+                                }
+                            }
+                        },
+                        "lng":{
+                            "code": "Skills",
+                            "default":"Skills"
+                        }                           
+                    }},
+                    {"Role":{
+                        "type": "link",
+                        "linkfields": [
+                            {"ID": "UserID"}
+                        ],
+                        "keyfield": "ID",
+                        "data":{
+                            "userroles":{
+                                "fields": ["RoleID"],
+                                "subtables": {                          
+                                    "roles":{
+                                        "fields": ["Name", "Description"],
+                                        "links": ["userroles.RoleID = roles.ID"]
+                                    }
+                                }
+                            }
+                        },
+                        "lng":{
+                            "code": "Roles",
+                            "default":"Roles"
+                        }                       
+                    }}
+                ]
+            }]
+        },
+        "Query":{
+            "tablename": "users",
+            "fields": [
+                "ID",
+                "Name",
+                "FirstName",
+                "LastName",
+                "LoginName",
+                "LoginCode",
+                "BadgeNo",
+                "Active"
+            ],
+            "where": "id = :id"
+        }
+    },    
+    "definitions": {
+        "User": {
+            "type": "object",
+            "additionalProperties": false,            
+            "properties": {
+                "ID": {
+                    "type": "string",
+                    "lng":{
+                        "code": "DB_ID",
+                        "default":"ID"
+                    } 
+                },
+                "UUID": {
+                    "type": "string",    
+                    "format": "uuid",               
+                    "lng":{
+                        "code": "UUID",
+                        "default":"UUID"
+                    } 
+                },
+                "PictureUrl": {
+                    "type": "string",                   
+                    "lng":{
+                        "code": "PictureUrl",
+                        "default":"PictureUrl"
+                    } 
+                },
+                "Name": {
+                    "type": "string",                   
+                    "lng":{
+                        "code": "Name",
+                        "default":"Name"
+                    } 
+                },
+                "FirstName": {
+                    "type": "string",
+                    "lng":{
+                        "code": "FirstName",
+                        "default":"First Name"
+                    } 
+                },
+                "MiddleName": {
+                    "type": "string",
+                    "lng":{
+                        "code": "MiddleName",
+                        "default":"Middle Name"
+                    } 
+                },
+                "LastName": {
+                    "type": "string",
+                    "lng":{
+                        "code": "LastName",
+                        "default":"Last Name"
+                    } 
+                },
+                "Email": {
+                    "type": "string",
+                    "format": "email",
+                    "lng":{
+                        "code": "Email",
+                        "default":"Email"
+                    } 
+                },
+                "Phone": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Phone",
+                        "default":"Phone"
+                    } 
+                },
+                "CellPhone": {
+                    "type": "string",
+                    "lng":{
+                        "code": "CellPhone",
+                        "default":"Cell"
+                    } 
+                },
+                "AddressID": {
+                    "type": "integer",
+                    "lng":{
+                        "code": "Address",
+                        "default":"Address"
+                    } 
+                },
+                "ContactID": {
+                    "type": "integer",
+                    "lng":{
+                        "code": "Contact",
+                        "default":"Contact"
+                    } 
+                },
+                "LoginName": {
+                    "type": "string",
+                    "lng":{
+                        "code": "LoginName",
+                        "default":"Login Name"
+                    } 
+                },
+                "ExternalLogin": {
+                    "type": "string",
+                    "lng":{
+                        "code": "ExternalLogin",
+                        "default":"External Login"
+                    } 
+                },
+                "BadgeNo": {
+                    "type": "string",
+                    "lng":{
+                        "code": "BadgeNo",
+                        "default":"Badge No"
+                    } 
+                },
+                "LoginCode": {
+                    "type": "string",
+                    "lng":{
+                        "code": "LoginCode",
+                        "default":"Login Code"
+                    } 
+                },
+                "Password": {
+                    "type": "string",
+                    "format": "password",
+                    "lng":{
+                        "code": "Password",
+                        "default":"Password"
+                    } 
+                },
+                "ForcePasswordChange": {
+                    "type": "boolean",
+                    "lng":{
+                        "code": "ForcePasswordChange",
+                        "default":"Force Password Change"
+                    } 
+                },
+                "LastSignOnDate": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "LastSignOnDate",
+                        "default":"Last SignOn Date"
+                    } 
+                },
+                "LastSignOffDate": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "LastSignOffDate",
+                        "default":"Last SignOff Date"
+                    } 
+                },
+                "UserValidDate": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UserValidDate",
+                        "default":"User Valid Date"
+                    } 
+                },
+                "LoginExpirationDate": {
+                    "type": "string",
+                    "format":"datetime",
+                    "lng":{
+                        "code": "LoginExpirationDate",
+                        "default":"Login Expiration Date"
+                    } 
+                },
+                "LoginLockoutDate": {
+                    "type": "string",
+                    "format":"datetime",                    
+                    "lng":{
+                        "code": "`LoginLockoutDate`",
+                        "default":"Login Lockout Date"
+                    } 
+                },
+                "PasswordLastChangeDate": {
+                    "type": "string",
+                    "format":"datetime", 
+                    "readonly": true,
+                    "lng":{
+                        "code": "PasswordLastChangeDate",
+                        "default":"Password Last Change Date"
+                    } 
+                },
+                "UserClass": {
+                    "type": "integer",
+                    "lng":{
+                        "code": "UserClass",
+                        "default":"User Class"
+                    } 
+                },
+                "UserType": {
+                    "type": "integer",
+                    "lng":{
+                        "code": "UserType",
+                        "default":"User Type"
+                    } 
+                },
+                "CurrencyCode": {
+                    "type": "string",
+                    "lng":{
+                        "code": "CurrencyCode",
+                        "default":"Currency Code"
+                    } 
+                },
+                "DefaultPage": {
+                    "type": "string",
+                    "lng":{
+                        "code": "DefaultPage",
+                        "default":"Default Page"
+                    } 
+                },
+                "Title": {
+                    "type": "string",
+                    "lng":{
+                        "code": "DefaultPage",
+                        "default":"Title"
+                    } 
+                },
+                "Company": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Comapny",
+                        "default":"Company"
+                    } 
+                },
+                "Factory": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Factory",
+                        "default":"Factory"
+                    } 
+                },
+                "Department": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Department",
+                        "default":"Department"
+                    } 
+                },
+                "ProductionLineNo": {
+                    "type": "string",
+                    "lng":{
+                        "code": "ProductionLineNo",
+                        "default":"Production Line"
+                    } 
+                },                
+                "WorkCenter": {
+                    "type": "string",
+                    "lng":{
+                        "code": "WorkCenter",
+                        "default":"Work Center"
+                    } 
+                },
+                "CostCenter": {
+                    "type": "string",
+                    "lng":{
+                        "code": "CostCenter",
+                        "default":"Cost Center"
+                    } 
+                },
+                
+                "Active": {
+                    "type": "boolean",
+                    "readonly": true,
+                    "lng":{
+                        "code": "Active",
+                        "default":"Active"
+                    }
+                },
+                "workspaces": {
+                    "type": "object",
+                    "lng":{
+                        "code": "WorkSpaces",
+                        "default":"WorkSpaces"
+                    } 
+                },                
+                "createdby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedBy",
+                        "default":"Created By"
+                    }
+                },
+                "createdon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedOn",
+                        "default":"Created On"
+                    }
+
+                },
+                "updatedby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedBy",
+                        "default":"Updated By"
+                    }
+                },
+                "updatedon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedOn",
+                        "default":"Updated On"
+                    }
+
+                }
+            },
+            "required": ["uuid",
+                "Name",
+                "LoginName",
+                "LoginCode",
+                "WorkSpaces"
+            ],
+            "unchangable": ["id","uuid"],
+            "hidden": ["id"],
+            
+            "title": "Employee"
+        }
+    }
+}

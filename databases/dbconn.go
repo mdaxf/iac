@@ -31,13 +31,14 @@ var (
 	/*
 		mysql,sqlserver, goracle
 	*/
-	DatabaseType = "sqlserver"
+	DatabaseType = "mysql"
 
 	/*
 		user:password@tcp(localhost:3306)/mydb
 		server=%s;port=%d;user id=%s;password=%s;database=%s
 	*/
-	DatabaseConnection = "server=xxx;user id=xx;password=xxx;database=xxx"
+	//DatabaseConnection = "server=xxx;user id=xx;password=xxx;database=xxx"  //sqlserver
+	DatabaseConnection = "user:iacf12345678@tcp(localhost:3306)/iac"
 
 	once sync.Once
 	err  error

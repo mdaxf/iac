@@ -191,9 +191,6 @@ var UI;
 
 
 (function (UI){
-
-
-
     class UISession{
         constructor(configurator){
             let defaultconfig = {
@@ -221,6 +218,23 @@ var UI;
             this.pageResponsitory = {};
             this.fileResponsitory = {};
         }
+        createStackItem(instance) {
+            return {
+                sessionObject: Session.cloneObject(this.snapshoot.sessionObject),
+                inputs: Session.cloneObject(this._inputs),
+                outputs: Session.cloneObject(this._outputs),
+                children: Session.cloneObject(this.children),
+                views: Session.cloneObject(this.views),
+                panels: Session.cloneObject(this.panels),
+                pages: Session.cloneObject(this.pages),
+                viewResponsitory: Session.cloneObject(this.viewResponsitory),
+                pageResponsitory: Session.cloneObject(this.pageResponsitory),
+                fileResponsitory: Session.cloneObject(this.fileResponsitory),
+                configuration: Session.cloneObject(this.configurator),
+                Instance: instance,
+                model: this.model
+            };
+        }
         popFromStack(sliceIdx) {
             if (typeof (sliceIdx) !== "undefined") {
                 this.stack = this.stack.slice(0, sliceIdx);
@@ -236,15 +250,16 @@ var UI;
                 this.model = null;
             }
         }
-        pushToStack(stackItem, replaceCurrentScreen) {
-            if (stackItem.screenNavigationType === UI.NavigationType.Home)
+        pushToStack(stackItem) {
+            /*if (stackItem.screenNavigationType === UI.NavigationType.Home)
                 this.stack = [];
             if (stackItem.screenNavigationType !== UI.NavigationType.Immediate) {
                 if (this.currentItem == null || this.stack.length === 0 || (this.stack[this.stack.length - 1].screenInstance !== stackItem.screenInstance && !replaceCurrentScreen))
                     this.stack.push(stackItem);
                 else
                     this.stack[this.stack.length - 1] = stackItem;
-            }
+            } */
+            this.stack.push(stackItem);
             this._item = stackItem;
         }
         joinSnapshoot(snapshoot) {
@@ -253,6 +268,15 @@ var UI;
         }
         joinObject(target, source) {
             return Object.assign({}, target, source);    
+        }
+        cloneObject(targetObject) {
+            let temp = {};
+            for (var key in targetObject)
+                if (Array.isArray(targetObject[key]))
+                    temp[key] = targetObject[key].slice();
+                else
+                    temp[key] = targetObject[key];
+            return temp;
         }
         clear(){
             this.stack = [];
@@ -510,7 +534,7 @@ var UI;
         create(){
           //  console.log(this, this.Panel.panelElement);
             Session.views[UI.safeId(this.id)] = this;
-
+            console.log(this.configuration)
             if(this.configuration.inputs)        
                 this.createinputs(this.configuration.inputs);
      
@@ -689,7 +713,7 @@ var UI;
         }
         createinputs(inputs){
             let inputscript = "";
-        //    console.log(Session.snapshoot.sessionData,inputs);
+            console.log(Session.snapshoot.sessionData,inputs);
             Object.keys(inputs).reduce((acc, key) => {
                 if(Session.snapshoot.sessionData.hasOwnProperty(key)   ){
                     inputs[key] = Session.snapshoot.sessionData[key];                      
@@ -823,9 +847,15 @@ var UI;
                         else if(action.type == "page"){
                             if(action.page.toLowerCase().indexOf("page/home.json") !=-1){
                                 Session.clear();
-                            }                    
-                            let page = new Page({"file":action.page});
-    
+                            }   
+                            let stackitem = Session.createStackItem(this);                 
+                            Session.pushToStack(stackitem);
+                            let page = new Page({"file":action.page});    
+                        }
+                        else if(action.type == "script"){
+                            if(action.script){
+                                action.script(Session.snapshoot.sessionData);
+                            }
                         }
     
                     }
@@ -897,6 +927,7 @@ var UI;
             this.clearListeners("unloaded");
         }
     }
+    UI.View = View;
     
     class Page{
             /*

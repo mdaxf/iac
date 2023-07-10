@@ -566,23 +566,41 @@ func (db *DBOperation) Conto_Json(rows *sql.Rows) ([]map[string]interface{}, err
 	for i, col := range cols {
 		colNames[i] = col.Name()
 	}
-	data := []map[string]interface{}{}
+	data := make([]map[string]interface{}, 0)
+	db.iLog.Debug(fmt.Sprintf("The column names are: %s", colNames))
+	db.iLog.Debug(fmt.Sprintf("rows : %s", rows))
+	valuetmps := make([]interface{}, len(colNames))
 
 	for rows.Next() {
 		row := make(map[string]interface{})
 		values := make([]interface{}, len(colNames))
 		for i := range values {
-			values[i] = new(interface{})
+
+			values[i] = &valuetmps[i]
 		}
+
 		err := rows.Scan(values...)
 		if err != nil {
 			db.iLog.Error(fmt.Sprintf("There is error to scan the row with error: %s", err.Error()))
 			return nil, err
 
 		}
+		db.iLog.Debug(fmt.Sprintf("The values of the row is: %s", values))
 		for i, name := range colNames {
-			row[name] = *(values[i].(*interface{}))
+			var v interface{}
+			val := valuetmps[i]
+			b, ok := val.([]byte)
+			if ok {
+				v = string(b)
+			} else {
+				v = val
+			}
+			db.iLog.Debug(fmt.Sprintf("The row field %s is: %s", name, v))
+			row[name] = v
+			//row[name] = *(values[i].(*interface{}))
+			db.iLog.Debug(fmt.Sprintf("The row field %s is: %s", name, row[name]))
 		}
+		db.iLog.Debug(fmt.Sprintf("The row is: %s", row))
 		data = append(data, row)
 	}
 
@@ -590,6 +608,6 @@ func (db *DBOperation) Conto_Json(rows *sql.Rows) ([]map[string]interface{}, err
 		db.iLog.Error(fmt.Sprintf("There is error to get the rows with error: %s", err.Error()))
 	}
 	db.iLog.Debug(fmt.Sprintf("The result of the conversion is: %s", data))
-
+	//jsondata, err := json.Marshal(data)
 	return data, nil
 }
