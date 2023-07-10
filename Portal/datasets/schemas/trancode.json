@@ -34,6 +34,13 @@
                         "default":"Version"
                     } 
                 },
+                "isdefault": {
+                    "type": "boolean",
+                    "lng":{
+                        "code": "IsDefault",
+                        "default":"IsDefault"
+                    } 
+                },
                 "description": {
                     "type": "string",
                     "lng":{
@@ -195,10 +202,23 @@
                     }
                 },
                 "content": {
-                    "type": "object",
+                    "type": "string",
                     "lng":{
                         "code": "Function_Content",
                         "default":"Function Content"
+                     }
+                },
+                "script":{                    
+                    "type": "string",
+                    "lng":{
+                        "code": "Function_Script",
+                        "default":"Function Script"
+                     }},
+                "mapdata":{
+                    "type": "object",
+                    "lng":{
+                        "code": "Function_MapData",
+                        "default":"Function MapData"
                      }
                 },
                 "functype": {

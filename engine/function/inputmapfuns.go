@@ -1,7 +1,6 @@
 package funcs
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/mdaxf/iac/engine/types"
@@ -12,15 +11,15 @@ type InputMapFuncs struct{}
 func (cf *InputMapFuncs) Execute(f *Funcs) {
 	namelist, valuelist, _ := f.SetInputs()
 
-	mapstr := f.Fobj.Content
+	data := f.Fobj.Mapdata
 
-	var data map[string]interface{}
+	//var data map[string]interface{}
 
 	// Convert the string to JSON format
-	err := json.Unmarshal([]byte(mapstr), &data)
+	/*err := json.Unmarshal([]byte(mapstr), &data)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Error: %v", err))
-	}
+	} */
 	outputs := make(map[string]interface{})
 
 	for key := range data {
@@ -36,16 +35,16 @@ func (cf *InputMapFuncs) Execute(f *Funcs) {
 }
 
 func (cf *InputMapFuncs) Validate(f *Funcs) bool {
-	mapstr := f.Fobj.Content
+	data := f.Fobj.Mapdata
 
-	var data map[string]interface{}
+	//var data map[string]interface{}
 
 	// Convert the string to JSON format
-	err := json.Unmarshal([]byte(mapstr), &data)
+	/*err := json.Unmarshal([]byte(mapstr), &data)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Error: %v", err))
 		return false
-	}
+	} */
 	//	outputs := make(map[string]interface{})
 
 	for key := range data {

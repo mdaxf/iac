@@ -77,8 +77,9 @@
                 "cols": 1,
                 "fields": [
                     {"Addresss": {
-                        "type": "link",
+                        "type": "singlelink",
                         "keyfield": "AddressID",
+                        "schema": "addresses",
                         "linkfields": [
                             {"AddressID": "ID"}
                         ],
@@ -93,8 +94,9 @@
                         }                          
                     }},
                     {"ContactID": {
-                        "type": "link",
+                        "type": "singlelink",
                         "keyfield": "ContactID",
+                        "schema": "contacts",
                         "linkfields": [
                             {"ContactID": "ID"}
                         ],

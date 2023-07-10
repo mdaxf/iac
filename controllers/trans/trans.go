@@ -34,6 +34,7 @@ func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 
 	var tcdata TranCodeData
 	if err := ctx.BindJSON(&tcdata); err != nil {
+		iLog.Error(fmt.Sprintf("Error binding json:", err.Error()))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -49,7 +50,7 @@ func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
+	iLog.Debug(fmt.Sprintf("transaction code %s's data: %s", tcdata.TranCode, tcode))
 	jsonString, err := json.Marshal(tcode[0])
 	if err != nil {
 
@@ -196,14 +197,15 @@ func (e *TranCodeController) UpdateTranCodeToRespository(ctx *gin.Context) {
 		return
 	}
 
-	if name == "" && tData.Name != "" {
-		name = tData.Name
+	if name == "" && tData.TranCodeName != "" {
+		name = tData.TranCodeName
 	}
 
 	if uuid == "" && tData.UUID != "" {
 		uuid = tData.UUID
 	}
-
+	iLog.Debug(fmt.Sprintf("Update transaction code to respository with code: %s", name))
+	iLog.Debug(fmt.Sprintf("Update transaction code to respository with uuid: %s", uuid))
 	id := ""
 	ok := false
 	if id, ok = idata["_id"].(string); ok {
@@ -219,7 +221,7 @@ func (e *TranCodeController) UpdateTranCodeToRespository(ctx *gin.Context) {
 		iLog.Debug(fmt.Sprintf("Update transaction code to in respository to set default to false: %s", name))
 		filter := bson.M{"isdefault": true,
 			"trancodename": name}
-		update := bson.M{"$set": bson.M{"isdefault": false, "system.updatedon": time.Now()}, "system.updatedby": "system"}
+		update := bson.M{"$set": bson.M{"isdefault": false, "system.updatedon": time.Now().UTC(), "system.updatedby": "system"}}
 
 		iLog.Debug(fmt.Sprintf("Update transaction code to in respository with filter: %v", filter))
 		iLog.Debug(fmt.Sprintf("Update transaction code to in respository with update: %v", update))
@@ -290,7 +292,7 @@ type TranCodeData struct {
 type TranCode struct {
 	ID             string           "json:'_id'"
 	UUID           string           "json:'uuid'"
-	Name           string           "json:'trancodename'"
+	TranCodeName   string           "json:'trancodename'"
 	Version        string           "json:'version'"
 	IsDefault      bool             "json:'isdefault'"
 	Status         int              "json:'status'"

@@ -1010,7 +1010,7 @@ var UI = UI || {};
                             if(fieldvalue.hasOwnProperty("type"))
                                 type = fieldvalue["type"]
                             
-                            if(type == "link"){
+                            if(type == "link" || type == "singlelink"){
                                 let attrs ={
                                     "name": "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber,                                    
                                     "innerHTML": fieldkey,
@@ -1018,9 +1018,15 @@ var UI = UI || {};
                                 let td = (new UI.FormControl(tr, 'td',{})).control;
                                 let link = (new UI.FormControl(td, "a",attrs)).control;
                                 
-                                $(link).click(function(){                                                                     
-                                    that.displayhyperlinks(wrapper,fieldvalue);
-                                })
+                                if(type == "link")
+                                    $(link).click(function(){                                                                     
+                                        that.displayhyperlinks(wrapper,fieldvalue);
+                                    })
+                                else if(type == "singlelink"){
+                                    $(link).click(function(){                                                                     
+                                        that.displaysubdetail(wrapper,fieldvalue);
+                                    })
+                                }
                             }
                             else{
 
@@ -1318,6 +1324,38 @@ var UI = UI || {};
             console.log(cfg)
             new UI.View(panel,cfg)
         
+        }
+        displaysubdetail(wrapper,fieldvalue){
+            let attrs = {
+                "name": "ui-json-detail-page-linked-item-section",
+                "id": "ui-json-detail-page-linked-item-section",
+                "style": "width:100%;height:100%; display:float; left:0px; top:0px; position:absolute; background-color:white; z-index:10;"
+            }
+            let section = (new UI.FormControl(wrapper, 'div',attrs)).control;
+            let that = this;
+            let panel = {};
+            panel.panelElement = section;
+            let cfg = {
+                "file":"templates/datadetail.html",
+                "name": "detail page",
+                "actions": {
+                    "SAVE":{"type": "script", "next": "","page":"","panels":[], "script": "saveitem"},
+                    "CANCEL":{"type": "script", "next": "","page":"","panels":[], "script": "cancelitem"},
+                }
+            }
+            let inputs = {}
+            inputs.ui_dataschema = fieldvalue['schema']
+            inputs.ui_data = fieldvalue['data']
+            inputs.selectedKey = (that.getNode(fieldvalue['keyfield'])).value
+            cfg.inputs = inputs;
+            cfg.actions.SAVE.script = function(data){             
+                $('#ui-json-detail-page-linked-item-section').remove();
+            }
+            cfg.actions.CANCEL.script = function(data){
+                $('#ui-json-detail-page-linked-item-section').remove();
+            }
+            Session.snapshoot.sessionData.ui_dataschema = fieldvalue['schema']
+            new UI.View(panel,cfg)
         }
         ExportJSON(){          
             return JSON.stringify(this.data);

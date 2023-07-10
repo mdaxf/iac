@@ -107,7 +107,7 @@ func (db *DBOperation) QuerybyList(querystr string, namelist []string, inputs ma
 			paramValuePlaceholder = fmt.Sprintf("'%v'", inputs[namelist[i]])
 		}
 		querystr = strings.Replace(querystr, paramPlaceholder, paramValuePlaceholder, -1)
-		values = append(values, inputs[namelist[i]])
+		//	values = append(values, inputs[namelist[i]])
 	}
 
 	idbtx := db.DBTx
@@ -519,6 +519,7 @@ func (db *DBOperation) Conto_JsonbyList(rows *sql.Rows) (map[string][]interface{
 	}
 	data := make(map[string][]interface{})
 	colNames := make([]string, len(cols))
+	valuetmps := make([]interface{}, len(colNames))
 
 	for i, col := range cols {
 		colNames[i] = col.Name()
@@ -528,7 +529,8 @@ func (db *DBOperation) Conto_JsonbyList(rows *sql.Rows) (map[string][]interface{
 	for rows.Next() {
 		values := make([]interface{}, len(colNames))
 		for i := range values {
-			values[i] = new(interface{})
+			//values[i] = new(interface{})
+			values[i] = &valuetmps[i]
 		}
 		err := rows.Scan(values...)
 		if err != nil {
@@ -537,7 +539,18 @@ func (db *DBOperation) Conto_JsonbyList(rows *sql.Rows) (map[string][]interface{
 
 		}
 		for i, name := range colNames {
-			data[name] = append(data[name], *(values[i].(*interface{})))
+
+			var v interface{}
+
+			val := valuetmps[i]
+			b, ok := val.([]byte)
+			if ok {
+				v = string(b)
+			} else {
+				v = val
+			}
+			//data[name] = append(data[name], *(values[i].(*interface{})))
+			data[name] = append(data[name], v)
 		}
 
 	}

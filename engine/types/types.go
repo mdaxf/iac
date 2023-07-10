@@ -49,21 +49,23 @@ type RouterDef struct {
 }
 
 type Function struct {
-	ID           string       "json:'id'"
-	Name         string       "json:'name'"
-	Version      string       "json:'version'"
-	Status       Status       "json:'status'"
-	Functype     FunctionType "json:'functype'"
-	Inputs       []Input      "json:'inputs'"
-	Outputs      []Output     "json:'outputs'"
-	Content      string       "json:'content'"
-	FunctionName string       "json:'functionname'"
-	Description  string       "json:'description'"
-	Type         string       "json:'type'"
-	x            int          "json:'x'"
-	y            int          "json:'y'"
-	width        int          "json:'width'"
-	height       int          "json:'height'"
+	ID           string                 "json:'id'"
+	Name         string                 "json:'name'"
+	Version      string                 "json:'version'"
+	Status       Status                 "json:'status'"
+	Functype     FunctionType           "json:'functype'"
+	Inputs       []Input                "json:'inputs'"
+	Outputs      []Output               "json:'outputs'"
+	Content      string                 "json:'content'"
+	Script       string                 "json:'script'"
+	Mapdata      map[string]interface{} "json:'mapdata'"
+	FunctionName string                 "json:'functionname'"
+	Description  string                 "json:'description'"
+	Type         string                 "json:'type'"
+	x            int                    "json:'x'"
+	y            int                    "json:'y'"
+	width        int                    "json:'width'"
+	height       int                    "json:'height'"
 }
 
 type Input struct {

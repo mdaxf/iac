@@ -4412,6 +4412,23 @@ var ProcessFlow = (function(){
 			new UI.FormControl(property_container,'br',{});
 
 			control_attrs ={
+				for: 'trancodeisdefault',
+				innerHTML: 'Is Default',
+			}
+			new UI.FormControl(property_container,'label',control_attrs);
+			new UI.FormControl(property_container,'br',{});
+
+			control_attrs ={
+				type: 'checkbox',
+				id: 'trancodeisdefault',
+				name: 'isdefault',
+				value: flowobj.isdefault,
+				class: 'form-control'
+			}
+			new UI.CheckBox(property_container,'input',control_attrs);
+			new UI.FormControl(property_container,'br',{});
+
+			control_attrs ={
 				for: 'description',
 				innerHTML: 'Description',
 			}
@@ -4438,7 +4455,8 @@ var ProcessFlow = (function(){
 				let description = document.getElementById('description').value;				
 				that.flowobj.trancodename = trancodename;
 				that.flowobj.version = trancodeversion;
-				that.flowobj.description = description;				
+				that.flowobj.description = description;
+				that.flowobj.isdefault = document.getElementById('trancodeisdefault').checked;
 				that.property_panel.style.width = "0px";
 				that.property_panel.style.display = "none";
 			}
@@ -5436,7 +5454,8 @@ var ProcessFlow = (function(){
 				name: name,	
 				functionName: name,
 				description: name,
-				content: {},
+				content: "",
+				mapdata:{},
 				functype: parseInt(functype),
 				inputs: inputs,
 				outputs: [],
@@ -5472,6 +5491,7 @@ var ProcessFlow = (function(){
 				name: funcobj.functionName,
 				description: funcobj.description,
 				content: funcobj.content,
+				mapdata:funcobj.mapdata,
 				functype: parseInt(funcobj.functype),
 				type: "FUNCTION",
 				inputs: funcobj.inputs,
@@ -5587,17 +5607,18 @@ var ProcessFlow = (function(){
 					options.push({value: functionobj.inputs[i].name, innerHTML: functionobj.inputs[i].name})
 				}
 				let obj = {};
-				if(typeof functionobj.content == 'string'){
+				if(typeof functionobj.mapdata == 'string'){
 
 					try{
-						obj= JSON.parse(functionobj.content)
+						obj= JSON.parse(functionobj.mapdata)
 					}catch{}
 				}
-				else if (functionobj.content == null)
+				else if (functionobj.mapdata == null)
 					obj = {};
-				else if(typeof functionobj.content == 'object')
-					obj = functionobj.content;
+				else if(typeof functionobj.mapdata == 'object')
+					obj = functionobj.mapdata;
 
+				
 				let rows = [];
 				for(var i=0;i<functionobj.outputs.length;i++){
 					let cells=[];
@@ -5687,7 +5708,7 @@ var ProcessFlow = (function(){
 				attrs={
 					id: 'functioncontent',
 					type: 'text',
-					innerHTML: functionobj.content.hasOwnProperty('value')? functionobj.content.value: JSON.stringify(functionobj.content),
+					innerHTML: functionobj.content,
 					class: 'form-control',
 					placeholder: 'Enter Function Content',
 					style: 'width: 100%;height: 100px;'
@@ -5716,7 +5737,8 @@ var ProcessFlow = (function(){
 				}
 				let functiondescription =$('#functiondescription').val();
 				let functiontype = $('#functiontype').val();
-				let functioncontent ={};
+				let functioncontent ="";
+				let functionmapdata = {};
 				
 				if(functiontype == "0"){
 					let fcobj = {};
@@ -5726,15 +5748,16 @@ var ProcessFlow = (function(){
 						if(input !='')
 							fcobj[output] = input;
 					})
-					functioncontent = fcobj;
+					functionmapdata = fcobj;
 				}
 				else
-					functioncontent = {'value':$('#functioncontent').val()};
+					functioncontent = $('#functioncontent').val();
 
 			//	console.log(functioncontent)
 				let value={
 					"functype": parseInt(functiontype),
 					"content": functioncontent,
+					"mapdata": functionmapdata,
 					"description": functiondescription
 				}
 			//	console.log(path, value)
