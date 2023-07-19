@@ -435,7 +435,20 @@
                         "default":"Cost Center"
                     } 
                 },
-                
+                "LanguageID": {
+                    "type": "integer",
+                    "lng":{
+                        "code": "Language",
+                        "default":"Language"
+                    } 
+                },
+                "TimeZoneCode": {
+                    "type": "string",
+                    "lng":{
+                        "code": "TimeZone",
+                        "default":"Time Zone"
+                    } 
+                },
                 "Active": {
                     "type": "boolean",
                     "readonly": true,

@@ -21,18 +21,22 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	dbconn "github.com/mdaxf/iac/databases"
 
 	"github.com/mdaxf/iac/config"
+	"github.com/mdaxf/iac/controllers/auth"
 	"github.com/mdaxf/iac/logger"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
-func execLogin(ctx *gin.Context, username string, password string) {
+func execLogin(ctx *gin.Context, username string, password string, clienttoken string, ClientID string) {
 
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
 	log.Debug("Login execution function is called.")
-	querystr := fmt.Sprintf(LoginQuery, username)
+
+	hasedPassword, err := hashPassword(password)
+	querystr := fmt.Sprintf(LoginQuery, username, hasedPassword)
 
 	log.Debug(fmt.Sprintf("Query:%s", querystr))
 
@@ -68,10 +72,6 @@ func execLogin(ctx *gin.Context, username string, password string) {
 		}
 		log.Debug(fmt.Sprintf("ID:%d  Name:%s  FamilyName:%s", ID, Name, FamilyName))
 
-		user := User{ID: ID, Username: Name + " " + FamilyName, Email: "", Password: password, SessionID: uuid.New().String()}
-
-		log.Debug(fmt.Sprintf("user:%v", user))
-
 		Columns := []string{"LastSignOnDate", "LastUpdateOn", "LastUpdatedBy"}
 		Values := []string{time.Now().Format("2006-01-02 15:04:05"), time.Now().Format("2006-01-02 15:04:05"), username}
 		datatypes := []int{0, 0, 0}
@@ -88,13 +88,20 @@ func execLogin(ctx *gin.Context, username string, password string) {
 
 		iDBTx.Commit()
 
-		exist, err := config.SessionCache.IsExist(ctx, "USER_"+string(rune(ID)))
+		token, createdt, expdt, err := auth.Generate_authentication_tocken(string(rune(ID)), username, ClientID)
+
+		sessionid := token
+		exist, err := config.SessionCache.IsExist(ctx, sessionid)
 
 		if err != nil && exist {
-			config.SessionCache.Delete(ctx, "USER_"+string(rune(ID)))
+			config.SessionCache.Delete(ctx, sessionid)
 
 		}
-		config.SessionCache.Put(ctx, "USER_"+string(rune(ID)), user, 10*time.Minute)
+		user := User{ID: ID, Username: Name + " " + FamilyName, Email: "", Password: password, ClientID: ClientID, CreatedOn: createdt, ExpirateOn: expdt, Token: token}
+
+		log.Debug(fmt.Sprintf("user:%v", user))
+
+		config.SessionCache.Put(ctx, sessionid, user, 10*time.Minute)
 		log.Debug(fmt.Sprintf("User:%s login successful!", user))
 
 		ctx.JSON(http.StatusOK, user)
@@ -128,9 +135,19 @@ func execLogin(ctx *gin.Context, username string, password string) {
 		return user, err
 	}
 */
-func execLogout(ctx *gin.Context, UserID string) (string, error) {
+func execLogout(ctx *gin.Context, token string) (string, error) {
 
-	config.SessionCache.Delete(ctx, "USER_"+UserID)
+	config.SessionCache.Delete(ctx, token)
 
 	return "OK", nil
+}
+
+func hashPassword(password string) (string, error) {
+	hashedPasswordBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+
+	hashedPassword := string(hashedPasswordBytes)
+	return hashedPassword, nil
 }

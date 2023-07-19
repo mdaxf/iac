@@ -15,21 +15,23 @@
 package user
 
 type LoginUserData struct {
-	ID        int    `json:"id"` // The user's unique ID
-	Username  string `json:"username"`
-	Password  string `json:"password"`
-	ClientID  string `json:"clientid"`
-	SessionID string `json:"sessionid"`
+	ID       int    `json:"id"` // The user's unique ID
+	Username string `json:"username"`
+	Password string `json:"password"`
+	ClientID string `json:"clientid"`
+	Token    string `json:"token"`
 }
 
 type User struct {
-	ID        int    `json:"id"`
-	Username  string `json:"username"`
-	Password  string `json:"password"`
-	ClientID  string `json:"clientid"`
-	SessionID string `json:"sessionid"`
-	Email     string `json:"email"`
+	ID         int    `json:"id"`
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+	ClientID   string `json:"clientid"`
+	Token      string `json:"token"`
+	CreatedOn  string `json:"createdon"`
+	ExpirateOn string `json:"expirateon"`
+	Email      string `json:"email"`
 }
 
-var TableName string = "EMPLOYEE"
-var LoginQuery string = "SELECT ID,Name,FamilyName FROM EMPLOYEE WHERE LoginName='%s'"
+var TableName string = "users"
+var LoginQuery string = "SELECT ID,Name,LastName, LanguageID, TimeZoneCode FROM users WHERE LoginName='%s' AND (Password='%s' OR Password is null)"

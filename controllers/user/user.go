@@ -38,10 +38,12 @@ func (c *UserController) Login(ctx *gin.Context) {
 
 	username := user.Username
 	password := user.Password
+	token := user.Token
+	ClientID := user.ClientID
 
-	log.Debug(fmt.Sprintf("Login:%s  %s", username, password))
+	log.Debug(fmt.Sprintf("Login:%s  %s  tocken: %s", username, password, token))
 
-	execLogin(ctx, username, password)
+	execLogin(ctx, username, password, token, ClientID)
 
 	/*
 		//log.Println(fmt.Sprintf("Database open connection:%d", &dbconn.DB.Stats().OpenConnections))
@@ -98,8 +100,9 @@ func (c *UserController) Logout(ctx *gin.Context) {
 		return
 	}
 
-	userID := user.ID
-	execLogout(ctx, string(userID))
+	//userID := user.ID
+	token := user.Token
+	execLogout(ctx, token)
 	ctx.JSON(http.StatusOK, "Logoutsessionid")
 }
 
