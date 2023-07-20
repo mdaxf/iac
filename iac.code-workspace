@@ -28,6 +28,9 @@
 		},
 		{
 			"path": "../datahub"
+		},
+		{
+			"path": "controllers/auth"
 		}
 	],
 	"settings": {}

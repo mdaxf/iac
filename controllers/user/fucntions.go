@@ -24,7 +24,7 @@ import (
 	dbconn "github.com/mdaxf/iac/databases"
 
 	"github.com/mdaxf/iac/config"
-	"github.com/mdaxf/iac/controllers/auth"
+	"github.com/mdaxf/iac/framework/auth"
 	"github.com/mdaxf/iac/logger"
 
 	"golang.org/x/crypto/bcrypt"
