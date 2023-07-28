@@ -24,7 +24,7 @@
 					"action": ""
 				},
 				"actions":{
-					"LOGIN": {"type": "page", "next": "","page": "pages/root.json"}
+					"LOGIN": {"type": "page", "next": "","page": "pages/home.json"}
 				}
 			},
 			"inlinestyle": "height: 80%;"

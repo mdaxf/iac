@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"reflect"
 	"strings"
 
 	//"log"
@@ -236,27 +237,31 @@ func (db *DBController) InsertDataToTable(ctx *gin.Context) error {
 	values := []string{}
 	datatype := []int{}
 	for key, value := range data.Data {
-		fields = append(fields, key)
 
-		switch value.(type) {
-		case string:
-			datatype = append(datatype, 0)
-			values = append(values, value.(string))
-		case float64:
-			datatype = append(datatype, 2)
-			v := fmt.Sprintf("%f", value.(float64))
-			values = append(values, v)
-		case bool:
-			datatype = append(datatype, 3)
-			v := fmt.Sprintf("%t", value.(bool))
-			values = append(values, v)
-		case int:
-			datatype = append(datatype, 1)
-			v := fmt.Sprintf("%d", value.(int))
-			values = append(values, v)
-		default:
-			datatype = append(datatype, 0)
-			values = append(values, value.(string))
+		iLog.Debug(fmt.Sprintf("Insert data to table: %s %s %s", key, value, reflect.TypeOf(value)))
+		if value != nil {
+			fields = append(fields, key)
+
+			switch value.(type) {
+			case string:
+				datatype = append(datatype, 0)
+				values = append(values, value.(string))
+			case float64:
+				datatype = append(datatype, 2)
+				v := fmt.Sprintf("%f", value.(float64))
+				values = append(values, v)
+			case bool:
+				datatype = append(datatype, 3)
+				v := fmt.Sprintf("%t", value.(bool))
+				values = append(values, v)
+			case int:
+				datatype = append(datatype, 1)
+				v := fmt.Sprintf("%d", value.(int))
+				values = append(values, v)
+			default:
+				datatype = append(datatype, 0)
+				values = append(values, value.(string))
+			}
 		}
 	}
 
@@ -301,26 +306,30 @@ func (db *DBController) UpdateDataToTable(ctx *gin.Context) error {
 	values := []string{}
 	datatype := []int{}
 	for key, value := range data.Data {
-		fields = append(fields, key)
-		switch value.(type) {
-		case string:
-			datatype = append(datatype, 0)
-			values = append(values, value.(string))
-		case float64:
-			datatype = append(datatype, 2)
-			v := fmt.Sprintf("%f", value.(float64))
-			values = append(values, v)
-		case bool:
-			datatype = append(datatype, 3)
-			v := fmt.Sprintf("%t", value.(bool))
-			values = append(values, v)
-		case int:
-			datatype = append(datatype, 1)
-			v := fmt.Sprintf("%d", value.(int))
-			values = append(values, v)
-		default:
-			datatype = append(datatype, 0)
-			values = append(values, value.(string))
+		iLog.Debug(fmt.Sprintf("Update data to table: %s %s %s", key, value, reflect.TypeOf(value)))
+		if value != nil {
+			fields = append(fields, key)
+
+			switch value.(type) {
+			case string:
+				datatype = append(datatype, 0)
+				values = append(values, value.(string))
+			case float64:
+				datatype = append(datatype, 2)
+				v := fmt.Sprintf("%f", value.(float64))
+				values = append(values, v)
+			case bool:
+				datatype = append(datatype, 3)
+				v := fmt.Sprintf("%t", value.(bool))
+				values = append(values, v)
+			case int:
+				datatype = append(datatype, 1)
+				v := fmt.Sprintf("%d", value.(int))
+				values = append(values, v)
+			default:
+				datatype = append(datatype, 0)
+				values = append(values, value.(string))
+			}
 		}
 	}
 
@@ -412,15 +421,21 @@ func (db *DBController) DeleteDataFromTable(ctx *gin.Context) error {
 }
 
 func (db *DBController) GetDataFromRequest(ctx *gin.Context) (DBData, error) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromRequest"}
+	iLog.Debug(fmt.Sprintf("GetDataFromRequest"))
 
 	var data DBData
 	body, err := ioutil.ReadAll(ctx.Request.Body)
+	iLog.Debug(fmt.Sprintf("GetDataFromRequest body: %s", body))
 	if err != nil {
+		iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
 		return data, err
 	}
 	err = json.Unmarshal(body, &data)
 	if err != nil {
+		iLog.Error(fmt.Sprintf("GetDataFromRequest Unmarshal error: %s", err.Error()))
 		return data, err
 	}
+	iLog.Debug(fmt.Sprintf("GetDataFromRequest data: %s", data))
 	return data, nil
 }

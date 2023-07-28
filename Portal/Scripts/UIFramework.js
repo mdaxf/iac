@@ -18,17 +18,28 @@ var UI;
         common UI functions and classes
         Ajax Call
     */
-        UI.CONTROLLER_URL = "api/ui";
+        UI.CONTROLLER_URL = "";
         class Ajax {
             constructor(token) {
               this.token = token;
+              if(!token || token == ''){
+                let sessionkey= window.location.origin+"_"+ "user";
+                var userdata = sessionStorage.getItem(sessionkey);
+                if(userdata){
+                    var userjdata = JSON.parse(userdata);
+                    this.token = userjdata.token;
+                }
+              }
             }
           
             initializeRequest(method, url, stream) {
               return new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
-                xhr.open(method, `${url}`, true);                
-            //    xhr.setRequestHeader('Authorization', `Bearer ${this.token}`);
+                xhr.open(method, `${url}`, true);
+                
+                if(this.token && this.token !='')
+                    xhr.setRequestHeader('Authorization', `Bearer ${this.token}`);
+
                 if (stream) {
                   xhr.responseType = 'stream';
                 }
@@ -53,7 +64,10 @@ var UI;
                 return new Promise((resolve, reject) => {
                     const xhr = new XMLHttpRequest();
                     xhr.open('GET', `${url}`, true);                
-                //    xhr.setRequestHeader('Authorization', `Bearer ${this.token}`);
+                
+                    if(this.token && this.token !='')
+                        xhr.setRequestHeader('Authorization', `Bearer ${this.token}`);
+
                     if (stream) {
                       xhr.responseType = 'stream';
                     }
@@ -74,7 +88,10 @@ var UI;
               return new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
                 xhr.open('POST', `${url}`, true);
-            //    xhr.setRequestHeader('Authorization', `Bearer ${this.token}`);
+            
+                if(this.token && this.token !='')
+                    xhr.setRequestHeader('Authorization', `Bearer ${this.token}`);
+
                 xhr.setRequestHeader('Content-Type', 'application/json');
                 xhr.onload = () => {
                   if (xhr.status >= 200 && xhr.status < 300) {
@@ -94,8 +111,205 @@ var UI;
             }
           }
         UI.Ajax = Ajax; 
-        UI.ajax = new Ajax();   
+        UI.ajax = new Ajax("");   
 })(UI || (UI = {}));
+
+(function (UI) {
+
+    class UserLogin{
+        constructor(){
+            this.username = "";
+            this.password = "";
+            this.token = "";
+            this.islogin = false;
+            this.clientid = "";
+            this.createdon = "";
+            this.expirateon = "";
+            this.tokenchecktime = 1000*60*10;
+            this.logonpage = "Logon page";
+            this.tokenupdatetimer = null;
+            this.updatedon = null;
+            this.sessionkey= window.location.origin+"_"+ "user";
+        }
+        checkiflogin(success, fail){
+            let userdata = sessionStorage.getItem(this.sessionkey);
+            console.log(userdata)
+            if(userdata){
+                let userjdata = JSON.parse(userdata);
+                this.username = userjdata.username;
+                this.password = userjdata.password;
+                this.token = userjdata.token;
+                this.islogin = userjdata.islogin;
+                this.clientid = userjdata.clientid;
+                this.createdon = userjdata.createdon;
+                this.expirateon = userjdata.expirateon;               
+                this.updatedon = userjdata.updatedon;
+                this.updatedon = new Date(this.updatedon);
+
+                let checkedtime = new Date(this.updatedon.getTime() + this.tokenchecktime);
+                if(checkedtime > new Date()){
+                    if(success){
+                        success();
+                    }
+                    return true;
+                }
+
+                let parsedDate = new Date(this.expirateon);
+
+                console.log(this.token, parsedDate, new Date(), (parsedDate > new Date()))
+
+                if(parsedDate > new Date()){
+                    console.log("renew")
+                    UI.ajax.post(UI.CONTROLLER_URL+"/user/login", {"username":this.username, "password":this.password, "token":this.token, "clientid": this.clientid, "renew": true}).then((response) => {
+                        userjdata = JSON.parse(response);
+                        this.username = userjdata.username;
+                        this.password = userjdata.password;
+                        this.token = userjdata.token;
+                        this.islogin = userjdata.islogin;
+                        this.clientid = userjdata.clientid;
+                        this.createdon = userjdata.createdon;
+                        this.expirateon = userjdata.expirateon;
+                        userjdata.updatedon = new Date();
+
+                        console.log(userjdata)
+                        sessionStorage.setItem(this.sessionkey, JSON.stringify(userjdata));
+                        
+                        if(success){
+                            success();                        
+                        }
+                        return true;
+    
+                    }).catch((error) => {
+                        console.log(error)
+                        if(fail)
+                            fail();
+                            return false;
+                    })
+                }
+                    
+            }
+            if(fail) 
+                fail();
+
+            return false;
+        }
+        login(username, password, success, fail){
+            
+            let userdata = sessionStorage.getItem(this.sessionkey);
+            console.log(userdata)
+            if(userdata){
+                let userjdata = JSON.parse(userdata);
+                this.username = userjdata.username;
+                this.password = userjdata.password;
+                this.token = userjdata.token;
+                this.islogin = userjdata.islogin;
+                this.clientid = userjdata.clientid;
+                this.createdon = userjdata.createdon;
+                this.expirateon = userjdata.expirateon;
+            }
+            
+
+            if(this.username == username && this.islogin){
+
+                UI.ajax.post(UI.CONTROLLER_URL+"/user/login", {"username":username, "password":password, "token":this.token, "clientid": this.clientid, "renew": true}).then((response) => {
+                    userjdata = JSON.parse(response);
+                    this.username = userjdata.username;
+                    this.password = userjdata.password;
+                    this.token = userjdata.token;
+                    this.islogin = userjdata.islogin;
+                    this.clientid = userjdata.clientid;
+                    this.createdon = userjdata.createdon;
+                    this.expirateon = userjdata.expirateon;
+                    userjdata.updatedon = new Date();
+
+                    sessionStorage.setItem(this.sessionkey, JSON.stringify(userjdata));
+
+                    if(success){
+                        success();
+                    }   
+
+                }).catch((error) => {
+                    if(fail)
+                        fail();
+                })
+            }
+            else{
+                
+
+                if(this.clientid == ""){
+                    this.clientid = UI.generateUUID();
+                }
+                console.log(this.clientid,username,password)
+                UI.ajax.post(UI.CONTROLLER_URL+"/user/login", {"username":username, "password":password, "token":this.token, "clientid": this.clientid, "renew": false}).then((response) => {
+                    let userjdata = JSON.parse(response);
+                    this.username = userjdata.username;
+                    this.password = userjdata.password;
+                    this.token = userjdata.token;
+                    this.islogin = userjdata.islogin;
+                    this.clientid = userjdata.clientid;
+                    this.createdon = userjdata.createdon;
+                    this.expirateon = userjdata.expirateon;
+                    userjdata.updatedon = new Date();
+
+                    sessionStorage.setItem(this.sessionkey, JSON.stringify(userjdata));
+                    
+                    if(success){
+                        success();
+                    }                
+
+                }).catch((error) => {
+                    console.log(error)
+                    if(fail)
+                        fail();
+                })
+            }
+        }
+        logout(success, fail){
+            let userdata = sessionStorage.getItem(this.sessionkey);
+
+            username = userdata.username;
+            token = userdata.token;
+            clientid = userdata.clientid;
+
+            UI.ajax.post(UI.CONTROLLER_URL+"/user/login", {"username":username, "token":this.token, "clientid": this.clientid}).then((response) => {
+                sessionStorage.removeItem(this.sessionkey);
+                this.username = "";
+                this.password = "";
+                this.token = "";
+                this.islogin = false;
+
+                if(success){
+                    success();
+                } 
+            
+            }).catch((error) => {
+                if(fail)
+                    fail();
+            })
+
+        }
+    }
+    UI.UserLogin = UserLogin;
+    UI.userlogin = new UserLogin();
+
+    function tokencheck(){
+        UI.userlogin.checkiflogin(function(){
+            console.log("token updated success:", UI.userlogin.username);
+            UI.userlogin.tokenupdatetimer = window.setTimeout(tokencheck, UI.userlogin.tokenchecktime);
+        }, function(){
+            console.log("token updated fail:", UI.userlogin.username);
+            console.log(UI.Page);
+            if(UI.Page && UI.Page.configuration.name != UI.userlogin.logonpage)
+                new UI.Page({file:'pages/logon.json'});
+            
+        })
+    }
+
+    UI.tokencheck = tokencheck;
+
+})(UI || (UI = {}));
+
+
 (function (UI) {    
     function generateUUID(){
         var d = new Date().getTime();
@@ -469,8 +683,20 @@ var UI;
 
         */
         constructor(Panel, configuration){
-            super();
             console.log(Panel,configuration)
+            super();
+           /* if(Panel.page.configuration.name !="Logon page"){
+
+                this.validelogin(Panel,configuration);
+            }
+            else
+            {
+                this.initialize(Panel,configuration);
+            }; */
+            this.initialize(Panel,configuration);
+        }
+        initialize(Panel,configuration){            
+            
             this.Panel = Panel;
             if(configuration.name){
                 if(configuration.name in Session.viewResponsitory){
@@ -489,7 +715,18 @@ var UI;
                 this.configuration = configuration; 
                 this.builview();  
             }  
-            
+        }
+        async validelogin(Panel,configuration){
+            await UI.userlogin.checkiflogin(function(){
+                console.log("login success:", UI.userlogin.username);  
+                this.initialize(Panel,configuration);
+              }, function(){
+                //  UI.startpage("pages/logon.json");
+                 // console.log(pagefile);
+                  console.log("there is no validated login user!");
+                  new UI.Page({file:"pages/logon.json"});
+                  return;
+              });
         }
         async loadconfiguration(configuration){
             await this.loadviewconfiguration(configuration);   
@@ -981,6 +1218,9 @@ var UI;
                 this.create();
             }
            // console.log(this);
+            if(configuration.name !=UI.userlogin.logonpage && UI.userlogin.tokenupdatetimer == null){
+                UI.tokencheck();
+            }
         }
         loadfile(configuration){
             if(configuration.file in Session.pageResponsitory){
@@ -1110,6 +1350,9 @@ var UI;
      
     }
     UI.startbyconfig = startbyconfig;
+
+
+    
 })(UI || (UI = {}));
 
 /*

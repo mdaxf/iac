@@ -30,10 +30,57 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func execLogin(ctx *gin.Context, username string, password string, clienttoken string, ClientID string) {
+func execLogin(ctx *gin.Context, username string, password string, clienttoken string, ClientID string, Renew bool) {
 
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
 	log.Debug("Login execution function is called.")
+	log.Debug(fmt.Sprintf("login parameters:%s  %s  token: %s  renew:%s", username, password, clienttoken, Renew))
+
+	if Renew {
+
+		user, err := config.SessionCache.Get(ctx, clienttoken)
+
+		log.Debug(fmt.Sprintf("SessionCache user:%v for token:%s", user, clienttoken))
+
+		if err != nil {
+			log.Error(fmt.Sprintf("SessionCache error:%s for token", err.Error(), clienttoken))
+		} else {
+			log.Debug(fmt.Sprintf("SessionCache user:%v for token:%s", user, clienttoken))
+			if user != nil {
+				if user.(User).Token == clienttoken {
+					layout := "2006-01-02 15:04:05"
+					parsedTime, err := time.Parse(layout, user.(User).ExpirateOn)
+					log.Debug(fmt.Sprintf("token %s expirate on:%s expired? %s", user.(User).Token, parsedTime, parsedTime.Before(time.Now())))
+					if err != nil {
+						log.Error(fmt.Sprintf("SessionCache error:%s for token:%s", err.Error(), clienttoken))
+					} else if parsedTime.Before(time.Now()) {
+						log.Debug(fmt.Sprintf("renew the session for user:%s, token: %s", username, user.(User).Token))
+
+						token, createdt, expdt, err := auth.Extendexptime(user.(User).Token)
+						if err != nil {
+							log.Error(fmt.Sprintf("SessionCache error:%s for token:%s", err.Error(), clienttoken))
+						} else {
+							ID := user.(User).ID
+							Username := user.(User).Username
+							hasedPassword := user.(User).Password
+							user = User{ID: ID, Username: Username, Email: "", Password: hasedPassword, ClientID: ClientID, CreatedOn: createdt, ExpirateOn: expdt, Token: token}
+							config.SessionCache.Delete(ctx, clienttoken)
+							config.SessionCache.Put(ctx, token, user, 15*time.Minute)
+							ctx.JSON(http.StatusOK, user)
+							return
+						}
+					}
+					log.Debug(fmt.Sprintf("token %s already expried", clienttoken))
+				}
+			}
+
+		}
+		log.Error(fmt.Sprintf("Renew session failed for user:%s", username))
+
+		ctx.JSON(http.StatusNotFound, "Renew failed")
+
+		return
+	}
 
 	hasedPassword, err := hashPassword(password)
 	querystr := fmt.Sprintf(LoginQuery, username, hasedPassword)
@@ -49,9 +96,20 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 	}
 
 	dboperation := dbconn.NewDBOperation(username, iDBTx, "User Login")
+	/*
+		rows, err := dboperation.Query(querystr)
+		defer rows.Close()
+		if err != nil {
 
-	rows, err := dboperation.Query(querystr)
-	defer rows.Close()
+			log.Error(fmt.Sprintf("Query error:%s", err.Error()))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		log.Debug(fmt.Sprintf("Query result:%v", rows))
+
+	*/
+	jdata, err := dboperation.Query_Json(querystr)
+
 	if err != nil {
 
 		log.Error(fmt.Sprintf("Query error:%s", err.Error()))
@@ -59,20 +117,27 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 		return
 	}
 
-	for rows.Next() {
+	log.Debug(fmt.Sprintf("Query result:%v", jdata))
+
+	//for rows.Next() {
+	if jdata != nil {
 		var ID int
 		var Name string
 		var FamilyName string
+		/*
+			err = rows.Scan(&ID, &Name, &FamilyName)
+			if err != nil {
+				log.Error(fmt.Sprintf("Row Scan error:%s", err.Error()))
+				ctx.JSON(http.StatusInternalServerError, "Login failed")
+				return
+			} */
+		ID = int(jdata[0]["ID"].(int64))
+		Name = jdata[0]["Name"].(string)
+		FamilyName = jdata[0]["LastName"].(string)
 
-		err = rows.Scan(&ID, &Name, &FamilyName)
-		if err != nil {
-			log.Error(fmt.Sprintf("Row Scan error:%s", err.Error()))
-			ctx.JSON(http.StatusInternalServerError, "Login failed")
-			return
-		}
 		log.Debug(fmt.Sprintf("ID:%d  Name:%s  FamilyName:%s", ID, Name, FamilyName))
 
-		Columns := []string{"LastSignOnDate", "LastUpdateOn", "LastUpdatedBy"}
+		Columns := []string{"LastSignOnDate", "UpdatedOn", "UpdatedBy"}
 		Values := []string{time.Now().Format("2006-01-02 15:04:05"), time.Now().Format("2006-01-02 15:04:05"), username}
 		datatypes := []int{0, 0, 0}
 		Wherestr := fmt.Sprintf("ID= %d", ID)
@@ -88,7 +153,7 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 
 		iDBTx.Commit()
 
-		token, createdt, expdt, err := auth.Generate_authentication_tocken(string(rune(ID)), username, ClientID)
+		token, createdt, expdt, err := auth.Generate_authentication_token(string(rune(ID)), username, ClientID)
 
 		sessionid := token
 		exist, err := config.SessionCache.IsExist(ctx, sessionid)
@@ -97,16 +162,18 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 			config.SessionCache.Delete(ctx, sessionid)
 
 		}
-		user := User{ID: ID, Username: Name + " " + FamilyName, Email: "", Password: password, ClientID: ClientID, CreatedOn: createdt, ExpirateOn: expdt, Token: token}
+		user := User{ID: ID, Username: username, Email: "", Password: hasedPassword, ClientID: ClientID, CreatedOn: createdt, ExpirateOn: expdt, Token: token}
 
 		log.Debug(fmt.Sprintf("user:%v", user))
 
-		config.SessionCache.Put(ctx, sessionid, user, 10*time.Minute)
+		config.SessionCache.Put(ctx, sessionid, user, 15*time.Minute)
 		log.Debug(fmt.Sprintf("User:%s login successful!", user))
 
 		ctx.JSON(http.StatusOK, user)
 		return
 	}
+
+	iDBTx.Rollback()
 	log.Error(fmt.Sprintf("Login failed for user:%s", username))
 
 	ctx.JSON(http.StatusNotFound, "Login failed")

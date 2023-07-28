@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mdaxf/iac/controllers/collectionop"
@@ -25,6 +26,8 @@ import (
 	"github.com/mdaxf/iac/controllers/role"
 	"github.com/mdaxf/iac/controllers/trans"
 	"github.com/mdaxf/iac/controllers/user"
+
+	"github.com/mdaxf/iac/framework/auth"
 )
 
 func loadControllers(router *gin.Engine, controllers []Controller) {
@@ -84,18 +87,30 @@ func createEndpoints(router *gin.Engine, module string, modulepath string, endpo
 		if err != nil {
 			return fmt.Errorf("error creating endpoint '%s': %v", endpoint.Path, err)
 		}
-
+		ilog.Debug(fmt.Sprintf("modulepath:%s, method:%s module:%s", modulepath, endpoint.Method, module))
 		// Add the API endpoint to the router
+		//auth.AuthMiddleware(),
+
 		switch endpoint.Method {
 		case http.MethodGet:
+			router.Use(auth.AuthMiddleware())
 			router.GET(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
 		case http.MethodPost:
-			router.POST(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
+
+			if strings.Contains(modulepath, "/user/login") {
+				router.POST(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
+			} else {
+				router.Use(auth.AuthMiddleware())
+				router.POST(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
+			}
 		case http.MethodPut:
+			router.Use(auth.AuthMiddleware())
 			router.PUT(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
 		case http.MethodPatch:
+			router.Use(auth.AuthMiddleware())
 			router.PATCH(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
 		case http.MethodDelete:
+			router.Use(auth.AuthMiddleware())
 			router.DELETE(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
 		default:
 			return fmt.Errorf("unsupported HTTP method '%s'", endpoint.Method)

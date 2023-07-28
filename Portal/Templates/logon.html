@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Login Page</title>
     <link href="Styles/logon.css" rel="stylesheet"></link> 
-    <script src="Scripts/logon.js" type="text/javascript" ></script>
+    <script src="Scripts/UIFramework.js" type="text/javascript" ></script>
   </head>
   <body>
     <div class="container">
@@ -24,7 +24,18 @@
     <script>
         $Context.onLoaded(function(){
           console.log("Logon page loaded")
-          Logon.init();
+
+          isLogged = UI.userlogin.checkiflogin(function(){
+            console.log("logged in with user:", UI.userlogin.username);
+            $Context.outputs.action = "LOGIN";
+            $Context.submit();
+            return;
+          }, function(){
+            console.log("not logged")
+          });
+
+        //  Logon.init();
+
         })
         function login(){
             let inputs = {
@@ -32,16 +43,14 @@
                 "password":document.getElementById("password").value
             }
             console.log("login")
-            $Context.executeTransaction("http://127.0.0.1:8080/login",inputs,function(response){
-                console.log("response:",response);
-                
+
+            UI.userlogin.login(inputs.username,inputs.password,function(){
+                console.log("logged in:", inputs.username);                
                 $Context.outputs.action = "LOGIN";
                 $Context.submit();
-            },function(error){
-                console.log(error);
+            },function(){
+              console.log("failed logged")
             })
-
-            
 
         }
     </script>

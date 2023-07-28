@@ -1,6 +1,6 @@
 module github.com/mdaxf/iac
 
-go 1.19
+go 1.20
 
 require (
 	github.com/denisenkom/go-mssqldb v0.12.3
@@ -15,6 +15,7 @@ require (
 	github.com/beego/beego/v2 v2.0.7 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/bradfitz/gomemcache v0.0.0-20230124162541-5f7a7d875746 // indirect
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/friendsofgo/errors v0.9.2 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gin-contrib/static v0.0.1 // indirect

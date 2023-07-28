@@ -20,14 +20,34 @@
         const queryString = window.location.search;
         const urlParams = new URLSearchParams(queryString);
         const myParam = urlParams.get('page');
-        if (myParam != null) {
-            if(myParam.endsWith(".json"))
-                UI.startpage('pages/'+myParam);
-            else
-                UI.startpage('pages/'+myParam + ".json");
+        let loginprocess = false;
+        if(myParam == null || !myParam.endsWith("logon.json")){
+            
+            if(sessionStorage.getItem("user") == null){
+                UI.startpage('pages/logon.json');
+                loginprocess = true;
+            }
+            else{
+                UI.userlogin.checkiflogin(function(){
+                    console.log("logged in with user:", UI.userlogin.username);
+                }, function(){
+                    console.log("not logged")
+                    UI.startpage('pages/logon.json');
+                    loginprocess = true;
+                });
+            }
         }
-        else
-            UI.startpage('pages/home.json');
+
+        if(loginprocess == false){
+            if (myParam != null) {
+                if(myParam.endsWith(".json"))
+                    UI.startpage('pages/'+myParam);
+                else
+                    UI.startpage('pages/'+myParam + ".json");
+            }
+            else
+                UI.startpage('pages/home.json');
+        }
     </script>
 <head>
 <body>

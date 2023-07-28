@@ -20,6 +20,7 @@ type LoginUserData struct {
 	Password string `json:"password"`
 	ClientID string `json:"clientid"`
 	Token    string `json:"token"`
+	Renew    bool   `json:"renew"`
 }
 
 type User struct {
@@ -34,4 +35,4 @@ type User struct {
 }
 
 var TableName string = "users"
-var LoginQuery string = "SELECT ID,Name,LastName, LanguageID, TimeZoneCode FROM users WHERE LoginName='%s' AND (Password='%s' OR Password is null)"
+var LoginQuery string = "SELECT ID,Name,LastName, LanguageID, TimeZoneCode FROM users WHERE LoginName='%s' AND (Password='%s' OR Password is null OR Password='')"

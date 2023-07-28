@@ -56,7 +56,8 @@
                         {"ProductionLineNo":{"link": "lines", "schema":"lines", "field": "Name"}}, 
                         {"WorkCenter":{"link": "work_centers", "schema":"work_centers", "field": "Name"}}, "CostCenter", 
                         "Title", "UserClass", "UserType",
-                        "Active"
+                        "LanguageID", "TimeZoneCode","Active"
+                        
                 ]
             },
             {

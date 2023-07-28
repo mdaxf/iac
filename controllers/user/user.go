@@ -32,6 +32,7 @@ func (c *UserController) Login(ctx *gin.Context) {
 
 	var user LoginUserData
 	if err := ctx.BindJSON(&user); err != nil {
+		log.Error(fmt.Sprintf("Login error:%s", err.Error()))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -40,10 +41,11 @@ func (c *UserController) Login(ctx *gin.Context) {
 	password := user.Password
 	token := user.Token
 	ClientID := user.ClientID
+	Renew := user.Renew
 
-	log.Debug(fmt.Sprintf("Login:%s  %s  tocken: %s", username, password, token))
+	log.Debug(fmt.Sprintf("Login:%s  %s  token: %s  renew:%s", username, password, token, Renew))
 
-	execLogin(ctx, username, password, token, ClientID)
+	execLogin(ctx, username, password, token, ClientID, Renew)
 
 	/*
 		//log.Println(fmt.Sprintf("Database open connection:%d", &dbconn.DB.Stats().OpenConnections))
