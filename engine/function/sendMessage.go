@@ -1,8 +1,11 @@
 package funcs
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+
+	dapr "github.com/dapr/go-sdk/client"
 )
 
 type SendMessageFuncs struct {
@@ -14,9 +17,19 @@ func (cf *SendMessageFuncs) Execute(f *Funcs) {
 	namelist, valuelist, _ := f.SetInputs()
 	f.iLog.Debug(fmt.Sprintf("SendMessageFuncs Execute: %v, %v", namelist, valuelist))
 
+	Topic := ""
 	data := make(map[string]interface{})
 	for i, name := range namelist {
+		if name == "Topic" {
+			Topic = valuelist[i]
+			continue
+		}
 		data[name] = valuelist[i]
+	}
+
+	if Topic == "" {
+		f.iLog.Error(fmt.Sprintf("SendMessageFuncs validate wrong: %v", "Topic is empty"))
+		return
 	}
 
 	jsonData, err := json.Marshal(data)
@@ -29,6 +42,24 @@ func (cf *SendMessageFuncs) Execute(f *Funcs) {
 
 	f.iLog.Debug(fmt.Sprintf("SendMessageFuncs Execute: %v", jsonString))
 	//iacmb.IACMB.Channel.Write(jsonString)
+
+	client, err := dapr.NewClient()
+
+	if err != nil {
+		f.iLog.Error(fmt.Sprintf("Error creating Dapr client for client '%s': %v\n", "clientID", err))
+		return
+	}
+
+	defer client.Close()
+
+	// Publish the message to the client's topic
+	err = client.PublishEvent(context.Background(), "IACF-DAPR-BackGround-Function-clientID", Topic, jsonData)
+
+	if err != nil {
+		f.iLog.Error(fmt.Sprintf("Error publishing message to client '%s': %v\n", "IACF-DAPR-clientID", err))
+		return
+	}
+
 }
 
 func (cf *SendMessageFuncs) Validate(f *Funcs) (bool, error) {

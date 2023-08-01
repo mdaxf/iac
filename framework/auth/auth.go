@@ -139,10 +139,13 @@ func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get the token from the Authorization header
 		authHeader := c.GetHeader("Authorization")
-		log.Debug(fmt.Sprintf("Authorization Header:%s", authHeader))
+		log.Debug(fmt.Sprintf("Authorization Header:%s %s", authHeader, c.Request.URL.Path))
 
-		if authHeader == "" {
+		if authHeader == "" && (c.Request.URL.Path == "/user/login" || strings.Contains(c.Request.URL.Path, "/portal")) {
 			//	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing Authorization header"})
+			return
+		} else if authHeader == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing Authorization header"})
 			return
 		}
 
