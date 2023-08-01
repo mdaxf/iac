@@ -84,6 +84,55 @@ func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 	}
 }
 
+func (e *TranCodeController) Execute(Code string, externalinputs map[string]interface{}) (map[string]interface{}, error) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
+	iLog.Info(fmt.Sprintf("Start process transaction code %s with inputs: %s ", Code, externalinputs))
+
+	iLog.Info(fmt.Sprintf("Start process transaction code %s's %s ", Code, "Execute"))
+
+	filter := bson.M{"trancodename": Code, "isdefault": true}
+
+	tcode, err := documents.DocDBCon.QueryCollection("Transaction_Code", filter, nil)
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get transaction code %s's error", Code))
+
+		return nil, err
+	}
+	iLog.Debug(fmt.Sprintf("transaction code %s's data: %s", Code, tcode))
+	jsonString, err := json.Marshal(tcode[0])
+	if err != nil {
+
+		iLog.Error(fmt.Sprintf("Error marshaling json:", err.Error()))
+		return nil, err
+	}
+
+	trancodeobj, err := trancode.Configtoobj(string(jsonString))
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error unmarshaling json:", err.Error()))
+		return nil, err
+	}
+
+	iLog.Debug(fmt.Sprintf("transaction code %s's json: %s", trancodeobj, string(jsonString)))
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error unmarshaling json:", err.Error()))
+		return nil, err
+	}
+
+	tf := trancode.NewTranFlow(trancodeobj, externalinputs, map[string]interface{}{}, nil, nil, nil)
+	outputs, err := tf.Execute()
+
+	if err == nil {
+		iLog.Debug(fmt.Sprintf("End process transaction code %s's %s ", Code, "Execute"))
+		return outputs, nil
+
+	} else {
+		iLog.Error(fmt.Sprintf("End process transaction code %s's %s with error %s", Code, "Execute", err.Error()))
+		return nil, err
+	}
+}
+
 func (e *TranCodeController) getTransCode(name string) (types.TranCode, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
 	iLog.Debug(fmt.Sprintf("Get transaction code /%s/%s%s", "trancodes", name, ".json"))

@@ -9,11 +9,13 @@ import (
 )
 
 type Engine struct {
-	trancode types.TranCode
+	trancode        types.TranCode
+	externalinputs  map[string]interface{} // {sessionanme: value}
+	externaloutputs map[string]interface{} // {sessionanme: value}
 }
 
 func NewEngine(trancode types.TranCode) *Engine {
-	return &Engine{trancode: trancode}
+	return &Engine{trancode: trancode, externalinputs: map[string]interface{}{}, externaloutputs: map[string]interface{}{}}
 }
 
 func (e *Engine) Execute() {
@@ -22,7 +24,7 @@ func (e *Engine) Execute() {
 	iLog.ControllerName = "Engine"
 	iLog.User = "System"
 
-	tf := trancode.NewTranFlow(e.trancode, map[string]interface{}{}, map[string]interface{}{}, nil, nil)
+	tf := trancode.NewTranFlow(e.trancode, e.externalinputs, e.externaloutputs, nil, nil)
 	_, err := tf.Execute()
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Execute the trancode error: %v", err.Error()))
