@@ -8,7 +8,7 @@
 	"attrs": {
 		"style": "width: 100%; height: 100%;"
 	},
-	"panels": [
+	"panels": [		
 		{
 			"name": "content",
 			"orientation": 1,
@@ -29,7 +29,7 @@
 				},
 				"initcode": ""				
 			},
-			"inlinestyle": "width: 100%;height:100%"
+			"inlinestyle": "width: 100%;height:100%; top: 45px; position: absolute;"
 		}
 	]
 }

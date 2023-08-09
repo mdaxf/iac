@@ -1,12 +1,23 @@
 {
 	"name": "root page",
 	"panels": [{
-		"name": "header",
-		"orientation": 1,
-		"view":
-		{ "config":"Views/header.json"		  
-		},
-		"inlinestyle": " background-color: #005686; color:white;height: 40px;"
+		"name":"header",
+		"orientation": 0,
+		"inlinestyle": "width: 100%;height:45px; ",
+		"view": {
+			"name": "header",
+			"type": "view-type",
+			"file": "templates/header.html",
+			"inlinestyle": "height: 100%;",
+			"inputs":{       
+			},
+			"outputs":{
+				"action": ""
+			},
+			"actions":{					
+			},
+			"initcode": ""				
+		}
 		},
 		{
 			"name": "content",

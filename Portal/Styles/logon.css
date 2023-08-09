@@ -1,10 +1,30 @@
+.ui-header {
+	display: -webkit-box;
+	display: -webkit-flex;
+	display: -ms-flexbox;
+	display: flex;
+	-webkit-align-items: center;
+	-ms-flex-align: center;
+	align-items: center;
+
+	font-family: Arial, lucida, helvetica, sans-serif;
+	color: #fff;
+	position: fixed;
+	z-index: 500;
+	top: 0px;
+	left: 0px;
+	right: 0px;
+	height: 44px;
+	background-color: #575502d3;
+}
+
 body {
     font-family: sans-serif;
     margin: 0;
     padding: 0;
   }
 
-  .container {
+  .ui-container {
     display: flex;
     flex-direction: column;
     justify-content: center;

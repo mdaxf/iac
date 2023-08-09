@@ -11,6 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+HTMLElement.prototype.getElementByClassName = function (cls) {
+    var list = this.getElementsByClassName(cls);
+    if (list.length > 0)
+        return list[0];
+    return null;
+};
+HTMLElement.prototype.clearChilds = function () {
+    while (this.firstChild)
+        this.removeChild(this.firstChild);
+};
 
 var UI;
 (function (UI) {
@@ -445,6 +455,7 @@ var UI;
                 pageResponsitory: Session.cloneObject(this.pageResponsitory),
                 fileResponsitory: Session.cloneObject(this.fileResponsitory),
                 configuration: Session.cloneObject(this.configurator),
+                CurrentPage: Session.cloneObject(this.CurrentPage),
                 Instance: instance,
                 model: this.model
             };
@@ -567,6 +578,205 @@ var UI;
     UI.EventDispatcher = EventDispatcher;
 })(UI || (UI = {}));
 
+(function (UI) {
+    class Popup extends UI.EventDispatcher {
+        constructor(container) {
+            super();
+            this.container = container;
+            this.modal = true;
+            this.body = document.createElement("div");
+        }
+        open() {
+            if (!this.popup) {
+                this.createPopup();
+            }
+            this.titleEl.textContent = this.title;
+            if (this.modal) {
+                if (this.overlay == null) {
+                    this.overlay = new HTMLOverlay(this.container);
+                    this.overlay.content = this.popup;
+                }
+                this.overlay.open();
+            }
+            else {
+                this.container.appendChild(this.popup);
+            }
+        }
+        createPopup() {
+            const div = document.createElement("div");
+            div.className = "iac-ui-popup";
+            const head = document.createElement("div");
+            head.className = "iac-ui-popup-head";
+            this.titleEl = document.createElement("span");
+            this.titleEl.className = "iac-ui-popup-title";
+            head.appendChild(this.titleEl);
+            const button = document.createElement("button");
+            button.className = "iac-ui-popup-close fa fa-close";
+            button.type = "button";
+            button.onclick = ev => {
+                this.close();
+            };
+            head.appendChild(button);
+            div.appendChild(head);
+            this.body.classList.add("iac-ui-popup-body");
+            div.appendChild(this.body);
+            this.popup = div;
+        }
+        close() {
+            this.fireEvent("close");
+            if (this.modal) {
+                this.overlay.remove();
+                this.overlay = null;
+            }
+            else {
+                this.container.removeChild(this.popup);
+            }
+        }
+        onClose(func) {
+            this.addEventListener("close", func);
+        }
+        offClose(func) {
+            this.removeEventListener("close", func);
+        }
+    }
+    UI.Popup = new Popup();
+
+    class HTMLOverlay extends UI.EventDispatcher {
+        constructor(root = document.body) {
+            super();
+            this.overlayElement = HTMLOverlay.createOverlay();
+            if (root)
+                root.appendChild(this.overlayElement);
+            this.overlayElement.aprOverlay = this;
+            var thisOverlay = this;
+            this.overlayElement.addEventListener("DOMNodeRemoved", function (ev) {
+                if (ev.target === this && thisOverlay.visible) {
+                    thisOverlay.fireEvent("close", this);
+                }
+            });
+            this.overlayElement.addEventListener("DOMNodeInserted", function (ev) {
+                var newelem = ev.target;
+                if (newelem.nodeType === Node.ELEMENT_NODE) {
+                    var form = newelem.closest('form');
+                    if (form) {
+                        var autofocus = form.querySelector('input[autofocus]');
+                        if (autofocus) {
+                            return;
+                        }
+                    }
+                    var popupElements = newelem.querySelectorAll("input:not([type=hidden]),button:not(.close)");
+                   // if (popupElements.length > 0)
+                   //     SF.Forms.focusElement(popupElements[0]);
+                }
+            });
+            this.overlayElement.addEventListener("keydown", function (event) {
+                if (event.key != "Tab")
+                    return;
+                if (this.querySelectorAll) {
+                    var popupElements = this.querySelectorAll("input:not([type=hidden]),button:not(.close)");
+                    if (popupElements.length > 0) {
+                        if (!event.shiftKey && event.target == popupElements[popupElements.length - 1]) {
+                         //   SF.Forms.focusElement(popupElements[0]);
+                            event.preventDefault();
+                        }
+                        else if (event.shiftKey && event.target == popupElements[0]) {
+                         //   SF.Forms.focusElement(popupElements[popupElements.length - 1]);
+                            event.preventDefault();
+                        }
+                    }
+                }
+            });
+        }
+        get visible() {
+            return this._visible;
+        }
+        get content() {
+            return this._content;
+        }
+        set content(value) {
+            if (value) {
+                if (this._content)
+                    this.overlayElement.replaceChild(value, this._content);
+                else
+                    this.overlayElement.appendChild(value);
+            }
+            else if (this._content && this._content.parentElement === this.overlayElement) {
+                this.overlayElement.removeChild(this._content);
+            }
+            this._content = value;
+        }
+        static createOverlay() {
+            var baseDiv = document.createElement("div");
+            baseDiv.className = "iac-ui-overlay";
+            baseDiv.style.display = "none";
+            var overlayFrame = document.createElement("iframe"); //used to overlay over popups etc;
+            overlayFrame.attributes["allowTransparency"] = true;
+            overlayFrame.src = "about:blank";
+            baseDiv.appendChild(overlayFrame);
+            return baseDiv;
+        }
+        onOpen(func) {
+            this.addEventListener("open", func);
+            return this;
+        }
+        onClose(func) {
+            this.addEventListener("close", func);
+            return this;
+        }
+        open() {
+            if (!this.overlayElement)
+                throw "can not reopen removed ovelay";
+            if (!this._visible) {
+                this.prevFocusElement = document.activeElement;
+                if (this.prevFocusElement && this.prevFocusElement.blur && this.prevFocusElement != document.body)
+                    this.prevFocusElement.blur();
+                SF.Forms.focusElement(this.overlayElement);
+                this.fireEvent("open", this);
+                if (this.content)
+                    this.overlayElement.style.display = "";
+                this._visible = true;
+            }
+            return this;
+        }
+        close() {
+            if (this._visible) {
+                if (this.prevFocusElement) {
+                    SF.Forms.focusElement(this.prevFocusElement);
+                    this.prevFocusElement = null;
+                }
+                this.fireEvent("close", this);
+                if (this.content)
+                    this.overlayElement.style.display = "none";
+                this._visible = false;
+            }
+            return this;
+        }
+        remove() {
+            if (this._visible) {
+                if (this.prevFocusElement) {
+                    SF.Forms.focusElement(this.prevFocusElement);
+                    this.prevFocusElement = null;
+                }
+                this.fireEvent("close", this);
+                this._visible = false;
+            }
+            if (this.overlayElement) {
+                this.overlayElement.parentElement.removeChild(this.overlayElement);
+                this.overlayElement = null;
+            }
+            return;
+        }
+        static getCurrent(cont = document.body) {
+            const ch = cont.children;
+            for (var idx = ch.length - 1; idx > -1; --idx) {
+                if (ch[idx].classList.contains("apr-overlay"))
+                    return ch[idx].aprOverlay;
+            }
+            return null;
+        }
+    }
+    UI.HTMLOverlay = HTMLOverlay;
+})(UI || (UI = {}));
 (function (UI) {
   
 
@@ -1067,6 +1277,7 @@ var UI;
                         }
                         else if(action.type == "Home"){
                             Session.clear();
+                            // clear the crumbs
                             let page = new Page({"file":"page/home.json"});
                         }
                         else if(action.type == "view"){
@@ -1085,8 +1296,8 @@ var UI;
                             if(action.page.toLowerCase().indexOf("page/home.json") !=-1){
                                 Session.clear();
                             }   
-                            let stackitem = Session.createStackItem(this);                 
-                            Session.pushToStack(stackitem);
+                          //  let stackitem = Session.createStackItem(this);                 
+                          //  Session.pushToStack(stackitem);
                             let page = new Page({"file":action.page});    
                         }
                         else if(action.type == "script"){
@@ -1204,7 +1415,7 @@ var UI;
                 elements[i].remove();
             }
             this.configuration.title = this.configuration.title || this.configuration.name;
-
+            
             if(configuration.name in Session.pages)
             {
                 this.configuration = Session.pages[configuration.name];
@@ -1263,32 +1474,53 @@ var UI;
             page.style.flexWrap = "nowrap";
             page.style.overflow = "hidden";
             page.style.alignItems = "flex-start";
-            switch (this.configuration.orientation) {                
-                case 0:
-                    page.style.flexDirection = "row";
-                    break;
-                case 1:
-                    page.style.flexDirection = "column";
-                    break;
-                case 3:
-                    page.style.flexDirection = "floating";
-                default:
-                    page.style.flexDirection = "row";
-                    break;
-            }
+            page.style.flexDirection = "column";
             this.page.id = id;
             this.id = id;
-            this.page.element = page;
-            this.pageElement = page;
+            let pagecontent = document.createElement("div");
+            pagecontent.setAttribute("id", id + "_content");
+            pagecontent.className = "ui-page-content";
+            pagecontent.style.width = "100%";
+            pagecontent.style.height = (height-45) + "px";
+            pagecontent.style.overflow = "auto";
+            pagecontent.style.display = "flex";
+            pagecontent.style.flexWrap = "nowrap";
+            pagecontent.style.alignItems = "flex-start";
+            switch (this.configuration.orientation) {                
+                case 0:
+                    pagecontent.style.flexDirection = "row";
+                    break;
+                case 1:
+                    pagecontent.style.flexDirection = "column";
+                    break;
+                case 3:
+                    pagecontent.style.flexDirection = "floating";
+                default:
+                    pagecontent.style.flexDirection = "row";
+                    break;
+            }
+            this.page.element = pagecontent;
+            this.pageElement = pagecontent;
+            page.appendChild(pagecontent);
             document.title = this.configuration.title || this.configuration.name;
             this.buildpagepanels();
             document.body.appendChild(page);
+
+            this.PageID = id;
+            this.PageTitle = this.configuration.title || this.configuration.name;
+
             Session.pages[this.id] = this;
+            Session.CurrentPage = this;
+            
             this.setevents();
+
+            new Pageheader(page)
+
             return page;
         }
         buildpagepanels(){
             this.page.panels = [];
+
             for (let i = 0; i < this.configuration.panels.length; i++) {
                 let panel = new Panel(this,this.configuration.panels[i]);
                 this.page.panel = panel.create();
@@ -1323,6 +1555,744 @@ var UI;
 
     }
     UI.Page = Page;
+
+    class Pageheader{
+        constructor(root){
+            this.root = root;
+            console.log('create header for page:',root)
+            this.element = this.getHeaderContainer();
+        }
+        removeHeader() {
+            let list = this.root.getElementsByClassName("iac-ui-page-header");
+            if (list.length !== 0) {
+                let p = list[0].parentElement;
+                if (p)
+                    p.removeChild(list[0]);
+            }
+        }
+        createEl(tag, className = "", textContent = "") {
+            const element = document.createElement(tag);
+            if (className)
+                element.className = className;
+            if (textContent)
+                element.textContent = textContent;
+            return element;
+        }
+        createElAndAppend(parent, tag, className = "", textContent = "") {
+            const element = this.createEl(tag, className, textContent);
+            parent.appendChild(element);
+            return element;
+        }
+        getHeaderContainer() {
+            let root = this.root;
+            let list = root.getElementsByClassName("iac-ui-page-header");
+            if (list.length === 0) {
+                let header = this.createEl("div", "iac-ui-page-header");
+                let headerLeft = this.createElAndAppend(header, "div", "iac-ui-page-header-left");
+                let headerCenter = this.createElAndAppend(header, "div", "iac-ui-page-header-center");
+                this.createElAndAppend(headerLeft, "span", "iac-ui-icon-logo");
+                this.createElAndAppend(headerLeft, "span", "iac-app-name").innerHTML = `<b>IACF</b>`;
+                this.headercrumbs = this.createElAndAppend(headerLeft, "span", "iac-ui-crumbs");
+                
+                this.createElAndAppend(headerCenter, "span", "iac-ui-header-searchIcon");
+
+                let headerRight = this.createElAndAppend(header, "div", "iac-ui-page-header-right");
+                this.headerClock = this.createElAndAppend(headerRight, "span", "iac-ui-header-clock clock");
+                this.headerUserinfo = this.createElAndAppend(headerRight, "span", "iac-ui-header-userinfo");
+                this.headerUserimage = this.createElAndAppend(headerRight, "span", "iac-ui-header-userimage");                                
+                this.headerMenuicon = this.createElAndAppend(headerRight, "span", "iac-ui-header-menuIcon");
+                root.insertBefore(header, root.firstChild);
+                this.rightElementRenderer();
+                return header;
+            }
+            else
+                return list[0];
+        }
+        rightElementRenderer(){
+            this.headerBreadcrumbs();
+            this.clockRenderer();
+            this.userInfoRenderer();
+            
+        };
+        getUserLocalTime(offset, culture) {
+            let d = new Date();
+            let utc = d.getTime() + d.getTimezoneOffset() * 60000;
+            let nd = new Date(utc + offset);
+            let formatedTime = nd.toLocaleTimeString(culture);
+            return formatedTime;
+        }
+        getClientLocalTime(){
+            let d = new Date();
+            return d.toLocaleTimeString();
+        }
+        clockRenderer(){
+            let interval = null;
+            let that = this;
+            let init = true;
+                console.log('clock renderer:', init)
+                if (init) {
+                    
+                    let element = that.createElAndAppend(this.headerClock,"span", "iac-ui-header-clock clock");
+                    let updateTime = () => {                       
+                        element.textContent = that.getClientLocalTime();
+                    };
+                    updateTime();
+                    interval = setInterval(updateTime, 1000);
+                    return element;
+                }
+                else {
+                    clearInterval(interval);
+                }
+        
+        };
+        headerIconRender(actionCode, imageUrl, tag = "a") {
+            let element = this.createEl(tag);
+            if (imageUrl) {
+                let img = document.createElement("img");
+                img.src = (actionCode != "user") ? ("Images/" + imageUrl) : imageUrl;
+                element.appendChild(img);
+            }
+            element.className = actionCode;
+            return element;
+        }
+        userInfoRenderer() {
+            let that = this;
+            let init = true;
+                if (init) {
+                    let userelement = that.createElAndAppend(this.headerUserinfo, "span", "iac-ui-header-userinfo");
+
+                    if(UI.userlogin.username){
+                        userelement.textContent = UI.userlogin.username;
+                        let element = that.headerIconRender("user", `user/image?username=${UI.userlogin.username}`);
+                        element.classList.add("iac-ui-header-action");
+                        element.classList.add("active");
+                        let list = document.createElement("ul");
+                        let li = that.createElAndAppend(list, "li");
+                        let a = that.createElAndAppend(li, "a");
+                        const icon = that.headerIconRender("logout", "", "span");
+                        icon.classList.add("iac-ui-header-action");
+                        a.appendChild(icon);
+                        let item = that.createElAndAppend(a, "span", "", "Logout");
+                        item.textContent = "Logout";
+                        item.setAttribute("lngcode", "Logout");    
+                        li.addEventListener("click", function () {
+                            UI.userlogin.logout(location.href);
+                        });
+                        this.headerUserimage.appendChild(element);
+                        let popup = UI.Popup.createPopup(list);
+                        popup.attach(element);
+                    }
+                    else{
+                        userelement.textContent = "Guest";
+                        let element = that.headerIconRender("user","portal/images/guest.png");
+                        element.classList.add("iac-ui-header-action");
+                        element.classList.add("active");
+                        let list = document.createElement("ul");
+                        let li = that.createElAndAppend(list, "li");
+                        let a = that.createElAndAppend(li, "a");
+                        const icon = that.headerIconRender("login", "", "span");
+                        icon.classList.add("iac-ui-header-action");
+                        a.appendChild(icon);
+                        let item = that.createElAndAppend(a, "span", "", "Login");
+                        item.textContent = "Login";
+                        item.setAttribute("lngcode", "Login");    
+                        li.addEventListener("click", function () {
+                            UI.userlogin.login(location.href);
+                        });
+                        this.headerUserimage.appendChild(element);
+                        let popup = UI.Popup.createPopup(list);
+                        popup.attach(element);
+                    }
+                    return element;
+
+                }
+
+        };
+        headerBreadcrumbs(){
+            let list;
+            let that = this;
+            let init = true;
+            let headerView;
+            const createItem = (item, idx) => {
+                let li = document.createElement("li");
+                li.title = item.CurrentPage.PageID;
+                li.dataset["crumbs"] = idx++ + "";
+                that.createElAndAppend(li, "span", "", item.CurrentPage.PageTitle);
+                return li;
+            };
+            const crumbsFunc = (param) => {
+                const stack = Session.stack;
+                list.clearChilds();
+                let idx = 0;
+                stack.forEach(item => {
+                    list.appendChild(createItem(item, idx++));
+                });
+             //   Apr.Breadcrumbs.init();
+            };
+            const viewFunc = (param) => {
+                //headerView = app.layout.getCurrentView(SF.HeaderView.RENDERER_PANEL_ID);
+            };
+          //  return init => {
+                if (init) {
+                    let container = this.headercrumbs ;// that.createEl("div", "iac-ui-crumbs");
+                    list = that.createElAndAppend(container, "ul");
+                    const stack = Session.stack;
+                    list.clearChilds();
+                    let idx = 0;
+                    stack.forEach(item => {
+                        list.appendChild(createItem(item, idx++));
+                    });
+                    list.appendChild(createItem(Session, idx++));
+
+                    container.addEventListener("click", ev => {
+                        let item = ev.target;
+                        while (item.dataset["crumbs"] == null && item != container)
+                            item = item.parentElement;
+                        let idx = item.dataset["crumbs"];
+                        if (idx !== undefined) {
+                          //  if (headerView != null) {
+                          //      headerView.submitHeaderAction({ toStackIndex: Number(idx) });
+                          //  }
+                        }
+                    });
+                
+
+                 //   app.onScreenLoad(crumbsFunc);
+                 //   app.onScreenReady(viewFunc);
+                 //   return container;
+                }
+              //  app.offScreenLoad(crumbsFunc);
+              //  app.offScreenReady(viewFunc);
+             //   headerView = null;
+              //  Apr.Breadcrumbs.deinit();
+         //   };
+        };
+    }
+    UI.Pageheader = Pageheader;
+
+})(UI || (UI = {}));
+
+
+
+
+(function (UI) {
+    
+    class ItemController {
+        constructor(createFunction) {
+            this.createFunction = createFunction;
+        }
+        get element() {
+            if (!this._element) {
+                this.toggle(true);
+            }
+            return this._element;
+        }
+        toggle(show) {
+            if (show !== false) {
+                if (!this._element) {
+                    this._element = this.createFunction(true, this.setting);
+                    return this._element;
+                }
+            }
+            else {
+                if (this._element) {
+                    this.createFunction(false, this.setting);
+                    const p = this._element.parentElement;
+                    if (p)
+                        p.removeChild(this._element);
+                    this._element = null;
+                }
+            }
+            return null;
+        }
+    }
+    class HeaderRenderer {
+        constructor(app) {
+            this.items = {};
+            this.previousItems = [];
+            this.items["breadcrumbs"] = new ItemController(HeaderRenderer.bcRenderer(app));
+            this.items["clock"] = new ItemController(HeaderRenderer.clockRenderer);
+            this.items["search"] = new ItemController(HeaderRenderer.searchRenderer(app));
+            this.items["actions"] = new ItemController(HeaderRenderer.actionRenderer(app));
+            this.items["userinfo"] = new ItemController(HeaderRenderer.userInfoRenderer);
+            this.items["userimage"] = new ItemController(HeaderRenderer.userImageRenderer);
+            this.items["customInfoOperation"] = new ItemController(HeaderRenderer.customInfoOperationRenderer);
+            this.items["searchIcon"] = new ItemController(HeaderRenderer.searchIconRenderer);
+            this.items["menuIcon"] = new ItemController(HeaderRenderer.menuIconRenderer);
+        }
+        static canShowLogoutButton() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('Context') === null && params.get('InvocationContextName') === null;
+        }
+        static removeHeader(root) {
+            let list = root.getElementsByClassName("iac-ui-page-header");
+            if (list.length !== 0) {
+                let p = list[0].parentElement;
+                if (p)
+                    p.removeChild(list[0]);
+            }
+        }
+        static createEl(tag, className = "", textContent = "") {
+            const element = document.createElement(tag);
+            if (className)
+                element.className = className;
+            if (textContent)
+                element.textContent = textContent;
+            return element;
+        }
+        static createElAndAppend(parent, tag, className = "", textContent = "") {
+            const element = HeaderRenderer.createEl(tag, className, textContent);
+            parent.appendChild(element);
+            return element;
+        }
+        static getHeaderContainer(root) {
+            let list = root.getElementsByClassName("iac-ui-page-header");
+            if (list.length === 0) {
+                let header = HeaderRenderer.createEl("div", "iac-ui-page-header");
+                let headerLeft = HeaderRenderer.createElAndAppend(header, "div", "iac-ui-page-header-left");
+                HeaderRenderer.createElAndAppend(header, "div", "iac-ui-page-header-center");
+                HeaderRenderer.createElAndAppend(headerLeft, "span", "iac-ui-icon-logo");
+                HeaderRenderer.createElAndAppend(headerLeft, "span", "iac-app-name").innerHTML = `<b>IACF</b>`;
+                root.insertBefore(header, root.firstChild);
+                HeaderRenderer.createElAndAppend(header, "div", "iac-ui-page-header-right");
+                return header;
+            }
+            else
+                return list[0];
+        }
+        static getClientLocalTime(offset, culture) {
+            let d = new Date();
+            let utc = d.getTime() + d.getTimezoneOffset() * 60000;
+            let nd = new Date(utc + offset);
+            let formatedTime = nd.toLocaleTimeString(culture);
+            return formatedTime;
+        }
+        static getActionClass(action) {
+            let list = ["iac-ui-header-action"];
+            if (action.cssClasses) {
+                list.push(action.cssClasses);
+            }
+            else if (!action.imageUrl) {
+                list.push("default-icon");
+            }
+            list.push(action.code.toLowerCase());
+            return list.join(" ");
+        }
+        static headerIconRender(actionCode, imageUrl, tag = "a") {
+            let element = HeaderRenderer.createEl(tag);
+            if (imageUrl) {
+                let img = document.createElement("img");
+                img.src = (actionCode != "user") ? ("Images/" + imageUrl) : imageUrl;
+                element.appendChild(img);
+            }
+            element.className = actionCode;
+            return element;
+        }
+        initializeSections(root, view) {
+            let renderingArray;
+            let leftEl = root.querySelector('.iac-ui-page-header-left');
+            let centerEl = root.querySelector('.iac-ui-page-header-center');
+            let rightEl = root.querySelector('.iac-ui-page-header-right');
+            let items = {
+                "breadcrumbs": leftEl,
+                "search": centerEl,
+                "customInfoOperation": leftEl,
+                "clock": rightEl,
+                "userinfo": rightEl,
+                "userimage": rightEl,
+                "actions": rightEl,
+                "searchIcon": rightEl,
+                "menuIcon": rightEl,
+            }, baseArray = Object.keys(items);
+            if (view) {
+                if (view.entity.id === this.currentId)
+                    return;
+                this.currentId = view.entity.id;
+                let props = view.entity.customProperties.replace(/(\w+):/g, '"$1":');
+                let json = props ? JSON.parse(props) : {};
+                renderingArray = baseArray.slice();
+                if (json.ViewOperationPosition > 0 && json.ViewOperationPosition < renderingArray.length - 1) {
+                    if (json.ViewOperationPosition > 2) {
+                        items["customInfoOperation"] = rightEl;
+                    }
+                    let ci = renderingArray.splice(renderingArray.indexOf("customInfoOperation"), 1);
+                    renderingArray.splice(json.ViewOperationPosition - 1, 0, ci[0]);
+                }
+                for (var idx = 5; idx > 0; --idx) {
+                    let prop = "CustomInfo" + idx;
+                    if (json[prop]) {
+                        renderingArray.splice(idx - 1, 0, prop);
+                        this.items[prop].setting = json[prop];
+                    }
+                }
+                if (json.BreadCrumbs === false)
+                    renderingArray.splice(renderingArray.indexOf("breadcrumbs"), 1);
+                if (json.Clock === false)
+                    renderingArray.splice(renderingArray.indexOf("clock"), 1);
+                if (json.Search === false) {
+                    renderingArray.splice(renderingArray.indexOf("search"), 1);
+                    renderingArray.splice(renderingArray.indexOf("searchIcon"), 1);
+                }
+                if (json.UserInformation === false) {
+                    renderingArray.splice(renderingArray.indexOf("userinfo"), 1);
+                    renderingArray.splice(renderingArray.indexOf("userimage"), 1);
+                }
+                if (!view.entity.actions.length && !HeaderRenderer.canShowLogoutButton()) {
+                    renderingArray.splice(renderingArray.indexOf("menuIcon"), 1);
+                }
+                if (!view.renderHeaderPanel)
+                    renderingArray.splice(renderingArray.indexOf("customInfoOperation"), 1);
+                if (renderingArray.length === this.previousItems.length && renderingArray.every((item, idx) => item === this.previousItems[idx])) {
+                    return;
+                }
+            }
+            else {
+                renderingArray = [];
+                this.currentId = null;
+            }
+            if (leftEl.querySelector('iac-ui-crumbs')) {
+                root.removeChild(leftEl.querySelector('iac-ui-crumbs'));
+            }
+            centerEl.clearChilds();
+            rightEl.clearChilds();
+            for (var idx = 0; idx < renderingArray.length; ++idx) {
+                let item = renderingArray[idx];
+                let elem = this.items[item].element;
+                if (elem) {
+                    items[item].appendChild(elem);
+                }
+                this.previousItems.splice(this.previousItems.indexOf(item), 1);
+            }
+            this.headerOperationElement = renderingArray.indexOf("customInfoOperation") != -1 ? this.items["customInfoOperation"].element : null;
+            for (let item of this.previousItems) {
+                this.items[item].toggle(false);
+            }
+            this.previousItems = renderingArray;
+        }
+        static get plugin() {
+            let headerRenderer = (app, log) => {
+                let instance = new HeaderRenderer(app);
+                this.isFullScreen = window.location.href.indexOf("fs=true") !== -1;
+                if (this.isFullScreen) {
+                    //Immediate header container render - no flashing;
+                    HeaderRenderer.getHeaderContainer(app.container);
+                }
+                app.onScreenLoad(p => {
+                    if (p.screen.hasHeader || this.isFullScreen) {
+                        const view = p.views.find(v => v.panel === SF.HeaderView.RENDERER_PANEL_ID);
+                        if (view) {
+                            instance.initializeSections(HeaderRenderer.getHeaderContainer(app.container), view);
+                            app.layout.initializeHeader(view, app, instance.headerOperationElement);
+                        }
+                        else
+                            log.error("No Header definition!");
+                    }
+                    else {
+                        instance.initializeSections(HeaderRenderer.getHeaderContainer(app.container), null);
+                        HeaderRenderer.removeHeader(app.container);
+                    }
+                });
+                return instance;
+            };
+            headerRenderer.pluginName = "Header";
+            return headerRenderer;
+        }
+    }
+    HeaderRenderer.isFullScreen = false;
+    HeaderRenderer.clockRenderer = (() => {
+        let interval;
+        return init => {
+            if (init) {
+                let element = HeaderRenderer.createEl("span", "iac-ui-header-clock clock");
+                let localization = Apr["Localization"];
+                if (localization !== undefined) {
+                    let options = {
+                        hour: "numeric",
+                        minute: "numeric",
+                        second: "numeric",
+                        timeZone: localization.TimeZoneName.replace(" ", "_")
+                    };
+                    try {
+                        var timeFormat = new Intl.DateTimeFormat(localization.UICulture, options);
+                    }
+                    catch (e) {
+                        //for browsers without Intl.DateTimeFormat support
+                    }
+                }
+                let updateTime = () => {
+                    let d = new Date();
+                    if (timeFormat !== undefined) {
+                        element.textContent = timeFormat.format(d);
+                    }
+                    else if (localization !== undefined) {
+                        //for browsers without Intl.DateTimeFormat support
+                        element.textContent = HeaderRenderer.getClientLocalTime(localization.TimeZoneOffset, localization.UICulture);
+                    }
+                    else {
+                        element.textContent = d.toLocaleTimeString();
+                    }
+                };
+                updateTime();
+                interval = setInterval(updateTime, 1000);
+                return element;
+            }
+            else {
+                clearInterval(interval);
+            }
+        };
+    })();
+    HeaderRenderer.userInfoRenderer = (() => {
+        return init => {
+            if (init) {
+                return HeaderRenderer.createEl("span", "iac-ui-header-user-name", SF.properties["employeeName"]);
+            }
+        };
+    })();
+    HeaderRenderer.userImageRenderer = (() => {
+        let popup;
+        return init => {
+            if (init) {
+                let element = HeaderRenderer.headerIconRender("user", `${SF.BADGE_CONTROLLER_URL}/employee?employeeNo=${encodeURIComponent(SF.properties["employeeNo"])}`);
+                element.classList.add("iac-ui-header-action");
+                if (HeaderRenderer.canShowLogoutButton()) {
+                    element.classList.add("active");
+                    let list = document.createElement("ul");
+                    let li = HeaderRenderer.createElAndAppend(list, "li");
+                    let a = HeaderRenderer.createElAndAppend(li, "a");
+                    const icon = HeaderRenderer.headerIconRender("logout", "", "span");
+                    icon.classList.add("iac-ui-header-action");
+                    a.appendChild(icon);
+                    let item = HeaderRenderer.createElAndAppend(a, "span", "", "Logout");
+                    SF.App.literals.getOne(SF.properties["errorPrefix"] + ".Logout", literal => {
+                        if (literal.extendedTranslation)
+                            item.textContent = literal.extendedTranslation;
+                    });
+                    li.addEventListener("click", function () {
+                        Apr.LogoutService.logout(location.href);
+                    });
+                    popup = Apr.ContextPopup.createPopup(list);
+                    popup.attach(element);
+                }
+                return element;
+            }
+            if (popup)
+                popup.remove();
+        };
+    })();
+    HeaderRenderer.bcRenderer = (app) => {
+        let list;
+        let headerView;
+        const createItem = (item, idx) => {
+            let li = document.createElement("li");
+            li.title = item.screenCode;
+            li.dataset["crumbs"] = idx++ + "";
+            HeaderRenderer.createElAndAppend(li, "span", "", item.screenTitle);
+            return li;
+        };
+        const crumbsFunc = (param) => {
+            const stack = app.session.stack;
+            list.clearChilds();
+            let idx = 0;
+            stack.forEach(item => {
+                list.appendChild(createItem(item, idx++));
+            });
+            Apr.Breadcrumbs.init();
+        };
+        const viewFunc = (param) => {
+            headerView = app.layout.getCurrentView(SF.HeaderView.RENDERER_PANEL_ID);
+        };
+        return init => {
+            if (init) {
+                let container = HeaderRenderer.createEl("div", "iac-ui-crumbs");
+                list = HeaderRenderer.createElAndAppend(container, "ul");
+                container.addEventListener("click", ev => {
+                    let item = ev.target;
+                    while (item.dataset["crumbs"] == null && item != container)
+                        item = item.parentElement;
+                    let idx = item.dataset["crumbs"];
+                    if (idx !== undefined) {
+                        if (headerView != null) {
+                            headerView.submitHeaderAction({ toStackIndex: Number(idx) });
+                        }
+                    }
+                });
+                app.onScreenLoad(crumbsFunc);
+                app.onScreenReady(viewFunc);
+                return container;
+            }
+            app.offScreenLoad(crumbsFunc);
+            app.offScreenReady(viewFunc);
+            headerView = null;
+            Apr.Breadcrumbs.deinit();
+        };
+    };
+    HeaderRenderer.searchRenderer = (app) => {
+        let input;
+        let div;
+        let headerView;
+        const keyHandler = (ev) => {
+            if (ev.keyCode === 13) {
+                search(ev.target);
+                ev.preventDefault();
+                ev.stopPropagation();
+            }
+        };
+        const search = (elem) => {
+            const name = elem.value;
+            if (name) {
+              /*  const screenKey = { name: name, projectCode: app.currentScreen.projectCode };
+                SF.App.screens.getOne(screenKey, s => {
+                    if (s.baseScreen)
+                        headerView.submitHeaderAction({ toScreen: { name: name, projectCode: app.currentScreen.projectCode } });
+                    else
+                        throw new SF.SfError("ScreenNotLanding", [name]);
+                });  */
+            }
+            setTimeout(() => elem.focus(), 0);
+        };
+        const viewFunc = (param) => {
+         //   headerView = app.layout.getCurrentView(SF.HeaderView.RENDERER_PANEL_ID);
+        };
+        const screenLoad = (p) => {
+            if (input)
+                input.value = p.screen.code;
+        };
+        return init => {
+            if (init) {
+              //  app.onScreenReady(viewFunc);
+              //  app.onScreenLoad(screenLoad);
+                div = HeaderRenderer.createEl("div", "iac-ui-searchbox");
+                input = HeaderRenderer.createElAndAppend(div, "input");
+                input.placeholder = "Search";
+                input.type = "text";
+                input.addEventListener("keydown", keyHandler);
+                const icon = HeaderRenderer.createElAndAppend(div, "div", "iac-ui-icon-search");
+                icon.addEventListener("mousedown", () => {
+                    // let input = document.querySelector(".apr-delmia-header .apr-searchbox input") as HTMLInputElement;
+                    input["noHideOnBlur"] = true;
+                    search(input);
+                });
+                return div;
+            }
+        //    app.offScreenLoad(screenLoad);
+        //   app.offScreenReady(viewFunc);
+            headerView = null;
+            input.removeEventListener("keydown", keyHandler);
+            return null;
+        };
+    };
+    HeaderRenderer.actionRenderer = (app) => {
+        let actionsCont;
+        const actionRenderingHandler = (v) => {
+           /* if (v.panel === SF.HeaderView.RENDERER_PANEL_ID) {
+                actionsCont.clearChilds();
+                v.entity.actions.forEach(action => {
+                    if (action.type === SF.ActionType.ButtonPrimary || action.type === SF.ActionType.ButtonSecondary) {
+                        const element = HeaderRenderer.headerIconRender(HeaderRenderer.getActionClass(action), action.imageUrl);
+                        element.setAttribute("style", action.inlineStyle);
+                        element.title = action.title || action.code;
+                        element.dataset["code"] = action.code;
+                        element.addEventListener("click", function (ev) {
+                            v.submitHeaderAction({ actionCode: this.dataset["code"] });
+                        });
+                        actionsCont.appendChild(element);
+                    }
+                });
+            }  */
+        };
+        return init => {
+            if (init) {
+                actionsCont = HeaderRenderer.createEl("div", "iac-ui-header-actions");
+            //    app.onViewLoaded(actionRenderingHandler);
+                return actionsCont;
+            }
+           // app.offViewLoaded(actionRenderingHandler);
+        };
+    };
+    HeaderRenderer.searchIconRenderer = (() => {
+        return init => {
+            if (init) {
+                let element = HeaderRenderer.createEl("a", "iac-ui-header-action search");
+                element.title = "Search";
+            /*    SF.App.literals.getOne(SF.properties["errorPrefix"] + ".Search", literal => {
+                    if (literal.extendedTranslation)
+                        element.title = literal.extendedTranslation;
+                });  */
+                element.addEventListener("click", window["onHeaderSearchIconClick"]);
+                return element;
+            }
+        };
+    })();
+    HeaderRenderer.menuIconRenderer = (() => {
+        let list;
+        const actionRenderingHandler = (v) => {
+            if (v.panel === SF.HeaderView.RENDERER_PANEL_ID) {
+                list.clearChilds();
+                v.entity.actions.slice().reverse().forEach(action => {
+                    if (action.type === SF.ActionType.ButtonPrimary || action.type === SF.ActionType.ButtonSecondary) {
+                        const li = HeaderRenderer.createElAndAppend(list, "li");
+                        const a = HeaderRenderer.createElAndAppend(li, "a");
+                        const icon = HeaderRenderer.headerIconRender(HeaderRenderer.getActionClass(action), action.imageUrl, "span");
+                        icon.setAttribute("style", action.inlineStyle);
+                        a.appendChild(icon);
+                        HeaderRenderer.createElAndAppend(a, "span", "", action.title || action.code);
+                        a.dataset["code"] = action.code;
+                        a.addEventListener("click", function (ev) {
+                            v.submitHeaderAction({ actionCode: this.dataset["code"] });
+                        });
+                    }
+                });
+                if (HeaderRenderer.canShowLogoutButton()) {
+                    const li = HeaderRenderer.createElAndAppend(list, "li", 'logout');
+                    const a = HeaderRenderer.createElAndAppend(li, "a");
+                    const icon = HeaderRenderer.headerIconRender("logout", "", "span");
+                    icon.classList.add("iac-ui-header-action");
+                    a.appendChild(icon);
+                    const span = HeaderRenderer.createElAndAppend(a, "span", "", "Logout");
+                  /*  SF.App.literals.getOne(SF.properties["errorPrefix"] + ".Logout", literal => {
+                        if (literal.extendedTranslation)
+                            span.textContent = literal.extendedTranslation;
+                    });  */
+                    li.addEventListener("click", function () {
+                        //Apr.LogoutService.logout(location.href);
+                    });  
+                }
+                const li = HeaderRenderer.createElAndAppend(list, "li", "group-header");
+                const icon = HeaderRenderer.headerIconRender("user", `${SF.BADGE_CONTROLLER_URL}/employee?employeeNo=${encodeURIComponent(SF.properties["employeeNo"])}`, "span");
+                icon.classList.add("iac-ui-header-action");
+                li.appendChild(icon);
+                HeaderRenderer.createElAndAppend(li, "span", "", SF.properties["employeeName"]);
+            }
+        };
+        return init => {
+            if (init) {
+                const element = HeaderRenderer.createEl("a", "iac-ui-header-action menu");
+                element.title = "Menu";
+                /*SF.App.literals.getOne(SF.properties["errorPrefix"] + ".Menu", literal => {
+                    if (literal.extendedTranslation)
+                        element.title = literal.extendedTranslation;
+                }); */
+                list = document.createElement("ul");
+                list.setAttribute("title", "");
+              //  const popup = Apr.ContextPopup.createPopup(list);
+              //  popup.attach(element);
+              //  SF.app.onViewLoaded(actionRenderingHandler);
+                return element;
+            }
+            //SF.app.offViewLoaded(actionRenderingHandler);
+            return null;
+        };
+    })();
+    HeaderRenderer.customInfoOperationRenderer = (() => {
+        return init => {
+            if (init) {
+                let cont = document.createElement("div");
+                cont.classList.add("iac-ui-header-panel");
+                return cont;
+            }
+        };
+    })();
+    UI.HeaderRenderer = HeaderRenderer; 
 
 })(UI || (UI = {}));
 

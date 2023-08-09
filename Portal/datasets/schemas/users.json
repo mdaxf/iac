@@ -50,13 +50,19 @@
                         "LastSignOnDate", "LastSignOffDate", "LoginExpirationDate",
                         "UserValidDate", "LoginLockoutDate", "PasswordLastChangeDate",
                         "CurrencyCode", "DefaultPage", "dummy",
-                        {"Company":{"link": "companies", "schema":"users", "field": "Name"}}, 
-                        {"Factory":{"link": "factories", "schema":"users", "field": "Name"}}, 
+                        {"Company":{"link": "companies", "schema":"companies", "field": "Name"}}, 
+                        {"Factory":{"link": "factories", "schema":"factories", "field": "Name"}}, 
                         {"Department":{"link": "departments", "schema":"departments", "field": "Name"}},
                         {"ProductionLineNo":{"link": "lines", "schema":"lines", "field": "Name"}}, 
                         {"WorkCenter":{"link": "work_centers", "schema":"work_centers", "field": "Name"}}, "CostCenter", 
                         "Title", "UserClass", "UserType",
-                        "LanguageID", "TimeZoneCode","Active"
+                        {"LanguageCode":
+                            {"link": "languages", "schema":"languagecodes", "field": "code"}
+                        }, 
+                        {"TimeZoneCode":{
+                            "link": "timezones", "schema":"timezones", "field": "code"
+                        }},
+                        "Active"
                         
                 ]
             },
@@ -436,8 +442,8 @@
                         "default":"Cost Center"
                     } 
                 },
-                "LanguageID": {
-                    "type": "integer",
+                "LanguageCode": {
+                    "type": "string",
                     "lng":{
                         "code": "Language",
                         "default":"Language"

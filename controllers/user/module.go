@@ -35,4 +35,4 @@ type User struct {
 }
 
 var TableName string = "users"
-var LoginQuery string = "SELECT ID,Name,LastName, LanguageID, TimeZoneCode FROM users WHERE LoginName='%s' AND (Password='%s' OR Password is null OR Password='')"
+var LoginQuery string = "SELECT ID,Name,LastName, LanguageCode, TimeZoneCode FROM users WHERE LoginName='%s' AND (Password='%s' OR Password is null OR Password='')"

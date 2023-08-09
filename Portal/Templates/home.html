@@ -1,5 +1,4 @@
-<body>
-    <div class="ui container">
+<div class="ui-container">
       <div class="ui four cards">
         <div class="card">
           <div class="content">
@@ -45,13 +44,12 @@
       </div>
         <!-- Add more cards for other application screens -->
       </div>
-    </div>
-</body>
+</div>
 
 <script>
     $Context.onLoaded(function(){
         console.log('home loaded')
-        var el = $(".ui.container").find('.card');
+        var el = $(".ui-container").find('.card');
         el.on("click",function(e){
             console.log("click",$(e.target));
             let dk = $(e.target).closest(".card").attr("data-key");
