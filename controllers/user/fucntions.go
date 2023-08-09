@@ -119,7 +119,6 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 
 	log.Debug(fmt.Sprintf("Query result:%v", jdata))
 
-	//for rows.Next() {
 	if jdata != nil {
 		var ID int
 		var Name string
@@ -178,6 +177,58 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 
 	ctx.JSON(http.StatusNotFound, "Login failed")
 
+}
+
+func getUserImage(username string) (string, error) {
+	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+	log.Debug("Get User Image execution function is called.")
+
+	querystr := fmt.Sprintf(GetUserImageQuery, username)
+
+	log.Debug(fmt.Sprintf("Get User image Query:%s", querystr))
+
+	iDBTx, err := dbconn.DB.Begin()
+	defer iDBTx.Rollback()
+
+	if err != nil {
+		log.Error(fmt.Sprintf("Begin error:%s", err.Error()))
+		return "", err
+	}
+
+	dboperation := dbconn.NewDBOperation(username, iDBTx, "User Login")
+
+	jdata, err := dboperation.Query_Json(querystr)
+
+	if err != nil {
+
+		log.Error(fmt.Sprintf("Query error:%s", err.Error()))
+		return "", err
+
+	}
+
+	log.Debug(fmt.Sprintf("Query result:%v", jdata))
+
+	if jdata != nil {
+		var PictureUrl string
+
+		if len(jdata) == 0 {
+			return "", nil
+		}
+
+		if jdata[0]["PictureUrl"] == nil {
+			return "", nil
+		}
+
+		PictureUrl = jdata[0]["PictureUrl"].(string)
+
+		iDBTx.Commit()
+
+		log.Debug(fmt.Sprintf("PictureUrl:%s", PictureUrl))
+
+		return PictureUrl, nil
+
+	}
+	return "", nil
 }
 
 /*

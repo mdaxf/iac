@@ -92,6 +92,39 @@ func (c *UserController) Login(ctx *gin.Context) {
 
 }
 
+func (c *UserController) Image(ctx *gin.Context) {
+	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+	log.Debug("Get User Image handle function is called.")
+
+	log.Debug(fmt.Sprintf("Get User Image:%s", ctx.Param("username")))
+
+	username := ctx.Query("username")
+	/*var user LoginUserData
+	if err := ctx.BindJSON(&user); err != nil {
+		log.Error(fmt.Sprintf("Get User Image error:%s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	username := user.Username */
+
+	log.Debug(fmt.Sprintf("Get User Image:%s", username))
+
+	PictureUrl, err := getUserImage(username)
+
+	if err != nil {
+		log.Error(fmt.Sprintf("Get User Image error:%s", err.Error()))
+		PictureUrl = "images/avatardefault.png"
+	}
+
+	if PictureUrl == "" {
+		PictureUrl = "images/avatardefault.png"
+	}
+
+	log.Debug(fmt.Sprintf("Get User Image:%s", PictureUrl))
+	ctx.JSON(http.StatusOK, PictureUrl)
+}
+
 func (c *UserController) Logout(ctx *gin.Context) {
 	// Retrieve a list of users from the database
 

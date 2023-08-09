@@ -11,14 +11,19 @@
           "handler": "List"
         },
         {
+          "method": "GET",
+          "path": "/image",
+          "handler": "Image"
+        },
+        {
           "method": "POST",
           "path": "/login",
           "handler": "Login"
         },
         {
           "method": "POST",
-          "path": "/users",
-          "handler": "Create"
+          "path": "/logout",
+          "handler": "Logout"
         }
       ]
     },

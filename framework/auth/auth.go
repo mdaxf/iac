@@ -141,7 +141,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		authHeader := c.GetHeader("Authorization")
 		log.Debug(fmt.Sprintf("Authorization Header:%s %s", authHeader, c.Request.URL.Path))
 
-		if authHeader == "" && (c.Request.URL.Path == "/user/login" || strings.Contains(c.Request.URL.Path, "/portal")) {
+		if c.Request.URL.Path == "/user/login" || strings.Contains(c.Request.URL.Path, "/user/image") || strings.Contains(c.Request.URL.Path, "/portal") {
 			//	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing Authorization header"})
 			return
 		} else if authHeader == "" {

@@ -4081,7 +4081,7 @@ select#headerPane, select#leftPane, select#rightPane, select#contentPane, select
   font-family: 'DSFontIcon';
   font-style: normal;
   font-weight: normal;
-  src: url("/portal/styles/fonts/3ds_fonticon.eot") format("embedded-opentype"), url("/portal/styles/fonts/3ds_fonticon.woff") format("woff"), url("/portal/styles/fonts/3ds_fonticon.woff2") format("woff2"), url("/portal/styles/fonts/3ds_fonticon.ttf") format("truetype"), url("/portal/styles/fonts/3ds_fonticon.svg") format("svg");
+  
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
