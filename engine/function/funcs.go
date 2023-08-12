@@ -348,6 +348,10 @@ func (f *Funcs) Execute() {
 	case types.SendMessage:
 		sm := SendMessageFuncs{}
 		sm.Execute(f)
+
+	case types.SendEmail:
+		se := EmailFuncs{}
+		se.Execute(f)
 	}
 }
 

@@ -111,6 +111,7 @@ const (
 	CollectionDelete
 	ThrowError
 	SendMessage
+	SendEmail
 )
 
 type Status int

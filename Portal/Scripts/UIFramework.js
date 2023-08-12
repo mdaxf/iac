@@ -516,6 +516,9 @@ var UI;
                     temp[key] = targetObject[key];
             return temp;
         }
+        clearstack(){
+            this.stack = [];
+        }
         clear(){
             this.stack = [];
             this.snapshoot ={
@@ -1406,7 +1409,8 @@ function rAFThrottle(func) {
                                 this.executeactionchain();
                         }
                         else if(action.type == "Home"){
-                            Session.clear();
+                            this.Panel.page.clear();
+                            Session.clearstack();
                             // clear the crumbs
                             let page = new Page({"file":"page/home.json"});
                         }
@@ -1423,8 +1427,9 @@ function rAFThrottle(func) {
                             }
                         }                    
                         else if(action.type == "page"){
+                            this.Panel.page.clear();
                             if(action.page.toLowerCase().indexOf("home.json") !=-1){
-                                Session.clear();
+                                Session.clearstack();
                             }else{   
                                 let stackitem = Session.createStackItem(this);                 
                                 Session.pushToStack(stackitem);
@@ -1508,7 +1513,7 @@ function rAFThrottle(func) {
     }
     UI.View = View;
     
-    class Page{
+    class Page extends UI.EventDispatcher{
             /*
             sample configuration
             {
@@ -1536,59 +1541,121 @@ function rAFThrottle(func) {
                 ]
             }
         */    
-        constructor(configuration){
+        constructor(configuration, pageID = null) {
+            super();
             console.log(configuration)
             this.configuration = configuration;
             this.page={};
             this.panels = [];
+
             const elements = document.getElementsByClassName('ui-page');
             for (let i = 0; i < elements.length; i++) {
                 elements[i].remove();
             }
-            this.configuration.title = this.configuration.title || this.configuration.name;
-            
-            if(configuration.name in Session.pages)
-            {
-                this.configuration = Session.pages[configuration.name];
+            UI.tokencheck();
+                        
+            if(pageID != null && pageID in Session.pages && pageID != undefined){
+                console.log("pageID:",pageID)
+                this.configuration = Session.pages[pageID].configuration;
+                this.id = pageID;
                 this.create();
+            }
+            else if(configuration.name in Session.pageResponsitory)
+            {
+                this.configuration = Session.pageResponsitory[configuration.name];
+                let found = false;
+                for(key in Session.pages){
+                    console.log(key)
+                    if(Session.pages[key].configuration.name == this.configuration.name){
+                        console.log(Session.pages[key], configuration.name)
+                        this.id = key;
+                        found = true;
+                        this.create();
+                        return;
+                    }
+                }
+                if(!found)
+                    this.init();
             }
             else if(configuration.file){
                 this.loadfile(configuration);
             }
             else{
                 Session.pageResponsitory[this.configuration.name] = this.configuration;
-                this.create();
+                this.init();
             }
-           // console.log(this);
-            if(configuration.name !=UI.userlogin.logonpage && UI.userlogin.tokenupdatetimer == null){
-                UI.tokencheck();
-            }
+
         }
         loadfile(configuration){
             if(configuration.file in Session.pageResponsitory){
                 this.configuration =  Session.pageResponsitory[configuration.file];
-                this.create();
+                let found = false;
+                if(Session.pages && Session.pages.length > 0){
+                    for(key in Session.pages){
+                        if(Session.pages[key].configuration.name == this.configuration.name){
+                            this.id = key;
+                            found = true;
+                            this.create();
+                            return;
+                        }
+                    }
+                }
+                if(!found)
+                    this.init();
                 return;
             }
 
             let ajax = new UI.Ajax("");
             ajax.get(configuration.file,false).then((response) => {
+                let pagedata = JSON.parse(response);
+                Session.pageResponsitory[configuration.file] = pagedata;
                 
-                Session.pageResponsitory[configuration.file] = JSON.parse(response);
-                
-                this.configuration = JSON.parse(response);
-                this.create();
+                this.configuration = pagedata;
+                this.init();
             }).catch((error) => {
                 console.log(error);
             })
 
         }
-        create(){            
+        async init(){
+            let id = 'page_'+UI.generateUUID();
+            this.id = id;
+
+            if(this.configuration.onInitialize){
+
+                let url = "/exetrancode";
+                let data = {
+                    "code":this.configuration.onInitialize,
+                    "inputs":Session.snapshoot.sessionData,
+                }
+                await this.executeTransaction(url,data, this.updatesession, function(error){console.log(error)});   
+            }
+
+            this.create();
+        }
+        async create(){  
+            this.configuration.title = this.configuration.title || this.configuration.name;       
+            
+            if(this.configuration.name == "IAC Home"){
+                Session.clearstack();
+            }
+
+            if(this.configuration.onLoad){
+
+                let url = "/exetrancode";
+                let data = {
+                    "code":this.configuration.onLoad,
+                    "inputs":Session.snapshoot.sessionData,
+                }
+                await this.executeTransaction(url,data, this.updatesession, function(error){console.log(error)});   
+            }
+
             console.log(this.configuration)
+            let id = this.id;
             let page = document.createElement("div");
             page.className = "ui-page";
-            let id = 'page_'+UI.generateUUID();
-            page.setAttribute("id", id);
+            
+            page.setAttribute("id", this.id);
             
             this.configuration.attrs = this.configuration.attrs || {};
             this.configuration.orientation = this.configuration.orientation || 0;
@@ -1606,8 +1673,7 @@ function rAFThrottle(func) {
             page.style.overflow = "hidden";
             page.style.alignItems = "flex-start";
             page.style.flexDirection = "column";
-            this.page.id = id;
-            this.id = id;
+            this.page.id = this.id;
             let pagecontent = document.createElement("div");
             pagecontent.setAttribute("id", id + "_content");
             pagecontent.className = "ui-page-content";
@@ -1658,6 +1724,20 @@ function rAFThrottle(func) {
                 this.panels.push(panel);
             }
         }
+        updatesession(data){
+            Session.snapshoot.sessionData =  Object.assign({},Session.snapshoot.sessionData, data);
+        }
+       async executeTransaction(url,inputs, func, fail){
+            UI.ajax.post(url, inputs).then((response) => {
+                   if(typeof(func) == 'function')
+                        func(response); 
+    
+                }).catch((error) => {
+                    if(typeof(fail) == 'function')
+                        fail(error);
+                    console.log(error);
+                });
+        }
         clear(){
             /*this.page.innerHTML = "";
             this.panels.each((panel) => {
@@ -1681,7 +1761,8 @@ function rAFThrottle(func) {
             let height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
             $('.ui-page').css('width',width+'px');
             $('.ui-page').css('height',height+'px');
-
+            $('.ui-page-content').css('width',width+'px');
+            $('.ui-page-content').css('height',(height-45)+'px');
         }
 
     }
@@ -1797,26 +1878,37 @@ function rAFThrottle(func) {
 
                     if(UI.userlogin.username){
                         userelement.textContent = UI.userlogin.username;
-                        let element = that.headerIconRender("user", `../user/image?username=${UI.userlogin.username}`);
-                        element.classList.add("iac-ui-header-action");
-                        element.classList.add("active");
-                        let list = document.createElement("ul");
-                        let li = that.createElAndAppend(list, "li");
-                        let a = that.createElAndAppend(li, "a");
-                        const icon = that.headerIconRender("logout", "", "span");
-                        icon.classList.add("iac-ui-header-action");
-                        a.appendChild(icon);
-                        let item = that.createElAndAppend(a, "span", "", "Logout");
-                        item.textContent = "Logout";
-                        item.setAttribute("lngcode", "Logout");    
-                        li.addEventListener("click", function () {
-                            console.log("logout")
-                            UI.userlogin.logout();
-                        });
-                        this.headerUserimage.appendChild(element);
-                        let popup = UI.ContextPopup.createPopup(list);
-                        console.log(popup)
-                        popup.attach(element);
+                        let ajax = new UI.Ajax();
+                        let element = that.headerIconRender("user", "images/avatardefault.png");
+                        ajax.get(`../user/image?username=${UI.userlogin.username}`, function (data) {
+                            let imageurl = JSON.parse(data);
+                            console.log(imageurl)
+                                if (imageurl) {
+                                    element.children[0].src = imageurl;
+                                }
+                            }, function (error) {
+                                console.log(error);
+                            });
+
+                            element.classList.add("iac-ui-header-action");
+                            element.classList.add("active");
+                            let list = document.createElement("ul");
+                            let li = that.createElAndAppend(list, "li");
+                            let a = that.createElAndAppend(li, "a");
+                            const icon = that.headerIconRender("logout", "", "span");
+                            icon.classList.add("iac-ui-header-action");
+                            a.appendChild(icon);
+                            let item = that.createElAndAppend(a, "span", "", "Logout");
+                            item.textContent = "Logout";
+                            item.setAttribute("lngcode", "Logout");    
+                            li.addEventListener("click", function () {
+                                console.log("logout")
+                                UI.userlogin.logout();
+                            });
+                            this.headerUserimage.appendChild(element);
+                            let popup = UI.ContextPopup.createPopup(list);
+                            console.log(popup)
+                            popup.attach(element);
                     }
                     else{
                         userelement.textContent = "Guest";
@@ -1853,7 +1945,8 @@ function rAFThrottle(func) {
             let headerView;
             const createItem = (item, idx) => {
                 let li = document.createElement("li");
-                li.title = item.CurrentPage.PageID;
+                li.setAttribute("pageid",item.CurrentPage.PageID);
+                li.title = item.CurrentPage.PageTitle;
                 li.dataset["crumbs"] = idx++ + "";
                 that.createElAndAppend(li, "span", "", item.CurrentPage.PageTitle);
                 return li;
@@ -1893,6 +1986,11 @@ function rAFThrottle(func) {
                           //  }
                         }
                         console.log("crumbs clicked:", item, idx);
+
+                        let pageid = item.attributes["pageid"].value;
+                        //let configuration = Session.pages[pageid].configuration;
+                        let page = new UI.Page("",pageid);
+
                     });
                 
 
