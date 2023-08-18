@@ -1,0 +1,172 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "$ref": "#/definitions/UserRoles",
+    "datasourcetype": "table",
+    "datasource": "menu_roles",
+    "listfields":["Name","Description","ViewOnly", "CreatedBy", "CreatedOn", "UpdatedBy","UpdatedOn", "RoleID"],
+    "keyfield":"ID",  
+    "linkedfield": "menu_roles.RoleID = roles.ID",
+    "definitions": {
+        "Menu_Roles":{
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "MenuID": {
+                    "type": "integer",
+                    "lng":{
+                        "code": "userid",
+                        "default":"userid"
+                    } 
+                },
+                "RoleID": {
+                    "type": "integer",
+                    "$ref": "#/definitions/Role",
+                    "lng":{
+                        "code": "roleid",
+                        "default":"roleid"
+                    } 
+                },
+                "ViewOnly":{
+                    "type": "boolean",
+                    "lng":{
+                        "code": "ViewOnly",
+                        "default":"ViewOnly"
+                    }  
+                },
+                "active": {
+                    "type": "boolean",
+                    "readonly": true,
+                    "lng":{
+                        "code": "Active",
+                        "default":"Active"
+                    }
+                },
+              
+                "createdby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedBy",
+                        "default":"Created By"
+                    }
+                },
+                "createdon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedOn",
+                        "default":"Created On"
+                    }
+
+                },
+                "updatedby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedBy",
+                        "default":"Updated By"
+                    }
+                },
+                "updatedon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedOn",
+                        "default":"Updated On"
+                    }
+
+                }
+            } 
+        },
+        "Role": {
+            "type": "object",
+            "additionalProperties": false,            
+            "properties": {
+                "ID": {
+                    "type": "string",
+                    "lng":{
+                        "code": "DB_ID",
+                        "default":"ID"
+                    } 
+                },
+                "UUID": {
+                    "type": "string",    
+                    "format": "uuid",               
+                    "lng":{
+                        "code": "UUID",
+                        "default":"UUID"
+                    } 
+                },
+                "Name": {
+                    "type": "string",                   
+                    "lng":{
+                        "code": "Name",
+                        "default":"Name"
+                    } 
+                },
+                "Description": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Description",
+                        "default":"Description"
+                    } 
+                },                
+                "active": {
+                    "type": "boolean",
+                    "readonly": true,
+                    "lng":{
+                        "code": "Active",
+                        "default":"Active"
+                    }
+                },
+              
+                "createdby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedBy",
+                        "default":"Created By"
+                    }
+                },
+                "createdon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedOn",
+                        "default":"Created On"
+                    }
+
+                },
+                "updatedby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedBy",
+                        "default":"Updated By"
+                    }
+                },
+                "updatedon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedOn",
+                        "default":"Updated On"
+                    }
+
+                }
+            },
+            "required": ["uuid",
+                "Name",
+                "Description"
+            ],
+            "unchangable": ["id","uuid"],
+            "hidden": ["id"],
+            
+            "title": "Role"
+        }
+    }
+}

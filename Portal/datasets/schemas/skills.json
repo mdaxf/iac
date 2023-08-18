@@ -31,41 +31,56 @@
         },
         "General":{
             "tables": [{
-                "cols": 1,         
+                "cols": 2,         
                 "fields": [
-                    "Name",  
-                    "Description", 
-                    "Level",
-                    "Active"
+                    "Name",  "dummy",
+                    "LngCode","Level",
+                    "Description", "dummy",              
+                    
+                    "active"
                 ]
             }
         ]
         },
         "System":{
             "tables": [{
+                "style":"display: flex;flex-direction: column;",
                 "cols": 2,
                 "fields":["createdby", "createdon", "updatedby", "updatedon"]
             }]
         },
         "Links":{
             "tables": [{
+                "style":"display: flex;flex-direction: column;",
                 "cols": 1,
-                "fields": [                    
+                "fields":[
                     {"User":{
                         "type": "link",
-                        "table": "userskills",
                         "linkfields": [
-                            {"ID": "SkillID"}
+                            {"ID": "user_skills.SkillID"}
                         ],
-                        "subtable": {
-                            "table": "users",
-                            "fields": ["Name", "LoginName", "LoginCode", "Active"],
-                            "linkfields": [
-                                {"UserID": "ID"}
-                            ]
-                        }                        
+                        "keyfield": "ID",
+                        "fields":[],
+                        "tablename": "user_skills",
+                        "schema":"userskills",
+                        "masterschema":"skills",
+                        "masterdatafield":"skillid",
+                        "data":{
+                            "user_skills":{
+                                "fields": ["Level", "Description", "Certification", "CertificationDate"],
+                                "subtable": {
+                                    "table": "users",
+                                    "fields": ["Name", "LoginName", "LoginCode", "Active"],
+                                    "links": ["user_skills.UserID = users.ID"]
+                                }                        
+                        }},
+                        "lng":{
+                            "code": "Users",
+                            "default":"Users"
+                        },
+                        "actions":["Add", "Edit", "Delete", "Cancel"]
                     }}
-                ]
+            ]
             }]
         },
         "Query":{
@@ -80,7 +95,7 @@
         }
     },    
     "definitions": {
-        "User": {
+        "Skill": {
             "type": "object",
             "additionalProperties": false,            
             "properties": {
@@ -119,8 +134,15 @@
                         "code": "Level",
                         "default":"Level"
                     } 
-                },                
-                "Active": {
+                },     
+                "LngCode": {
+                    "type": "string",
+                    "lng":{
+                        "code": "LngCode",
+                        "default":"Language Code"
+                    } 
+                },            
+                "active": {
                     "type": "boolean",
                     "readonly": true,
                     "lng":{
@@ -129,7 +151,7 @@
                     }
                 },
                 "workspaceSchema": {
-                    "type": "object",
+                    "type": "string",
                     "lng":{
                         "code": "WorkSpaces",
                         "default":"WorkSpaces"

@@ -1,0 +1,254 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "$ref": "#/definitions/MENU",
+    "datasourcetype": "table",
+    "datasource": "menus",
+    "listfields":["Name","Description","Page","Icon","Show", "Desktop","Mobile","createdby", "createdon", "ID"],
+    "keyfield":"ID",
+    "detailpage":{
+        "tabs": {
+            "General": {
+                "lng":{
+                    "code": "General",
+                    "default":"General"
+                },
+                "index": 0 
+            },
+            "Permission":{
+                "lng":{
+                    "code": "Permission",
+                    "default":"Permission"
+                },
+                "index": 1             
+            },
+            "System": {
+                "lng":{
+                    "code": "System",
+                    "default":"System"
+                },
+                "index": 2 
+            }
+        },
+        "General": {
+            "tables":[
+                {"cols":3,
+                "fields":[
+                    "name", "Description", "LngCode",
+                    "PageType", {"ParentID":{"link": "menus", "schema":"menus", "field": "ID"}}, "dummy",
+                    "Page","Icon", "dummy",
+                    "Inputs", "dummy", "dummy",
+                    "MenuShow",  "Mobile", "Desktop"
+                ]                  
+                
+            }]
+        },
+        "System":{
+            "tables": [{
+                "style":"display: flex;flex-direction: column;",
+                "cols": 2,
+                "fields":["createdby", "createdon", "updatedby", "updatedon"]
+            }]
+        },
+        "Permission":{
+            "tables": [{
+                "style":"display: flex;flex-direction: column;",
+                "cols": 1,
+                "fields": [                    
+                    {"Role":{
+                        "type": "link",
+                        "linkfields": [
+                            {"ID": "menu_roles.RoleID"}
+                        ],
+                        "keyfield": "ID",
+                        "tablename": "menu_roles",
+                        "schema":"menuroles",
+                        "masterschema":"roles",
+                        "masterdatafield":"roleid",
+                        "data":{
+                            "menu_roles":{
+                                "fields": ["ViewOnly"],
+                                "subtables": {
+                                    "roles":{
+                                        "fields": ["Name", "Description"],
+                                        "links":  ["menu_roles.roleID = roles.ID"]
+                                    }
+                                }
+                            }
+                        },                         
+                        "lng":{
+                            "code": "Security",
+                            "default":"Security"
+                        } ,
+                        "actions": ["Add", "Edit", "Delete", "Cancel"]                       
+                    }},
+                    {"Children":{
+                        "type": "link",
+                        "linkfields": [
+                            {"ID": "menus.ParentID"}
+                        ],
+                        "keyfield": "ID",
+                        "fields":[],
+                        "tablename": "menus",
+                        "schema":"menus",
+                        "masterschema":"menus",
+                        "masterdatafield":"id",
+                        "data":{
+                            "menus":{
+                                "fields": ["Name", "Description"]
+                            }
+                        },
+                        "lng":{
+                            "code": "Children",
+                            "default":"Child Menus"
+                        },
+                        "actions": ["Add", "Edit", "Delete", "Cancel"]                                     
+                    }
+                    }
+                ]
+            }]
+        }
+    },
+    "definitions": {
+        "MENU": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "ID": {
+                    "type": "string",
+                    "lng":{
+                        "code": "DB_ID",
+                        "default":"ID"
+                    } 
+                },
+                "name": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Name",
+                        "default":"Name"
+                    } 
+                },
+                "Description": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Description",
+                        "default":"Description"
+                    } 
+                },
+                "LngCode": {
+                    "type": "string",
+                    "lng":{
+                        "code": "LngCode",
+                        "default":"Language Code"
+                    } 
+                },
+                "PageType": {
+                    "type": "integer",
+                    "lng":{
+                        "code": "Type",
+                        "default":"Type"
+                    }
+                },
+                "ParentID": {
+                    "type": "integer",
+                    "lng":{
+                        "code": "Parent",
+                        "default":"Parent"
+                    },
+                    "options":{
+                        "value": [1,2],
+                        "lngcode":["Page", "Parent"],
+                        "default": ["Page", "Parent"]
+                     } 
+                },
+                "Page": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Page",
+                        "default":"Page"
+                    } 
+                },
+                "Inputs": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Inputs",
+                        "default":"Inputs"
+                    } 
+                },
+                "MenuShow": {
+                    "type": "boolean",
+                    "lng":{
+                        "code": "Show",
+                        "default":"Show"
+                    } 
+                },
+                "Icon": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Icon",
+                        "default":"Icon"
+                    } 
+                },
+                "Mobile": {
+                    "type": "boolean"  ,
+                    "lng":{
+                        "code": "Mobile",
+                        "default":"Mobile"
+                    } 
+                },
+                "Desktop": {
+                    "type": "boolean",
+                    "lng":{
+                        "code": "Desktop",
+                        "default":"Desktop"
+                    } 
+                },
+                "createdby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedBy",
+                        "default":"Created By"
+                    }
+                },
+                "createdon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedOn",
+                        "default":"Created On"
+                    }
+
+                },
+                "updatedby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedBy",
+                        "default":"Updated By"
+                    }
+                },
+                "updatedon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedOn",
+                        "default":"Updated On"
+                    }
+
+                }
+            },
+            "required": ["ID",
+                "Name",
+                "Description",
+                "Page",
+                "Show"
+            ],
+            "unchangable": ["ID"],
+            "hidden": [],
+            
+            "title": "Menus"
+        }
+    }
+}

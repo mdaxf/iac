@@ -1,0 +1,200 @@
+<!DOCTYPE HTML>
+<html lang="en">
+
+<head>
+    <title>Master Data Maintenance</title>
+    <meta name="description" content="start">
+    <meta charset=UTF-8 />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1" />
+    <meta name="renderer" content="webkit" />
+    <script src="Scripts/jquery.min.js" type="text/javascript" ></script>    
+    <link href="styles/dataTables.css" rel="stylesheet"/> 
+    <script src="scripts/datatables.js"></script>
+    <script src="scripts/jsonmanager.js"></script>
+</head>
+<body>
+    <div class="ui_actions_section" >
+        <button type="button" onclick="$ViewID_addnewrecord()" class="btn btn-primary" style="float:right;" value="Add" lngcode="Add">Add</button>
+        <button type="button" onclick="$ViewID_Actions('EDIT')" class="btn btn-secondary" style="float:right;" value="Edit" lngcode="Edit">Edit</button>
+        <!--button type="button" onclick="$ViewID_Actions('SELECT')" class="btn btn-secondary" style="float:right;" value="Select" lngcode="Select">Select</button -->
+        <button type="button" onclick="$ViewID_Actions('DELETE')" class="btn btn-secondary" style="float:right;" value="Delete" lngcode="Delete">Delete</button>
+        <button type="button" onclick="$ViewID_Cancel()" class="btn btn-secondary" style="float:right;" value="Cancel" lngcode="Cancel">Cancel</button>
+    </div>
+    <div id="mylinkeddataGrid" style="width:100%"></div>
+   <script>
+        var schema = null;
+        $Context.onLoaded(function(){
+            $ViewID_loadData();
+        })
+
+        function $ViewID_loadData(){
+
+            console.log("start the data link list page:",$Context.inputs.ui_linkedjdata)
+            
+            schema = $Context.inputs.ui_linkedjdata;
+
+            if(schema == null){
+                    console.log("no schema data specified")
+                    UI.ShowError('Data Schema Not Found');
+                    return;
+            }
+              
+            if(schema.hasOwnProperty("actions")){
+                let actions =schema.actions
+                console.log(actions)
+                $('.ui_actions_section button').hide()
+                for(var i=0;i<actions.length;i++){
+                   // console.log(actions[i])
+                    $('.ui_actions_section button[value="'+actions[i]+'"]').show(); 
+                }
+            }
+
+            let inputs={};
+            let fields = [];
+            if(schema.hasOwnProperty('tablename')){
+                inputs.tablename = schema.tablename;
+            }
+            else 
+            {
+                console.log("no table name specified")
+                //    UI.ShowError('Table Name Not Found');
+                return;
+            }
+
+            if(schema.hasOwnProperty('data')){
+                inputs.data = schema.data;
+            }
+            else 
+            {
+                console.log("no data specified")
+                //    UI.ShowError('Data Not Found');
+                    return;
+            }
+
+            inputs.operation = "LIST";
+                
+            if(schema.hasOwnProperty('where'))
+                inputs.where = schema.where;
+
+            if(schema.hasOwnProperty('fields')){
+                fields = schema.fields;
+            }                
+           
+            console.log("ajax call input data:",inputs)
+            let url = '/sqldata/get'
+
+            let ajax = new UI.Ajax("");
+            ajax.post(url,inputs).then((response) => {
+                    data = JSON.parse(response)["data"];
+                    console.log(response,data)
+                    let rows =[];
+                    let headers =[];
+                    let columns =[];
+                    let count = 0;
+
+                    if(data.length == 0 )
+                        return;
+
+                    data.forEach(element => {
+                        let rowdata = element
+                        console.log(rowdata)
+                        cells=[];
+
+                        for(var key in rowdata){
+                            console.log(key, rowdata[key])
+                            if(count == 0 ){
+                                headers.push({innerHTML:key});
+                                columns.push({control:"", attrs:{"data-key":key}});
+                            }
+                            celldata = rowdata[key];
+                            cells.push({data:{innerHTML:celldata}});
+                        }
+                        rows.push(cells)
+                        count = count + 1;
+                    });
+
+
+                    let table_data={
+                            attrs:{id:"mylinkeddataGrid_datatable"},
+                            headers:headers,
+                            columns:columns,
+                            rows:rows
+                    }
+                    
+                    console.log(table_data)
+                    new UI.HtmlTable(document.getElementById('mylinkeddataGrid'),table_data);
+
+                    if(!DataTable){
+                        document.addEventListener("UIDataTable_libraryLoaded", function(event) {
+                            console.log('UIDataTable_libraryLoaded')
+                                    //table = new DataTable('#myTable');
+                            $('#mylinkeddataGrid_datatable').DataTable( {
+                                buttons: [
+                                        'Add'
+                                    ]
+                                } );
+                        });
+
+                    }else{ 
+                        // new DataTable('#myTable');
+                            $('#mylinkeddataGrid_datatable').DataTable( {
+                                    buttons: [
+                                        'Add'
+                                    ]
+                            } );
+                    }
+
+                    $('table > tbody > tr').on('click', function(){
+                            console.log('select row', this)
+                            if($(this).hasClass('selected')){
+                                $(this).removeClass('selected');
+                            }
+                            else{
+                                $('table > tbody > tr').removeClass('selected');
+                                $(this).addClass('selected');
+                            }
+                    });
+                    }).catch((error) => {
+                        UI.ShowError('Error Loading Data List');
+                   //    console.log(error);
+                    })
+
+                    
+             //   }
+
+
+        //    }
+
+        }
+
+        function $ViewID_Actions(action){
+            let keyfield = "";
+            if(schema.hasOwnProperty('keyfield'))
+                    keyfield = schema.keyfield;
+            console.log('delete row')
+
+            if($('table > tbody > tr.selected').length != 1)
+            {
+                UI.ShowError("Only one row can be selected to continue!");
+                return;
+            }
+            let key = $('table > tbody > tr.selected').find('td[data-key="'+keyfield+'"]').text();
+
+            $Context.outputs.SelectedKeyValue = key;
+            $Context.outputs.SelectedKeyField = keyfield;
+            $Context.outputs.action = action.toUpperCase();
+            $Context.submit();
+
+        }
+        function $ViewID_Cancel(){
+            $Context.outputs.action="CANCEL";
+            $Context.submit();
+        }
+        function $ViewID_addnewrecord(){
+            console.log("add new record")
+            $Context.outputs.action="ADD";
+            $Context.submit();
+        }
+    </script>
+</body>

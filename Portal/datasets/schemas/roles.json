@@ -35,34 +35,76 @@
                 "fields": [
                     "Name",  
                     "Description", 
-                    "Active"
+                    "active"
                 ]
             }
         ]
         },
         "System":{
             "tables": [{
+                "style":"display: flex;flex-direction: column;",
                 "cols": 2,
                 "fields":["createdby", "createdon", "updatedby", "updatedon"]
             }]
         },
         "Links":{
             "tables": [{
+                "style":"display: flex;flex-direction: column;",
                 "cols": 1,
                 "fields": [                    
                     {"User":{
                         "type": "link",
-                        "table": "userroles",
                         "linkfields": [
-                            {"ID": "RoleID"}
+                            {"ID": "user_roles.RoleID"}
                         ],
-                        "subtable": {
-                            "table": "users",
-                            "fields": ["Name", "LoginName", "LoginCode", "Active"],
-                            "linkfields": [
-                                {"UserID": "ID"}
-                            ]
-                        }                        
+                        "keyfield": "ID",
+                        "tablename": "user_roles",
+                        "schema":"userroles",
+                        "masterschema":"users",
+                        "masterdatafield":"userid",
+                        "data":{
+                            "user_roles":{
+                                "fields": [],
+                                "subtables": {
+                                    "users":{
+                                        "fields": ["Name", "LoginName", "LoginCode", "active"],
+                                        "links":  ["user_roles.UserID = users.ID"]
+                                    }                                    
+                                }
+                            }
+                        },
+                        "lng":{
+                            "code": "Users",
+                            "default":"Users"
+                        },
+                        "actions": ["Add", "Delete"]                           
+                    }},
+                    {"Menu":{
+                        "type": "link",
+                        "linkfields": [
+                            {"ID": "menu_roles.RoleID"}
+                        ],
+                        "keyfield": "ID",
+                        "tablename": "menu_roles",
+                        "schema":"menuroles",
+                        "masterschema":"menus",
+                        "masterdatafield":"menuid",
+                        "data":{
+                            "menu_roles":{
+                                "fields":["ViewOnly"],
+                                "subtables": {
+                                    "menus":{
+                                        "fields": ["Name", "Description"],
+                                        "links":  ["menu_roles.menuid = menus.ID"]
+                                    }
+                                } 
+                            }
+                        },
+                        "lng":{
+                            "code": "Menus",
+                            "default":"Menus"
+                        } ,
+                        "actions": ["Add", "Delete"]                                    
                     }}
                 ]
             }]
@@ -73,7 +115,7 @@
                 "ID",
                 "Name",
                 "Description",
-                "Active"
+                "active"
             ],
             "where": "id = :id"
         }
@@ -112,7 +154,7 @@
                         "default":"Description"
                     } 
                 },                
-                "Active": {
+                "active": {
                     "type": "boolean",
                     "readonly": true,
                     "lng":{
@@ -120,13 +162,7 @@
                         "default":"Active"
                     }
                 },
-                "workspaceSchema": {
-                    "type": "object",
-                    "lng":{
-                        "code": "WorkSpaces",
-                        "default":"WorkSpaces"
-                    } 
-                },                
+              
                 "createdby": {
                     "type": "string",
                     "readonly": true,
@@ -166,8 +202,7 @@
             },
             "required": ["uuid",
                 "Name",
-                "Description",
-                "WorkSpaceSchema"
+                "Description"
             ],
             "unchangable": ["id","uuid"],
             "hidden": ["id"],

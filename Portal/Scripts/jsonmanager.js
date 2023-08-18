@@ -6,10 +6,14 @@ var UI = UI || {};
             this.originalObject = JSON.parse(JSON.stringify(jsonObject));        
           this.data = (typeof jsonObject == 'string')? JSON.parse(jsonObject) : jsonObject;
           this.options = options;
+          console.log(options)
           this.changed = false;
           this.schemafile = options.schemafile || '';
           this.schema = this.options.schema || null;
           this.jschema = new JSONSchema(this.schema);
+          this.allowChanges = options.allowChanges || true;
+          this.options.allowChanges = this.allowChanges;
+
           this.loadschema();
         //  console.log(this.schemafile,this.schema)
         }
@@ -428,7 +432,7 @@ var UI = UI || {};
           let isArray = false;
           for(var i=0;i<keys.length;i++){
             let key = keys[i]
-            console.log(this.schema,schemaNode,key)
+        //    console.log(this.schema,schemaNode,key)
             if(!schemaNode.properties.hasOwnProperty(key))
                 return null;
 
@@ -914,28 +918,35 @@ var UI = UI || {};
                 }
                 
             }
-            
+            let actionbar = (new UI.FormControl(wrapper, 'div',{"style":"display:inline-block;height:30px; float:right", "class": "ui_actions_section"})).control;
 
-            let actionbar = (new UI.FormControl(wrapper, 'div',{"style":"display:inline-block;height:30px; float:right"})).control;
-            attrs={
-                "name": "ui-json-detail-page-save",
-                "id": "ui-json-detail-page-save",
-                "class": "ui-json-detail-page-save btn btn-primary",
-                "style": "width:100px;height:30px;float:right;",
-                "innerHTML": "Save",
-                "lngcode": "Save"
+            let events={}
+            console.log(this.allowChanges)
+
+            if(this.allowChanges){
+                
+                attrs={
+                    "name": "ui-json-detail-page-save",
+                    "id": "ui-json-detail-page-save",
+                    "class": "ui-json-detail-page-save btn btn-primary",
+                    "style": "width:100px;height:30px;float:right;",
+                    "innerHTML": "Save",
+                    "value": "Save",
+                    "lngcode": "Save"
+                }
+                events={
+                    "click": function(){
+                        that.trigger_event("save", [that.data]);
+                    }}
+                new UI.FormControl(actionbar, 'button',attrs,events)
             }
-            let events={
-                "click": function(){
-                    that.trigger_event("save", [that.data]);
-                }}
-            new UI.FormControl(actionbar, 'button',attrs,events)
             attrs={
                 "name": "ui-json-detail-page-cancel",
                 "id": "ui-json-detail-page-cancel",
                 "class": "ui-json-detail-page-save btn btn-secondary",
                 "style": "width:100px;height:30px;float:right;",
                 "innerHTML": "Cancel",
+                "value": "Cancel",
                 "lngcode": "Cancel"
             }
             events={
@@ -978,7 +989,15 @@ var UI = UI || {};
                 if(tables != null && tables != undefined && tables !={})
                 for(var i=0;i<tables.length;i++){
                     let key1 = tables[i];
-                    let table = (new UI.FormControl(tabcontentitem, 'table',{"class":"table table-bordered table-hover"})).control;
+                    
+                    
+                    let style = "";
+                    if(key1.hasOwnProperty("style"))
+                        style = key1["style"]
+
+           //         console.log(tables,key1, style)
+                    let table = (new UI.FormControl(tabcontentitem, 'table',{"class":"table table-bordered table-hover", "style":style})).control;
+
                     let cols = 1
                     if(key1.hasOwnProperty("cols"))
                         cols = key1["cols"]
@@ -1020,7 +1039,7 @@ var UI = UI || {};
                                 
                                 if(type == "link")
                                     $(link).click(function(){                                                                     
-                                        that.displayhyperlinks(wrapper,fieldvalue);
+                                        that.displayhyperlinks(wrapper,fieldvalue,fieldkey);
                                     })
                                 else if(type == "singlelink"){
                                     $(link).click(function(){                                                                     
@@ -1047,19 +1066,33 @@ var UI = UI || {};
                                     if(node.hasOwnProperty("value")){
                                         value = node.value
                                     }
-        
-                                    if(tag != "input" ||tag != "select")
-                                        attrs ={
-                                            "name": "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber,
-                                            "innerHTML": value,
-                                        }
-                                    else
-                                    attrs ={
-                                        "name": "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber,
-                                        "value": value,                                        
-                                        "data-key": field,
+                                    attrs = {};
+                                    console.log(field)
+                                    if(field.hasOwnProperty("nodeattrs")){
+                                        attrs = fieldvalue.hasOwnProperty("nodeattrs")
+                                        var matches = attrs.match(/\{([^}]+)\}/g);
+                                        if (matches) {
+                                            var extractedValues = matches.map(function(match) {
+                                                return match.slice(1, -1); // Remove the curly braces
+                                            });
+
+                                            if(node.hasOwnProperty("value")){
+                                                value = node.value
+                                                attrs = attrs.replaceAll('{'+extractedValues+'}', value)
+                                            }                                            
+                                        }                                        
                                     }
-        
+                                    if(tag != "input" ||tag != "select"){
+                                       
+                                        attrs.name = "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber;
+                                        attrs.innerHTML = value
+                                    }
+                                    else{
+
+                                        attrs.name = "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber;
+                                        attrs.innerHTML = value
+                                        attrs["data-key"] = field
+                                    }
                                     new UI.FormControl(td, tag,attrs);
                                 }
                             }
@@ -1090,10 +1123,11 @@ var UI = UI || {};
             let that = this;
             let attrs = {};
             let td = (new UI.FormControl(tr, 'td',attrs)).control;
-            //   console.log(field)
+        //    console.log(that.allowChanges)
+
             if(field != "dummy" && field != "save" && field != "cancel"){
                 let node = that.getNode(field);
-                console.log(field, node)
+            //    console.log(field, node)
                 let value = "";
                    if(node)
                    if(node.hasOwnProperty("value")){
@@ -1168,7 +1202,7 @@ var UI = UI || {};
                            }
                        }
 
-                       if(schemareadonly)
+                       if(schemareadonly || !that.allowChanges)
                            attrs["disabled"] = true;
 
                        new UI.FormControl(div, 'input',attrs);
@@ -1200,8 +1234,8 @@ var UI = UI || {};
                                "value": value,
                            }
 
-                           if(schemareadonly)
-                           attrs["disabled"] = true;
+                           if(schemareadonly || !that.allowChanges)
+                            attrs["disabled"] = true;
 
                            if(schemaformate == "datetime")
                                attrs["type"] = "datetime-local"
@@ -1220,7 +1254,7 @@ var UI = UI || {};
                        if(schemaformate == "datetime")
                            attrs["type"] = "datetime-local"
 
-                       if(schemareadonly)
+                       if(schemareadonly || !that.allowChanges)
                            attrs["disabled"] = true;
                        new UI.FormControl(div, 'input',attrs);   
                    }
@@ -1232,11 +1266,14 @@ var UI = UI || {};
                             "data-key": field,
                             "class": "fa-solid fa-link",
                         }
+                        if(schemareadonly || !that.allowChanges)
+                           attrs["disabled"] = true;
+
                         let link = (new UI.FormControl(div, 'i',attrs)).control;
                         $(link).click(function(){
                             let inputid = $(this).closest('td').find('input').attr('id');
                             let schema = linkobj.schema;
-                            let field = linkobj.field;
+                         //   let field = linkobj.field;
                             that.displaylinkeditem(wrapper,inputid, schema, field);
                         })
                         attrs = {
@@ -1245,9 +1282,14 @@ var UI = UI || {};
                             "data-key": field,
                             "class": "fa-solid fa-link-slash",
                         }
+                        if(schemareadonly || !that.allowChanges)
+                           attrs["disabled"] = true;
+
                         let unlink = (new UI.FormControl(div, 'i',attrs)).control;
                         $(unlink).click(function(){
+                            let datakey = $('#'+fieldid).attr('data-key');
                             $(this).closest('td').find('input').val('');
+                            that.updateNode(datakey, '');
                         })
                         
                    }
@@ -1257,7 +1299,8 @@ var UI = UI || {};
             let attrs = {
                 "name": "ui-json-detail-page-linked-item-section",
                 "id": "ui-json-detail-page-linked-item-section",
-                "style": "width:100%;height:100%; display:float; left:0px; top:0px; position:absolute; background-color:white; z-index:10;"
+                "style": "width:100%;height:100%; display:float; left:0px; top:80px; position:absolute; background-color:white; z-index:10;",
+                "class": "popup"
             }
             let section = (new UI.FormControl(wrapper, 'div',attrs)).control;
             let that = this;
@@ -1268,61 +1311,188 @@ var UI = UI || {};
            // panel.panelElement.appendChild(div);
             let cfg = {
                 "file":"templates/datalist.html", 
-                "name": "skills list", 
+                "name": field+ " list", 
                 "actions": {
                     "SELECT":{"type": "script", "next": "","page":"","panels":[], "script": "selectitem"},
+                    "CANCEL":{"type": "script", "next": "","page":"","panels":[], "script": "cancelitem"},
                 }
             }
          //   console.log(cfg)
+            let org_schema = Session.snapshoot.sessionData.ui_dataschema
+            let org_entity = Session.snapshoot.sessionData.entity
+            let org_selectedKey = Session.snapshoot.sessionData.selectedKey
             let inputs = {}
             inputs.ui_dataschema = schema
         //    console.log(inputs)
             cfg.inputs = inputs;
             cfg.actions.SELECT.script = function(data){
-                console.log(data)
+                console.log("execute the action:",field, data)
                 $('#'+fieldid).val(data.selectedKey);
+                let datakey = $('#'+fieldid).attr('data-key');
+                that.updateNode(datakey, data.selectedKey);
+                Session.snapshoot.sessionData.entity = org_entity;
+                Session.snapshoot.sessionData.selectedKey = org_selectedKey;
+                Session.snapshoot.sessionData.ui_dataschema = org_schema;
+                $('#ui-json-detail-page-linked-item-section').remove();
+            }
+            cfg.actions.CANCEL.script = function(data){
+                console.log("execute the action:", data)
+
+                Session.snapshoot.sessionData.entity = org_entity;
+                Session.snapshoot.sessionData.selectedKey = org_selectedKey;
+                Session.snapshoot.sessionData.ui_dataschema = org_schema;
                 $('#ui-json-detail-page-linked-item-section').remove();
             }
             Session.snapshoot.sessionData.ui_dataschema = schema
             console.log(cfg)
             new UI.View(panel,cfg)
         }
-        displayhyperlinks(wrapper,fieldvalue){
-            let attrs = {
-                "name": "ui-json-detail-page-linked-item-section",
-                "id": "ui-json-detail-page-linked-item-section",
-                "style": "width:100%;height:100%; display:float; left:0px; top:0px; position:absolute; background-color:white; z-index:10;"
-            }
-            let section = (new UI.FormControl(wrapper, 'div',attrs)).control;
-            let that = this;
-            let panel = {};
-            panel.panelElement = section;
-            // let div = document.createElement('div');
-           // div.innerHTML = "<h3>Linked Item</h3>"
-           // panel.panelElement.appendChild(div);
+        displayhyperlinkmaster(data){
+            
+            data = Session.snapshoot.sessionData
+            console.log("displayhyperlinkmaster",data)
+            schema = data.ui_linkedjdata.masterschema;
             let cfg = {
                 "file":"templates/datalist.html", 
-                "name": "skills list", 
+                "name": "Role"+ " Master list", 
                 "actions": {
                     "SELECT":{"type": "script", "next": "","page":"","panels":[], "script": "selectitem"},
+                    "CANCEL":{"type": "script", "next": "","page":"","panels":[], "script": "cancelitem"},
                 }
             }
-         //   console.log(cfg)
+            let page =Session.CurrentPage;
+            console.log(page)
+            let org_schema = Session.snapshoot.sessionData.ui_dataschema
+            let org_entity = Session.snapshoot.sessionData.entity
+            let org_selectedKey = Session.snapshoot.sessionData.selectedKey
+
             let inputs = {}
-            inputs.ui_sourcetype = "list"
-            inputs.ui_dataschema = ""
-            inputs.ui_data = fieldvalue
-            console.log(fieldvalue)
-            inputs.ui_datakey = (that.getNode(fieldvalue['keyfield'])).value
-            console.log(inputs)
+            inputs.ui_dataschema = schema
+        //    console.log(inputs)
             cfg.inputs = inputs;
             cfg.actions.SELECT.script = function(data){
-                console.log(data)                
-                $('#ui-json-detail-page-linked-item-section').remove();
+                console.log("execute the action:", data)
+
+                let insertdata ={}
+                console.log(data.ui_linkedjdata)
+                for(var i=0;i<data.ui_linkedjdata.linkfields.length;i++){
+                    if(data.ui_linkedjdata.linkfields[i].hasOwnProperty(data.ui_linkedjdata.keyfield)){
+                        let valuefield = data.ui_linkedjdata.linkfields[i][data.ui_linkedjdata.keyfield];
+                        let vfs = valuefield.split('.')
+                        if(vfs.length == 2)
+                            insertdata[vfs[1]] = data.ui_linkedjdata.keyvalue;
+                        else    
+                            insertdata[valuefield] = data.ui_linkedjdata.keyvalue;  
+                    } 
+                }
+
+                insertdata[data.ui_linkedjdata.masterdatafield] = data.selectedKey
+                let url = '/sqldata/insert'
+                insertdata.createdby = UI.userlogin.username
+                insertdata.createdon = (new Date()).toISOString().slice(0, 19).replace('T', ' ');
+                insertdata.updatedby = UI.userlogin.username
+                insertdata.updatedon = (new Date()).toISOString().slice(0, 19).replace('T', ' ');
+
+                let inputdata = {
+                    "tablename": data.ui_linkedjdata.tablename,
+                    "data": insertdata
+                }
+
+                UI.ajax.post(url,inputdata).then((response) => {
+                    data = JSON.parse(response);
+                    page.popupClose();
+                    //id = data.data.id
+                    page.Refresh();
+                    /*if(id != undefined)
+                        detail.jdata.ID = id */
+                }).catch((error) => {
+                    console.log(error);
+                    page.popupClose();
+                });
+                Session.snapshoot.sessionData.entity = org_entity;
+                Session.snapshoot.sessionData.selectedKey = org_selectedKey;
+                Session.snapshoot.sessionData.ui_dataschema = org_schema;
+                
+                
             }
-            Session.snapshoot.sessionData.ui_dataschema = "users"
-            console.log(cfg)
-            new UI.View(panel,cfg)
+            cfg.actions.CANCEL.script = function(data){
+                console.log("execute the action:", data)
+
+                Session.snapshoot.sessionData.entity = org_entity;
+                Session.snapshoot.sessionData.selectedKey = org_selectedKey;
+                Session.snapshoot.sessionData.ui_dataschema = org_schema;
+                page.popupClose();
+            }
+            Session.snapshoot.sessionData.ui_dataschema = schema
+            //console.log(cfg)
+            //new UI.View(panel,cfg) 
+            page.popupOpen(cfg);
+            page.popup.onClose(function(){
+                Session.snapshoot.sessionData.entity = org_entity;
+                Session.snapshoot.sessionData.selectedKey = org_selectedKey;
+                Session.snapshoot.sessionData.ui_dataschema = org_schema;
+            })
+        }
+        displayhyperlinks(wrapper,fieldvalue, field){
+            let that = this;
+            let configuration = {};
+            configuration.name = field + " List";
+            if(fieldvalue.hasOwnProperty("lng"))
+                configuration.title = fieldvalue["lng"]["default"] + " List";
+
+            let panel = {}
+            panel.name = "datalink_content_panel";
+            let view ={}
+            view.name = this.schema["datasource"] +"_"+field+"__datalinklist";
+            view.file ="templates/datalinklist.html";
+            let inputs={}       
+            
+            let keyfield ="";
+            if(fieldvalue.hasOwnProperty("keyfield")){
+                keyfield = fieldvalue["keyfield"];
+            }
+            else{
+                console.log("There is a linked field defined.")
+                return;
+            }                
+
+            let keyvalue = this.data[keyfield];
+            let where = {};
+            if(fieldvalue.hasOwnProperty("linkfields")){
+                let linkfields = fieldvalue["linkfields"];
+                let wherestr = "";
+                for(var i=0;i<linkfields.length;i++){
+                    console.log(linkfields[i],keyvalue)
+                    if(linkfields[i].hasOwnProperty(keyfield)){
+                        wherestr += linkfields[i][keyfield] + " = '" + keyvalue + "'";                        
+                    }
+                }
+                if(wherestr !="")
+                    where[wherestr] = "";
+            }
+                        
+            fieldvalue["where"] = where;
+            fieldvalue["keyvalue"] = keyvalue;
+            inputs.ui_linkedjdata = fieldvalue;
+
+            view.inputs = inputs;
+            Session.snapshoot.sessionData.ui_linkedjdata = fieldvalue;
+            view.outputs = {};
+            view.outputs.ui_linkedjdata ={};
+
+            if(that.allowChanges){
+                let actions = {}
+                actions.ADD = {"type": "script", "next": "","page":"","panels":[], "script": "addnewitem"}
+                view.actions = actions;
+                view.actions.ADD.script = function(data){
+                    that.displayhyperlinkmaster(wrapper,data);
+                }
+            }
+            panel.view = view;
+            configuration.panels = [panel];
+
+            console.log("display the list screen",configuration,inputs)
+            new UI.Page(configuration);
         
         }
         displaysubdetail(wrapper,fieldvalue){
@@ -1594,8 +1764,22 @@ var UI = UI || {};
                                         data[key] = "";
                             }
                             break;
+                        case "object":
+                        case "Object":
+                            if(data[key] == undefined || data[key] == null || data[key] == "")
+                                data[key] = {};
+                            else
+                                data[key] = JSON.parse(data[key]);
+
+                                data[key] = JSON.stringify(data[key]);
+                            
+                            data[key] = JSON.stringify(data[key]);
+                            break;
                         default:
-                            data[key] = data[key].toString();
+                            if(data[key] == undefined || data[key] == null)
+                                data[key] = "";
+                            else
+                                data[key] = data[key].toString();
 
                     }
                 }
@@ -1677,7 +1861,7 @@ var UI = UI || {};
             let isArray = false;
             for(var i=0;i<keys.length;i++){
               let key = keys[i]
-              console.log(this.schema,schemaNode,key)
+            //  console.log(this.schema,schemaNode,key)
               if(!schemaNode.properties.hasOwnProperty(key))
                   return null;
   

@@ -107,7 +107,12 @@ func (db *DBController) getDataStructForQuery(data map[string]interface{}) (stri
 	TableName := ""
 	for k, v := range data {
 		tablename := k
-		TableName = fmt.Sprintf("%s %s,", TableName, tablename)
+		if TableName != "" {
+			TableName = fmt.Sprintf(" %s INNER JOIN %s ON 1=1 ", TableName, tablename)
+		} else {
+			TableName = fmt.Sprintf(" %s ", tablename)
+		}
+
 		// get table schema
 		var fields []string
 		if itemList, ok := v.([]interface{}); ok {
@@ -123,7 +128,7 @@ func (db *DBController) getDataStructForQuery(data map[string]interface{}) (stri
 		} else {
 			if item, ok := v.(map[string]interface{}); ok {
 
-				subquery, err := db.getsubtabls(tablename, item, false)
+				subquery, tablelinks, err := db.getmysqlsubtabls(tablename, item, false)
 				if err != nil {
 					return "", "", err
 				}
@@ -133,6 +138,8 @@ func (db *DBController) getDataStructForQuery(data map[string]interface{}) (stri
 
 					Query = subquery
 				}
+
+				TableName = fmt.Sprintf("%s %s", TableName, tablelinks)
 			}
 		}
 
@@ -141,6 +148,79 @@ func (db *DBController) getDataStructForQuery(data map[string]interface{}) (stri
 	return strings.TrimRight(Query, ","), strings.TrimRight(TableName, ","), nil
 }
 
+func (db *DBController) getmysqlsubtabls(tablename string, data map[string]interface{}, markasJson bool) (string, string, error) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromTable"}
+	Links := ""
+	Query := " "
+	TableLinks := ""
+	SubQuery := ""
+	SubLinks := ""
+	for k, v := range data {
+		if k == "fields" {
+			if itemList, ok := v.([]interface{}); ok {
+				for _, field := range itemList {
+					Query = fmt.Sprintf("%s %s.%s,", Query, tablename, field.(string))
+				}
+			}
+		} else if k == "subtables" {
+			if item, ok := v.(map[string]interface{}); ok {
+				for key, value := range item {
+					subquery, subtablelink, err := db.getmysqlsubtabls(key, value.(map[string]interface{}), true)
+					if err != nil {
+						return "", "", err
+					}
+					SubQuery = fmt.Sprintf("%s %s,", SubQuery, subquery)
+					SubLinks = fmt.Sprintf("%s  %s", SubLinks, subtablelink)
+				}
+			}
+		} else if k == "links" {
+			if itemList, ok := v.([]interface{}); ok {
+				for _, link := range itemList {
+					if Links == "" {
+						Links = link.(string)
+					} else {
+						Links = fmt.Sprintf("%s AND %s", Links, link.(string))
+					}
+				}
+			}
+		}
+	}
+
+	if SubQuery != "" {
+		Query = fmt.Sprintf("%s %s,", Query, SubQuery)
+	}
+
+	Query = strings.TrimRight(Query, ",")
+
+	if Links != "" && TableLinks != "" {
+		TableLinks = fmt.Sprintf("%s INNER JOIN %s ON %s", TableLinks, tablename, Links)
+	} else if Links != "" && TableLinks == "" {
+		TableLinks = fmt.Sprintf(" INNER JOIN %s ON %s", tablename, Links)
+	}
+
+	if SubLinks != "" {
+		TableLinks = fmt.Sprintf("%s  %s", TableLinks, SubLinks)
+	}
+	/*
+		if markasJson {
+			if Links != "" {
+				Query = fmt.Sprintf("SELECT %s from %s where %s", Query, tablename, Links)
+			} else {
+				Query = fmt.Sprintf("SELECT %s from %s", Query, tablename)
+			}
+
+			if dbconn.DatabaseType == "sqlserver" {
+				Query = fmt.Sprintf("%s FOR JSON PATH", Query)
+			} else if dbconn.DatabaseType == "mysql" {
+				Query = fmt.Sprintf("SELECT json_agg(t)  FROM ( %s ) t ", Query)
+			}
+			Query = fmt.Sprintf("(%s ) as \"%s\"", Query, tablename)
+		}
+	*/
+	iLog.Debug(fmt.Sprintf("getsubtabls Query: %s", Query))
+	return Query, TableLinks, nil
+
+}
 func (db *DBController) getsubtabls(tablename string, data map[string]interface{}, markasJson bool) (string, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromTable"}
 	/*

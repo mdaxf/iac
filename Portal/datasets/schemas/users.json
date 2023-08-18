@@ -34,7 +34,7 @@
                 "cols": 3,
                 "rows": 3,            
                 "fields": [
-                    {"PictureUrl": {"tag": "img", "attrs":{"rowspan": 3, "class": "img-thumbnail", "style": "width: 100px; height: 100px;"}}},
+                    {"PictureUrl": {"tag": "img", "attrs":{"rowspan": 3, "class": "img-thumbnail", "style": "width: 100px; height: 100px;"}, "nodeattrs":{"src":"user/image?username={@LoginName}"}}},
                     "Name", "dummy", 
                     "FirstName", 
                     "MiddleName", 
@@ -46,9 +46,9 @@
             },{
                 "cols": 3,
                 "fields":["LoginName", "LoginCode", "ExternalLogin", 
-                        "BadgeNo","Password", "ForcePasswordChange", 
+                        "BadgeNo",  "PasswordLastChangeDate","ForcePasswordChange",
                         "LastSignOnDate", "LastSignOffDate", "LoginExpirationDate",
-                        "UserValidDate", "LoginLockoutDate", "PasswordLastChangeDate",
+                        "UserValidDate", "LoginLockoutDate", "dummy",
                         "CurrencyCode", "DefaultPage", "dummy",
                         {"Company":{"link": "companies", "schema":"companies", "field": "Name"}}, 
                         {"Factory":{"link": "factories", "schema":"factories", "field": "Name"}}, 
@@ -75,12 +75,14 @@
         },
         "System":{
             "tables": [{
+                "style":"display: flex;flex-direction: column;",
                 "cols": 2,
                 "fields":["createdby", "createdon", "updatedby", "updatedon"]
             }]
         },
         "Links":{
             "tables": [{
+                "style":"display: flex;flex-direction: column;",
                 "cols": 1,
                 "fields": [
                     {"Addresss": {
@@ -119,17 +121,21 @@
                     }},
                     {"Skill":{
                         "type": "link",
-                        "keyfield": "ID",
                         "linkfields": [
-                            {"ID": "UserID"}
+                            {"ID": "user_skills.UserID"}
                         ],
+                        "keyfield": "ID",
+                        "tablename": "user_skills",
+                        "schema":"userskills",
+                        "masterschema":"skills",
+                        "masterdatafield":"skillid",
                         "data":{
-                           "userskills":{
+                           "user_skills":{
                                 "fields": ["Certification", "ExpirationDate"],                                
                                 "subtables": {                          
                                     "skills":{
                                         "fields": ["Name", "Description", "Level"],
-                                        "links": ["userskills.SkillID = skills.ID"]
+                                        "links": ["user_skills.SkillID = skills.ID"]
                                     }
                                 }
                             }
@@ -137,29 +143,91 @@
                         "lng":{
                             "code": "Skills",
                             "default":"Skills"
-                        }                           
+                        },
+                        "actions": ["Add", "Delete"]  
                     }},
                     {"Role":{
                         "type": "link",
                         "linkfields": [
-                            {"ID": "UserID"}
+                            {"ID": "user_roles.UserID"}
                         ],
                         "keyfield": "ID",
+                        "tablename": "user_roles",
+                        "schema":"userroles",
+                        "masterschema":"roles",
+                        "masterdatafield":"roleid",
+                        "fields":{
+                            "Name": {
+                                "type": "string",
+                                "lng":{
+                                    "code": "Name",
+                                    "default":"Name"
+                                } 
+                            },
+                            "Description": {
+                                "type": "string",
+                                "lng":{
+                                    "code": "Description",
+                                    "default":"Description"
+                                } 
+                            },
+                            "Permission": {
+                                "type": "string",
+                                "lng":{
+                                    "code": "Permission",
+                                    "default":"Permission"
+                                } 
+                            }
+                        },                        
                         "data":{
-                            "userroles":{
-                                "fields": ["RoleID"],
+                            "user_roles":{
+                                "fields": ["Permission"],
                                 "subtables": {                          
                                     "roles":{
                                         "fields": ["Name", "Description"],
-                                        "links": ["userroles.RoleID = roles.ID"]
+                                        "links": ["user_roles.RoleID = roles.ID"]
                                     }
                                 }
                             }
-                        },
+                        },                        
                         "lng":{
                             "code": "Roles",
                             "default":"Roles"
-                        }                       
+                        }  ,
+                        "actions": ["Add", "Delete"]                     
+                    }},
+                    {"Menu":{
+                        "type": "link",
+                        "linkfields": [
+                            {"ID": "user_roles.UserID"}
+                        ],
+                        "keyfield": "ID",
+                        "tablename": "user_roles",
+                        "schema":"userroles",
+                        "masterschema":"roles",
+                        "masterdatafield":"roleid",                                              
+                        "data":{
+                            "user_roles":{
+                                "fields": [],
+                                "subtables": {                          
+                                    "menu_roles":{
+                                        "fields": ["ViewOnly"],
+                                        "links": ["user_roles.RoleID = menu_roles.RoleID"],
+                                        "subtables":{
+                                            "menus": {
+                                                "fields": ["Name", "Description"],
+                                                "links": ["menus.ID = menu_roles.MenuID"]
+                                            }
+                                        }
+                                    }                                    
+                                }
+                            }
+                        },                        
+                        "lng":{
+                            "code": "Menus",
+                            "default":"Menus"
+                        }  ,
+                        "actions": []                          
                     }}
                 ]
             }]
@@ -189,14 +257,6 @@
                     "lng":{
                         "code": "DB_ID",
                         "default":"ID"
-                    } 
-                },
-                "UUID": {
-                    "type": "string",    
-                    "format": "uuid",               
-                    "lng":{
-                        "code": "UUID",
-                        "default":"UUID"
                     } 
                 },
                 "PictureUrl": {
@@ -298,14 +358,6 @@
                         "default":"Login Code"
                     } 
                 },
-                "Password": {
-                    "type": "string",
-                    "format": "password",
-                    "lng":{
-                        "code": "Password",
-                        "default":"Password"
-                    } 
-                },
                 "ForcePasswordChange": {
                     "type": "boolean",
                     "lng":{
@@ -370,14 +422,24 @@
                     "lng":{
                         "code": "UserClass",
                         "default":"User Class"
-                    } 
+                    },
+                    "options":{
+                        "value": [0, 1,2],
+                        "lngcode":["Default","UserClass1", "UserClass2"],
+                        "default": ["Default","Class 1", "Class 2"]
+                     }  
                 },
                 "UserType": {
                     "type": "integer",
                     "lng":{
                         "code": "UserType",
                         "default":"User Type"
-                    } 
+                    },
+                    "options":{
+                        "value": [0, 1,2],
+                        "lngcode":["Default","UserType1", "UserType2"],
+                        "default": ["Default","Type 1", "Type 2"]
+                     } 
                 },
                 "CurrencyCode": {
                     "type": "string",
@@ -465,7 +527,7 @@
                     }
                 },
                 "workspaces": {
-                    "type": "object",
+                    "type": "string",
                     "lng":{
                         "code": "WorkSpaces",
                         "default":"WorkSpaces"
@@ -517,7 +579,7 @@
             "unchangable": ["id","uuid"],
             "hidden": ["id"],
             
-            "title": "Employee"
+            "title": "Users Maintenance"
         }
     }
 }

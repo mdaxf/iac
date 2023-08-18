@@ -16,9 +16,19 @@
           "handler": "Image"
         },
         {
+          "method": "GET",
+          "path": "/menus",
+          "handler": "UserMenus"
+        },
+        {
           "method": "POST",
           "path": "/login",
           "handler": "Login"
+        },
+        {
+          "method": "POST",
+          "path": "/changepwd",
+          "handler": "ChangePassword"
         },
         {
           "method": "POST",

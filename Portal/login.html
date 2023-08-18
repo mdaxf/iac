@@ -27,13 +27,18 @@
           <label for="username" lngcode="UserName">User Name / Badge:</label>
           <input type="text" id="username" name="username">
           <label for="password" lngcode="Password">Password:</label>
-          <input type="password" id="password" name="password">
+          <div class="password-input-container">
+            <input type="password" id="password" name="password">
+            <span class="show-password-toggle" onclick="togglePasswordVisibility(this)">
+              <i id="toggle-icon" class="show-icon">&#x1f441;</i>
+            </span>
+          </div>          
           <div class="loginform-section">
             <a class="changepasswordlink" href="changepassword.html">Change Password</a>
           </div>
           <div class="loginform-section">
               <button type="button" lngcode="Login" class="ui-primary-btn" onclick="login()">Login</button>
-              <button type="button" lngcode="Cancel" class="ui-secondary-btn">Cancel</button>
+              <button type="button" lngcode="Clear" class="ui-secondary-btn" onclick="clear()">Clear All</button>
           </div>
       </div>
     </div>
@@ -49,6 +54,10 @@
             console.log("not logged")
           });
         })
+        function clear(){
+            document.getElementById("username").value = "";
+            document.getElementById("password").value = "";
+        }
         function login(){
             let inputs = {
                 "username":document.getElementById("username").value,
@@ -64,5 +73,17 @@
             })
 
         }
+        function togglePasswordVisibility(element) {
+          var passwordInput = element.parentElement.querySelector('input');
+          var toggleIcon = element.querySelector('i');
+
+          if (passwordInput.type === 'password') {
+              passwordInput.type = 'text';
+              toggleIcon.className  = 'hide-icon';
+          } else {
+              passwordInput.type = 'password';
+              toggleIcon.className  = 'show-icon';
+          }
+      }
     </script>
   </body>

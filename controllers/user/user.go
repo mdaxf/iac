@@ -16,6 +16,8 @@ package user
 
 import (
 	"fmt"
+	"strconv"
+
 	//"log"
 	"net/http"
 
@@ -139,6 +141,67 @@ func (c *UserController) Logout(ctx *gin.Context) {
 	token := user.Token
 	execLogout(ctx, token)
 	ctx.JSON(http.StatusOK, "Logoutsessionid")
+}
+
+func (c *UserController) ChangePassword(ctx *gin.Context) {
+	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+	log.Debug("Change Password handle function is called.")
+
+	var user ChangePwdData
+	if err := ctx.BindJSON(&user); err != nil {
+		log.Error(fmt.Sprintf("Change Password handle function  error:%s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	username := user.Username
+	oldpassword := user.OldPassword
+	newpassword := user.NewPassword
+
+	log.Debug(fmt.Sprintf("Change Password:%s  %s  %s", username, oldpassword, newpassword))
+
+	execChangePassword(ctx, username, oldpassword, newpassword)
+}
+
+func (c *UserController) UserMenus(ctx *gin.Context) {
+	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+	log.Debug("Get User menus handle function is called.")
+
+	log.Debug(fmt.Sprintf("Get User menus:%s", ctx.Param("username")))
+
+	userID := ctx.Query("userid")
+	Mobile := ctx.Query("mobile")
+	parentID := ctx.Query("parentid")
+
+	log.Debug(fmt.Sprintf("Get User menus:%s, %s", userID, Mobile))
+
+	isMobile := false
+	if Mobile == "1" {
+		isMobile = true
+	}
+	num, err := strconv.Atoi(userID)
+	if err != nil {
+		log.Error(fmt.Sprintf("Get User menus error:%s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	num1, err := strconv.Atoi(parentID)
+	if err != nil {
+		log.Error(fmt.Sprintf("Get User menus error:%s", err.Error()))
+		num1 = -1
+	}
+
+	jdata, err := getUserMenus(num, isMobile, num1)
+
+	if err != nil {
+		log.Error(fmt.Sprintf("Get User menus error: %s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	log.Debug(fmt.Sprintf("Get User menus:%s", jdata))
+	ctx.JSON(http.StatusOK, jdata)
 }
 
 func (c *UserController) List(ctx *gin.Context) {

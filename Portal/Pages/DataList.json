@@ -1,0 +1,41 @@
+{
+	"name": "Data List",
+	"title": "{entity} List",
+	"version": "1.0.0",
+	"isdefault": true,
+	"orientation": 0,
+	"initcode": "",
+	"onloadcode": "",
+	"attrs": {
+		"style": "width: 100%; height: 100%;"
+	},
+	"panels": [
+		{
+			"name": "content",
+			"orientation": 1,
+			"view": {
+				"name": "Data List",
+				"type": "view-type",
+				"file": "templates/datalist.html",
+				"inlinestyle": "height: 100%;",
+				"inputs":{    
+					"ui_dataschema":"",
+					"menu_viewonly":0
+				},
+				"outputs":{
+					"selectedKey": "",
+					"datasource":"",
+					"datasourcetype":"",
+					"ui_dataschema":"",
+					"ui_schema":null,   
+					"action": ""
+				},
+				"actions":{
+					"NEW":{"type": "page", "next": "","page":"pages/dataeditor.json","panels":[{"panel": "content","view":"views/dataeditor.json"}]},
+					"SELECT":{"type": "page", "next": "","page":"pages/dataeditor.json","panels":[{"panel": "content","view":"views/dataeditor.json"}]}
+				}
+			},
+			"inlinestyle": "width: 100%;height:100%"
+		}
+	]
+}

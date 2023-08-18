@@ -139,9 +139,9 @@ func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get the token from the Authorization header
 		authHeader := c.GetHeader("Authorization")
-		log.Debug(fmt.Sprintf("Authorization Header:%s %s", authHeader, c.Request.URL.Path))
+		//	log.Debug(fmt.Sprintf("Authorization Header:%s %s", authHeader, c.Request.URL.Path))
 
-		if c.Request.URL.Path == "/user/login" || strings.Contains(c.Request.URL.Path, "/user/image") || strings.Contains(c.Request.URL.Path, "/portal") {
+		if c.Request.URL.Path == "/favicon.ico" || c.Request.URL.Path == "/user/login" || c.Request.URL.Path == "/user/changepwd" || strings.Contains(c.Request.URL.Path, "/user/image") || strings.Contains(c.Request.URL.Path, "/portal") {
 			//	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing Authorization header"})
 			return
 		} else if authHeader == "" {
@@ -150,7 +150,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		bearerToken := strings.Split(authHeader, " ")
-		log.Debug(fmt.Sprintf("Authorization Header:%s", bearerToken))
+		//	log.Debug(fmt.Sprintf("Authorization Header:%s", bearerToken))
 		if len(bearerToken) != 2 || strings.ToLower(bearerToken[0]) != "bearer" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token format"})
 			return

@@ -1,0 +1,172 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "$ref": "#/definitions/Company",
+    "datasourcetype": "table",
+    "datasource": "companies",
+    "listfields":["Name","Description", "Code", "CreatedBy", "CreatedOn", "UpdatedBy","UpdatedOn"],
+    "keyfield":"Name",
+    "detailpage":{
+        "tabs": {
+            "General": {
+                "lng":{
+                    "code": "General",
+                    "default":"General"
+                },
+                "index": 0 
+            },
+            "Links":{
+                "lng":{
+                    "code": "Links",
+                    "default":"Links"
+                },
+                "index": 1             
+            },
+            "System": {
+                "lng":{
+                    "code": "System",
+                    "default":"System"
+                },
+                "index": 4 
+            }
+        },
+        "General":{
+            "tables": [{
+                "cols": 2,         
+                "fields": [
+                    "Name",  "Code",
+                    "Description", "dummy",             
+                    
+                    "active"
+                ]
+            }
+        ]
+        },
+        "System":{
+            "tables": [{
+                "cols": 2,
+                "fields":["createdby", "createdon", "updatedby", "updatedon"]
+            }]
+        },
+        "Links":{
+            "tables": [{
+                "cols": 1,
+                "fields": [                    
+                    {"User":{
+                        "type": "link",
+                        "table": "userskills",
+                        "linkfields": [
+                            {"ID": "SkillID"}
+                        ],
+                        "subtable": {
+                            "table": "users",
+                            "fields": ["Name", "LoginName", "LoginCode", "Active"],
+                            "linkfields": [
+                                {"UserID": "ID"}
+                            ]
+                        }                        
+                    }}
+                ]
+            }]
+        },
+        "Query":{
+            "tablename": "skills",
+            "fields": [
+                "ID",
+                "Name",
+                "Description",
+                "Level"
+            ],
+            "where": "id = :id"
+        }
+    },    
+    "definitions": {
+        "Company": {
+            "type": "object",
+            "additionalProperties": false,            
+            "properties": {
+                
+                "Name": {
+                    "type": "string",                   
+                    "lng":{
+                        "code": "Name",
+                        "default":"Name"
+                    } 
+                },
+                "Code": {
+                    "type": "string",                   
+                    "lng":{
+                        "code": "Code",
+                        "default":"Code"
+                    } 
+                },
+                "Description": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Description",
+                        "default":"Description"
+                    } 
+                },      
+                "active": {
+                    "type": "boolean",
+                    "readonly": true,
+                    "lng":{
+                        "code": "Active",
+                        "default":"Active"
+                    }
+                },
+                "workspaceSchema": {
+                    "type": "string",
+                    "lng":{
+                        "code": "WorkSpaces",
+                        "default":"WorkSpaces"
+                    } 
+                },                
+                "createdby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedBy",
+                        "default":"Created By"
+                    }
+                },
+                "createdon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedOn",
+                        "default":"Created On"
+                    }
+
+                },
+                "updatedby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedBy",
+                        "default":"Updated By"
+                    }
+                },
+                "updatedon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedOn",
+                        "default":"Updated On"
+                    }
+
+                }
+            },
+            "required": [
+                "Name",
+                "Code",
+                "Description"
+            ],
+            "unchangable": ["Name"],
+            "hidden": [],
+            
+            "title": "Company"
+        }
+    }
+}

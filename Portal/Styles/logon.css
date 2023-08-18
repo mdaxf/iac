@@ -167,6 +167,25 @@ body {
     margin-bottom: 10px;
   }
 
+  .password-input-container {
+    position: relative;
+    display: inline-block;
+   }
+  .show-password-toggle {
+		position: absolute;
+		font-size: 24px;
+		right: 10px;
+		top: 35%;
+		transform: translateY(-50%);
+		cursor: pointer;
+	}
+  
+	/* Style the hide password icon */
+	.hide-icon:before {
+		content: "/";
+		display: inline-block;
+		margin-right: -15px;
+	}
   input[type="text"],
   input[type="password"] {
     padding: 10px;

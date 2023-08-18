@@ -14,19 +14,33 @@
     <script src="scripts/jsonmanager.js"></script>
 </head>
 <body>
-    <input type="button" onclick="addnewrecord()" style="float:right;" value="Add"><br/>
-    <div id="myGrid" style="width:100%;height:100%;"></div>
+    <div class="ui_actions_section" >
+        <button type="button" onclick="$ViewID_addnewrecord()" class="btn btn-primary" style="float:right;" value="Add" lngcode="Add">Add</button>
+        <button type="button" onclick="$ViewID_Edit('EDIT')" class="btn btn-secondary" style="float:right;" value="Edit" lngcode="Edit">Edit</button>
+        <button type="button" onclick="$ViewID_Edit('SELECT')" class="btn btn-secondary" style="float:right;" value="Select" lngcode="Select">Select</button>
+        <button type="button" onclick="$ViewID_Delete()" class="btn btn-secondary" style="float:right;" value="Delete" lngcode="Delete">Delete</button>
+        <button type="button" onclick="$ViewID_Cancel()" class="btn btn-secondary" style="float:right;" value="Cancel" lngcode="Cancel">Cancel</button>
+    </div>
+    <div id="myGrid" style="width:100%;"></div>
    <script>
         var schema = null;
         $Context.onLoaded(function(){
+            LoadData();})
+
+        function LoadData(){
             
             if($Context.inputs.ui_dataschema == ''){
                 UI.ShowError('No Data Schema Specified');
                 return;
             } 
-            
+            let menu_viewonly = $Context.inputs.menu_viewonly
+            console.log(menu_viewonly)
+            if(menu_viewonly == "1"){
+                $('.ui_actions_section button:not([value="Cancel"])').prop('disabled', true);
+            }
+
             let ajax = new UI.Ajax("");
-            console.log($Context.inputs.ui_dataschema)
+        //    console.log($Context.inputs.ui_dataschema)
             ajax.get('/portal/datasets/schemas/'+ $Context.inputs.ui_dataschema + '.json').then((response) => {
                 schema = JSON.parse(response);
                 if(schema == null){
@@ -61,7 +75,7 @@
                     
                 }
 
-                console.log(fieldpropertiesobj)
+             //   console.log(fieldpropertiesobj)
                 let keyfield = "";
                 if(schema.hasOwnProperty('keyfield'))
                     keyfield = schema.keyfield;
@@ -93,10 +107,10 @@
                     return;
                 }
              //   {
-                    console.log(url,inputs, JSON.stringify(data))
+                //    console.log(url,inputs, JSON.stringify(data))
                     ajax.post(url,inputs).then((response) => {
                         data = JSON.parse(response)["data"];
-                        console.log(response,data)
+                    //    console.log(response,data)
                         rows =[];
                         data.forEach(element => {
                             let rowdata = element
@@ -109,11 +123,11 @@
                                     let celldata = rowdata[listfields[i]];
                                     if(fieldpropertiesobj.hasOwnProperty(listfields[i])){
                                         if(fieldpropertiesobj[listfields[i]]){
-                                            console.log(fieldpropertiesobj[listfields[i]])
+                                         //   console.log(fieldpropertiesobj[listfields[i]])
                                             if(fieldpropertiesobj[listfields[i]].hasOwnProperty('options')){
 
                                                 let options = fieldpropertiesobj[listfields[i]].options;
-                                                console.log(options, celldata)
+                                              //  console.log(options, celldata)
                                                 if(options.hasOwnProperty('lngcode') && options.hasOwnProperty('value') && options.hasOwnProperty('default'))
                                                 {    
                                                     if(Array.isArray(options.value) && Array.isArray(options.default) && Array.isArray(options.lngcode))
@@ -195,6 +209,13 @@
                         }
 
                         $('table > tbody > tr').on('click', function(){
+                            if($(this).hasClass('selected')){
+                                $(this).removeClass('selected');
+                            }
+                            else{
+                                $(this).addClass('selected');
+                            }
+                            /*
                             console.log('select row', this)
                             if($(this).hasClass('selected')){
                                 $(this).removeClass('selected');
@@ -202,7 +223,7 @@
                             else{
                                 $('table > tbody > tr').removeClass('selected');
                                 $(this).addClass('selected');
-                            }
+                            }  */
                         });
                         $('table > tbody > tr').on('dblclick', function(){
                             console.log('edito row', this)
@@ -230,9 +251,77 @@
             })
 
 
-        })
+        }
 
-        function addnewrecord(){
+        function $ViewID_Edit(action){
+            let keyfield = "";
+            if(schema.hasOwnProperty('keyfield'))
+                    keyfield = schema.keyfield;
+            console.log('edit row')
+
+            if($('table > tbody > tr.selected').length != 1)
+            {
+                UI.ShowError("Only one row can be selected to continue!");
+                return;
+            }
+            let key = $('table > tbody > tr.selected').find('td[data-key="'+keyfield+'"]').text();
+            $Context.outputs.action=action.toUpperCase();
+            $Context.outputs.selectedKey = key;
+            $Context.outputs.ui_dataschema =  $Context.inputs.ui_dataschema;
+            $Context.outputs.ui_schema = schema;
+            $Context.submit();
+            console.log('selected key:',key)
+        }
+        function $ViewID_Delete(){
+            let keyfield = "";
+            if(schema.hasOwnProperty('keyfield'))
+                    keyfield = schema.keyfield;
+            console.log('delete row')
+
+            if($('table > tbody > tr.selected').length != 1)
+            {
+                UI.ShowError("Only one row can be selected to continue!");
+                return;
+            }
+            let key = $('table > tbody > tr.selected').find('td[data-key="'+keyfield+'"]').text();
+            
+            if(key !=""){
+                let inputs={};
+                let type = ""; 
+                let datasource = "";
+                let listfields = [];
+                if(schema.hasOwnProperty('datasourcetype'))
+                    type = schema.datasourcetype;
+                if(schema.hasOwnProperty('datasource'))
+                    datasource = schema.datasource;
+                if(type == "table" && datasource !=''){
+                   
+                   inputs["tablename"] = datasource;                 
+                   inputs["operation"] = "delete";
+                   let str = keyfield + "= '" + key + "'"
+                   inputs["where"] = {}
+                   inputs.where[str] = "";                   
+                   url = '/sqldata/delete'
+                   UI.ajax.post(url,inputs).then((response) => {
+
+                        $('#myGrid').html("");
+                        LoadData();
+
+                   }).catch((error) => {
+                        UI.ShowError('Error Delete Data:' + key);
+                   //    console.log(error);
+                    })
+               }
+
+            }
+        }
+        function $ViewID_Cancel(){
+            $Context.outputs.action="CANCEL";
+            $Context.submit();
+        }
+        function $ViewID_addnewrecord(){
+            if($Context.inputs.menu_viewonly == "1")
+                return;
 
             console.log("add new record")
             $Context.outputs.action="NEW";

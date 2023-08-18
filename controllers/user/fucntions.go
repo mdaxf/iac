@@ -16,6 +16,7 @@ package user
 
 import (
 	"fmt"
+	"strconv"
 
 	"net/http"
 	"time"
@@ -82,8 +83,8 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 		return
 	}
 
-	hasedPassword, err := hashPassword(password)
-	querystr := fmt.Sprintf(LoginQuery, username, hasedPassword)
+	//hasedPassword, err := hashPassword(password)
+	querystr := fmt.Sprintf(LoginQuery, username)
 
 	log.Debug(fmt.Sprintf("Query:%s", querystr))
 
@@ -123,6 +124,7 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 		var ID int
 		var Name string
 		var FamilyName string
+		var storedPassword string
 		/*
 			err = rows.Scan(&ID, &Name, &FamilyName)
 			if err != nil {
@@ -130,9 +132,26 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 				ctx.JSON(http.StatusInternalServerError, "Login failed")
 				return
 			} */
+
+		if len(jdata) == 0 {
+			log.Error(fmt.Sprintf("User:%s not found", username))
+			ctx.JSON(http.StatusNotFound, "Login failed")
+			return
+		}
+
 		ID = int(jdata[0]["ID"].(int64))
 		Name = jdata[0]["Name"].(string)
 		FamilyName = jdata[0]["LastName"].(string)
+		storedPassword = jdata[0]["Password"].(string)
+
+		if jdata[0]["Password"] != nil && storedPassword != "" {
+			err = bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(password))
+			if err != nil {
+				log.Error(fmt.Sprintf("Password compare error:%s", err.Error()))
+				ctx.JSON(http.StatusNotFound, "Login failed")
+				return
+			}
+		}
 
 		log.Debug(fmt.Sprintf("ID:%d  Name:%s  FamilyName:%s", ID, Name, FamilyName))
 
@@ -161,7 +180,7 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 			config.SessionCache.Delete(ctx, sessionid)
 
 		}
-		user := User{ID: ID, Username: username, Email: "", Password: hasedPassword, ClientID: ClientID, CreatedOn: createdt, ExpirateOn: expdt, Token: token}
+		user := User{ID: ID, Username: username, Email: "", Password: storedPassword, ClientID: ClientID, CreatedOn: createdt, ExpirateOn: expdt, Token: token}
 
 		log.Debug(fmt.Sprintf("user:%v", user))
 
@@ -231,28 +250,111 @@ func getUserImage(username string) (string, error) {
 	return "", nil
 }
 
-/*
-	func CheckUserLoginSession(ctx *gin.Context, UserID int) (User, error) {
-		exist, err := config.SessionCache.IsExist(ctx, "USER_"+string(rune(UserID)))
+func getUserMenus(userID int, isMobile bool, parentID int) ([]map[string]interface{}, error) {
+	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+	log.Debug("get user menus execution function is called.")
 
-		if err != nil && exist {
-			return User{config.SessionCache.Get("USER_" + string(rune(UserID)))}, err
-		}
+	Mobile := 0
+	Desktop := 1
 
-		return User{}, err
+	if isMobile {
+		Mobile = 1
+		Desktop = 0
+	}
 
+	querystr := fmt.Sprintf(GetUserMenusQuery, userID, Mobile, Desktop, parentID, userID)
+
+	log.Debug(fmt.Sprintf("Query:%s", querystr))
+
+	iDBTx, err := dbconn.DB.Begin()
+
+	if err != nil {
+		log.Error(fmt.Sprintf("Begin error:%s", err.Error()))
+		return nil, err
+	}
+
+	defer iDBTx.Rollback()
+
+	dboperation := dbconn.NewDBOperation(strconv.Itoa(userID), iDBTx, "User Menus")
+
+	jdata, err := dboperation.Query_Json(querystr)
+
+	if err != nil {
+		log.Error(fmt.Sprintf("Query menu error:%s", err.Error()))
+		return jdata, err
+	}
+
+	log.Debug(fmt.Sprintf("Query result:%v", jdata))
+
+	return jdata, nil
 }
 
-	func UpdateUserSession(ctx *gin.Context, UserID int) (User, error) {
-		user, err := CheckUserLoginSession(ctx, UserID)
+func execChangePassword(ctx *gin.Context, username string, oldpassword string, newpassword string) error {
+	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+	log.Debug("execChangePassword execution function is called.")
+
+	result, jdata, err := validatePassword(username, oldpassword)
+
+	if err != nil {
+		log.Error(fmt.Sprintf("validatePassword error:%s", err.Error()))
+
+		ctx.JSON(http.StatusInternalServerError, "Validate old password failed")
+		return err
+	}
+
+	if result == false {
+		log.Error(fmt.Sprintf("validatePassword error:%s", err.Error()))
+		ctx.JSON(http.StatusInternalServerError, "Validate old password failed")
+		return err
+	}
+
+	hashedPassword, err := hashPassword(newpassword)
+
+	if jdata != nil {
+
+		ID := int(jdata[0]["ID"].(int64))
+
+		log.Debug(fmt.Sprintf("user ID:%d  new hashed password: %s ", ID, hashedPassword))
+
+		Columns := []string{"Password", "PasswordLastChangeDate", "UpdatedOn", "UpdatedBy"}
+		Values := []string{hashedPassword, time.Now().Format("2006-01-02 15:04:05"), time.Now().Format("2006-01-02 15:04:05"), username}
+		datatypes := []int{0, 0, 0}
+		Wherestr := fmt.Sprintf("ID= %d", ID)
+
+		iDBTx, err := dbconn.DB.Begin()
+		defer iDBTx.Rollback()
 
 		if err != nil {
-			config.SessionCache.Delete(ctx, "USER_"+string(rune(UserID)))
-			config.SessionCache.Put(ctx, "USER_"+string(rune(UserID)), user, 10*time.Minute)
+			log.Error(fmt.Sprintf("Begin error:%s", err.Error()))
+			ctx.JSON(http.StatusInternalServerError, "Change password failed")
+			return err
 		}
-		return user, err
+
+		dboperation := dbconn.NewDBOperation(username, iDBTx, "User ChangePassword")
+
+		index, errr := dboperation.TableUpdate(TableName, Columns, Values, datatypes, Wherestr)
+
+		if errr != nil {
+			log.Error(fmt.Sprintf("TableUpdate error:%s", errr.Error()))
+			ctx.JSON(http.StatusInternalServerError, "Change password failed")
+			return errr
+		}
+
+		if index == 0 {
+			log.Error(fmt.Sprintf("TableUpdate error:%s", errr.Error()))
+			ctx.JSON(http.StatusInternalServerError, "Change password failed")
+			return errr
+		}
+
+		iDBTx.Commit()
+		ctx.JSON(http.StatusOK, "OK")
+		return nil
 	}
-*/
+
+	ctx.JSON(http.StatusInternalServerError, "Change password failed")
+	return nil
+}
+
 func execLogout(ctx *gin.Context, token string) (string, error) {
 
 	config.SessionCache.Delete(ctx, token)
@@ -268,4 +370,67 @@ func hashPassword(password string) (string, error) {
 
 	hashedPassword := string(hashedPasswordBytes)
 	return hashedPassword, nil
+}
+
+func validatePassword(username string, password string) (bool, []map[string]interface{}, error) {
+	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+	log.Debug(fmt.Sprintf("validate password function is called. username: %s ", username))
+
+	//	hashedPassword, err := hashPassword(password)
+
+	jdata := []map[string]interface{}{}
+	/*
+		if err != nil {
+			log.Error(fmt.Sprintf("hashPassword error:%s", err.Error()))
+			return false, nil, err
+		}
+	*/
+	querystr := fmt.Sprintf(LoginQuery, username)
+
+	log.Debug(fmt.Sprintf("Query:%s", querystr))
+
+	iDBTx, err := dbconn.DB.Begin()
+	defer iDBTx.Rollback()
+
+	if err != nil {
+		log.Error(fmt.Sprintf("Begin error:%s", err.Error()))
+		return false, nil, err
+	}
+
+	dboperation := dbconn.NewDBOperation(username, iDBTx, "User Login")
+
+	jdata, err = dboperation.Query_Json(querystr)
+
+	if err != nil {
+
+		log.Error(fmt.Sprintf("Query error:%s", err.Error()))
+		return false, nil, err
+
+	}
+
+	log.Debug(fmt.Sprintf("Query result:%v", jdata))
+
+	if jdata != nil {
+
+		iDBTx.Commit()
+
+		if len(jdata) == 0 {
+			return false, nil, err
+		}
+
+		storedPassword := jdata[0]["Password"].(string)
+
+		if storedPassword == "" || jdata[0]["Password"] == nil {
+			return true, jdata, nil
+		}
+
+		err := bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(password))
+		if err != nil {
+			log.Error(fmt.Sprintf("CompareHashAndPassword error:%s", err.Error()))
+			return false, nil, err
+		}
+
+		return true, jdata, nil
+	}
+	return false, nil, nil
 }

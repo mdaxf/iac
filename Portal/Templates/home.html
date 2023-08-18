@@ -1,65 +1,101 @@
-<div class="ui-container">
-      <div class="ui four cards">
-        <div class="card">
-          <div class="content">
-            <i class="fa-solid fa-warehouse"></i>
-            <div class="header">Warehosue</div>
-          </div>
-        </div>
-        <div class="card">
-            <div class="content">
-                <i class="fa-regular fa-industry-windows"></i>
-              <div class="header">Factory</div>
-            </div>
-        </div>
-        <div class="card">
-            <div class="content">
-                <i class="fa-solid fa-city"></i>
-              <div class="header">Company</div>
-            </div>
-        </div>
-        <div class="card">
-            <div class="content">
-                <i class="fa-solid fa-person"></i>
-              <div class="header">Users</div>
-            </div>
-        </div>
-        <div data-key="BusinessLogic" class="card">
-            <div class="content">
-                <i class="fa-solid fa-vector-polygon"></i>
-              <div class="header">Business Logics</div>
-            </div>
-        </div>
-        <div data-key="ViewEditor" class="card">
-            <div class="content">
-                <i  class="fa-solid fa-vector-polygon"></i>
-              <div class="header">View Editor</div>
-            </div>
-        </div>
-        <div data-key="LayoutEditor" class="card">
-          <div class="content">
-              <i  class="fa-solid fa-vector-polygon"></i>
-            <div class="header">Layout Editor</div>
-          </div>
-      </div>
-        <!-- Add more cards for other application screens -->
-      </div>
+<div class="ui-page-menu">
 </div>
 
 <script>
     $Context.onLoaded(function(){
-        console.log('home loaded')
-        var el = $(".ui-container").find('.card');
-        el.on("click",function(e){
-            console.log("click",$(e.target));
-            let dk = $(e.target).closest(".card").attr("data-key");
-            if(dk){
-                $Context.outputs.action = dk;
-                console.log(dk)
-                $Context.submit();
+     //   console.log('home loaded')
+        let parentId = $Context.inputs.menu_parentid;
+
+        if(parentId == undefined)
+            parentId = 0;
+        console.log(parentId)
+        UI.HomeMenu.loadMenus(parentId, function(jdata){
+         //   console.log("menu data:", jdata);
+            let container = document.querySelector(".ui-page-menu");
+            for(var i=0;i<jdata.length;i++){
+              
+                let card = document.createElement("div");
+                card.classList.add("ui-page-menu-item");
+                card.setAttribute("data-key",jdata[i].Name);
+                card.setAttribute("data-page",jdata[i].Page);
+                card.setAttribute("data-pageid",jdata[i].ID);
+                card.setAttribute("data-pagetype",jdata[i].PageType);
+                card.setAttribute("data-pagename",jdata[i].Name);
+                card.setAttribute("data-viewonly",jdata[i].ViewOnly);
+
+                let favor = document.createElement("div");
+                favor.classList.add("remove-from-favs");
+                let icon = document.createElement("img");
+                icon.classList.add("page-icon");
+                icon.setAttribute("src",jdata[i].icon==undefined? "/portal/images/defaultitem.png":jdata[i].icon);
+                let header = document.createElement("div");
+                header.classList.add("page-title");
+                header.innerText = jdata[i].Name;
+                card.appendChild(favor);
+                card.appendChild(icon);
+                card.appendChild(header);                
+                container.appendChild(card);
+                card.addEventListener("click", function(){
+                  console.log($(this))
+                    let Type = $(this).attr("data-pagetype");
+                    let page = $(this).attr("data-page");
+                    if(Type =="2"){
+                      let configuration = {};
+                      configuration.name = $(this).attr("data-pagename");
+                      let panel = {}
+                      panel.name = "content_panel";
+                      let view ={}
+                      view.name = "content_view";
+                      view.file ="templates/home.html";
+                      let inputs={}                      
+                      inputs.menu_parentid = $(this).attr("data-pageid");
+                      inputs.menu_viewonly = $(this).attr("data-viewonly");
+                      for(var j=0;j<jdata.length;j++){
+                        if(jdata[j].ID == inputs.menu_parentid){
+                          let iparameters = jdata[j].Inputs;
+                          if(iparameters != undefined && iparameters != null && iparameters !=""){
+                            let jparameters = JSON.parse(iparameters)
+                            for(var key in jparameters){
+                              inputs[key] = jparameters[key];
+                            }
+                          }
+
+                          break;
+                        }
+
+                      }
+                      console.log(inputs)
+                      Session.snapshoot.sessionData =  Object.assign({},Session.snapshoot.sessionData, inputs);
+                      view.inputs = inputs;
+                      panel.view = view;
+                      configuration.panels = [panel];
+                      new UI.Page(configuration);
+                    }
+                    else{
+                      let inputs = {}
+                      for(var j=0;j<jdata.length;j++){
+                        if(jdata[j].ID == $(this).attr("data-pageid")){
+                          let iparameters = jdata[j].Inputs;
+                          if(iparameters != undefined && iparameters != null && iparameters !=""){
+                            let jparameters = JSON.parse(iparameters)
+                            for(var key in jparameters){                              
+                              inputs[key] = jparameters[key];
+                            }
+                          }
+
+                          break;
+                        }
+
+                      }
+                      inputs.menu_viewonly = $(this).attr("data-viewonly");
+                      Session.snapshoot.sessionData =  Object.assign({},Session.snapshoot.sessionData, inputs);
+                      new UI.Page({"file": "pages/"+page})
+                    }
+                })
             }
-        })
 
+        },function(){
 
+        }) 
     });
 </script>

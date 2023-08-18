@@ -1,17 +1,18 @@
 {
-    "name": "data management",
+    "name": "page editor",
     "type": "view-type",
-    "file": "Templates/datadetail.html",
+    "file": "Templates/dataeditor.html",
     "inlinestyle": "height: 100%;",
     "inputs":{ 
         "selectedKey": ""  ,
         "ui_dataschema":"" ,
+        "menu_viewonly":0,
         "ui_schema":{}   
     },
     "outputs":{
         "action": ""
     },
     "actions":{
-        "BACK": {"type": "page", "next": "","page":"pages/users.json", "panels":[]}
+        "BACK": {"type": "page", "next": "","page":"pages/datalist.json", "panels":[]}
     }
 }
