@@ -85,7 +85,7 @@ func (db *DBOperation) Query(querystr string, args ...interface{}) (*sql.Rows, e
 	return rows, nil
 }
 
-func (db *DBOperation) QuerybyList(querystr string, namelist []string, inputs map[string]interface{}, finputs []types.Input) (map[string][]interface{}, error) {
+func (db *DBOperation) QuerybyList(querystr string, namelist []string, inputs map[string]interface{}, finputs []types.Input) (map[string][]interface{}, int, int, error) {
 
 	db.iLog.Debug(fmt.Sprintf("Query: %s {%s} {%s}", querystr, namelist, inputs))
 
@@ -118,7 +118,7 @@ func (db *DBOperation) QuerybyList(querystr string, namelist []string, inputs ma
 		blocaltx = true
 		if err != nil {
 			db.iLog.Error(fmt.Sprintf("There is error to begin database transaction with error: %s", err.Error()))
-			return nil, err
+			return nil, 0, 0, err
 		}
 		defer idbtx.Commit()
 	}
@@ -128,14 +128,14 @@ func (db *DBOperation) QuerybyList(querystr string, namelist []string, inputs ma
 	stmt, err := idbtx.Prepare(querystr)
 	if err != nil {
 		db.iLog.Error(fmt.Sprintf("There is error to prepare the query: %s with error: %s", querystr, err.Error()))
-		return nil, err
+		return nil, 0, 0, err
 	}
 	defer stmt.Close()
 
 	rows, err := stmt.Query(values...)
 	if err != nil {
 		db.iLog.Error(fmt.Sprintf("There is error to execute the query: %s with error: %s", querystr, err.Error()))
-		return nil, err
+		return nil, 0, 0, err
 	}
 	defer rows.Close()
 
@@ -509,23 +509,26 @@ func (db *DBOperation) TableDelete(TableName string, Where string) (int64, error
 	return lastId, err
 }
 
-func (db *DBOperation) Conto_JsonbyList(rows *sql.Rows) (map[string][]interface{}, error) {
+func (db *DBOperation) Conto_JsonbyList(rows *sql.Rows) (map[string][]interface{}, int, int, error) {
 
 	db.iLog.Debug(fmt.Sprintf("Start to convert the rows to json...%s", rows))
 	cols, err := rows.ColumnTypes()
 	if err != nil {
 		db.iLog.Error(fmt.Sprintf("There is error to get the column types with error: %s", err.Error()))
-		return nil, err
+		return nil, 0, 0, err
 	}
 	data := make(map[string][]interface{})
 	colNames := make([]string, len(cols))
 	valuetmps := make([]interface{}, len(colNames))
 
+	ColumnNumbers := 0
 	for i, col := range cols {
 		colNames[i] = col.Name()
 		data[col.Name()] = []interface{}{}
+		ColumnNumbers = ColumnNumbers + 1
 	}
 
+	RowNumbers := 0
 	for rows.Next() {
 		values := make([]interface{}, len(colNames))
 		for i := range values {
@@ -535,7 +538,7 @@ func (db *DBOperation) Conto_JsonbyList(rows *sql.Rows) (map[string][]interface{
 		err := rows.Scan(values...)
 		if err != nil {
 			db.iLog.Debug(fmt.Sprintf("There is error to scan the row with error: %s", err.Error()))
-			return nil, err
+			return nil, 0, 0, err
 
 		}
 		for i, name := range colNames {
@@ -552,7 +555,7 @@ func (db *DBOperation) Conto_JsonbyList(rows *sql.Rows) (map[string][]interface{
 			//data[name] = append(data[name], *(values[i].(*interface{})))
 			data[name] = append(data[name], v)
 		}
-
+		RowNumbers = RowNumbers + 1
 	}
 
 	if err := rows.Err(); err != nil {
@@ -561,7 +564,7 @@ func (db *DBOperation) Conto_JsonbyList(rows *sql.Rows) (map[string][]interface{
 
 	db.iLog.Debug(fmt.Sprintf("The result of the conversion is: %s", data))
 
-	return data, nil
+	return data, ColumnNumbers, RowNumbers, nil
 
 }
 func (db *DBOperation) Conto_Json(rows *sql.Rows) ([]map[string]interface{}, error) {

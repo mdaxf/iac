@@ -734,22 +734,82 @@ const Function_Source_Color_List = ['#82CD47', '#6DA9E4', '#F6BA6F', '#BFCCB5', 
 const Function_Dest_Color_List = ['#F6BA6F', '#BFCCB5', '#82CD47']
 const Function_Source_List =["Constant", "Previous function", "system Session", "User Session", "External"]
 const Function_Dest_List=["", "Session", "External"]
-const Function_Type_List =["ParameterMap", "Csharp Script", "Javascript", "Database Query", "StoreProcedure", "SubTranCode", "DataInsert", "DataUpdate", "DataDelete"]
-const Function_Type_Color_List = ['#82CD47', '#6DA9E4', '#F6BA6F', '#BFCCB5', '#FFEBEB', '#FFEBEB', '#FFEBEB', '#FFEBEB', '#FFEBEB']
+const Function_Type_List =["ParameterMap", "Csharp Script", "Javascript", "Database Query", "StoreProcedure", "SubTranCode", "DataInsert", "DataUpdate", "DataDelete","CollectionInsert","CollectionUpdate", "CollectionDelete","ThrowError","SendMessage", "SendEmail"]
+const Function_Type_Color_List = ['#82CD47', '#6DA9E4', '#F6BA6F', '#BFCCB5', '#FFEBEB', '#F0C333', '#16A085', '#C0392B', '#D35400', '#2ECC71', '#27AE60', '#8E44AD', '#F39C12', '#1ABC9C', '#E74C3C']
+const Function_Type_Obj={
+	"SubTranCode":{
+		inputs:{
+			"TranCode":{name:"TranCode",datatype:0,value:"",source:	0,aliasname: '',defaultvalue: "", description: "The TranCode to be called!"},
+			"Version":{name:"Version",datatype:0,value:"",source:	0,aliasname: '',defaultvalue: "", description: "The TranCode version to be called!"},
+			"ExecutionMode":{name:"ExecutionMode",datatype:1, value:"",source:0,aliasname: '',defaultvalue: ""}	
+		}
+	},
+	"DataInsert":{
+		inputs:{
+			"TableName":{name:"TableName",datatype:0, value:"",source:	0,aliasname: '',defaultvalue: "",description: "The table name to be inserted!"},
+			"Execution":{name:"Execution",datatype:3, value:"true",source:	0,aliasname: '',defaultvalue: ""},
+			"CreatedOn":{name:"CreatedOn",datatype:4,value:"",source:	2,aliasname: '',defaultvalue: "CurrentUTCTime"},
+			"CreatedBy":{name:"CreatedBy",datatype:0, value:"",source:	2,aliasname: '',defaultvalue: "CurrentUser"}
+		},
+		outputs:{
+			"Identify":{name:"Identify",datatype: 1, value:"",source:	0,aliasname: '',defaultvalue: "0"}
+		}
+	},
+	"Database Query":{		
+		outputs:{
+			"ColumnCount":{name:"ColumnCount",datatype:1, value:"",source:	0,aliasname: '',defaultvalue: "0"},
+			"RowCount":{name:"RowCount",datatype:1, value:"",source:	0,aliasname: '',defaultvalue: "0"}
+		}
+	},
+	"StoreProcedure":{
+		inputs:{
+			"StoreProcedureName":{name:"StoreProcedureName",datatype:0, value:"",source:	0,aliasname: '',defaultvalue: "",description: "The Store Procedure name to be inserted!"}
+		},
+		outputs:{
+			"ColumnCount":{name:"ColumnCount",datatype:1, value:"",source:	0,aliasname: '',defaultvalue: "0"},
+			"RowCount":{name:"RowCount",datatype:1, value:"",source:	0,aliasname: '',defaultvalue: "0"}
+		}
+	},
+	"DataUpdate":{
+		inputs:{
+			"TableName":{name:"TableName",datatype:0,value:"",source:	0,aliasname: '',defaultvalue: ""},
+			"Execution":{name:"Execution",datatype:3, value:"true",source:	0,aliasname: '',defaultvalue: "true"},
+			"UpdatedOn":{name:"UpdatedOn",datatype:4, value:"",source:	0,aliasname: '',defaultvalue: "CurrentUTCTime"},
+			"UpdatedBy":{name:"UpdatedBy",datatype:0, value:"",source:	0,aliasname: '',defaultvalue: "CurrentUser"}
+		},
+		outputs:{
+			"RowCount":{name:"RowCount",datatype:1, value:"",source:	0,aliasname: '',defaultvalue: "0"}
+		}
+	},
+	"DataDelete":{
+		inputs:{
+			"TableName":{name:"TableName",datatype:0,value:"",source:	0,aliasname: '',defaultvalue: ""},
+			"Execution":{name:"Execution",datatype:3, value:"true",source:	0,aliasname: '',defaultvalue: "true"}
+		},
+		outputs:{
+			"RowCount":{name:"RowCount",datatype:1, value:"",source:	0,aliasname: '',defaultvalue: "0"}
+		}
+	},
+	"SendMessage":{
+		inputs:{
+			"Topic":{name:"Topic",datatype:0,value:"",source:	0,aliasname: '',defaultvalue: ""}
+		}
+	},
+	"SendEmail":{
+		inputs:{			
+			"SmtpServer":{name:"SmtpServer",datatype:0,value:"",source:	0,aliasname: '',defaultvalue: ""},
+			"SmtpPort":{name:"SmtpPort",datatype:1,value:"",source:	0,aliasname: '',defaultvalue: ""},
+			"SmtpUser":{name:"SmtpUser",datatype:0,value:"",source:	0,aliasname: '',defaultvalue: ""},
+			"SmtpPassword":{name:"SmtpPassword",datatype:0,value:"",source:	0,aliasname: '',defaultvalue: ""},
+			"FromEmail":{name:"FromEmail",datatype:0,value:"",source:	0,aliasname: '',defaultvalue: ""},
+			"ToEmails":{name:"ToEmails",datatype:0,value:"",source:	0,aliasname: '',defaultvalue: ""},
+			"Subject":{name:"Subject",datatype:0,value:"",source:	0,aliasname: '',defaultvalue: ""},
+			"Body":{name:"Body",datatype:0,value:"",source:	0,aliasname: '',defaultvalue: ""}
+		}
+	}
 
-/*
-const (
-	InputMap FunctionType = iota
-	Csharp
-	Javascript
-	Query
-	StoreProcedure
-	SubTranCode
-	TableInsert
-	TableUpdate
-	TableDelete
-)
-*/
+}
+
 var ProcessFlow = (function(){
 	'use strict';
 
@@ -922,7 +982,9 @@ var ProcessFlow = (function(){
 						// update output
 						for(var i=0;i<that.data.outputs.length;i++){
 							if(that.data.outputs[i].id == data.id){
+								console.log("original data:",that.data.outputs[i], data)
 								that.data.outputs[i] = Object.assign(that.data.outputs[i],data);
+								console.log(that.data.outputs[i], data)
 								that.remove_events();
 								that.node.shape.remove();
 								that.build_block();
@@ -1189,9 +1251,12 @@ var ProcessFlow = (function(){
 							items: ports
 						}
 					}) 
+
+					let maxheight = Math.max(Math.max(this.data.inputs.length,this.data.outputs.length) * 20 + 35, this.data.height); 
+					console.log('maxheight:', maxheight)
 				//	headeredRectangle = new joint.shapes.ProcessFlow.StepBlock.Function()
 					headeredRectangle.position(this.data.x, this.data.y);
-					headeredRectangle.resize(this.data.width, this.data.height);
+					headeredRectangle.resize(this.data.width, maxheight);
 				//	headeredRectangle.attr('root/title', this.data.FunctionName);
 					headeredRectangle.attr('nodeid', this.data.id);
 					headeredRectangle.attr('functionheader/fill', Function_Type_Color_List[this.data.functype]);
@@ -1232,7 +1297,8 @@ var ProcessFlow = (function(){
 		update(data, subtype=""){
 			let that = this;
 			// update block self
-			console.log(that.data);
+
+		//	console.log('before update',that.data, data);
 			if(subtype == ''){
 				that.data = Object.assign(that.data,data);
 				data = that.data;
@@ -1256,13 +1322,39 @@ var ProcessFlow = (function(){
 				// update output
 				for(var i=0;i<that.data.outputs.length;i++){
 					if(that.data.outputs[i].id == data.id){
-						that.data.outputs[i] = Object.assign(that.data.outputs[i],data);
+
+					//	let originalname = that.data.name +"."+that.data.outputs[i].name;
+					//	let newname = that.data.name +"."+data.name;
+
+						if(data.name)
+							if(that.data.outputs[i].name != data.name){
+								that.flow.functionlinks.forEach(item => {
+								//	console.log('check function link:', item)
+									if(item.sourceoutputid == data.id && item.sourcefunctionid == that.data.id){
+										let targetfunctionid = item.targetfunctionid;
+										let targetinputid = item.targetinputid;
+										let path = 'functiongroups/{"name":"'+that.flow.funcgroupname+'"}/functions/{"id":"'+targetfunctionid+'"}/inputs/{"id":"'+targetinputid+'"}/aliasname';
+				
+										let value = that.flow.FlowJsonObj.getNode(path).value;
+				
+										let values = value.split('.');
+									//	console.log(path,values, data)
+										if(values.length == 2)
+											if(values[0]  == that.data.name){
+												that.flow.FlowJsonObj.updateNodeValue(path,that.data.name + '.' + data.name);
+											}
+									}
+				
+								})
+							}
+
+							that.data.outputs[i] = Object.assign(that.data.outputs[i],data);
 						break;
 					}
 				}					
 			}
 
-		//	console.log(that.data);
+		//	console.log("after update",that.data);
 			for(var i=0;i<that.flow.nodes.length;i++){
 				if(that.flow.nodes[i].id == that.data.id){
 					that.flow.nodes[i] = that.data;
@@ -1393,7 +1485,13 @@ var ProcessFlow = (function(){
 		}
 
 		build_link(sourcenode, sourceport,destnode,destport){
-		
+		    console.log("build link:",sourcenode, sourceport,destnode,destport)
+
+			if(!sourcenode || !destnode || !sourceport || !destport){
+				
+				return;
+			}
+
 			var _link = new joint.shapes.Function.Link({
 				source: {id: sourcenode.shape.id,  port: sourcenode.shape.getport(sourceport).id},
 				target: {id: destnode.shape.id, port: destnode.shape.getport(destport).id}
@@ -1440,7 +1538,7 @@ var ProcessFlow = (function(){
 					}
 				}
 			//	console.log('update flowobj:', this.funcgroup,this.flowobj )
-				let path = 'functiongroups/{"name":"'+this.flow.funcgroupname+'"}/functions/{"id":"'+targetfunctionid+'"}/outputs/{"id":"'+targetinputid+'"}'
+				let path = 'functiongroups/{"name":"'+this.flow.funcgroupname+'"}/functions/{"id":"'+targetfunctionid+'"}/inputs/{"id":"'+targetinputid+'"}'
 				let data = {
 					source: 0,
 					aliasname: ''
@@ -1483,7 +1581,7 @@ var ProcessFlow = (function(){
 			this._link.target({id: destnode.shape.id, port: destnode.shape.getPort('top').id});		
 		}
 		update_label(label){
-			
+			console.log(this, label)
 			let destfgname = this.flow.get_block(this.destnodeid.id).data.name;
 			if(destfgname =="")
 				return;
@@ -1498,34 +1596,34 @@ var ProcessFlow = (function(){
 					}
 			})
 
-			for(var i=0;i<this.flow.flowobj.functiongroups.length;i++){
-				if(this.flow.flowobj.functiongroups[i].id == this.sourcenodeid.id){
-					let routerdef = this.flow.flowobj.functiongroups[i].routerdef;
-					if(routerdef){
-						let values = routerdef.values;
-						let nextfuncgroups = routerdef.nextfuncgroups;
-						if(!nextfuncgroups || !values){
-							if(label == '')
-								this.flow.flowobj.functiongroups[i].routerdef.defaultfuncgroup = destfgname;
+			let path = 'functiongroups/{"id":"'+this.sourcenodeid.id+'"}/routerdef'
+			let routerdef = this.flow.FlowJsonObj.getNode(path).value;
+		//	console.log(path, routerdef)
+			if(routerdef){
+				let values = routerdef.values;
+				let nextfuncgroups = routerdef.nextfuncgroups;
+			//	console.log(values, nextfuncgroups, destfgname)
+				if(nextfuncgroups && values){
+					for(var i=0;i<nextfuncgroups.length;i++){
+						if(nextfuncgroups[i] == destfgname){
+							values[i] = this.data.Label;
 							break;
 						}
-							
-
-						for(var j=0;j<nextfuncgroups.length;j++){
-							if(nextfuncgroups[j].name == destfgname){
-								this.flow.flowobj.functiongroups[i].routerdef.values[j] = this.data.Label;
-								
-								break;
-							}
-						}
-						if(label == '')
-							this.flow.flowobj.functiongroups[i].routerdef.defaultfuncgroup = destfgname;
 					}
-
-					break;
+					routerdef.values = values;
+					this.flow.FlowJsonObj.updateNode(path,routerdef);				
+				}
+				else{
+					values =[label];
+					nextfuncgroups = [destfgname];
+					routerdef.values = values;
+					routerdef.nextfuncgroups = nextfuncgroups;
+					this.flow.FlowJsonObj.updateNode(path,routerdef);
 				}
 
+				this.flow.reload();
 			}
+
 
 		}
 		delete(){
@@ -2604,8 +2702,8 @@ var ProcessFlow = (function(){
 				return {
 					x: 100,
 					y:100,
-					width: this.options.nodewidth * 0.6,
-					height: this.options.nodewidth * 0.2,
+					width: this.options.nodewidth * 0.5,
+					height: this.options.nodewidth * 0.15,
 					type: "START"
 				}
 			
@@ -2613,6 +2711,7 @@ var ProcessFlow = (function(){
 		
 		setup_functionlinks(functionlinks){
 			let that = this;
+			console.log('setup_functionlinks',functionlinks)
 			this.functionlinks = functionlinks.map((functionlink,i) => {
 
 				return {
@@ -2798,16 +2897,31 @@ var ProcessFlow = (function(){
 		}
 
 		auto_layout(){
-			joint.layout.DirectedGraph.layout(this.Graph, { 
-				setLinkVertices: false, 
-				nodeSep: this.options.nodeSep,
-				edgeSep: this.options.edgeSep,
-				rankDir: this.options.rankdir,
-				align: this.options.align,
-				marginX: this.options.marginx,
-				marginY: this.options.marginy,
-				ranker: this.options.ranker			
-			}); 
+			switch (this.options.flowtype.toUpperCase()){
+				case 'FUNCGROUP':
+					joint.layout.DirectedGraph.layout(this.Graph, { 
+						setLinkVertices: false, 
+						nodeSep: this.options.nodeSep,
+						edgeSep: this.options.edgeSep,
+						rankDir: "LR",
+						align: "UL",
+						marginX: this.options.marginx,
+						marginY: this.options.marginy,
+						ranker: "longer-path"		
+					});
+				default:
+					joint.layout.DirectedGraph.layout(this.Graph, { 
+						setLinkVertices: false, 
+						nodeSep: this.options.nodeSep,
+						edgeSep: this.options.edgeSep,
+						rankDir: "TB",
+						align: "UL",
+						marginX: this.options.marginx,
+						marginY: this.options.marginy,
+						ranker: "longer-path"			
+					}); 
+				break;
+			}
 		}
 		initialize_layout(){
 			if(this.options.flowtype =='FUNCGROUP')
@@ -2985,6 +3099,10 @@ var ProcessFlow = (function(){
 		}
 
 		validate_functionlink(sourceelement,sourceport, destelement, destport){
+
+			this.Paper.model.getCells().forEach(function(cell) {
+				cell.interactive = false;
+			  });
 
 		//	console.log(sourceelement.el, $(sourceport).attr('port-group'), $(sourceport).attr('port'))
 			if(this.options.flowtype !== 'FUNCGROUP')
@@ -3283,7 +3401,11 @@ var ProcessFlow = (function(){
 
 		validate_blocklink(sourceelement,sourceport, destelement, destport){
 
-				console.log(sourceelement, $(sourceport).attr('port-group'), $(sourceport).attr('port'))
+			  this.Paper.model.getCells().forEach(function(cell) {
+				cell.interactive = false;
+			  });
+
+				//console.log(sourceelement, $(sourceport).attr('port-group'), $(sourceport).attr('port'))
 				if(this.options.flowtype !== 'TRANCODE')
 					return false;
 	
@@ -3295,11 +3417,11 @@ var ProcessFlow = (function(){
 					return false;
 
 				let sourceblock = this.get_block_byelementid(sourceelement.model.id);
-				if(sourceblock.id == 'START')
+				/*if(sourceblock.id == 'START')
 				{
 					if(this.flowobj.firstfuncgroup !='')
 						return false;
-				}
+				}  */
 				/*				
 				if($(sourceport).attr('port-group') != 'bottom' || $(destport).attr('port-group') != 'top')
 					return false;
@@ -3495,6 +3617,7 @@ var ProcessFlow = (function(){
 			});
 
 			this.Paper.on('element:pointerup', function(elementView) {
+				console.log('element:pointerup', elementView)
 				that.selectedelement = null;
 				joint.dia.HighlighterView.remove(elementView);
 				that.Paper.model.getCells().forEach(function(cell) {
@@ -3518,6 +3641,10 @@ var ProcessFlow = (function(){
 					console.log('port:pointerclick',event, port)
 				})
 				this.Paper.on('link:mouseenter', function(linkView) {
+					/*that.Paper.model.getCells().forEach(function(cell) {
+						cell.interactive = false;
+					  }); */
+
 					var tools = new joint.dia.ToolsView({
 						tools: [
 							new joint.linkTools.TargetArrowhead(),
@@ -3532,6 +3659,10 @@ var ProcessFlow = (function(){
 				});
 				
 				this.Paper.on('link:connect link:disconnect', function(linkView, evt, elementView) {
+					/*that.Paper.model.getCells().forEach(function(cell) {
+						cell.interactive = false;
+					  }); */
+
 					var element = elementView.model;
 				//	console.log('link:connect link:disconnect:', linkView, evt, elementView,element)
 				//	console.log(linkView.sourceView,$(linkView.sourceMagnet).attr('port'), linkView.targetView,$(linkView.targetMagnet).attr('port'))
@@ -4153,9 +4284,11 @@ var ProcessFlow = (function(){
 									break;
 
 								case 'Delete':
-									
-									block.delete();
-									that.reload();
+									var result = confirm("Are you sure you want to delete?");
+									if(result){
+										block.delete();
+										that.reload();
+									}
 									break;
 							}
 
@@ -4249,7 +4382,7 @@ var ProcessFlow = (function(){
 						options: funcgroupoutputs
 					},
 					{tag: 'div', attrs:{class: 'row'},
-						children:[{tag: 'button', attrs:{id: 'save', class: 'btn btn-primary', style: 'margin-left: 10px;', innerHTML: 'Save'}, 
+						children:[{tag: 'button', attrs:{id: 'save', class: 'btn btn-primary fa-save', style: 'margin-left: 10px;', innerHTML: 'Update'}, 
 						events:{click: function(){
 							let newfuncgroupname = document.getElementById('name').value;
 							let newfuncgroupdescription = document.getElementById('description').value;
@@ -4273,7 +4406,7 @@ var ProcessFlow = (function(){
 							console.log('updated func group object:',funcgroupobj)
 							that.reload();
 						}}},
-						{tag: 'button', attrs:{id: 'cancel', class: 'btn btn-cancel', style: 'margin-left: 10px;', innerHTML: 'Cancel'},
+						{tag: 'button', attrs:{id: 'cancel', class: 'btn btn-cancel fa-close', style: 'margin-left: 10px;', innerHTML: 'Cancel'},
 						events:{click: function(){
 							that.property_panel.style.width = "0px";
 							that.property_panel.style.display = "none";
@@ -4305,16 +4438,35 @@ var ProcessFlow = (function(){
 					}
 			}
 		//	console.log(outputs)
+			outputs.push({value:"", innerHTML:"No Routing"})
 			return outputs;
 
 		}
 
 		blockline_properties(modelid){
+			let blocklinkline = this.get_blocklinkbymodelid(modelid);
+			console.log(blocklinkline)
+			if(!blocklinkline)
+				return		
+			
+			if(blocklinkline.data.fromnode == "START"){
+				UI.ShowError('The routing from START cannot have multiple routing!');
+				return;
+			}
+			
+			let fromnodeid = blocklinkline.data.fromnode;
+			let fromnode = this.get_block_bydataid(fromnodeid);
+			console.log(fromnode)
+			if(!fromnode.data.routerdef.variable || fromnode.data.routerdef.variable == ''){
+				UI.ShowError("There is no routing variable defined in the function group!");
+				return;
+			}
+
 			let el = $('g[model-id="'+modelid+'"]').find('tspan')
 			let value = el.html();
 			let newvalue = prompt('Please input the new value',value);
 			if(newvalue && newvalue != value){
-				let blocklinkline = this.get_blocklinkbymodelid(modelid);
+				
 				if(blocklinkline){
 					if(!this.validate_blocklinklabel(blocklinkline, newvalue))
 						alert("there are duplicated routing definition, please change the value");
@@ -4382,6 +4534,7 @@ var ProcessFlow = (function(){
 			control_attrs ={
 				for: 'trancodename',
 				innerHTML: 'Trancode Name',
+				style:"width:100%"
 			}
 			new UI.FormControl(property_container,'label',control_attrs);
 
@@ -4390,7 +4543,8 @@ var ProcessFlow = (function(){
 				id: 'trancodename',
 				name: 'trancodename',
 				value: flowobj.trancodename,
-				class: 'form-control'
+				class: 'form-control',
+				style:"width:100%"
 			}
 			new UI.FormControl(property_container,'input',control_attrs);
 			new UI.FormControl(property_container,'br',{});
@@ -4398,6 +4552,7 @@ var ProcessFlow = (function(){
 			control_attrs ={
 				for: 'trancodeversion',
 				innerHTML: 'Trancode Version',
+				style:"width:100%"
 			}
 			new UI.FormControl(property_container,'label',control_attrs);
 			new UI.FormControl(property_container,'br',{});
@@ -4406,7 +4561,8 @@ var ProcessFlow = (function(){
 				id: 'trancodeversion',
 				name: 'trancodeversion',
 				value: flowobj.version,
-				class: 'form-control'
+				class: 'form-control',
+				style:"width:100%"
 			}
 			new UI.FormControl(property_container,'input',control_attrs);
 			new UI.FormControl(property_container,'br',{});
@@ -4414,6 +4570,7 @@ var ProcessFlow = (function(){
 			control_attrs ={
 				for: 'trancodeisdefault',
 				innerHTML: 'Is Default',
+				style:"width:100%"
 			}
 			new UI.FormControl(property_container,'label',control_attrs);
 			new UI.FormControl(property_container,'br',{});
@@ -4423,14 +4580,33 @@ var ProcessFlow = (function(){
 				id: 'trancodeisdefault',
 				name: 'isdefault',
 				value: flowobj.isdefault,
-				class: 'form-control'
+				class: 'form-control',
+				style:"width:100%"
 			}
 			new UI.CheckBox(property_container,'input',control_attrs);
 			new UI.FormControl(property_container,'br',{});
 
 			control_attrs ={
+				for: 'trancode_status',
+				innerHTML: 'Status',
+				style:"width:100%"
+			}
+			new UI.FormControl(property_container,'label',control_attrs);
+			new UI.FormControl(property_container,'br',{});
+
+			control_attrs ={
+				id: 'trancode_status',
+				selected: flowobj.status || '0',
+				attrs:{style:"width:100%"},
+				options: ["Developing", "Prototype", "Testing", "Stage", "Production"]
+			}
+			new UI.Selection(property_container,control_attrs);
+			new UI.FormControl(property_container,'br',{});
+
+			control_attrs ={
 				for: 'description',
 				innerHTML: 'Description',
+				style:"width:100%"
 			}
 			new UI.FormControl(property_container,'label',control_attrs);
 			new UI.FormControl(property_container,'br',{});
@@ -4439,23 +4615,28 @@ var ProcessFlow = (function(){
 				id: 'description',
 				name: 'description',
 				value: flowobj.description,
-				class: 'form-control'
+				class: 'form-control',
+				style:"width:100%",
+				innerHTML: flowobj.description,
+
 			}
 			new UI.FormControl(property_container,'textarea',control_attrs);
 			new UI.FormControl(property_container,'br',{});
 			
 			control_attrs ={
-				class: 'btn btn-primary',
+				class: 'btn btn-primary fa-save',
 				id: 'savefunction',
-				innerHTML: 'Save'
+				innerHTML: 'Update'
 			}
 			let save_function =function(){
 				let trancodename = document.getElementById('trancodename').value;
 				let trancodeversion = document.getElementById('trancodeversion').value;
-				let description = document.getElementById('description').value;				
+				let description = document.getElementById('description').value;	
+				let status = document.getElementById('trancode_status').value;			
 				that.flowobj.trancodename = trancodename;
 				that.flowobj.version = trancodeversion;
 				that.flowobj.description = description;
+				that.flowobj.status = status;
 				that.flowobj.isdefault = document.getElementById('trancodeisdefault').checked;
 				that.property_panel.style.width = "0px";
 				that.property_panel.style.display = "none";
@@ -4466,7 +4647,7 @@ var ProcessFlow = (function(){
 			new UI.FormControl(property_container,'button',control_attrs,events);
 			
 			control_attrs ={
-				class: 'btn btn-danger',
+				class: 'btn btn-danger fa-close',
 				id: 'cancelfunction',
 				innerHTML: 'Cancel'
 			}
@@ -4518,6 +4699,7 @@ var ProcessFlow = (function(){
 			
 			control_attrs ={
 				innerHTML: 'Trancode Inputs',
+				lngcode:'Trancode_input_title'
 			}
 			new UI.FormControl(property_container,'h2',control_attrs);
 			new UI.FormControl(property_container,'br',{});
@@ -4526,6 +4708,7 @@ var ProcessFlow = (function(){
 
 			control_attrs ={
 				innerHTML: 'Trancode Outputs',
+				lngcode:'Trancode_outputs_title'
 			}
 			new UI.FormControl(property_container,'h2',control_attrs);
 			new UI.FormControl(property_container,'br',{});
@@ -4546,7 +4729,7 @@ var ProcessFlow = (function(){
 					that.flowobj.outputs = items;
 			}
 			let attrs ={
-				class: 'btn btn-primary',
+				class: 'btn btn-primary fa-plus-circle',
 				id: 'addfunction_'+type,
 				innerHTML: 'Add'
 			}
@@ -4558,7 +4741,7 @@ var ProcessFlow = (function(){
 			new UI.FormControl(property_container,'button',attrs,events);
 
 			attrs ={
-				class: 'btn btn-primary',
+				class: 'btn btn-primary fa-minus-circle',
 				id: 'removefunction_'+type,
 				innerHTML: 'Remove'
 			}
@@ -4881,7 +5064,7 @@ var ProcessFlow = (function(){
 				elements: [],
 				routerdef:{
 					"variable": "",
-					"value": [],
+					"values": [],
 					"nextfuncgroups":[],
 					"defaultfuncgroup":""
 				},
@@ -4970,7 +5153,7 @@ var ProcessFlow = (function(){
 				routing:false,
 				type:'FUNCGROUP',				
 				functions:[],
-				RouterDef:{
+				routerdef:{
 					"variable": "",
 					"values": [],
 					"nextfuncgroups":[],
@@ -5000,12 +5183,22 @@ var ProcessFlow = (function(){
 
 			let path = 'functiongroups/{"id":"'+fromnode.id+'"}/routerdef';
 			let routerdef = that.FlowJsonObj.getNode(path).value;
-			if(routerdef.variable != ""){
-				let values = routerdef.values.concat(["new value"]);
-				let nextfuncgroups = routerdef.nextfuncgroups.concat([targetblock.data.name]);
-				that.FlowJsonObj.updateNode(path+'/values',values);
-				that.FlowJsonObj.updateNode(path+'/nextfuncgroups',nextfuncgroups);
+			if(routerdef.variable != "" &&  routerdef.variable != null){
 
+				if(routerdef.values !="" && routerdef.values != null){
+					let values = routerdef.values.concat(["new value"]);
+					that.FlowJsonObj.updateNode(path+'/values',values);
+				}
+				else
+					that.FlowJsonObj.updateNode(path+'/values',["new value"]);
+
+				if(routerdef.nextfuncgroups !="" && routerdef.nextfuncgroups != null){
+					let nextfuncgroups = routerdef.nextfuncgroups.concat([targetblock.data.name]);
+					
+					that.FlowJsonObj.updateNode(path+'/nextfuncgroups',nextfuncgroups);
+				}
+				else
+					that.FlowJsonObj.updateNode(path+'/nextfuncgroups',[targetblock.data.name]);
 			}else{
 				that.FlowJsonObj.updateNode(path+'/defaultfuncgroup',targetblock.data.name);
 			}
@@ -5034,8 +5227,10 @@ var ProcessFlow = (function(){
 								case 'AddFunction':
 									var html = "";
 									for (var i = 0; i < Function_Type_List.length; i++) {
+									  html += '<div style="width:100%; height:30px; font-size: 16px; margin-top:5px; display: flex;align-items: center; background-color:'+Function_Type_Color_List[i]+'">'
 									  html += '<input type="radio" class="function_type" name="items" value="' + i + '"> ' + Function_Type_List[i] + '<br>';
-									}	
+									  html += '</div>'
+									}
 
 									that.property_panel.innerHTML  = "" 
 									var divsToRemove = that.property_panel.getElementsByClassName("container-fluid");
@@ -5421,6 +5616,27 @@ var ProcessFlow = (function(){
 					name: newname,
 				}
 				this.FlowJsonObj.updateNode(path,value);
+
+				this.functionlinks.forEach(item => {
+					console.log('check function link:', item)
+					if(item.sourcefunctionid == nodeid){
+						let targetfunctionid = item.targetfunctionid;
+						let targetinputid = item.targetinputid;
+						let path = 'functiongroups/{"name":"'+this.funcgroupname+'"}/functions/{"id":"'+targetfunctionid+'"}/inputs/{"id":"'+targetinputid+'"}/aliasname';
+
+						let value = this.FlowJsonObj.getNode(path).value;
+
+						let values = value.split('.');
+						console.log(path,values)
+						if(values.length > 0)
+							if(values[0]  == oldname)
+								this.FlowJsonObj.updateNode(path,newname + '.' + values[1]);
+
+					}
+
+				})
+
+
 				this.reload();
 				return true;
 
@@ -5437,16 +5653,40 @@ var ProcessFlow = (function(){
 		}
 		add_function(functype){
 			let inputs = [];
-			if(functype == 6 || functype == 7 || functype == 8){
-				inputs = [{
-					id:UIFlow.generateUUID(),
-					name: "TableName",
-					datatype: 0,
-					value:'',
-					defaultvalue:'',
-					source:0
-				}]
+			let outputs = [];
+
+			let FunctionTypeName = Function_Type_List[functype]
+			if(FunctionTypeName =="")
+			{
+				UI.ShowError("Please select the function type to add a new Function");
+				return;
 			}
+			console.log(Function_Type_Obj, FunctionTypeName, Function_Type_Obj.hasOwnProperty(FunctionTypeName))
+			if(Function_Type_Obj.hasOwnProperty(FunctionTypeName))
+			{
+				let functionobj = Function_Type_Obj[FunctionTypeName];
+				if(functionobj.hasOwnProperty('inputs')){
+					inputs = [];
+					for(var i=0;i<functionobj.inputs.length;i++){
+						input = functionobj.inputs[i];
+						input.id = UIFlow.generateUUID();
+						inputs.push(input);
+					}
+				
+				}
+				if(functionobj.hasOwnProperty('outputs')){
+					outputs = [];
+					for(var i=0;i<functionobj.outputs.length;i++){
+						output = functionobj.outputs[i];
+						output.id = UIFlow.generateUUID();
+						output.outputdest= [];
+						output.aliasname= [];
+						outputs.push(output);
+					}
+					
+				}
+			}
+
 			let nodeid = UIFlow.generateUUID();
 			let name = this.getfunctionname(Function_Type_List[functype])
 			let node = {
@@ -5458,7 +5698,7 @@ var ProcessFlow = (function(){
 				mapdata:{},
 				functype: parseInt(functype),
 				inputs: inputs,
-				outputs: [],
+				outputs: outputs,
 				type: "FUNCTION",
 				position: {},
 				x: 100,
@@ -5488,7 +5728,7 @@ var ProcessFlow = (function(){
 			let that = this
 			let functionobj = {
 				id: funcobj.id,
-				name: funcobj.functionName,
+				name: funcobj.name,
 				description: funcobj.description,
 				content: funcobj.content,
 				mapdata:funcobj.mapdata,
@@ -5549,7 +5789,7 @@ var ProcessFlow = (function(){
 			attrs={
 				id: 'functionname',
 				type: 'text',
-				value: functionobj.functionName,
+				value: functionobj.name,
 				class: 'form-control',
 				placeholder: 'Enter Function Name',
 				style: 'width: 100%;'
@@ -5571,7 +5811,7 @@ var ProcessFlow = (function(){
 				placeholder: 'Enter Function Description',
 				style: 'width: 100%;'
 			}
-			new UI.FormControl(property_container, 'input', attrs);
+			new UI.FormControl(property_container, 'textarea', attrs);
 			new UI.FormControl(property_container, 'br', {});
 
 			attrs={
@@ -5641,13 +5881,16 @@ var ProcessFlow = (function(){
 				new UI.HtmlTable(property_container, attrs);
 			}
 			else{
-				attrs={
-					innerHTML: 'Function Content',
-					for: 'functioncontent'
-				}
-				new UI.FormControl(property_container, 'label', attrs);
-				new UI.FormControl(property_container, 'br', {});
+				
 				if(functionobj.functype ==1 || functionobj.functype ==2 || functionobj.functype ==3){
+					attrs={
+						innerHTML: 'Function Content',
+						for: 'functioncontent',
+						lngcode: 'Function_Content'
+					}
+					new UI.FormControl(property_container, 'label', attrs);
+					new UI.FormControl(property_container, 'br', {});
+
 					let mode = 'text/x-csharp';
 					if(functionobj.functype == 2)
 						mode = 'javascript';
@@ -5666,16 +5909,16 @@ var ProcessFlow = (function(){
 									style:"display:block;min-height:390px;min-width:900px; width:80%;height:80%"
 								},							
 								children:[
-									{tag:"h3", attrs:{innerHTML:"Script Editor"}},
+									{tag:"h3", attrs:{innerHTML: Function_Type_List[functionobj.functype]+" Script Editor", lngcode:Function_Type_List[functionobj.functype]+"_Script_Editor"}},
 									{tag:"textarea", attrs:{id:"script-editor", style:"height:100%;width:100%"}},
 									{tag:'div', attr:{id:'script-editor-buttons', class:'btn-group'},
 										children:[
-											{tag: "button", attrs:{id:"save-script", innerHTML:"Save", class:"btn btn-primary"},events:{click: function(){
+											{tag: "button", attrs:{id:"save-script", innerHTML:"Update", class:"btn btn-primary", lngcode:"Update"},events:{click: function(){
 												$('#functioncontent').val(script_editor.getValue());
 												document.getElementById('popup').remove();
 
 											}}},
-											{tag: "button", attrs:{id:"cancel-script", innerHTML:"Cancel", class:"btn btn-secondary"}, events:{click: function(){document.getElementById('popup').remove()}}},
+											{tag: "button", attrs:{id:"cancel-script", innerHTML:"Cancel", class:"btn btn-secondary",lngcode:"Cancel"}, events:{click: function(){document.getElementById('popup').remove()}}},
 										]
 									},
 									
@@ -5702,25 +5945,29 @@ var ProcessFlow = (function(){
 
 						}
 					}
-					new UI.FormControl(property_container, 'button', {id:"openpopup", style:"width:100%;", innerHTML:"Script Editor"}, events);				
+					new UI.FormControl(property_container, 'button', {id:"openpopup", style:"width:100%;", innerHTML:"Script Editor"}, events);		
+					
+					//console.log(functionobj.content,functionobj.content.hasOwnProperty('value')? functionobj.content.value: JSON.stringify(functionobj.content))
+					attrs={
+						id: 'functioncontent',
+						type: 'text',
+						innerHTML: functionobj.content,
+						class: 'form-control',
+						placeholder: 'Enter Function Content',
+						style: 'width: 100%;height: 100px;'
+					}
+					new UI.FormControl(property_container, 'textarea', attrs);
+
 				}
-				//console.log(functionobj.content,functionobj.content.hasOwnProperty('value')? functionobj.content.value: JSON.stringify(functionobj.content))
-				attrs={
-					id: 'functioncontent',
-					type: 'text',
-					innerHTML: functionobj.content,
-					class: 'form-control',
-					placeholder: 'Enter Function Content',
-					style: 'width: 100%;height: 100px;'
-				}
-				new UI.FormControl(property_container, 'textarea', attrs);
+				
 			}
 			new UI.FormControl(property_container, 'br', {});
 
 			attrs={
-				innerHTML: 'Save',
+				innerHTML: 'Update',
 				id: 'savefunction',
-				class: 'btn btn-primary'
+				class: 'btn btn-primary fa-save',
+				lngcode: 'Update'
 			}
 			var savefuntion = function(){
 				let oldfunctionname = functionobj.functionName;
@@ -5750,9 +5997,51 @@ var ProcessFlow = (function(){
 					})
 					functionmapdata = fcobj;
 				}
-				else
+				else{
 					functioncontent = $('#functioncontent').val();
 
+					let functypeobj = Function_Type_Obj[Function_Type_List[functiontype]];	
+					if(functypeobj){
+						if(functypeobj.hasOwnProperty('inputs')){
+							for(var key in functypeobj.inputs){
+								let found = false;
+								for(var i=0;i<functionobj.inputs.length;i++){
+									if(functionobj.inputs[i].name == key){
+										found = true;
+										break;
+									}
+								}
+								if(!found){
+									let input = functypeobj.inputs[key];
+									input.id = UI.generateUUID();
+									functionobj.inputs.push(input);
+									let path_input = path + "inputs";
+									that.FlowJsonObj.addNode(path_input,input);
+								}
+							}
+						}
+						if(functypeobj.hasOwnProperty('outputs')){
+							for(var key in functypeobj.outputs){
+								let found = false;
+								for(var i=0;i<functionobj.outputs.length;i++){
+									if(functionobj.outputs[i].name == key){
+										found = true;
+										break;
+									}
+								}
+								if(!found){
+									let output = functypeobj.outputs[key];
+									output.id = UI.generateUUID();
+									output.outputdest= [];
+									output.aliasname= [];
+									functionobj.outputs.push(output);
+									let path_output = path + "outputs";
+									that.FlowJsonObj.addNode(path_output,output);
+								}
+							}
+						}
+					}
+				}
 			//	console.log(functioncontent)
 				let value={
 					"functype": parseInt(functiontype),
@@ -5776,7 +6065,8 @@ var ProcessFlow = (function(){
 			attrs={
 				innerHTML: 'Cancel',
 				id: 'cancelfunction',
-				class: 'btn btn-danger'
+				class: 'btn btn-danger fa-close',
+				lngcode: 'Cancel'
 			}
 			events={
 				click: function(){
@@ -5852,7 +6142,7 @@ var ProcessFlow = (function(){
 			}
 			new UI.Selection(property_container, se_data);
 
-			attrs={ for: 'parameterlist'}
+			attrs={ for: 'parameterlist', innerHTML: 'List'}
 			new UI.FormControl(property_container, 'label', attrs);
 			new UI.FormControl(property_container, 'br', {});
 
@@ -5882,7 +6172,8 @@ var ProcessFlow = (function(){
 				new UI.FormControl(property_container, 'label', attrs);
 				new UI.FormControl(property_container, 'br', {});
 				attrs={
-					attrs:{class: 'form-control', placeholder: 'Parameter Source', id: 'parametersource', style: 'width: 100%;',value:parameterobj.source}, 
+					selected:parameterobj.source,
+					attrs:{class: 'form-control', placeholder: 'Parameter Source', id: 'parametersource', style: 'width: 100%;', value:parameterobj.source}, 
 					options:Function_Source_List}
 				new UI.Selection(property_container, attrs);
 				new UI.FormControl(property_container, 'br', {});
@@ -5895,11 +6186,15 @@ var ProcessFlow = (function(){
 				
 		
 			}else{
+				new UI.FormControl(property_container, 'br', {});
+				
 				attrs={ for: 'parameterdest', innerHTML: 'Parameter Destination'}
 				new UI.FormControl(property_container, 'label', attrs);
 				new UI.FormControl(property_container, 'br', {});
 
-				attrs={class: 'btn btn-primary', id: 'addbtn', innerHTML:'Add',style: 'width: 50%;'}
+				let divsection = new UI.FormControl(property_container, 'div', {style:'width: 100%; display: flex;justify-content: flex-end;', class:"ui-page-actionbar"}).control;
+
+				attrs={class: 'btn btn-primary fa-plus-circle', id: 'addbtn', innerHTML:' Add',style: 'font-family:FontAwesome'}
 				let events={click: function(){
 					let cells=[];
 					let cell={}
@@ -5911,9 +6206,9 @@ var ProcessFlow = (function(){
 					table.AddRow(cells,table.tbody.control)
 					}
 				}
-				new UI.FormControl(property_container, 'button', attrs, events);
+				new UI.FormControl(divsection, 'button', attrs, events);
 				
-				attrs={class: 'btn btn-primary', id: 'removebtn', innerHTML:'Remove',style: 'width: 50%;'};
+				attrs={class: 'btn btn-primary fa-minus-circle', id: 'removebtn', innerHTML:'  Remove',style: 'font-family:FontAwesome'};
 				events={click: function(){
 					$('.parameter_dest_row_selector').each(function(){					
 						if($(this).prop('checked')){
@@ -5921,19 +6216,20 @@ var ProcessFlow = (function(){
 						}
 					});
 				}}
-				new UI.FormControl(property_container, 'button', attrs, events);
+				new UI.FormControl(divsection, 'button', attrs, events);
 				new UI.FormControl(property_container, 'br', {});
 				let rows=[];
 				
-				parameterobj.outputdest.forEach(function(obj,index){
-					let cells=[];
-					cells.push({})
-					let cell={data:{selected: obj	}}
-					cells.push(cell)
-					cell={data:{value: parameterobj.aliasname[index]}}
-					cells.push(cell)
-					rows.push(cells)
-				})
+				if(parameterobj.outputdest != undefined)
+					parameterobj.outputdest.forEach(function(obj,index){
+						let cells=[];
+						cells.push({})
+						let cell={data:{selected: obj	}}
+						cells.push(cell)
+						cell={data:{value: parameterobj.aliasname[index]}}
+						cells.push(cell)
+						rows.push(cells)
+					})
 
 
 				let table_data={
@@ -5951,7 +6247,10 @@ var ProcessFlow = (function(){
 			}
 			new UI.FormControl(property_container, 'br', {});
 
-			attrs={class: 'btn btn-primary', id: 'savebutton', innerHTML:'Save',style: 'width: 35%;'}
+			let actionsection = new UI.FormControl(property_container, 'div', {style:'width: 100%; display: inline-block;', class:"ui-page-actionbar"}).control;
+
+
+			attrs={class: 'btn btn-primary fa-save', id: 'savebutton', innerHTML:'  Update',style: 'font-family:FontAwesome'}
 			let events={click: function(){
 				let block = that.get_block_bydataid(functionid);
 
@@ -6009,18 +6308,18 @@ var ProcessFlow = (function(){
 				that.property_panel.style.width = "0px";
 				that.property_panel.style.display = "none";
 			}}
-			new UI.FormControl(property_container, 'button', attrs, events);
-			new UI.FormControl(property_container, 'br', {});
+			new UI.FormControl(actionsection, 'button', attrs, events);
+			//new UI.FormControl(property_container, 'br', {});
 
-			attrs={class: 'btn btn-primary', id: 'cancelbutton', innerHTML:'Cancel',style: 'width: 35%;'}
+			attrs={class: 'btn btn-primary fa-close', id: 'cancelbutton', innerHTML:'Cancel',style: 'font-family:FontAwesome'}
 			events={click: function(){
 				that.property_panel.innerHTML  = ""
 				that.property_panel.style.width = "0px";
 				that.property_panel.style.display = "none";
 			}}
-			new UI.FormControl(property_container, 'button', attrs, events);
+			new UI.FormControl(actionsection, 'button', attrs, events);
 
-			property_container.appendChild(cancelbutton);
+			//property_container.appendChild(cancelbutton);
 			that.property_panel.style.width = "350px";
 			that.property_panel.style.display = "flex";
 		}
@@ -6187,7 +6486,7 @@ var ProcessFlow = (function(){
 				// Handle the JSON data
 					console.log(jsonData);
 					that.flowobj = jsonData;
-					that.FlowJsonObj = new UIFlow.JSONManager(jsonData, {allowChanges: true});
+					that.FlowJsonObj = new UI.JSONManager(jsonData, {allowChanges: true});
 					let newoptions = that.options					
 					newoptions.flowtype = 'TRANCODE'
 					that.destry();
@@ -6355,7 +6654,7 @@ var ProcessFlow = (function(){
 			let output_table = new UI.HtmlTable(container_fluid, table_data);
 			new UI.FormControl(container_fluid, 'br', {});
 
-			attrs={class:'btn btn-primary',id:'savefunction',innerHTML:'Save',style:'margin-bottom:10px;'}
+			attrs={class:'btn btn-primary fa-save',id:'savefunction',innerHTML:'Update',style:'margin-bottom:10px;'}
 			events={
 				click: function(){
 					let inputs = [];
@@ -6392,7 +6691,7 @@ var ProcessFlow = (function(){
 			}
 			new UI.FormControl(container_fluid, 'button', attrs, events);
 
-			attrs={class:'btn btn-danger',id:'closefunction',innerHTML:'Close',style:'margin-bottom:10px;'}
+			attrs={class:'btn btn-danger fa-close',id:'closefunction',innerHTML:'Close',style:'margin-bottom:10px;'}
 			events={click: function(){
 				that.item_panel.innerHTML  = ""
 				that.item_panel.style.width = "0px";

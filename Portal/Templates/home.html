@@ -1,3 +1,7 @@
+<div class="ui-page-menu_filter">
+  <label lngcode="Search">Search:
+    <input type="search" class="ui-page-menu_filter_input" placeholder="please input the words to search" aria-controls="ui-page-menu">
+  </label></div>
 <div class="ui-page-menu">
 </div>
 
@@ -9,6 +13,17 @@
         if(parentId == undefined)
             parentId = 0;
         console.log(parentId)
+
+        $('.ui-page-menu_filter_input').on('keyup', function () {
+            var rex = new RegExp($(this).val(), 'i');
+            console.log(rex)
+            $('.ui-page-menu .ui-page-menu-item').hide();
+            $('.ui-page-menu .ui-page-menu-item').filter(function () {
+                return rex.test($(this).text());
+            }).show();
+        });
+
+
         UI.HomeMenu.loadMenus(parentId, function(jdata){
          //   console.log("menu data:", jdata);
             let container = document.querySelector(".ui-page-menu");

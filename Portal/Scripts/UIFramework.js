@@ -136,7 +136,7 @@ var UI;
             this.clientid = "";
             this.createdon = "";
             this.expirateon = "";
-            this.tokenchecktime = 1000*60*10;
+            this.tokenchecktime = 1000*60*5;
             this.logonpage = "Logon page";
             this.tokenupdatetimer = null;
             this.updatedon = null;
@@ -325,13 +325,13 @@ var UI;
 
     function tokencheck(){
         UI.userlogin.checkiflogin(function(){
-            // console.log("token updated success:", UI.userlogin.username);
+            console.log("token updated success:", UI.userlogin.username);
             UI.userlogin.tokenupdatetimer = window.setTimeout(tokencheck, UI.userlogin.tokenchecktime);
         }, function(){
-            // console.log("token updated fail:", UI.userlogin.username);
+             console.log("token updated fail:", UI.userlogin.username);
             // console.log(UI.Page);
-            if(UI.Page)
-                window.location.href = UI.userlogin.loginurl;
+            //if(UI.Page)
+               // window.location.href = UI.userlogin.loginurl;
              //   new UI.Page({file:'pages/logon.json'});
             
         })
@@ -1747,31 +1747,40 @@ function rAFThrottle(func) {
             
             // console.log(this.configuration)
             let id = this.id;
-            let page = document.createElement("div");
-            page.className = "ui-page";
+            let page =null;
+            let pagediv = document.getElementsByClassName("iac-ui-page-header");
+            let width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+            let height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+            if(pagediv.length == 0 ){
+                let pageid = 'page_'+UI.generateUUID();
+                page = document.createElement("div");
+                page.className = "ui-page";                
+                page.setAttribute("id", pageid); 
+                for (var key in this.configuration.attrs) {
+                    page.setAttribute(key, this.configuration.attrs[key]);
+                }               
+                
+                page.style.width = width + "px";
+                page.style.height = height + "px";
+                page.style.display = "flex";
+                page.style.flexWrap = "nowrap";
+                page.style.overflow = "hidden";
+                page.style.alignItems = "flex-start";
+                page.style.flexDirection = "column";
+                page.id = pageid;
+                document.body.appendChild(page);
+            }
+            else
+                page = pagediv[0];
             
-            page.setAttribute("id", this.id);
             this.container = page;
+            this.page = page;
 
             this.configuration.attrs = this.configuration.attrs || {};
             this.configuration.orientation = this.configuration.orientation || 0;
-
-            for (var key in this.configuration.attrs) {
-                page.setAttribute(key, this.configuration.attrs[key]);
-            }
-            let width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-            let height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
-            
-            page.style.width = width + "px";
-            page.style.height = height + "px";
-            page.style.display = "flex";
-            page.style.flexWrap = "nowrap";
-            page.style.overflow = "hidden";
-            page.style.alignItems = "flex-start";
-            page.style.flexDirection = "column";
-            this.page.id = this.id;
+           
             let pagecontent = document.createElement("div");
-            pagecontent.setAttribute("id", id + "_content");
+            pagecontent.setAttribute("id", id);
             pagecontent.className = "ui-page-content";
             pagecontent.style.width = "100%";
             pagecontent.style.height = (height-45) + "px";
@@ -1797,7 +1806,7 @@ function rAFThrottle(func) {
             page.appendChild(pagecontent);
          //   document.title = this.configuration.title || this.configuration.name;
             this.buildpagepanels();
-            document.body.appendChild(page);
+            
 
             this.PageID = id;
             this.PageTitle = this.configuration.title || this.configuration.name;
@@ -1906,7 +1915,9 @@ function rAFThrottle(func) {
             
             let that =this;
             window.removeEventListener("resize", that.resize)
-            document.getElementById(this.id).remove();
+            this.pageElement.remove();
+            this.pageElement = null;
+            //document.getElementById(this.id).remove();
             this.panels = [];
             this.page={};
         }  

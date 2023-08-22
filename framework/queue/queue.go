@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -8,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mdaxf/iac/controllers/trans"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/logger"
 )
@@ -187,14 +189,26 @@ func (mq *MessageQueue) processMessage(message Message) error {
 		var err error
 		message.Execute = message.Execute + 1
 
+		mq.iLog.Debug(fmt.Sprintf("execute the message %d with data %s with handler %s", message.Id, message.PayLoad, message.Handler))
+
+		var data map[string]interface{}
+		err = json.Unmarshal([]byte(message.PayLoad.(string)), &data)
+
+		if err != nil {
+			mq.iLog.Error(fmt.Sprintf("Failed to unmarshal data: %v", err))
+			return err
+		}
+		tr := &trans.TranCodeController{}
+		outputs, err := tr.Execute(message.Handler, data)
 		status := "Success"
 		errormessage := ""
-		message.CompletedOn = time.Now()
-
 		if err != nil {
 			status = "Failed"
 			errormessage = err.Error()
 		}
+		mq.iLog.Debug(fmt.Sprintf("execute the message %d with data %s with handler %s with output %s", message.Id, message.PayLoad, message.Handler, outputs))
+
+		message.CompletedOn = time.Now()
 
 		msghis := map[string]interface{}{
 			"message":      message,
@@ -203,11 +217,12 @@ func (mq *MessageQueue) processMessage(message Message) error {
 			"status":       status,
 			"errormessage": errormessage,
 			"messagequeue": mq.QueuName,
+			"outputs":      outputs,
 		}
 
 		_, err = documents.DocDBCon.InsertCollection("Job_History", msghis)
 
-		if err != nil && message.Execute < message.Retry {
+		if status != "Success" && message.Execute < message.Retry {
 			message.Retry++
 			mq.iLog.Debug(fmt.Sprintf("execute the message %d failed, and retry time: %d  retry set value %d with data %s with handler %s",
 				message.Id, message.Execute, message.Retry, message.PayLoad, message.Handler))

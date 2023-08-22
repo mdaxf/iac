@@ -52,14 +52,19 @@
 
 <body>
     <div id="fg_processflow" style="width:100%;height:100%;"></div>
-    <div id="f_processflow" style="width:100%;height:100%;"></div>
+    <div id="f_processflow" style="width:100%; display:none;"></div>
     <script>
         var flow
         //document.addEventListener("DOMContentLoaded", function(event) {
         $Context.onLoaded(function(){
-            console.log("DOM fully loaded and parsed");
-            //let ajax = new UI.Ajax("");
-            //ajax.get("http://127.0.0.1:8080/portal/trancodes/test.json",false).then((response) => {
+            console.log("DOM fully loaded and parsed", $Context.inputs.selectedname);
+            
+            if($Context.inputs.selectedname == "")
+            {
+                loadProcessFlow("")
+                return;
+            }
+
             let ajax = new UI.Ajax("");
             let inputs={
                 "code": $Context.inputs.selectedname
@@ -67,7 +72,15 @@
             console.log(inputs)
             ajax.post('/trancode/detail',inputs).then((response) => {
                 console.log(JSON.parse(response))
-                let width = $('#fg_processflow').width()
+                loadProcessFlow(response)
+          
+            }).catch((error) => {
+                console.log(error);
+            })
+        });
+
+        function loadProcessFlow(response){
+            let width = $('#fg_processflow').width()
                 let height = $('#fg_processflow').height()
                 if(!width || width < 1000)
                     width = 1000
@@ -117,6 +130,11 @@
                     },
                     }
 
+                    if(response == undefined || response == ""){
+                        let emptyobj = {"Outputs":[{}]};
+                        response = JSON.stringify(emptyobj)   
+                    }
+                    console.log("render the flow:",response, !ProcessFlow)
                     if(!ProcessFlow){
                         document.addEventListener("UIFlow_libraryLoaded", function(event) {
                             console.log('UIFlow_libraryLoaded')
@@ -126,20 +144,8 @@
                     }
                     else 
                         flow = new ProcessFlow("fg_processflow",JSON.parse(response).Outputs[0], options,"");
-                    /*
-                    setTimeout(function(){
-                        console.log("flow")
-                        console.log(ProcessFlow)
-                        flow = new ProcessFlow("fg_processflow",JSON.parse(response).Outputs[0], options,"");
-                    },10000)
-                    */
-                
-                //page.create();            
-            }).catch((error) => {
-                console.log(error);
-            })
-        });
 
+        }
 
     </script>
 </body>

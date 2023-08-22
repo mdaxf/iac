@@ -57,7 +57,7 @@
                     {"Role":{
                         "type": "link",
                         "linkfields": [
-                            {"ID": "menu_roles.RoleID"}
+                            {"ID": "menu_roles.menuID"}
                         ],
                         "keyfield": "ID",
                         "tablename": "menu_roles",
@@ -86,6 +86,9 @@
                         "linkfields": [
                             {"ID": "menus.ParentID"}
                         ],
+                        "listfields":{ 
+                            "menus": ["Name", "Description", "Page", "Icon", "Show", "Desktop", "Mobile", "createdby", "createdon", "ID"]
+                        },
                         "keyfield": "ID",
                         "fields":[],
                         "tablename": "menus",

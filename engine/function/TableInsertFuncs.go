@@ -56,7 +56,7 @@ func (cf *TableInsertFuncs) Execute(f *Funcs) {
 	// Create SELECT clause with aliases
 	dboperation := dbconn.NewDBOperation(user, f.DBTx, "TableInsert Function")
 
-	output, err := dboperation.TableInsert(TableName, namelist, valuelist)
+	output, err := dboperation.TableInsert(TableName, columnList, columnvalueList)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Error in TableInsert Execute: %s", err.Error()))
 		return

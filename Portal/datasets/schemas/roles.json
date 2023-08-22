@@ -62,12 +62,14 @@
                         "schema":"userroles",
                         "masterschema":"users",
                         "masterdatafield":"userid",
+                        "hidefields": ["RoleID", "UserID"],
+                        "keys": ["RoleID", "UserID"],
                         "data":{
                             "user_roles":{
-                                "fields": [],
+                                "fields": ["RoleID"],
                                 "subtables": {
                                     "users":{
-                                        "fields": ["Name", "LoginName", "LoginCode", "active"],
+                                        "fields": ["Name", "LoginName", "LoginCode", "active", "ID as UserID"],
                                         "links":  ["user_roles.UserID = users.ID"]
                                     }                                    
                                 }
@@ -89,12 +91,14 @@
                         "schema":"menuroles",
                         "masterschema":"menus",
                         "masterdatafield":"menuid",
+                        "hidefields": ["RoleID", "MenuID"],
+                        "keys": ["RoleID", "MenuID"],
                         "data":{
                             "menu_roles":{
-                                "fields":["ViewOnly"],
+                                "fields":["ViewOnly", "RoleID"],
                                 "subtables": {
                                     "menus":{
-                                        "fields": ["Name", "Description"],
+                                        "fields": ["Name", "Description", "ID As MenuID"], 
                                         "links":  ["menu_roles.menuid = menus.ID"]
                                     }
                                 } 

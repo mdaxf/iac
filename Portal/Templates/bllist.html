@@ -13,7 +13,14 @@
     <script src="scripts/datatables.js"></script>
 <head>
 <body>
-    <div id="myGrid" style="width:100%;height:100%;"></div>
+    <div class="ui_actions_section" >
+        <button type="button" onclick="$ViewID_addnewrecord()" class="btn btn-primary" style="float:right;" value="Add" lngcode="Add">Add</button>
+        <button type="button" onclick="$ViewID_Actions('EDIT')" class="btn btn-secondary" style="float:right;" value="Edit" lngcode="Edit">Edit</button>
+        <!--button type="button" onclick="$ViewID_Actions('SELECT')" class="btn btn-secondary" style="float:right;" value="Select" lngcode="Select">Select</button -->
+        <button type="button" onclick="$ViewID_Actions('DELETE')" class="btn btn-secondary" style="float:right;" value="Delete" lngcode="Delete">Delete</button>
+        <button type="button" onclick="$ViewID_Cancel()" class="btn btn-secondary" style="float:right;" value="Cancel" lngcode="Cancel">Cancel</button>
+    </div>
+    <div id="BusinessLogicListGrid" style="width:100%;"></div>
    <script>
         $Context.onLoaded(function(){
         console.log('ajax call')
@@ -44,7 +51,7 @@
                     
               
                 let table_data={
-                    attrs:{id:"myTable"},
+                    attrs:{id:"BusinessLogicListTable"},
                     headers:[{innerHTML:'Transaction Code', style:"width:150px;"},
                     {innerHTML:'Version',style:"width:50px;"},
                     {innerHTML:'Description',style:"width:200px;"},
@@ -68,31 +75,29 @@
                     rows:rows
                 }
             //    console.log(table_data)
-                new UI.HtmlTable(document.getElementById('myGrid'),table_data);
+                new UI.HtmlTable(document.getElementById('BusinessLogicListGrid'),table_data);
 
                 if(!DataTable){
                         document.addEventListener("UIDataTable_libraryLoaded", function(event) {
                             console.log('UIDataTable_libraryLoaded')
                             //table = new DataTable('#myTable');
-                            $('#myTable').DataTable( {
-                                buttons: [
-                                    'Add'
-                                ]
-                            } );
+                            $('#BusinessLogicListTable').DataTable( {} );
                         });
 
                     }
                     else{ 
                        // new DataTable('#myTable');
-                        $('#myTable').DataTable( {
-                                buttons: [
-                                    'Add'
-                                ]
-                        } );
+                        $('#BusinessLogicListTable').DataTable( { } );
                     }
 
             })
         })
+
+        function $ViewID_addnewrecord(){
+            $Context.outputs.action="SELECT";
+            $Context.outputs.selectedname = "";
+            $Context.submit();
+        }
         function submitselection(evt){
         //    console.log(evt.target.innerHTML)
             $Context.outputs.action="SELECT";

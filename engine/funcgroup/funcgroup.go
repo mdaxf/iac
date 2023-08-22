@@ -67,6 +67,13 @@ func (c *FGroup) Execute() {
 
 	for _, fobj := range c.FGobj.Functions {
 		//	f := *(funcs.NewFuncs(fobj, systemSession, userSession, externalinputs, externaloutputs, funcCachedVariables))
+		c.iLog.Info(fmt.Sprintf("Start process function %s", fobj.Name))
+		c.iLog.Debug(fmt.Sprintf("systemSession: %s", logger.ConvertJson(systemSession)))
+		c.iLog.Debug(fmt.Sprintf("funcCachedVariables: %s", logger.ConvertJson(c.funcCachedVariables)))
+		c.iLog.Debug(fmt.Sprintf("userSession: %s", logger.ConvertJson(userSession)))
+		c.iLog.Debug(fmt.Sprintf("externalinputs: %s", logger.ConvertJson(externalinputs)))
+		c.iLog.Debug(fmt.Sprintf("externaloutputs: %s", logger.ConvertJson(externaloutputs)))
+
 		f := &funcs.Funcs{
 			Fobj:                fobj,
 			DBTx:                c.DBTx,
@@ -78,6 +85,13 @@ func (c *FGroup) Execute() {
 		}
 
 		f.Execute()
+		c.iLog.Info(fmt.Sprintf("End process function %s", fobj.Name))
+		//c.iLog.Debug(fmt.Sprintf("systemSession: %s", logger.ConvertJson(systemSession)))
+		c.iLog.Debug(fmt.Sprintf("funcCachedVariables: %s", logger.ConvertJson(funcCachedVariables)))
+		c.iLog.Debug(fmt.Sprintf("userSession: %s", logger.ConvertJson(userSession)))
+		c.iLog.Debug(fmt.Sprintf("externalinputs: %s", logger.ConvertJson(externalinputs)))
+		c.iLog.Debug(fmt.Sprintf("externaloutputs: %s", logger.ConvertJson(externaloutputs)))
+
 		userSession = f.UserSession
 		funcCachedVariables = f.FuncCachedVariables
 		externalinputs = f.Externalinputs
@@ -86,10 +100,12 @@ func (c *FGroup) Execute() {
 	c.UserSession = userSession
 	c.Externalinputs = externalinputs
 	c.Externaloutputs = externaloutputs
+	c.funcCachedVariables = funcCachedVariables
 	c.Nextfuncgroup = c.CheckRouter(c.FGobj.RouterDef)
 
 	c.iLog.Info(fmt.Sprintf("End process function group %s's %s ", c.FGobj.Name, reflect.ValueOf(c.Execute).Kind().String()))
 	c.iLog.Debug(fmt.Sprintf("systemSession: %s", logger.ConvertJson(c.SystemSession)))
+	c.iLog.Debug(fmt.Sprintf("funcCachedVariables: %s", logger.ConvertJson(c.funcCachedVariables)))
 	c.iLog.Debug(fmt.Sprintf("userSession: %s", logger.ConvertJson(c.UserSession)))
 	c.iLog.Debug(fmt.Sprintf("externalinputs: %s", logger.ConvertJson(c.Externalinputs)))
 	c.iLog.Debug(fmt.Sprintf("externaloutputs: %s", logger.ConvertJson(c.Externaloutputs)))
@@ -107,8 +123,10 @@ func (c *FGroup) CheckRouter(RouterDef types.RouterDef) string {
 	nextfuncgroups := RouterDef.Nextfuncgroups
 	defaultfuncgroup := RouterDef.Defaultfuncgroup
 
+	c.iLog.Debug(fmt.Sprintf("variable: %s, vartype: %s, values: %s, nextfg:%s, defaultfg:%s", variable, vartype, logger.ConvertJson(values), logger.ConvertJson(nextfuncgroups), defaultfuncgroup))
 	switch vartype {
 	case "systemSession":
+		c.iLog.Debug("start systemSession:")
 		if c.SystemSession[variable] != nil {
 			for i, value := range values {
 				if c.SystemSession[variable] == value {
@@ -118,6 +136,7 @@ func (c *FGroup) CheckRouter(RouterDef types.RouterDef) string {
 			}
 		}
 	case "userSession":
+		c.iLog.Debug("start userSession:")
 		if c.UserSession[variable] != nil {
 			for i, value := range values {
 				if c.UserSession[variable] == value {
@@ -126,13 +145,19 @@ func (c *FGroup) CheckRouter(RouterDef types.RouterDef) string {
 				}
 			}
 		}
-	case "funcCachedVariables":
+	/*case "":
+	case "funcCachedVariables": */
+	default:
+		c.iLog.Debug("start default:")
 		arr := strings.Split(variable, ".")
+		c.iLog.Debug(fmt.Sprintf("variable: %s arr: %s", variable, logger.ConvertJson(arr)))
 		if len(arr) == 2 {
-
+			c.iLog.Debug(fmt.Sprintf("function variables: %s", logger.ConvertJson(c.funcCachedVariables)))
 			if c.funcCachedVariables[arr[0]] != nil {
 				tempobj := c.funcCachedVariables[arr[0]].(map[string]interface{})
+				c.iLog.Debug(fmt.Sprintf("function variables: %s", logger.ConvertJson(tempobj)))
 				if tempobj[arr[1]] != nil {
+					c.iLog.Debug(fmt.Sprintf("function %s variable %s value: %s", arr[0], arr[1], logger.ConvertJson(tempobj[arr[1]])))
 					for i, value := range values {
 						if tempobj[arr[1]] == value {
 							c.iLog.Info(fmt.Sprintf("End process function group %s's %s 's Next func group: %s", c.FGobj.Name, reflect.ValueOf(c.CheckRouter).Kind().String(), nextfuncgroups[i]))

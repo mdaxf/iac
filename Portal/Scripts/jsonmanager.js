@@ -271,7 +271,7 @@ var UI = UI || {};
                 index: -1,
               };
 
-       //   console.log('getnode:',path)
+        //  console.log('getnode:',path)
           const keys = path.toString().includes("/")? path.toString().split("/"): [path];
           let currentNode = this.data;
           let arrayPath = null;
@@ -280,7 +280,7 @@ var UI = UI || {};
       //    console.log(keys)
           for (let i = 0; i < keys.length; i++) {
             const key = keys[i];
-         //   console.log(i,currentNode,key, this.isValidJSON(key))
+        //    console.log(i,currentNode,key, this.isValidJSON(key))
             isArrayElement = Array.isArray(currentNode)
             if(this.isValidJSON(key)){
 

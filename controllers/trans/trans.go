@@ -32,14 +32,16 @@ func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 		log.Println(string(jsonString))  */
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
 
-	var tcdata TranCodeData
-	if err := ctx.BindJSON(&tcdata); err != nil {
+	//var tcdata TranCodeData
+	tcdata, err := getDataFromRequest(ctx)
+	/*if err := ctx.BindJSON(&tcdata); err != nil {
 		iLog.Error(fmt.Sprintf("Error binding json:", err.Error()))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
-	}
+	} */
 	//log.Print(tcdata.TranCode)
-	iLog.Info(fmt.Sprintf("Start process transaction code %s's %s ", tcdata.TranCode, "Execute"))
+	iLog.Info(fmt.Sprintf("Start process transaction code %s's %s: %s", tcdata.TranCode, "Execute", tcdata.Inputs))
+
 	//tcode, err := e.getTransCode(tcdata.TranCode)
 	filter := bson.M{"trancodename": tcdata.TranCode, "isdefault": true}
 
@@ -71,7 +73,15 @@ func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 		return
 	}
 
-	tf := trancode.NewTranFlow(code, tcdata.inputs, map[string]interface{}{}, nil, nil, nil)
+	/*var inputs_json map[string]interface{}
+	err = json.Unmarshal([]byte(tcdata.inputs), &inputs_json)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error unmarshaling json:", err.Error()))
+		inputs_json = nil
+	}
+	iLog.Debug(fmt.Sprintf("transaction code %s's json inputs: %s", tcdata.TranCode, inputs_json))
+	*/
+	tf := trancode.NewTranFlow(code, tcdata.Inputs, map[string]interface{}{}, nil, nil, nil)
 	outputs, err := tf.Execute()
 
 	if err == nil {
@@ -331,11 +341,31 @@ func (e *TranCodeController) UpdateTranCodeToRespository(ctx *gin.Context) {
 
 }
 
+func getDataFromRequest(ctx *gin.Context) (TranCodeData, error) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromRequest"}
+	iLog.Debug(fmt.Sprintf("GetDataFromRequest"))
+
+	var data TranCodeData
+	body, err := ioutil.ReadAll(ctx.Request.Body)
+	iLog.Debug(fmt.Sprintf("GetDataFromRequest body: %s", body))
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
+		return data, err
+	}
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetDataFromRequest Unmarshal error: %s", err.Error()))
+		return data, err
+	}
+	iLog.Debug(fmt.Sprintf("GetDataFromRequest data: %s", data))
+	return data, nil
+}
+
 type TranCodeData struct {
 	TranCode string                 `json:"code"`
 	UUID     string                 `json:"uuid"`
 	Data     map[string]interface{} `json:"data"`
-	inputs   map[string]interface{} `json:"Inputs"`
+	Inputs   map[string]interface{} `json:"inputs"`
 }
 
 type TranCode struct {

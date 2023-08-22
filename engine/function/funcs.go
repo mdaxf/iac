@@ -85,26 +85,28 @@ func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
 			}
 		case types.Prefunction:
 			arr := strings.Split(inputs[i].Aliasname, ".")
+			f.iLog.Debug(fmt.Sprintf("Prefunction: %s", logger.ConvertJson(arr)))
 			if len(arr) == 2 {
-
+				f.iLog.Debug(fmt.Sprintf("Prefunction variables: %s", logger.ConvertJson(f.FuncCachedVariables)))
 				if f.FuncCachedVariables[arr[0]] != nil {
-					tempobj := f.FuncCachedVariables[arr[0]].(map[string]interface{})
-					if tempobj[arr[1]] != nil {
-						inputs[i].Value = tempobj[arr[1]].(string)
-					}
+					value, _ := f.checkinputvalue(arr[1], f.FuncCachedVariables[arr[0]].(map[string]interface{}))
+					inputs[i].Value = value
+				} else {
+					f.iLog.Error(fmt.Sprintf("Error in SetInputs: %s Prefunction[%s]", "Prefunction not found", inputs[i].Aliasname))
+					//	f.DBTx.Rollback()
+					inputs[i].Value = ""
 				}
 			} else {
 				f.iLog.Error(fmt.Sprintf("Error in SetInputs: %s Prefunction[%s]", "Prefunction not found", inputs[i].Aliasname))
-				f.DBTx.Rollback()
+				//	f.DBTx.Rollback()
+				inputs[i].Value = ""
 			}
 
 		case types.Fromexternal:
-			if f.Externalinputs[inputs[i].Aliasname] != nil {
-				inputs[i].Value = f.Externalinputs[inputs[i].Aliasname].(string)
-			} else {
-				f.iLog.Error(fmt.Sprintf("Error in SetInputs: %s Externalinputs[%s]", "Externalinputs not found", inputs[i].Aliasname))
-				f.DBTx.Rollback()
-			}
+			f.iLog.Debug(fmt.Sprintf("Externalinputs: %s", logger.ConvertJson(f.Externalinputs)))
+			value, _ := f.checkinputvalue(inputs[i].Aliasname, f.Externalinputs)
+			inputs[i].Value = value
+
 		}
 
 		switch inputs[i].Datatype {
@@ -118,13 +120,19 @@ func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
 			}
 			if inputs[i].List == true {
 
-				var temp []int
-				err := json.Unmarshal([]byte(inputs[i].Value), &temp)
-				if err != nil {
-					f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
-					f.DBTx.Rollback()
+				if isArray(inputs[i].Value) {
+					var temp []int
+					err := json.Unmarshal([]byte(inputs[i].Value), &temp)
+					if err != nil {
+						f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
+						//	f.DBTx.Rollback()
+					}
+					newinputs[inputs[i].Name] = temp
+				} else {
+					temp := make([]int, 0)
+					temp = append(temp, f.ConverttoInt(inputs[i].Value))
+					newinputs[inputs[i].Name] = temp
 				}
-				newinputs[inputs[i].Name] = temp
 
 			}
 		case types.Float:
@@ -140,7 +148,7 @@ func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
 				err := json.Unmarshal([]byte(inputs[i].Value), &temp)
 				if err != nil {
 					f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
-					f.DBTx.Rollback()
+					//	f.DBTx.Rollback()
 				}
 				newinputs[inputs[i].Name] = temp
 
@@ -156,7 +164,7 @@ func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
 				err := json.Unmarshal([]byte(inputs[i].Value), &temp)
 				if err != nil {
 					f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
-					f.DBTx.Rollback()
+					//	f.DBTx.Rollback()
 				}
 				newinputs[inputs[i].Name] = temp
 
@@ -174,7 +182,7 @@ func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
 				err := json.Unmarshal([]byte(inputs[i].Value), &temp)
 				if err != nil {
 					f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
-					f.DBTx.Rollback()
+					//	f.DBTx.Rollback()
 				}
 				newinputs[inputs[i].Name] = temp
 
@@ -189,7 +197,7 @@ func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
 				err := json.Unmarshal([]byte(inputs[i].Value), &temp)
 				if err != nil {
 					f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
-					f.DBTx.Rollback()
+					//	f.DBTx.Rollback()
 				}
 				newinputs[inputs[i].Name] = temp
 
@@ -206,6 +214,107 @@ func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
 	f.Fobj.Inputs = inputs
 
 	return namelist, valuelist, newinputs
+}
+
+func isArray(value interface{}) bool {
+	// Use reflection to check if the value's kind is an array
+	val := reflect.ValueOf(value)
+	return val.Kind() == reflect.Array || val.Kind() == reflect.Slice
+}
+
+func (f *Funcs) checkinputvalue(Aliasname string, variables map[string]interface{}) (string, error) {
+	var err error
+	err = nil
+	var Result string
+	if variables[Aliasname] != nil {
+		if resultMap, ok := variables[Aliasname].([]interface{}); ok {
+			Result = "["
+			for index, value := range resultMap {
+				_value, err := json.Marshal(value)
+				if err != nil {
+					f.iLog.Error(fmt.Sprintf("Marshal %s error: %s", Aliasname, err.Error()))
+					f.DBTx.Rollback()
+				}
+
+				if index == 0 {
+					Result += string(_value)
+				} else {
+					Result = Result + "," + string(_value)
+				}
+			}
+			Result += "]"
+		} else if resultMap, ok := variables[Aliasname].(map[string]interface{}); ok {
+			value, err := json.Marshal(resultMap)
+			if err != nil {
+				f.iLog.Error(fmt.Sprintf("Marshal %s error: %s", Aliasname, err.Error()))
+				//	f.DBTx.Rollback()
+			} else {
+				Result = string(value)
+			}
+
+			Result = string(value)
+		} else if resultMap, ok := variables[Aliasname].([]string); ok {
+			Result = ""
+			for index, value := range resultMap {
+				if index == 0 {
+					Result = value
+				} else {
+					Result = Result + "," + value
+				}
+			}
+		} else {
+
+			/*temp, err := json.Marshal(variables[Aliasname])
+			if err != nil {
+				f.iLog.Error(fmt.Sprintf("Marshal %s error: %s", Aliasname, err.Error()))
+			}
+			f.iLog.Debug(fmt.Sprintf("checkinputvalue %s temp: %s", variables[Aliasname], temp))  */
+			switch variables[Aliasname].(type) {
+			case int:
+				Result = strconv.Itoa(variables[Aliasname].(int))
+			case int64:
+				value := int(variables[Aliasname].(int64))
+				Result = strconv.Itoa(value)
+			case float64:
+				Result = strconv.FormatFloat(variables[Aliasname].(float64), 'f', -1, 64)
+			case bool:
+				Result = strconv.FormatBool(variables[Aliasname].(bool))
+			case string:
+				Result = variables[Aliasname].(string)
+			case time.Time:
+				Result = variables[Aliasname].(time.Time).Format(types.DateTimeFormat)
+			case nil:
+				Result = ""
+			default:
+				Result = fmt.Sprint(variables[Aliasname])
+
+			}
+		}
+	} else {
+		f.iLog.Error(fmt.Sprintf("Error in SetInputs: %s Externalinputs[%s]", "Externalinputs not found", Aliasname))
+		//	f.DBTx.Rollback()
+
+	}
+	f.iLog.Debug(fmt.Sprintf("checkinputvalue %s result: %s", variables[Aliasname], Result))
+	return Result, err
+}
+
+func customMarshal(v interface{}) string {
+	var jsonStr string
+	switch reflect.TypeOf(v).Kind() {
+	case reflect.Struct:
+		t := reflect.TypeOf(v)
+		v := reflect.ValueOf(v)
+		jsonStr += "{"
+		for i := 0; i < t.NumField(); i++ {
+			fieldName := t.Field(i).Tag.Get("json")
+			fieldValue := fmt.Sprintf("%v", v.Field(i))
+			jsonStr += fmt.Sprintf(`%s:%s,`, fieldName, fieldValue)
+		}
+		jsonStr = jsonStr[:len(jsonStr)-1] // Remove trailing comma
+		jsonStr += "}"
+	}
+	return jsonStr
 }
 
 func (f *Funcs) ConverttoInt(str string) int {

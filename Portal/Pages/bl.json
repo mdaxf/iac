@@ -1,5 +1,5 @@
 {
-	"name": "Business Logic Maintenance",
+	"name": "Business Logic List",
 	"version": "1.0.0",
 	"isdefault": true,
 	"orientation": 0,
@@ -8,24 +8,25 @@
 	"attrs": {
 		"style": "width: 100%; height: 100%;"
 	},
-	"panels": [{
-			"name": "slide_icon",
-			"orientation": 2,
-			"view": {
-				"name": "slide_menu",
-				"config":"Views/slidemenu.json"
-			},
-			"inlinestyle": "display: float; left:0px; bottom:0px; height: 45px; width:0px;"
-		},
+	"panels": [
 		{
 			"name": "content",
 			"orientation": 1,
 			"view": {
-				"name": "businesslogiclist",
-				"config":"Views/businesslogiclist.json",				
-				"initcode": ""				
-			},
-			"inlinestyle": "width: 100%;height:100%"
+				"name": "business logic list",
+				"type": "view-type",
+				"file": "templates/bllist.html",
+				"inlinestyle": "height: 100%;",
+				"inputs":{       
+				},
+				"outputs":{
+					"selectedname": "",
+					"action": ""
+				},
+				"actions":{
+					"SELECT": {"type": "page","page":"pages/bpmeditor.json", "next": "","panels":[{"panel": "content","view":"views/businesslogiceditor.json"}]}
+				}			
+			}
 		}
 	]
 }

@@ -67,7 +67,7 @@
             }
             else 
             {
-                console.log("no data specified")
+                console.log("no data field specified")
                 //    UI.ShowError('Data Not Found');
                     return;
             }
@@ -81,6 +81,15 @@
                 fields = schema.fields;
             }                
            
+            let hidefields = [];
+            let keyfields =[];
+            if(schema.hasOwnProperty('hidefields')){
+                hidefields = schema.hidefields;
+            }
+            if(schema.hasOwnProperty('keys')){
+                keyfields = schema.keys;
+            }
+
             console.log("ajax call input data:",inputs)
             let url = '/sqldata/get'
 
@@ -130,28 +139,23 @@
                             console.log('UIDataTable_libraryLoaded')
                                     //table = new DataTable('#myTable');
                             $('#mylinkeddataGrid_datatable').DataTable( {
-                                buttons: [
-                                        'Add'
-                                    ]
+
                                 } );
                         });
 
                     }else{ 
                         // new DataTable('#myTable');
                             $('#mylinkeddataGrid_datatable').DataTable( {
-                                    buttons: [
-                                        'Add'
-                                    ]
                             } );
                     }
 
                     $('table > tbody > tr').on('click', function(){
-                            console.log('select row', this)
+                        //    console.log('select row', this)
                             if($(this).hasClass('selected')){
                                 $(this).removeClass('selected');
                             }
                             else{
-                                $('table > tbody > tr').removeClass('selected');
+                             //   $('table > tbody > tr').removeClass('selected');
                                 $(this).addClass('selected');
                             }
                     });

@@ -8,6 +8,19 @@
     stroke-dasharray: 5, 2;
 }
 
+rect[joint-selector="FunctionOutputRect"]{
+	fill-opacity: 0.25;
+}
+
+rect[joint-selector="FunctioninputRect"]{
+	fill-opacity: 0.25;
+}
+
+.btn::before{
+	font-family: FontAwesome;
+	font-size: 12px;
+	margin-right: 5px;
+}
 .uiflow_process_flow_menubar_container{
     font-family: FontAwesome;
     display: flex;

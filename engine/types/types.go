@@ -108,7 +108,7 @@ const (
 	TableDelete
 	CollectionInsert
 	CollectionUpdate
-	CollectionDelete
+	CollectionDelete3
 	ThrowError
 	SendMessage
 	SendEmail

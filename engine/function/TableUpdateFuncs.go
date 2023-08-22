@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	dbconn "github.com/mdaxf/iac/databases"
-	"github.com/mdaxf/iac/engine/types"
 )
 
 type TableUpdateFuncs struct {
@@ -66,18 +65,23 @@ func (cf *TableUpdateFuncs) Execute(f *Funcs) {
 
 	Where := ""
 	for i, column := range keycolumnList {
-		switch keycolumndatatypeList[i] {
+		if Where != "" {
+			Where = fmt.Sprintf("%s AND ", Where)
+		}
+		f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs Column: %s  Value: %s  keycolumndatatypeList: %s", column, keycolumnvalueList[i], keycolumndatatypeList[i]))
+		/*switch keycolumndatatypeList[i] {
 		case int(types.String):
 		case int(types.DateTime):
-			Where += column + " = '" + keycolumnvalueList[i] + "'"
+			Where = fmt.Sprintf("%s %s ='%s'", Where, column, keycolumnvalueList[i])
 		default:
-			Where += column + " = " + keycolumnvalueList[i]
-		}
-		if i < len(keycolumnList)-1 {
-			Where += " AND "
-		}
-	}
+			Where = fmt.Sprintf("%s %s =%s", Where, column, keycolumnvalueList[i])
+		}  */
+		value := strings.Replace(keycolumnvalueList[i], "'", "", -1)
 
+		Where = fmt.Sprintf("%s %s ='%s'", Where, column, value)
+		f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs Where: %s", Where))
+	}
+	f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs Where: %s", Where))
 	var user string
 
 	if f.SystemSession["User"] != nil {

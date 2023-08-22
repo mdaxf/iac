@@ -25,12 +25,13 @@ func (cf *StoreProcFuncs) Execute(f *Funcs) {
 	// Create SELECT clause with aliases
 	dboperation := dbconn.NewDBOperation(user, f.DBTx, "Execute Query Function")
 
-	outputs, err := dboperation.QuerybyList(f.Fobj.Content, namelist, inputs, f.Fobj.Inputs)
+	outputs, ColumnCount, RowCount, err := dboperation.QuerybyList(f.Fobj.Content, namelist, inputs, f.Fobj.Inputs)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Error in QueryFuncs.Execute: %s", err.Error()))
 		return
 	}
-
+	outputs["ColumnCount"] = []interface{}{ColumnCount}
+	outputs["RowCount"] = []interface{}{RowCount}
 	f.SetOutputs(f.convertMap(outputs))
 }
 
