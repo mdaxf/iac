@@ -77,6 +77,7 @@ type Input struct {
 	Defaultvalue string      "json:'defaultvalue'"
 	Value        string      "json:'value'"
 	List         bool        "json:'list'"
+	Repeat       bool        "json:'repeat'"
 	Aliasname    string      "json:'aliasname'"
 	Description  string      "json:'description'"
 }

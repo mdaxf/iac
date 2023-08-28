@@ -9,9 +9,13 @@ import (
 	"database/sql"
 
 	dbconn "github.com/mdaxf/iac/databases"
+	"github.com/mdaxf/iac/documents"
 	funcgroup "github.com/mdaxf/iac/engine/funcgroup"
 	"github.com/mdaxf/iac/engine/types"
 	"github.com/mdaxf/iac/logger"
+	"go.mongodb.org/mongo-driver/bson"
+
+	"github.com/mdaxf/iac/engine/callback"
 )
 
 type TranFlow struct {
@@ -36,6 +40,9 @@ func NewTranFlow(tcode types.TranCode, externalinputs, systemSession map[string]
 	}
 
 	idbTx := append(dbTx, nil)[0]
+
+	tfr := TranFlowstr{}
+	callback.RegisterCallBack("TranFlowstr_Execute", tfr.Execute)
 
 	return &TranFlow{
 		Tcode:           tcode,
@@ -166,7 +173,7 @@ type TranFlowstr struct {
 }
 
 func (t *TranFlowstr) Execute(tcode string, inputs map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc, dbTx ...*sql.Tx) (map[string]interface{}, error) {
-	tc, err := GetTransCode(tcode)
+	tc, err := GetTranCodeData(tcode)
 
 	if err != nil {
 		return nil, err
@@ -179,4 +186,43 @@ func (t *TranFlowstr) Execute(tcode string, inputs map[string]interface{}, ctx c
 	tf := NewTranFlow(tc, externalinputs, systemSession, ctx, ctxcancel, idbTx)
 
 	return tf.Execute()
+}
+
+func GetTranCodeData(Code string) (types.TranCode, error) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
+	iLog.Info(fmt.Sprintf("Get the trancode code for %s ", Code))
+
+	iLog.Info(fmt.Sprintf("Start process transaction code %s's %s ", Code, "Execute"))
+
+	filter := bson.M{"trancodename": Code, "isdefault": true}
+
+	tcode, err := documents.DocDBCon.QueryCollection("Transaction_Code", filter, nil)
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get transaction code %s's error", Code))
+
+		return types.TranCode{}, err
+	}
+	iLog.Debug(fmt.Sprintf("transaction code %s's data: %s", Code, tcode))
+	jsonString, err := json.Marshal(tcode[0])
+	if err != nil {
+
+		iLog.Error(fmt.Sprintf("Error marshaling json:", err.Error()))
+		return types.TranCode{}, err
+	}
+
+	trancodeobj, err := Configtoobj(string(jsonString))
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error unmarshaling json:", err.Error()))
+		return types.TranCode{}, err
+	}
+
+	iLog.Debug(fmt.Sprintf("transaction code %s's json: %s", trancodeobj, string(jsonString)))
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error unmarshaling json:", err.Error()))
+		return types.TranCode{}, err
+	}
+
+	return trancodeobj, nil
 }

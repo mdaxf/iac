@@ -99,36 +99,44 @@ func (e *TranCodeController) Execute(Code string, externalinputs map[string]inte
 	iLog.Info(fmt.Sprintf("Start process transaction code %s with inputs: %s ", Code, externalinputs))
 
 	iLog.Info(fmt.Sprintf("Start process transaction code %s's %s ", Code, "Execute"))
+	/*
+		filter := bson.M{"trancodename": Code, "isdefault": true}
 
-	filter := bson.M{"trancodename": Code, "isdefault": true}
+		tcode, err := documents.DocDBCon.QueryCollection("Transaction_Code", filter, nil)
 
-	tcode, err := documents.DocDBCon.QueryCollection("Transaction_Code", filter, nil)
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Get transaction code %s's error", Code))
 
-	if err != nil {
-		iLog.Error(fmt.Sprintf("Get transaction code %s's error", Code))
+			return nil, err
+		}
+		iLog.Debug(fmt.Sprintf("transaction code %s's data: %s", Code, tcode))
+		jsonString, err := json.Marshal(tcode[0])
+		if err != nil {
 
-		return nil, err
-	}
-	iLog.Debug(fmt.Sprintf("transaction code %s's data: %s", Code, tcode))
-	jsonString, err := json.Marshal(tcode[0])
-	if err != nil {
+			iLog.Error(fmt.Sprintf("Error marshaling json:", err.Error()))
+			return nil, err
+		}
 
-		iLog.Error(fmt.Sprintf("Error marshaling json:", err.Error()))
-		return nil, err
-	}
+		trancodeobj, err := trancode.Configtoobj(string(jsonString))
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error unmarshaling json:", err.Error()))
+			return nil, err
+		}
 
-	trancodeobj, err := trancode.Configtoobj(string(jsonString))
+		iLog.Debug(fmt.Sprintf("transaction code %s's json: %s", trancodeobj, string(jsonString)))
+
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error unmarshaling json:", err.Error()))
+			return nil, err
+		}
+	*/
+	trancodeobj, err := trancode.GetTranCodeData(Code)
+
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error unmarshaling json:", err.Error()))
 		return nil, err
 	}
-
-	iLog.Debug(fmt.Sprintf("transaction code %s's json: %s", trancodeobj, string(jsonString)))
-
-	if err != nil {
-		iLog.Error(fmt.Sprintf("Error unmarshaling json:", err.Error()))
-		return nil, err
-	}
+	iLog.Debug(fmt.Sprintf("transaction code %s's json: %s", Code, trancodeobj))
 
 	tf := trancode.NewTranFlow(trancodeobj, externalinputs, map[string]interface{}{}, nil, nil, nil)
 	outputs, err := tf.Execute()

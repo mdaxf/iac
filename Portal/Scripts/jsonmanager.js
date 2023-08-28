@@ -271,16 +271,16 @@ var UI = UI || {};
                 index: -1,
               };
 
-        //  console.log('getnode:',path)
+          console.log('getnode:',path)
           const keys = path.toString().includes("/")? path.toString().split("/"): [path];
           let currentNode = this.data;
           let arrayPath = null;
           let isArrayElement = false;
           let index = -1;
-      //    console.log(keys)
+          console.log(keys)
           for (let i = 0; i < keys.length; i++) {
             const key = keys[i];
-        //    console.log(i,currentNode,key, this.isValidJSON(key))
+            console.log(i,currentNode,key, this.isValidJSON(key))
             isArrayElement = Array.isArray(currentNode)
             if(this.isValidJSON(key)){
 
@@ -299,7 +299,7 @@ var UI = UI || {};
 
             }
             else{
-            //    console.log(currentNode,key)
+                console.log(currentNode,key)
                 let findobj = this.findNodebykey(currentNode,key);
                 if(findobj){
                     currentNode = findobj.value;
@@ -322,6 +322,7 @@ var UI = UI || {};
         }
 
         isValidJSON(str){
+            console.log(str)
             if(str == null || str == undefined)
                 return false;
             if(typeof str == 'object')
@@ -336,21 +337,46 @@ var UI = UI || {};
             return typeof obj == 'object';
         }
         findNodebykey(jsonObject,key){
-        //    console.log('findNodebykey',jsonObject,key, Array.isArray(jsonObject),jsonObject.hasOwnProperty(key))
+            console.log('findNodebykey',jsonObject,key, Array.isArray(jsonObject),jsonObject.hasOwnProperty(key))
             if(Array.isArray(jsonObject)){
-                try {
-                    let index = parseInt(key);
-                    if(!isNaN(index))
-                        return {
-                            value: jsonObject[index],
-                            isArrayElement: true,
+
+                if(this.isValidJSON(key)){
+                    for (var i=0;i<jsonObject.length;i++){
+                        console.log('check the node:',i,jsonObject[i] )
+                        let node = jsonObject[i];
+                        let found = true;
+                        for (const searchKey in key) {
+                            console.log("check the key:", searchKey, key[searchKey], node[searchKey])
+                            if (key.hasOwnProperty(searchKey) && node[searchKey] != key[searchKey]) {
+                              found = false;
+                              break;
+                            }
+                        }
+                        if (found) {
+                          return {
+                            value: node,
+                            isArrayElement: Array.isArray(node),
                             arrayPath: '',
-                            index: index,
-                        };
-                }
-                catch(e){
+                            index: i,
+                          };
+                        }
+                    }
                     return null;
-                }
+                }else{
+                    try {
+                        let index = parseInt(key);
+                        if(!isNaN(index))
+                            return {
+                                value: jsonObject[index],
+                                isArrayElement: true,
+                                arrayPath: '',
+                                index: index,
+                            };
+                    }
+                    catch(e){
+                        return null;
+                    }
+                }         
 
             }
             else if(jsonObject.hasOwnProperty(key))

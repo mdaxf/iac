@@ -41,6 +41,13 @@
                         "default":"IsDefault"
                     } 
                 },
+                "status": {
+                    "type": "integer",
+                    "lng":{
+                        "code": "Status",
+                        "default":"Status"
+                    } 
+                },
                 "description": {
                     "type": "string",
                     "lng":{

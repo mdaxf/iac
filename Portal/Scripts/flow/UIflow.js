@@ -2158,6 +2158,9 @@ var ProcessFlow = (function(){
 					if(!flowobj.hasOwnProperty('uuid') || flowobj.uuid == "")
 						flowobj.uuid = UIFlow.generateUUID();
 					// build the nodes
+					if(!flowobj.hasOwnProperty('status'))
+						flowobj.status = 0;
+
 					let firstnodeid = "";
 					let index = 0;
 					if(flowobj.functiongroups)
@@ -2300,6 +2303,8 @@ var ProcessFlow = (function(){
 								datatype: parseInt(input.datatype),
 								description: input.description,
 								source:	input.source,
+								list: input.hasOwnProperty("list")? input.list: false,
+								repeat:input.hasOwnProperty("repeat")? input.repeat: false,
 								aliasname: input.aliasname,
 								defaultvalue: input.defaultvalue
 							}
@@ -3576,7 +3581,7 @@ var ProcessFlow = (function(){
 			
 			let that =this;
 
-			
+			/*
 			this.Paper.on('element:pointerdown', function(elementView) {
 				console.log(elementView, elementView.model)
 				if(that.selectedelement == elementView){
@@ -3585,12 +3590,7 @@ var ProcessFlow = (function(){
 					elementView.model.interactive = false;
 					return;
 				}					
-				/*
-				if (elementView.model.isPort()) {
-					paper.options.interactive = false; // Disable paper movement
-					elementView.model.options.interactive = false; // Disable element movement
-				}
-				*/
+				
 				that.selectedelement = elementView;
 				that.svgZoom.disablePan();	
 				joint.highlighters.mask.add(elementView, { selector: 'root' }, 'my-element-highlight', {
@@ -3632,7 +3632,7 @@ var ProcessFlow = (function(){
 				});
 			});
 
-			
+			*/
 			//if(this.options.flowtype == 'FUNCGROUP' || this.options.flowtype == 'TRANCODE'){
 				this.Paper.on('port:mouseenter', function(event, port) {
 					console.log('port:mouseenter', event, port)
@@ -4596,8 +4596,8 @@ var ProcessFlow = (function(){
 
 			control_attrs ={
 				id: 'trancode_status',
-				selected: flowobj.status || '0',
-				attrs:{style:"width:100%"},
+				selected: flowobj.status || 0,
+				attrs:{style:"width:100%", id: 'trancode_status',},
 				options: ["Developing", "Prototype", "Testing", "Stage", "Production"]
 			}
 			new UI.Selection(property_container,control_attrs);
@@ -4636,7 +4636,7 @@ var ProcessFlow = (function(){
 				that.flowobj.trancodename = trancodename;
 				that.flowobj.version = trancodeversion;
 				that.flowobj.description = description;
-				that.flowobj.status = status;
+				that.flowobj.status = parseInt(status);
 				that.flowobj.isdefault = document.getElementById('trancodeisdefault').checked;
 				that.property_panel.style.width = "0px";
 				that.property_panel.style.display = "none";
@@ -4897,7 +4897,8 @@ var ProcessFlow = (function(){
 					}
 					if(parameter_type == "input"){
 						for(var i=0;i<this.flowobj.inputs.length;i++){
-							if(this.flowobj.inputs[i].name == newparameter ){
+							
+							if(this.flowobj.inputs[i].name == newvalue ){
 								alert("the new parameter name cannot be same as existing name!")
 								return;
 							}
@@ -4911,7 +4912,7 @@ var ProcessFlow = (function(){
 					}else if(parameter_type == "output"){
 						for(var i=0;i<this.flowobj.outputs.length;i++){
 
-							if(this.flowobj.outputs[i].name == newparameter ){
+							if(this.flowobj.outputs[i].name == newvalue ){
 								alert("the new parameter name cannot be same as existing name!")
 								return;
 							}
@@ -5484,7 +5485,7 @@ var ProcessFlow = (function(){
 								case 'Delete':
 									var result = confirm("Are you sure you want to delete?");
 									if(result){
-										let path = 'functiongroups/{"name":"'+that.funcgroupname+'"}/functions/{"id":"'+node+"}/"+type+'s/{"id":"'+portid+'"}';
+										let path = 'functiongroups/{"name":"'+that.funcgroupname+'"}/functions/{"id":"'+node+'"}/'+type+'s/{"id":"'+portid+'"}';
 										that.FlowJsonObj.deleteNode(path);
 										that.reload();
 
@@ -5534,6 +5535,8 @@ var ProcessFlow = (function(){
 				value:'',
 				source:	0,
 				aliasname: '',
+				list: false,
+				repeat:false,
 				defaultvalue: ""
 			}	
 
@@ -6145,10 +6148,21 @@ var ProcessFlow = (function(){
 			attrs={ for: 'parameterlist', innerHTML: 'List'}
 			new UI.FormControl(property_container, 'label', attrs);
 			new UI.FormControl(property_container, 'br', {});
-
+			
 			attrs={id: 'parameterlist', value:parameterobj.list,style: 'width: 70%;'}
 			new UI.CheckBox(property_container,'checkbox',attrs);
 			new UI.FormControl(property_container, 'br', {});
+
+			if(type == 'input'){
+				attrs={ for: 'parameterlistrepeat', innerHTML: 'Repeat'}
+				new UI.FormControl(property_container, 'label', attrs);
+				new UI.FormControl(property_container, 'br', {});
+				
+				attrs={id: 'parameterlistrepeat', value:parameterobj.repeat,style: 'width: 70%;'}
+				new UI.CheckBox(property_container,'checkbox',attrs);
+				new UI.FormControl(property_container, 'br', {});
+			}
+
 
 			attrs ={for: 'parameterdefaultvalue', innerHTML: 'Parameter Default Value'}
 			new UI.FormControl(property_container, 'label', attrs);
@@ -6259,11 +6273,13 @@ var ProcessFlow = (function(){
 				parameterobj.datatype = parseInt(parameterdatatype.value);
 				parameterobj.list = parameterlist.value;
 				parameterobj.defaultvalue = parameterdefaultvalue.value;
+				
 				if(type == 'input'){
 					parameterobj.source = document.getElementById('parametersource').value;
 					parameterobj.aliasname = document.getElementById('parameteraliasname').value;
 					parameterobj.value = document.getElementById('parametertvalue').value;
-					
+					parameterobj.repeat = document.getElementById('parameterlistrepeat').checked;
+
 					let data = {
 						id:parameterobj.id,
 						name:parameterobj.name,
@@ -6273,7 +6289,8 @@ var ProcessFlow = (function(){
 						aliasname:parameterobj.aliasname,
 						value:parameterobj.value,				
 						defaultvalue:parameterobj.defaultvalue,
-						list:parameterobj.list
+						list:parameterobj.list,
+						repeat: parameterobj.repeat,
 					};
 					if(block){
 						block.update(data, type)

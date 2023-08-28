@@ -16,16 +16,21 @@ import (
 )
 
 type Funcs struct {
-	Fobj                types.Function
-	DBTx                *sql.Tx
-	Ctx                 context.Context
-	CtxCancel           context.CancelFunc
-	SystemSession       map[string]interface{} // {sessionanme: value}
-	UserSession         map[string]interface{} // {sessionanme: value}
-	Externalinputs      map[string]interface{} // {sessionanme: value}
-	Externaloutputs     map[string]interface{} // {sessionanme: value}
-	FuncCachedVariables map[string]interface{}
-	iLog                logger.Log
+	Fobj                 types.Function
+	DBTx                 *sql.Tx
+	Ctx                  context.Context
+	CtxCancel            context.CancelFunc
+	SystemSession        map[string]interface{} // {sessionanme: value}
+	UserSession          map[string]interface{} // {sessionanme: value}
+	Externalinputs       map[string]interface{} // {sessionanme: value}
+	Externaloutputs      map[string]interface{} // {sessionanme: value}
+	FuncCachedVariables  map[string]interface{}
+	iLog                 logger.Log
+	FunctionInputs       []map[string]interface{}
+	FunctionOutputs      []map[string]interface{}
+	ExecutionNumber      int
+	ExecutionCount       int
+	FunctionMappedInputs map[string]interface{}
 }
 
 func NewFuncs(dbTx *sql.Tx, fobj types.Function, systemSession, userSession, externalinputs, externaloutputs, funcCachedVariables map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc) *Funcs {
@@ -37,6 +42,7 @@ func NewFuncs(dbTx *sql.Tx, fobj types.Function, systemSession, userSession, ext
 	} else {
 		log.User = "System"
 	}
+	var newdata []map[string]interface{}
 
 	return &Funcs{
 		Fobj:                fobj,
@@ -49,6 +55,10 @@ func NewFuncs(dbTx *sql.Tx, fobj types.Function, systemSession, userSession, ext
 		Externaloutputs:     externaloutputs,
 		FuncCachedVariables: funcCachedVariables,
 		iLog:                log,
+		FunctionInputs:      newdata,
+		FunctionOutputs:     newdata,
+		ExecutionNumber:     1,
+		ExecutionCount:      0,
 	}
 }
 
@@ -62,9 +72,183 @@ func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
 
 	inputs := f.Fobj.Inputs
 
-	f.iLog.Debug(fmt.Sprintf("function inputs: %s", logger.ConvertJson(inputs)))
-
+	f.iLog.Debug(fmt.Sprintf("function inputs: %s execution count: %d/%d", logger.ConvertJson(inputs), f.ExecutionCount, f.ExecutionNumber))
+	f.iLog.Debug(fmt.Sprintf("function mapped inputs: %s", logger.ConvertJson(f.FunctionMappedInputs)))
 	for i := 0; i < len(inputs); i++ {
+
+		/*
+			switch inputs[i].Datatype {
+
+			case types.Integer:
+				if inputs[i].List == false {
+
+					temp := f.ConverttoInt(inputs[i].Value)
+					newinputs[inputs[i].Name] = temp
+
+				}
+				if inputs[i].List == true {
+
+					if isArray(inputs[i].Value) {
+						var temp []int
+						err := json.Unmarshal([]byte(inputs[i].Value), &temp)
+						if err != nil {
+							f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
+							//	f.DBTx.Rollback()
+						}
+						if inputs[i].Repeat {
+							newinputs[inputs[i].Name] = temp[f.ExecutionCount]
+						} else {
+							newinputs[inputs[i].Name] = temp
+						}
+
+					} else {
+						temp := make([]int, 0)
+						temp = append(temp, f.ConverttoInt(inputs[i].Value))
+						newinputs[inputs[i].Name] = temp
+					}
+
+				}
+			case types.Float:
+				if inputs[i].List == false {
+
+					temp := f.ConverttoFloat(inputs[i].Value)
+					newinputs[inputs[i].Name] = temp
+
+				}
+				if inputs[i].List == true {
+
+					var temp []float64
+					err := json.Unmarshal([]byte(inputs[i].Value), &temp)
+					if err != nil {
+						f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
+						//	f.DBTx.Rollback()
+					}
+
+					if inputs[i].Repeat && f.ExecutionNumber > 1 && isArray(inputs[i].Value) {
+						newinputs[inputs[i].Name] = temp[f.ExecutionCount]
+					} else {
+						newinputs[inputs[i].Name] = temp
+					}
+
+					//	newinputs[inputs[i].Name] = temp
+
+				}
+			case types.Bool:
+				if inputs[i].List == false {
+					temp := f.ConverttoBool(inputs[i].Value)
+					newinputs[inputs[i].Name] = temp
+				}
+				if inputs[i].List == true {
+
+					var temp []bool
+					err := json.Unmarshal([]byte(inputs[i].Value), &temp)
+					if err != nil {
+						f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
+						//	f.DBTx.Rollback()
+					}
+					if inputs[i].Repeat && f.ExecutionNumber > 1 && isArray(inputs[i].Value) {
+						newinputs[inputs[i].Name] = temp[f.ExecutionCount]
+					} else {
+						newinputs[inputs[i].Name] = temp
+					}
+					//newinputs[inputs[i].Name] = temp
+
+				}
+			case types.DateTime:
+				if inputs[i].List == false {
+
+					temp := f.ConverttoDateTime(inputs[i].Value)
+					newinputs[inputs[i].Name] = temp
+
+				}
+				if inputs[i].List == true {
+
+					var temp []time.Time
+					err := json.Unmarshal([]byte(inputs[i].Value), &temp)
+					if err != nil {
+						f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
+						//	f.DBTx.Rollback()
+					}
+					if inputs[i].Repeat && f.ExecutionNumber > 1 && isArray(inputs[i].Value) {
+						newinputs[inputs[i].Name] = temp[f.ExecutionCount]
+					} else {
+						newinputs[inputs[i].Name] = temp
+					}
+					//newinputs[inputs[i].Name] = temp
+
+				}
+			default:
+				if inputs[i].List == false {
+					newinputs[inputs[i].Name] = inputs[i].Value
+				}
+				if inputs[i].List == true {
+
+					var temp []string
+					err := json.Unmarshal([]byte(inputs[i].Value), &temp)
+					if err != nil {
+						f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
+						//	f.DBTx.Rollback()
+					}
+					if inputs[i].Repeat && f.ExecutionNumber > 1 && isArray(inputs[i].Value) {
+						newinputs[inputs[i].Name] = temp[f.ExecutionCount]
+					} else {
+						newinputs[inputs[i].Name] = temp
+					}
+					//newinputs[inputs[i].Name] = temp
+
+				}
+
+			}
+		*/
+		//	newinputs[inputs[i].Name] = inputs[i].Value
+		namelist[i] = inputs[i].Name
+
+		if f.ExecutionNumber > 1 && inputs[i].Repeat && inputs[i].List {
+
+			//valuelist[i] = (f.FunctionMappedInputs[inputs[i].Name]).([]interface{})[f.ExecutionCount].(string)
+			if inputs[i].Datatype == types.DateTime {
+				temp := (f.FunctionMappedInputs[inputs[i].Name]).([]time.Time)[f.ExecutionCount]
+				valuelist[i] = temp.Format("2006-01-02 15:04:05")
+			} else if inputs[i].Datatype == types.Integer {
+				temp := (f.FunctionMappedInputs[inputs[i].Name]).([]int)[f.ExecutionCount]
+				valuelist[i] = strconv.Itoa(temp)
+			} else if inputs[i].Datatype == types.Float {
+				temp := (f.FunctionMappedInputs[inputs[i].Name]).([]float64)[f.ExecutionCount]
+				valuelist[i] = strconv.FormatFloat(temp, 'f', -1, 64)
+			} else if inputs[i].Datatype == types.Bool {
+				temp := (f.FunctionMappedInputs[inputs[i].Name]).([]bool)[f.ExecutionCount]
+				valuelist[i] = strconv.FormatBool(temp)
+			} else {
+				valuelist[i] = (f.FunctionMappedInputs[inputs[i].Name]).([]string)[f.ExecutionCount]
+			}
+
+		} else {
+			valuelist[i] = inputs[i].Value
+		}
+
+		//inputs[i].Value
+	}
+
+	f.iLog.Debug(fmt.Sprintf("function mapped inputs: %s", logger.ConvertJson(newinputs)))
+
+	//f.Fobj.Inputs = inputs
+
+	return namelist, valuelist, f.FunctionMappedInputs
+}
+
+func isArray(value interface{}) bool {
+	// Use reflection to check if the value's kind is an array
+	val := reflect.ValueOf(value)
+	return val.Kind() == reflect.Array || val.Kind() == reflect.Slice
+}
+
+func (f *Funcs) checkifRepeatExecution() (int, error) {
+
+	inputs := f.Fobj.Inputs
+	lastcount := -2
+	newinputs := make(map[string]interface{})
+
+	for i, _ := range inputs {
 		f.iLog.Debug(fmt.Sprintf("function input: %s, Source: %s", logger.ConvertJson(inputs[i]), inputs[i].Source))
 		switch inputs[i].Source {
 		case types.Fromsyssession:
@@ -74,14 +258,14 @@ func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
 			} else {
 
 				f.iLog.Error(fmt.Sprintf("Error in SetInputs: %s SystemSession[%s]", "System Session not found", inputs[i].Aliasname))
-				f.DBTx.Rollback()
+				//	f.DBTx.Rollback()
 			}
 		case types.Fromusersession:
 			if f.UserSession[inputs[i].Aliasname] != nil {
 				inputs[i].Value = f.UserSession[inputs[i].Aliasname].(string)
 			} else {
 				f.iLog.Error(fmt.Sprintf("Error in SetInputs: %s UserSession[%s]", "User Session not found", inputs[i].Aliasname))
-				f.DBTx.Rollback()
+				//	f.DBTx.Rollback()
 			}
 		case types.Prefunction:
 			arr := strings.Split(inputs[i].Aliasname, ".")
@@ -127,7 +311,12 @@ func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
 						f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
 						//	f.DBTx.Rollback()
 					}
-					newinputs[inputs[i].Name] = temp
+					if inputs[i].Repeat {
+						newinputs[inputs[i].Name] = temp[f.ExecutionCount]
+					} else {
+						newinputs[inputs[i].Name] = temp
+					}
+
 				} else {
 					temp := make([]int, 0)
 					temp = append(temp, f.ConverttoInt(inputs[i].Value))
@@ -179,11 +368,21 @@ func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
 			if inputs[i].List == true {
 
 				var temp []time.Time
-				err := json.Unmarshal([]byte(inputs[i].Value), &temp)
+				var datetimeStrings []string
+				err := json.Unmarshal([]byte(inputs[i].Value), &datetimeStrings)
 				if err != nil {
 					f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
 					//	f.DBTx.Rollback()
 				}
+				for _, dtStr := range datetimeStrings {
+					dt, err := time.Parse("2006-01-02 15:04:05", dtStr)
+					if err != nil {
+						f.iLog.Error(fmt.Sprintf("Parse %s error: %s", dtStr, err.Error()))
+						//	f.DBTx.Rollback()
+					}
+					temp = append(temp, dt)
+				}
+
 				newinputs[inputs[i].Name] = temp
 
 			}
@@ -199,27 +398,68 @@ func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
 					f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
 					//	f.DBTx.Rollback()
 				}
+
 				newinputs[inputs[i].Name] = temp
 
 			}
-
 		}
-		//	newinputs[inputs[i].Name] = inputs[i].Value
-		namelist[i] = inputs[i].Name
-		valuelist[i] = inputs[i].Value
 	}
-
-	f.iLog.Debug(fmt.Sprintf("function mapped inputs: %s", logger.ConvertJson(newinputs)))
+	f.FunctionMappedInputs = newinputs
 
 	f.Fobj.Inputs = inputs
+	f.iLog.Debug(fmt.Sprintf("parse inputs result: %s", logger.ConvertJson(newinputs)))
+	for _, input := range inputs {
 
-	return namelist, valuelist, newinputs
-}
+		f.iLog.Debug(fmt.Sprintf("checkifRepeatExecution input: %s", logger.ConvertJson(input)))
 
-func isArray(value interface{}) bool {
-	// Use reflection to check if the value's kind is an array
-	val := reflect.ValueOf(value)
-	return val.Kind() == reflect.Array || val.Kind() == reflect.Slice
+		count := -1
+		if input.Repeat && input.List {
+			inputvalue := newinputs[input.Name]
+			if isArray(inputvalue) {
+				/*
+					var temp []string
+
+					err := json.Unmarshal([]byte(input.Value), &temp)
+
+					if err != nil {
+						f.iLog.Debug(fmt.Sprintf("unmarshall error: input.Value: %s", input.Value))
+						return 0, err
+					} else if temp == nil {
+						f.iLog.Debug(fmt.Sprintf("unmarshall input.Value result is null: %s", input.Value))
+						return 0, err
+					} else if isArray(temp) {
+						count = len(temp)
+					} */
+				if input.Datatype == types.DateTime {
+					count = len(inputvalue.([]time.Time))
+				} else if input.Datatype == types.Integer {
+					count = len(inputvalue.([]int))
+				} else if input.Datatype == types.Float {
+					count = len(inputvalue.([]float64))
+				} else if input.Datatype == types.Bool {
+					count = len(inputvalue.([]bool))
+				} else {
+					count = len(inputvalue.([]string))
+				}
+
+			} else {
+				count = 1
+			}
+			f.iLog.Debug(fmt.Sprintf("checkifRepeatExecution input.Value: %s, count: %d, lastcount %d", input.Value, count, lastcount))
+			if lastcount == -2 {
+				lastcount = count
+			} else if lastcount != count {
+				return -1, nil
+			}
+
+		}
+	}
+
+	if lastcount > 0 {
+		return lastcount, nil
+	} else {
+		return 1, nil
+	}
 }
 
 func (f *Funcs) checkinputvalue(Aliasname string, variables map[string]interface{}) (string, error) {
@@ -357,6 +597,30 @@ func (f *Funcs) SetOutputs(outputs map[string]interface{}) {
 
 	f.iLog.Debug(fmt.Sprintf("function's ouputs: %s", logger.ConvertJson(outputs)))
 
+	f.FunctionOutputs = append(f.FunctionOutputs, outputs)
+
+}
+
+func (f *Funcs) SetfuncOutputs() {
+	newoutputs := make(map[string]interface{})
+	if f.ExecutionNumber > 1 {
+		for index, outputs := range f.FunctionOutputs {
+			for key, value := range outputs {
+				if newoutputs[key] == nil {
+					newoutputs[key] = make([]interface{}, f.ExecutionNumber)
+				}
+				newoutputs[key].([]interface{})[index] = value
+			}
+		}
+
+		f.SetfuncSingleOutputs(newoutputs)
+	} else {
+		f.SetfuncSingleOutputs(f.FunctionOutputs[0])
+	}
+
+}
+
+func (f *Funcs) SetfuncSingleOutputs(outputs map[string]interface{}) {
 	for i := 0; i < len(f.Fobj.Outputs); i++ {
 		if outputs[f.Fobj.Outputs[i].Name] == nil {
 			continue
@@ -379,6 +643,7 @@ func (f *Funcs) SetOutputs(outputs map[string]interface{}) {
 	f.iLog.Debug(fmt.Sprintf("UserSession after function: %s", logger.ConvertJson(f.UserSession)))
 	f.iLog.Debug(fmt.Sprintf("Externaloutputs after function: %s", logger.ConvertJson(f.Externaloutputs)))
 	f.iLog.Debug(fmt.Sprintf("FuncCachedVariables after function: %s", logger.ConvertJson(f.FuncCachedVariables[f.Fobj.Name])))
+
 }
 
 func (f *Funcs) ConvertfromBytes(bytesbuffer []byte) map[string]interface{} {
@@ -401,67 +666,88 @@ func (f *Funcs) Execute() {
 
 	f.iLog.Debug(fmt.Sprintf("Execute function: %s", f.Fobj.Name))
 	//f.iLog.Debug(fmt.Sprintf("Start process %s", reflect.ValueOf(f.Execute).Kind().String()))
+	number, err := f.checkifRepeatExecution()
 
-	switch f.Fobj.Functype {
-	case types.InputMap:
-		inputmapfuncs := InputMapFuncs{}
-		inputmapfuncs.Execute(f)
-
-	case types.Csharp:
-		csharpfuncs := CSharpFuncs{}
-		csharpfuncs.Execute(f)
-	case types.Javascript:
-		jsfuncs := JSFuncs{}
-		jsfuncs.Execute(f)
-
-	case types.Query:
-		qfuncs := QueryFuncs{}
-		qfuncs.Execute(f)
-
-	case types.SubTranCode:
-		stcfuncs := SubTranCodeFuncs{}
-		stcfuncs.Execute(f)
-
-	case types.StoreProcedure:
-		spfuncs := StoreProcFuncs{}
-		spfuncs.Execute(f)
-
-	case types.TableInsert:
-		ti := TableInsertFuncs{}
-		ti.Execute(f)
-
-	case types.TableUpdate:
-		tu := TableUpdateFuncs{}
-		tu.Execute(f)
-
-	case types.TableDelete:
-		td := TableDeleteFuncs{}
-		td.Execute(f)
-
-	case types.CollectionInsert:
-		ci := CollectionInsertFuncs{}
-		ci.Execute(f)
-
-	case types.CollectionUpdate:
-		cu := CollectionUpdateFuncs{}
-		cu.Execute(f)
-
-	case types.CollectionDelete:
-		cd := CollectionDeleteFuncs{}
-		cd.Execute(f)
-
-	case types.ThrowError:
-		te := ThrowErrorFuncs{}
-		te.Execute(f)
-
-	case types.SendMessage:
-		sm := SendMessageFuncs{}
-		sm.Execute(f)
-
-	case types.SendEmail:
-		se := EmailFuncs{}
-		se.Execute(f)
+	if err != nil {
+		f.iLog.Error(fmt.Sprintf("Error in Execute: %s", err.Error()))
 	}
+	if number < 1 {
+		f.iLog.Debug(fmt.Sprintf("No repeat execution"))
+		outputs := make(map[string]interface{})
+		f.SetOutputs(outputs)
+		return
+	}
+
+	f.ExecutionNumber = number
+	f.ExecutionCount = 0
+
+	for i := 0; i < f.ExecutionNumber; i++ {
+
+		f.ExecutionCount = i + 1
+
+		switch f.Fobj.Functype {
+		case types.InputMap:
+			inputmapfuncs := InputMapFuncs{}
+			inputmapfuncs.Execute(f)
+
+		case types.Csharp:
+			csharpfuncs := CSharpFuncs{}
+			csharpfuncs.Execute(f)
+		case types.Javascript:
+			jsfuncs := JSFuncs{}
+			jsfuncs.Execute(f)
+
+		case types.Query:
+			qfuncs := QueryFuncs{}
+			qfuncs.Execute(f)
+
+		case types.SubTranCode:
+			stcfuncs := SubTranCodeFuncs{}
+			//stcfuncs := NewSubTran()
+			stcfuncs.Execute(f)
+
+		case types.StoreProcedure:
+			spfuncs := StoreProcFuncs{}
+			spfuncs.Execute(f)
+
+		case types.TableInsert:
+			ti := TableInsertFuncs{}
+			ti.Execute(f)
+
+		case types.TableUpdate:
+			tu := TableUpdateFuncs{}
+			tu.Execute(f)
+
+		case types.TableDelete:
+			td := TableDeleteFuncs{}
+			td.Execute(f)
+
+		case types.CollectionInsert:
+			ci := CollectionInsertFuncs{}
+			ci.Execute(f)
+
+		case types.CollectionUpdate:
+			cu := CollectionUpdateFuncs{}
+			cu.Execute(f)
+
+		case types.CollectionDelete:
+			cd := CollectionDeleteFuncs{}
+			cd.Execute(f)
+
+		case types.ThrowError:
+			te := ThrowErrorFuncs{}
+			te.Execute(f)
+
+		case types.SendMessage:
+			sm := SendMessageFuncs{}
+			sm.Execute(f)
+
+		case types.SendEmail:
+			se := EmailFuncs{}
+			se.Execute(f)
+		}
+	}
+	f.SetfuncOutputs()
 }
 
 func (f *Funcs) Validate() (bool, error) {
