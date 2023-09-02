@@ -1,0 +1,50 @@
+<head>
+    <title>Chart.js Web Components</title>
+    <script src='scripts/plotly/plotly.min.js'></script>
+    <script src="scripts/UI.plotly.js"></script>
+</head>
+
+
+<table style="width:100%">
+    <tr>
+        <td style="width: auto">
+            <table style="font-size:16px;width:500px; color:cadetblue">
+                <tr>
+                    <td style="width:200px;">
+                        <label>Machine</label>
+                    </td>
+                    <td style="width:auto">
+                        <label>Work Center</label>
+                    </td>
+                </tr><tr>
+                    <td>
+                        <p style="font-weight: 700;">{Machine}</p>
+                    </td>
+                    <td>
+                        <p style="font-weight: 700;">{WorkCenter}</p>
+                    </td>
+                </tr>
+                </tr><tr>
+                    <td colspan="2">
+                        <label>Description</label>
+                    </td>
+                </tr><tr>
+                    <td colspan="2">
+                        <p style="font-weight: 700;">{Description}</p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+        <td style="width: 200px;">
+            <ui-plotly-guage value="{Availability}" min-value="0" max-value="100" reference-value="80" title="Availbility" mode="number+delta+gauge" width="300" height="150"></ui-plotly-guage>
+        </td>
+        <td style="width: 200px;">
+            <ui-plotly-guage value="{Performance}" min-value="0" max-value="100" reference-value="80" title="Performance" mode="number+delta+gauge" width="300" height="150"></ui-plotly-guage>
+        </td>
+        <td style="width: 200px;">
+            <ui-plotly-guage value="{Quality}" min-value="0" max-value="100" reference-value="80" title="Quality" mode="number+delta+gauge" width="300" height="150"></ui-plotly-guage>
+        </td>
+        <td style="width:200px">
+            <div style="width:100%; font-size:48px;text-align: center; vertical-align: middle; height:150px; background-color:{BGColor}; color:{Color}"><br><br>{CurrentState}</div>
+        </td>
+    </tr>

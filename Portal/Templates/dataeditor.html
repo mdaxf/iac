@@ -29,6 +29,10 @@
             let Jschema = new UI.JSONSchema(schema);
             console.log(Jschema)
 
+            let keyfield = "ID";
+            if(Jschema.schema.hasOwnProperty('keyfield'))
+                keyfield = schema.keyfield;
+
             if($Context.inputs.selectedKey == ""){
                 
                 let data = Jschema.createemptydata();
@@ -48,9 +52,9 @@
                 inputs.data = qdata;
                 inputs.operation = "query"
                 inputs.keys = [];
-                inputs.keys.push("ID")
+                inputs.keys.push(keyfield)
                 inputs.where = {}
-                inputs.where[Jschema.schema.datasource+".ID = "+$Context.inputs.selectedKey]="";
+                inputs.where[Jschema.schema.datasource+"."+keyfield+" = '"+$Context.inputs.selectedKey+"'"]="";
                 
                 console.log(inputs, JSON.stringify(inputs))
                 ajax.post('/sqldata/get',inputs).then((response) => {
@@ -73,6 +77,11 @@
         let allowChanges = true;
         if($Context.inputs.menu_viewonly == "1")
             allowChanges = false;
+        
+        let keyfield = "ID";
+        if(Jschema.schema.hasOwnProperty('keyfield'))
+            keyfield = schema.keyfield;
+
         console.log($Context.inputs.menu_viewonly, allowChanges)
         detail = new UI.JSONManager(data, {allowChanges:allowChanges,schema:schema,
             on_save:function(data){
@@ -86,6 +95,13 @@
                 let datasourcetype = jdata.datasourcetype 
                 let datasource = jdata.datasource
 
+                let NullValues ={}
+                $('[nullvalue]').each(function(){
+                    let datakey = $(this).attr('data-key')
+                    let nullvalue = $(this).attr('nullvalue')
+                    NullValues[datakey] = nullvalue
+                })
+
                 if(datasourcetype == "table"){
                             let inputs={
                                 "tablename": datasource,
@@ -93,7 +109,7 @@
                             }
                             let ajax =new UI.Ajax("");
 
-                            if(data.ID =="" || data.ID == 0 || data.ID == undefined)
+                            if($Context.inputs.selectedKey == "")
                             {
                                 url = '/sqldata/insert'
                                 data.createdby = UI.userlogin.username
@@ -105,6 +121,9 @@
                                 data.active =1 
                                 delete data.ID                                
                                 inputs.data = Jschema.parsedata(data)
+                                inputs.nullvalues = NullValues
+                                console.log(inputs)
+                                
                             }
                             else{
                                 url = '/sqldata/update'
@@ -113,15 +132,19 @@
                                 data.updatedby = UI.userlogin.username
                                 data.Updatedon = (new Date()).toISOString().slice(0, 19).replace('T', ' ');
                                 inputs.data = Jschema.parsedata(data)
-                                inputs.where = {}
-                                inputs.where[Jschema.schema.datasource+".ID = "+$Context.inputs.selectedKey]="";
+                                inputs.nullvalues = NullValues
+                                inputs.where = {}                                
+                                inputs.where[Jschema.schema.datasource+"."+keyfield+" = '"+$Context.inputs.selectedKey+"'"]="";
                             }
                             console.log(url, inputs)
                             ajax.post(url,inputs).then((response) => {
                                 data = JSON.parse(response);
+                                console.log(data)
+                                $Context.inputs.selectedKey = data.data.keyfield
+                                /*
                                 id = data.data.id
                                 if(id != undefined)
-                                    detail.jdata.ID = id
+                                    detail.jdata.ID = id */
                             }).catch((error) => {
                                 console.log(error);
                             });

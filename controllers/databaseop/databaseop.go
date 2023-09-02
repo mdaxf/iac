@@ -19,11 +19,56 @@ type DBController struct {
 }
 
 type DBData struct {
-	TableName string                 `json."tablename"` // table name
-	Data      map[string]interface{} `json."data"`
-	Operation string                 `json."operation"` // insert, update, delete
-	Keys      []string               `json."keys"`      // keys for update and delete
-	Where     map[string]interface{} `json."where"`     // where args for update and delete
+	TableName  string                 `json."tablename"` // table name
+	Data       map[string]interface{} `json."data"`
+	Operation  string                 `json."operation"` // insert, update, delete
+	Keys       []string               `json."keys"`      // keys for update and delete
+	Where      map[string]interface{} `json."where"`     // where args for update and delete
+	NullValues map[string]interface{} `json."nullvalues"`
+	QueryStr   string                 `json."querystr"` // query string for query
+}
+
+type QueryInput struct {
+	QueryStr string `json."querystr"` // query string for query
+}
+
+func (db *DBController) GetDatabyQuery(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromTable"}
+	iLog.Debug(fmt.Sprintf("Get data by query"))
+
+	var data QueryInput
+	body, err := GetRequestBody(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetDataFromRequest Unmarshal error: %s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.Debug(fmt.Sprintf("GetDataFromRequest data: %s", data))
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get data by query error: %s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.Debug(fmt.Sprintf("Get data by query: %s", data.QueryStr))
+	Query := data.QueryStr
+	// get data from database
+	result, err := dbconn.NewDBOperation("system", nil, "Execute Query Function").Query_Json(Query)
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get data from table error: %s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.Debug(fmt.Sprintf("Get data from table result: %s", gin.H{"data": result}))
+	//jsondata, err := json.Marshal(result)
+
+	ctx.JSON(http.StatusOK, gin.H{"data": result})
 }
 
 /*
@@ -313,6 +358,7 @@ func (db *DBController) InsertDataToTable(ctx *gin.Context) error {
 
 	iLog.Debug(fmt.Sprintf("Insert data to table: %s", data.TableName))
 
+	nullvalues := data.NullValues
 	fields := []string{}
 	values := []string{}
 	datatype := []int{}
@@ -320,6 +366,14 @@ func (db *DBController) InsertDataToTable(ctx *gin.Context) error {
 
 		iLog.Debug(fmt.Sprintf("Insert data to table: %s %s %s", key, value, reflect.TypeOf(value)))
 		if value != nil {
+			if nullvalues != nil {
+				if nullvalue, ok := nullvalues[key]; ok {
+					if value == nullvalue {
+						continue
+					}
+				}
+			}
+
 			fields = append(fields, key)
 
 			switch value.(type) {
@@ -382,12 +436,20 @@ func (db *DBController) UpdateDataToTable(ctx *gin.Context) error {
 		return err
 	}
 	iLog.Debug(fmt.Sprintf("Update data to table: %s", data.TableName))
+	nullvalues := data.NullValues
 	fields := []string{}
 	values := []string{}
 	datatype := []int{}
 	for key, value := range data.Data {
 		iLog.Debug(fmt.Sprintf("Update data to table: %s %s %s", key, value, reflect.TypeOf(value)))
 		if value != nil {
+			if nullvalues != nil {
+				if nullvalue, ok := nullvalues[key]; ok {
+					if value == nullvalue {
+						continue
+					}
+				}
+			}
 			fields = append(fields, key)
 
 			switch value.(type) {
@@ -505,7 +567,7 @@ func (db *DBController) GetDataFromRequest(ctx *gin.Context) (DBData, error) {
 	iLog.Debug(fmt.Sprintf("GetDataFromRequest"))
 
 	var data DBData
-	body, err := ioutil.ReadAll(ctx.Request.Body)
+	body, err := GetRequestBody(ctx)
 	iLog.Debug(fmt.Sprintf("GetDataFromRequest body: %s", body))
 	if err != nil {
 		iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
@@ -518,4 +580,18 @@ func (db *DBController) GetDataFromRequest(ctx *gin.Context) (DBData, error) {
 	}
 	iLog.Debug(fmt.Sprintf("GetDataFromRequest data: %s", data))
 	return data, nil
+}
+
+func GetRequestBody(ctx *gin.Context) ([]byte, error) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetRequestBody"}
+	iLog.Debug(fmt.Sprintf("GetRequestBody"))
+
+	body, err := ioutil.ReadAll(ctx.Request.Body)
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetRequestBody error: %s", err.Error()))
+		return nil, err
+	}
+	iLog.Debug(fmt.Sprintf("GetRequestBody body: %s", body))
+	return body, nil
 }

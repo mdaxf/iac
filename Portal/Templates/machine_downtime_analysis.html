@@ -1,0 +1,110 @@
+<head>
+    <script src="scripts/chartjs/chart.umd.js"></script>   
+</head>
+<body>
+    <script src="scripts/UI.chart.js"></script>  
+    <h1>Machine DownTime Analysis ({Machine})</h1>
+    <ui-bar-chart id="machine_downtime_analysis_bar_chart"></ui-bar-chart>
+
+
+    <script>
+        $Context.onLoaded(function(){
+
+            console.log("machine_downtime_analysis_bar_chart")
+
+            let barchart = document.getElementById('machine_downtime_analysis_bar_chart')
+          /*  barchart.data = {}
+            barchart.refresh() */
+            console.log("machine_downtime_analysis_bar_chart 1")
+            let inputs ={}
+            let Machine = $Context.inputs.Machine
+            let query = `SELECT StartDate, Type, BGColor, Sum(Duration) As Duration 
+                    FROM(
+                    SELECT
+                    MS.Machine As Machine,
+                    Date(StartTime) As StartDate,
+                    RC.Type As "Type",
+                    RC.BGColor As BGColor,
+                    TIMESTAMPDIFF(Second,MS.StartTime,IFNULL(MS.EndTime, Now())) As Duration
+                    FROM Machine_States MS
+                    JOIN REASON_CODES RC ON RC.Name = MS.State
+                    Where MS.Machine = '{Machine}') A
+                    Group By Type, StartDate, BGColor `;
+
+            console.log("machine_downtime_analysis_bar_chart 2")
+            inputs["querystr"] = query
+            console.log("DownTime Analysis:", inputs)
+            UI.ajax.post('/sqldata/query',inputs).then((response) => {
+                let data = JSON.parse(response).data
+                console.log(data, response)
+                let labels = []
+                let datasets = []
+                let bgColors = []
+                let types =[]
+
+                data.forEach(element => {
+                    let found = false;
+                    for(var i=0;i<labels.length;i++){
+                        if(labels[i] == element.StartDate){
+                            found = true;
+                            break;
+                        }
+                    }
+                    if(!found){
+                        labels.push(element.StartDate)
+                    }
+
+                    found = false;
+                    for(var i=0;i<types.length;i++){
+                        if(types[i] == element.Type){
+                            found = true;
+                            break;
+                        }
+                    }
+                    if(!found){
+                        types.push(element.Type)
+                        bgColors.push(element.BGColor)
+                    }
+                });
+
+                types.forEach(type => {
+                    let dataset = {
+                        label: type,
+                        backgroundColor: bgColors[types.indexOf(type)],
+                        data: []
+                    }
+                    labels.forEach(label => {
+                        let found = false;
+                        data.forEach(element => {
+                            if(element.StartDate == label && element.Type == type){
+                                found = true;
+                                dataset.data.push(element.Duration)
+                            }
+                        });
+                        if(!found){
+                            dataset.data.push(0)
+                        }
+                    });
+                    datasets.push(dataset)
+                });
+
+                
+                console.log(barchart)
+
+                let barchartdata = {
+                    labels: labels,
+                    datasets: datasets
+                }
+
+                barchart.chart.data = barchartdata
+                console.log("machine_downtime_analysis_bar_chart 3 ", barchartdata,barchart.data)
+                barchart.refresh()
+
+            }).catch((error) => {
+                UI.ShowError(error);
+            });
+        })
+
+    </script>
+
+</body>

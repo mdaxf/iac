@@ -3,7 +3,7 @@
     "$ref": "#/definitions/MENU",
     "datasourcetype": "table",
     "datasource": "menus",
-    "listfields":["Name","Description","Page","Icon","Show", "Desktop","Mobile","createdby", "createdon", "ID"],
+    "listfields":["Name","Description","Page","Icon","MenuShow", "Desktop","Mobile","createdby", "createdon", "ID"],
     "keyfield":"ID",
     "detailpage":{
         "tabs": {
@@ -87,7 +87,7 @@
                             {"ID": "menus.ParentID"}
                         ],
                         "listfields":{ 
-                            "menus": ["Name", "Description", "Page", "Icon", "Show", "Desktop", "Mobile", "createdby", "createdon", "ID"]
+                            "menus": ["Name", "Description", "Page", "Icon", "MenuShow", "Desktop", "Mobile", "createdby", "createdon", "ID"]
                         },
                         "keyfield": "ID",
                         "fields":[],
@@ -149,19 +149,19 @@
                     "lng":{
                         "code": "Type",
                         "default":"Type"
-                    }
-                },
-                "ParentID": {
-                    "type": "integer",
-                    "lng":{
-                        "code": "Parent",
-                        "default":"Parent"
                     },
                     "options":{
                         "value": [1,2],
                         "lngcode":["Page", "Parent"],
                         "default": ["Page", "Parent"]
                      } 
+                },
+                "ParentID": {
+                    "type": "integer",
+                    "lng":{
+                        "code": "Parent",
+                        "default":"Parent"
+                    }                   
                 },
                 "Page": {
                     "type": "string",

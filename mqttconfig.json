@@ -9,14 +9,14 @@
         "caFile": "",
         "topics": [
           {
-            "topic": "test123/machien01",
+            "topic": "IAC_MachineState",
             "qos": "0",
-            "handler": "publish"
+            "handler": "IAC_MachineDataCollection"
           },
           {
-            "topic": "test123/machien02",
+            "topic": "IAC_MachineReport",
             "qos": "0",
-            "handler": "publish"
+            "handler": "IAC_MachineProductionCollection"
           }
         ]
       }

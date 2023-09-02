@@ -9,310 +9,120 @@
     <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1" />
     <meta name="renderer" content="webkit" />
     <script src="Scripts/jquery.min.js" type="text/javascript" ></script>    
-    <link href="styles/dataTables.css" rel="stylesheet"/> 
-    <script src="scripts/datatables.js"></script>
+    <script src="scripts/uiframework.js"></script>    
+    <script src="scripts/tabulator/tabulator.js"></script>
+
     <script src="scripts/jsonmanager.js"></script>
+    <link rel="stylesheet" href="styles/tabulator/tabulator.css">
 </head>
 <body>
+    <script src="scripts/uiwebcomponents.js"></script>    
     <div class="ui_actions_section" >
         <button type="button" onclick="$ViewID_addnewrecord()" class="btn btn-primary" style="float:right;" value="Add" lngcode="Add">Add</button>
-        <button type="button" onclick="$ViewID_Edit('EDIT')" class="btn btn-secondary" style="float:right;" value="Edit" lngcode="Edit">Edit</button>
+        <button type="button" onclick="$ViewID_Edit('EDIT')" class="btn btn-secondary" style="float:right;" value="SELECT" lngcode="Edit">Edit</button>
         <button type="button" onclick="$ViewID_Edit('SELECT')" class="btn btn-secondary" style="float:right;" value="Select" lngcode="Select">Select</button>
         <button type="button" onclick="$ViewID_Delete()" class="btn btn-secondary" style="float:right;" value="Delete" lngcode="Delete">Delete</button>
         <button type="button" onclick="$ViewID_Cancel()" class="btn btn-secondary" style="float:right;" value="Cancel" lngcode="Cancel">Cancel</button>
     </div>
-    <div id="myGrid" style="width:100%;"></div>
+   <ui-tabulator schema="{ui_dataschema}" data_viewonly="{menu_viewonly}" datakey_field="" datakey_value=""></ui-tabulator>
    <script>
-        var schema = null;
         $Context.onLoaded(function(){
-            LoadData();})
-
-        function LoadData(){
-            
-            if($Context.inputs.ui_dataschema == ''){
-                UI.ShowError('No Data Schema Specified');
-                return;
-            } 
             let menu_viewonly = $Context.inputs.menu_viewonly
             console.log(menu_viewonly)
             if(menu_viewonly == "1"){
                 $('.ui_actions_section button:not([value="Cancel"])').prop('disabled', true);
             }
+        })
 
-            let ajax = new UI.Ajax("");
-        //    console.log($Context.inputs.ui_dataschema)
-            ajax.get('/portal/datasets/schemas/'+ $Context.inputs.ui_dataschema + '.json').then((response) => {
-                schema = JSON.parse(response);
-                if(schema == null){
-                    UI.ShowError('Data Schema Not Found');
-                    return;
-                }
-                let type = ""; 
-                let datasource = "";
-                let listfields = [];
-                if(schema.hasOwnProperty('datasourcetype'))
-                    type = schema.datasourcetype;
-                if(schema.hasOwnProperty('datasource'))
-                    datasource = schema.datasource;
-                if(schema.hasOwnProperty('listfields'))
-                    listfields = schema.listfields;
-               
-                data ={}
-                for(var i=0;i<listfields.length;i++){
-                    data[listfields[i]] = 1;
-                }
-                let jdataschema =new UI.JSONSchema(schema)
-            //    console.log(jdataschema)
+        function getSelectedKeys(){
+            let uiTabulator = document.querySelector('ui-tabulator');
+            if(uiTabulator){
 
-                
-                let fieldpropertiesobj = {};
-                for(var i=0;i<listfields.length;i++){
-                    let fieldschema = jdataschema.getPropertiesFromSchema(listfields[i].replace('.','/'));
-                    if(fieldschema)
-                        fieldpropertiesobj[listfields[i]] =  fieldschema.properties;
-                    else 
-                        fieldpropertiesobj[listfields[i]] = null;
-                    
-                }
-
-             //   console.log(fieldpropertiesobj)
-                let keyfield = "";
-                if(schema.hasOwnProperty('keyfield'))
-                    keyfield = schema.keyfield;
-                let url = "";
-
-                let inputs={};
-                if(type == "collection" && datasource !='' && data != '{}'){
-                    
-                    inputs["collectionname"] = datasource;                 
-                    inputs["data"] = data;
-                    inputs["operation"] = "list";
-                    url = '/collection/list'
-                }
-                else if(type == "table" && datasource !=''){
-                   
-                    inputs["tablename"] = datasource;                 
-                    inputs["operation"] = "list";
-                    data ={}                    
-                    data[datasource] = {
-                        "fields":listfields
-                    }
-                    inputs["data"] = data;
-                    inputs["where"] = {};
-                    
-                    url = '/sqldata/get'
-                }
-                else {
-                    UI.ShowError('Data Source Not Found');
-                    return;
-                }
-             //   {
-                //    console.log(url,inputs, JSON.stringify(data))
-                    ajax.post(url,inputs).then((response) => {
-                        data = JSON.parse(response)["data"];
-                    //    console.log(response,data)
-                        rows =[];
-                        data.forEach(element => {
-                            let rowdata = element
-                            console.log(rowdata)
-                            cells=[];
-                            
-                            for(var i=0;i<listfields.length;i++){
-                                lngcode = "";
-                                if(rowdata.hasOwnProperty(listfields[i])){
-                                    let celldata = rowdata[listfields[i]];
-                                    if(fieldpropertiesobj.hasOwnProperty(listfields[i])){
-                                        if(fieldpropertiesobj[listfields[i]]){
-                                         //   console.log(fieldpropertiesobj[listfields[i]])
-                                            if(fieldpropertiesobj[listfields[i]].hasOwnProperty('options')){
-
-                                                let options = fieldpropertiesobj[listfields[i]].options;
-                                              //  console.log(options, celldata)
-                                                if(options.hasOwnProperty('lngcode') && options.hasOwnProperty('value') && options.hasOwnProperty('default'))
-                                                {    
-                                                    if(Array.isArray(options.value) && Array.isArray(options.default) && Array.isArray(options.lngcode))
-                                                       if(options.value.length == options.default.length && options.value.length == options.lngcode.length){
-                                                            for(var j=0;j<options.value.length;j++){
-                                                                if(options.value[j] == celldata){
-                                                                    celldata = options.default[j];
-                                                                    lngcode = options.lngcode[j];
-                                                                    break;
-                                                                }
-                                                            }
-                                                        }
-                                                }
-                                            }
-
-                                            if(fieldpropertiesobj[listfields[i]].hasOwnProperty('format')){
-                                                let format = fieldpropertiesobj[listfields[i]].format;
-                                                if(format == 'date'){
-                                                    celldata = new Date(celldata).toLocaleDateString();
-                                                }
-                                            }
-                                        }
-                                    }
-                                    if(lngcode != "")
-                                        cells.push({data:{innerHTML:celldata, lngcode:lngcode}});
-                                    else
-                                        cells.push({data:{innerHTML:celldata}});
-                                }
-                                else
-                                    cells.push("");
-                            }
-                            rows.push(cells)
-                        });
-                            
-                        let headers =[];
-                        let columns =[];
-                        for(var i=0;i<listfields.length;i++){
-                            let fieldschema = fieldpropertiesobj[listfields[i]];
-                            let lng = null;
-                            if(fieldschema){
-                                if(fieldschema.hasOwnProperty('lng'))
-                                    lng = fieldschema.lng;
-                            }
-                            if(lng)
-                                headers.push({innerHTML:lng.default, lngcode:lng.code});
-                            else
-                                headers.push({innerHTML:listfields[i] });   
-                            
-                            columns.push({control:"", attrs:{"data-key":listfields[i]}});
-                        }
-                        let table_data={
-                            attrs:{id:"myTable"},
-                            headers:headers,
-                            columns:columns,
-                            rows:rows
-                        }
-                    //    console.log(table_data)
-                        new UI.HtmlTable(document.getElementById('myGrid'),table_data);
-
-                        if(!DataTable){
-                                document.addEventListener("UIDataTable_libraryLoaded", function(event) {
-                                    console.log('UIDataTable_libraryLoaded')
-                                    //table = new DataTable('#myTable');
-                                    $('#myTable').DataTable( {
-                                        buttons: [
-                                            'Add'
-                                        ]
-                                    } );
-                                });
-
-                        }
-                        else{ 
-                        // new DataTable('#myTable');
-                            $('#myTable').DataTable( {
-                                    buttons: [
-                                        'Add'
-                                    ]
-                            } );
-                        }
-
-                        $('table > tbody > tr').on('click', function(){
-                            if($(this).hasClass('selected')){
-                                $(this).removeClass('selected');
-                            }
-                            else{
-                                $(this).addClass('selected');
-                            }
-                            /*
-                            console.log('select row', this)
-                            if($(this).hasClass('selected')){
-                                $(this).removeClass('selected');
-                            }
-                            else{
-                                $('table > tbody > tr').removeClass('selected');
-                                $(this).addClass('selected');
-                            }  */
-                        });
-                        $('table > tbody > tr').on('dblclick', function(){
-                            console.log('edito row', this)
-                            let key = $(this).find('td[data-key="'+keyfield+'"]').text();
-                            $Context.outputs.action="SELECT";
-                            $Context.outputs.selectedKey = key;
-                            $Context.outputs.ui_dataschema =  $Context.inputs.ui_dataschema;
-                            $Context.outputs.ui_schema = schema;
-                            $Context.submit();
-                            console.log('selected key:',key)
-                        });
-
-                    }).catch((error) => {
-                        UI.ShowError('Error Loading Data List');
-                   //    console.log(error);
-                    })
-
-                    
-             //   }
-
-
-            }).catch((error) => {
-                UI.ShowError('Error Loading Data Schema');
-            //    console.log(error);
-            })
-
+                let SelectedKeys = uiTabulator.getSelectedKeys();
+                console.log(SelectedKeys)
+                return SelectedKeys;
+            }
 
         }
-
+        function getTableSchema(){
+            let uiTabulator = document.querySelector('ui-tabulator');
+            if(uiTabulator){
+                return uiTabulator.getTableSchema()
+            }
+        }
         function $ViewID_Edit(action){
-            let keyfield = "";
-            if(schema.hasOwnProperty('keyfield'))
-                    keyfield = schema.keyfield;
-            console.log('edit row')
 
-            if($('table > tbody > tr.selected').length != 1)
+            if($Context.inputs.menu_viewonly == "1")
+                return;
+
+            let selectedKeys = getSelectedKeys();
+            console.log("getSelectedRows:",getSelectedKeys())
+            
+            if(selectedKeys.length !=1)
             {
                 UI.ShowError("Only one row can be selected to continue!");
                 return;
             }
-            let key = $('table > tbody > tr.selected').find('td[data-key="'+keyfield+'"]').text();
+            let schema = getTableSchema();
+
+            if(schema == null){
+                UI.ShowError("No schema found to continue!");
+                return;
+            }
+
             $Context.outputs.action=action.toUpperCase();
-            $Context.outputs.selectedKey = key;
+            $Context.outputs.selectedKey = selectedKeys[0];
             $Context.outputs.ui_dataschema =  $Context.inputs.ui_dataschema;
             $Context.outputs.ui_schema = schema;
             $Context.submit();
-            console.log('selected key:',key)
+            
         }
         function $ViewID_Delete(){
-            let keyfield = "";
-            if(schema.hasOwnProperty('keyfield'))
-                    keyfield = schema.keyfield;
-            console.log('delete row')
+            if($Context.inputs.menu_viewonly == "1")
+                return;
 
-            if($('table > tbody > tr.selected').length != 1)
-            {
-                UI.ShowError("Only one row can be selected to continue!");
+            let selectedKeys = getSelectedKeys();
+            console.log("getSelectedRows:",getSelectedKeys())
+            
+            let schema = getTableSchema();
+
+            if(schema == null){
+                UI.ShowError("No schema found to continue!");
                 return;
             }
-            let key = $('table > tbody > tr.selected').find('td[data-key="'+keyfield+'"]').text();
-            
-            if(key !=""){
-                let inputs={};
-                let type = ""; 
-                let datasource = "";
-                let listfields = [];
-                if(schema.hasOwnProperty('datasourcetype'))
-                    type = schema.datasourcetype;
-                if(schema.hasOwnProperty('datasource'))
-                    datasource = schema.datasource;
-                if(type == "table" && datasource !=''){
-                   
-                   inputs["tablename"] = datasource;                 
-                   inputs["operation"] = "delete";
-                   let str = keyfield + "= '" + key + "'"
-                   inputs["where"] = {}
-                   inputs.where[str] = "";                   
-                   url = '/sqldata/delete'
-                   UI.ajax.post(url,inputs).then((response) => {
 
-                        $('#myGrid').html("");
-                        LoadData();
+            for(var i=0;i<selectedKeys.length;i++){
+                let key = selectedKeys[i];
+                console.log("delete row", key)
+                if(key !=""){
+                    let inputs={};
+                    let type = ""; 
+                    let datasource = "";
+                    let listfields = [];
+                    if(schema.hasOwnProperty('datasourcetype'))
+                        type = schema.datasourcetype;
+                    if(schema.hasOwnProperty('datasource'))
+                        datasource = schema.datasource;
+                    if(type == "table" && datasource !=''){
+                    
+                        inputs["tablename"] = datasource;                 
+                        inputs["operation"] = "delete";
+                        let str = keyfield + "= '" + key + "'"
+                        inputs["where"] = {}
+                        inputs.where[str] = "";                   
+                        url = '/sqldata/delete'
+                        UI.ajax.post(url,inputs).then((response) => {
+                            let uiTabulator = document.querySelector('ui-tabulator');
+                            if(uiTabulator){ 
+                                uiTabulator.refresh();
+                            }
+                        }).catch((error) => {
+                                UI.ShowError('Error Delete Data:' + key);
+                        //    console.log(error);
+                        })
+                    }
 
-                   }).catch((error) => {
-                        UI.ShowError('Error Delete Data:' + key);
-                   //    console.log(error);
-                    })
-               }
-
+                }
             }
         }
         function $ViewID_Cancel(){
@@ -322,7 +132,13 @@
         function $ViewID_addnewrecord(){
             if($Context.inputs.menu_viewonly == "1")
                 return;
+            
+                let schema = getTableSchema();
 
+            if(schema == null){
+                UI.ShowError("No schema found to continue!");
+                return;
+            }
             console.log("add new record")
             $Context.outputs.action="NEW";
             $Context.outputs.selectedKey = "";

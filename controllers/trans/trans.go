@@ -199,7 +199,7 @@ func (e *TranCodeController) GetTranCodeListFromRespository(ctx *gin.Context) {
 			"trancode": tcitems,
 		} */
 
-	ctx.JSON(http.StatusOK, gin.H{"Outputs": tcitems})
+	ctx.JSON(http.StatusOK, gin.H{"data": tcitems})
 }
 
 func (e *TranCodeController) GetTranCodeDetailFromRespository(ctx *gin.Context) {

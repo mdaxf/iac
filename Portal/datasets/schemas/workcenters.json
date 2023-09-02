@@ -1,0 +1,184 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "$ref": "#/definitions/WorkCenter",
+    "datasourcetype": "table",
+    "datasource": "work_centers",
+    "listfields":["Name","Description", "Code", "Company","Department","Factory", "Line","ParentWorkCenter","CreatedBy", "CreatedOn", "UpdatedBy","UpdatedOn"],
+    "keyfield":"Name",
+    "detailpage":{
+        "tabs": {
+            "General": {
+                "lng":{
+                    "code": "General",
+                    "default":"General"
+                },
+                "index": 0 
+            },
+            "System": {
+                "lng":{
+                    "code": "System",
+                    "default":"System"
+                },
+                "index": 4 
+            }
+        },
+        "General":{
+            "tables": [{
+                "cols": 2,         
+                "fields": [
+                    "Name",  "Code",
+                    "Description", "dummy", 
+                    {"Company":{"link": "companies", "schema":"companies", "field": "Name"}}, {"Department":{"link": "departments", "schema":"departments", "field": "Name"}},     
+                    {"Factory":{"link": "factories", "schema":"factories", "field": "Name"}}, {"Line":{"link": "lines", "schema":"lines", "field": "Name"}}, 
+                    {"PatentWorkCenter":{"link": "workcenters", "schema":"workcenters", "field": "Name"}}, "dummy",  
+                    "Type", "Class",                
+                    "active"
+                ]
+            }
+        ]
+        },
+        "System":{
+            "tables": [{
+                "cols": 2,
+                "fields":["createdby", "createdon", "updatedby", "updatedon"]
+            }]
+        }
+    },    
+    "definitions": {
+        "WorkCenter": {
+            "type": "object",
+            "additionalProperties": false,            
+            "properties": {
+                
+                "Name": {
+                    "type": "string",                   
+                    "lng":{
+                        "code": "Name",
+                        "default":"Name"
+                    } 
+                },
+                "Code": {
+                    "type": "string",                   
+                    "lng":{
+                        "code": "Code",
+                        "default":"Code"
+                    } 
+                },
+                "Description": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Description",
+                        "default":"Description"
+                    } 
+                },  
+                "Company":{
+                    "type": "string",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "Company",
+                        "default":"Company"
+                    }                   
+                },  
+                "Department":{
+                    "type": "string",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "Department",
+                        "default":"Department"
+                    }                   
+                },  
+                "Factory":{
+                    "type": "string",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "Factory",
+                        "default":"Factory"
+                    }                   
+                },  
+                "Line":{
+                    "type": "string",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "Line",
+                        "default":"Line"
+                    }                   
+                }, 
+                "ParentWorkCenter":{
+                    "type": "string",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "ParentWorkCenter",
+                        "default":"Parent Work Center"
+                    }                   
+                }, 
+                "Type":{
+                    "type": "string",
+                    "lng":{
+                        "code": "Type",
+                        "default":"Type"
+                    }                   
+                },  
+                "Class":{
+                    "type": "string",
+                    "lng":{
+                        "code": "Class",
+                        "default":"Class"
+                    }                   
+                },  
+                "active": {
+                    "type": "boolean",
+                    "readonly": true,
+                    "lng":{
+                        "code": "Active",
+                        "default":"Active"
+                    }
+                },               
+                "createdby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedBy",
+                        "default":"Created By"
+                    }
+                },
+                "createdon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedOn",
+                        "default":"Created On"
+                    }
+
+                },
+                "updatedby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedBy",
+                        "default":"Updated By"
+                    }
+                },
+                "updatedon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedOn",
+                        "default":"Updated On"
+                    }
+
+                }
+            },
+            "required": [
+                "Name",
+                "Code",
+                "Description"
+            ],
+            "unchangable": ["Name"],
+            "hidden": [],
+            
+            "title": "Work Center"
+        }
+    }
+}

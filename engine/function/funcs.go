@@ -62,194 +62,19 @@ func NewFuncs(dbTx *sql.Tx, fobj types.Function, systemSession, userSession, ext
 	}
 }
 
-func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
-
-	f.iLog.Debug(fmt.Sprintf("Start process %s", reflect.ValueOf(f.SetInputs).Kind().String()))
+func (f *Funcs) HandleInputs() ([]string, []string, map[string]interface{}, error) {
+	f.iLog.Debug(fmt.Sprintf("Start process %s", reflect.ValueOf(f.HandleInputs).Kind().String()))
+	f.iLog.Debug(fmt.Sprintf("function inputs: %s", logger.ConvertJson(f.Fobj.Inputs)))
 
 	newinputs := make(map[string]interface{})
 	namelist := make([]string, len(f.Fobj.Inputs))
 	valuelist := make([]string, len(f.Fobj.Inputs))
 
 	inputs := f.Fobj.Inputs
-
-	f.iLog.Debug(fmt.Sprintf("function inputs: %s execution count: %d/%d", logger.ConvertJson(inputs), f.ExecutionCount, f.ExecutionNumber))
-	f.iLog.Debug(fmt.Sprintf("function mapped inputs: %s", logger.ConvertJson(f.FunctionMappedInputs)))
-	for i := 0; i < len(inputs); i++ {
-
-		/*
-			switch inputs[i].Datatype {
-
-			case types.Integer:
-				if inputs[i].List == false {
-
-					temp := f.ConverttoInt(inputs[i].Value)
-					newinputs[inputs[i].Name] = temp
-
-				}
-				if inputs[i].List == true {
-
-					if isArray(inputs[i].Value) {
-						var temp []int
-						err := json.Unmarshal([]byte(inputs[i].Value), &temp)
-						if err != nil {
-							f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
-							//	f.DBTx.Rollback()
-						}
-						if inputs[i].Repeat {
-							newinputs[inputs[i].Name] = temp[f.ExecutionCount]
-						} else {
-							newinputs[inputs[i].Name] = temp
-						}
-
-					} else {
-						temp := make([]int, 0)
-						temp = append(temp, f.ConverttoInt(inputs[i].Value))
-						newinputs[inputs[i].Name] = temp
-					}
-
-				}
-			case types.Float:
-				if inputs[i].List == false {
-
-					temp := f.ConverttoFloat(inputs[i].Value)
-					newinputs[inputs[i].Name] = temp
-
-				}
-				if inputs[i].List == true {
-
-					var temp []float64
-					err := json.Unmarshal([]byte(inputs[i].Value), &temp)
-					if err != nil {
-						f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
-						//	f.DBTx.Rollback()
-					}
-
-					if inputs[i].Repeat && f.ExecutionNumber > 1 && isArray(inputs[i].Value) {
-						newinputs[inputs[i].Name] = temp[f.ExecutionCount]
-					} else {
-						newinputs[inputs[i].Name] = temp
-					}
-
-					//	newinputs[inputs[i].Name] = temp
-
-				}
-			case types.Bool:
-				if inputs[i].List == false {
-					temp := f.ConverttoBool(inputs[i].Value)
-					newinputs[inputs[i].Name] = temp
-				}
-				if inputs[i].List == true {
-
-					var temp []bool
-					err := json.Unmarshal([]byte(inputs[i].Value), &temp)
-					if err != nil {
-						f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
-						//	f.DBTx.Rollback()
-					}
-					if inputs[i].Repeat && f.ExecutionNumber > 1 && isArray(inputs[i].Value) {
-						newinputs[inputs[i].Name] = temp[f.ExecutionCount]
-					} else {
-						newinputs[inputs[i].Name] = temp
-					}
-					//newinputs[inputs[i].Name] = temp
-
-				}
-			case types.DateTime:
-				if inputs[i].List == false {
-
-					temp := f.ConverttoDateTime(inputs[i].Value)
-					newinputs[inputs[i].Name] = temp
-
-				}
-				if inputs[i].List == true {
-
-					var temp []time.Time
-					err := json.Unmarshal([]byte(inputs[i].Value), &temp)
-					if err != nil {
-						f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
-						//	f.DBTx.Rollback()
-					}
-					if inputs[i].Repeat && f.ExecutionNumber > 1 && isArray(inputs[i].Value) {
-						newinputs[inputs[i].Name] = temp[f.ExecutionCount]
-					} else {
-						newinputs[inputs[i].Name] = temp
-					}
-					//newinputs[inputs[i].Name] = temp
-
-				}
-			default:
-				if inputs[i].List == false {
-					newinputs[inputs[i].Name] = inputs[i].Value
-				}
-				if inputs[i].List == true {
-
-					var temp []string
-					err := json.Unmarshal([]byte(inputs[i].Value), &temp)
-					if err != nil {
-						f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
-						//	f.DBTx.Rollback()
-					}
-					if inputs[i].Repeat && f.ExecutionNumber > 1 && isArray(inputs[i].Value) {
-						newinputs[inputs[i].Name] = temp[f.ExecutionCount]
-					} else {
-						newinputs[inputs[i].Name] = temp
-					}
-					//newinputs[inputs[i].Name] = temp
-
-				}
-
-			}
-		*/
-		//	newinputs[inputs[i].Name] = inputs[i].Value
-		namelist[i] = inputs[i].Name
-
-		if f.ExecutionNumber > 1 && inputs[i].Repeat && inputs[i].List {
-
-			//valuelist[i] = (f.FunctionMappedInputs[inputs[i].Name]).([]interface{})[f.ExecutionCount].(string)
-			if inputs[i].Datatype == types.DateTime {
-				temp := (f.FunctionMappedInputs[inputs[i].Name]).([]time.Time)[f.ExecutionCount]
-				valuelist[i] = temp.Format("2006-01-02 15:04:05")
-			} else if inputs[i].Datatype == types.Integer {
-				temp := (f.FunctionMappedInputs[inputs[i].Name]).([]int)[f.ExecutionCount]
-				valuelist[i] = strconv.Itoa(temp)
-			} else if inputs[i].Datatype == types.Float {
-				temp := (f.FunctionMappedInputs[inputs[i].Name]).([]float64)[f.ExecutionCount]
-				valuelist[i] = strconv.FormatFloat(temp, 'f', -1, 64)
-			} else if inputs[i].Datatype == types.Bool {
-				temp := (f.FunctionMappedInputs[inputs[i].Name]).([]bool)[f.ExecutionCount]
-				valuelist[i] = strconv.FormatBool(temp)
-			} else {
-				valuelist[i] = (f.FunctionMappedInputs[inputs[i].Name]).([]string)[f.ExecutionCount]
-			}
-
-		} else {
-			valuelist[i] = inputs[i].Value
-		}
-
-		//inputs[i].Value
-	}
-
-	f.iLog.Debug(fmt.Sprintf("function mapped inputs: %s", logger.ConvertJson(newinputs)))
-
-	//f.Fobj.Inputs = inputs
-
-	return namelist, valuelist, f.FunctionMappedInputs
-}
-
-func isArray(value interface{}) bool {
-	// Use reflection to check if the value's kind is an array
-	val := reflect.ValueOf(value)
-	return val.Kind() == reflect.Array || val.Kind() == reflect.Slice
-}
-
-func (f *Funcs) checkifRepeatExecution() (int, error) {
-
-	inputs := f.Fobj.Inputs
-	lastcount := -2
-	newinputs := make(map[string]interface{})
+	//	newinputs = f.FunctionMappedInputs
 
 	for i, _ := range inputs {
-		f.iLog.Debug(fmt.Sprintf("function input: %s, Source: %s", logger.ConvertJson(inputs[i]), inputs[i].Source))
+		//	f.iLog.Debug(fmt.Sprintf("function input: %s, Source: %s", logger.ConvertJson(inputs[i]), inputs[i].Source))
 		switch inputs[i].Source {
 		case types.Fromsyssession:
 
@@ -293,9 +118,11 @@ func (f *Funcs) checkifRepeatExecution() (int, error) {
 
 		}
 
+		f.iLog.Debug(fmt.Sprintf("function input: %s, Source: %s, value: %s type: %s", logger.ConvertJson(inputs[i]), inputs[i].Source, inputs[i].Value, inputs[i].Datatype))
 		switch inputs[i].Datatype {
 
 		case types.Integer:
+
 			if inputs[i].List == false {
 
 				temp := f.ConverttoInt(inputs[i].Value)
@@ -303,25 +130,35 @@ func (f *Funcs) checkifRepeatExecution() (int, error) {
 
 			}
 			if inputs[i].List == true {
+				f.iLog.Debug(fmt.Sprintf("check value %s if it isArray: %s", inputs[i].Value, reflect.ValueOf(inputs[i].Value).Kind().String()))
 
-				if isArray(inputs[i].Value) {
-					var temp []int
-					err := json.Unmarshal([]byte(inputs[i].Value), &temp)
-					if err != nil {
-						f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
-						//	f.DBTx.Rollback()
-					}
-					if inputs[i].Repeat {
-						newinputs[inputs[i].Name] = temp[f.ExecutionCount]
-					} else {
-						newinputs[inputs[i].Name] = temp
-					}
+				var tempstr []string
+				err := json.Unmarshal([]byte(inputs[i].Value), &tempstr)
+				f.iLog.Debug(fmt.Sprintf("Unmarshal %s result: %s length:%d", inputs[i].Value, logger.ConvertJson(tempstr), len(tempstr)))
+
+				if err != nil {
+					f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
+					//	f.DBTx.Rollback()
+					newinputs[inputs[i].Name] = []int{}
 
 				} else {
 					temp := make([]int, 0)
-					temp = append(temp, f.ConverttoInt(inputs[i].Value))
+					for _, str := range tempstr {
+						temp = append(temp, f.ConverttoInt(str))
+					}
 					newinputs[inputs[i].Name] = temp
+
 				}
+				/*
+					if isArray(inputs[i].Value) {
+
+
+
+					} else {
+						temp := make([]int, 0)
+						temp = append(temp, f.ConverttoInt(inputs[i].Value))
+						newinputs[inputs[i].Name] = temp
+					} */
 
 			}
 		case types.Float:
@@ -389,6 +226,7 @@ func (f *Funcs) checkifRepeatExecution() (int, error) {
 		default:
 			if inputs[i].List == false {
 				newinputs[inputs[i].Name] = inputs[i].Value
+
 			}
 			if inputs[i].List == true {
 
@@ -403,8 +241,91 @@ func (f *Funcs) checkifRepeatExecution() (int, error) {
 
 			}
 		}
+		namelist[i] = inputs[i].Name
+		valuelist[i] = inputs[i].Value
 	}
+
 	f.FunctionMappedInputs = newinputs
+
+	return namelist, valuelist, newinputs, nil
+}
+
+func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
+
+	f.iLog.Debug(fmt.Sprintf("Start process %s", reflect.ValueOf(f.SetInputs).Kind().String()))
+
+	namelist, valuelist, newinputs, err := f.HandleInputs()
+
+	if err != nil {
+		f.iLog.Error(fmt.Sprintf("Error in SetInputs: %s", err.Error()))
+	}
+	inputs := f.Fobj.Inputs
+
+	if f.ExecutionNumber > 1 {
+		f.iLog.Debug(fmt.Sprintf("function inputs: %s execution count: %d/%d", logger.ConvertJson(inputs), f.ExecutionCount, f.ExecutionNumber))
+
+		f.iLog.Debug(fmt.Sprintf("function mapped inputs: %s", logger.ConvertJson(f.FunctionMappedInputs)))
+		for i := 0; i < len(inputs); i++ {
+
+			//	newinputs[inputs[i].Name] = inputs[i].Value
+			namelist[i] = inputs[i].Name
+			f.iLog.Debug(fmt.Sprintf("function input: %s, Source: %s", logger.ConvertJson(inputs[i]), inputs[i].Source))
+			if f.ExecutionNumber > 1 && inputs[i].Repeat && inputs[i].List {
+
+				//valuelist[i] = (f.FunctionMappedInputs[inputs[i].Name]).([]interface{})[f.ExecutionCount].(string)
+				if inputs[i].Datatype == types.DateTime {
+					temp := (f.FunctionMappedInputs[inputs[i].Name]).([]time.Time)[f.ExecutionCount]
+					newinputs[inputs[i].Name] = temp.Format("2006-01-02 15:04:05")
+					valuelist[i] = temp.Format("2006-01-02 15:04:05")
+				} else if inputs[i].Datatype == types.Integer {
+					temp := (f.FunctionMappedInputs[inputs[i].Name]).([]int)[f.ExecutionCount]
+					newinputs[inputs[i].Name] = strconv.Itoa(temp)
+					valuelist[i] = strconv.Itoa(temp)
+				} else if inputs[i].Datatype == types.Float {
+					temp := (f.FunctionMappedInputs[inputs[i].Name]).([]float64)[f.ExecutionCount]
+					newinputs[inputs[i].Name] = strconv.FormatFloat(temp, 'f', -1, 64)
+					valuelist[i] = strconv.FormatFloat(temp, 'f', -1, 64)
+				} else if inputs[i].Datatype == types.Bool {
+					temp := (f.FunctionMappedInputs[inputs[i].Name]).([]bool)[f.ExecutionCount]
+					newinputs[inputs[i].Name] = strconv.FormatBool(temp)
+					valuelist[i] = strconv.FormatBool(temp)
+				} else {
+					valuelist[i] = (f.FunctionMappedInputs[inputs[i].Name]).([]string)[f.ExecutionCount]
+					newinputs[inputs[i].Name] = (f.FunctionMappedInputs[inputs[i].Name]).([]string)[f.ExecutionCount]
+				}
+
+			} else {
+				newinputs[inputs[i].Name] = f.FunctionMappedInputs[inputs[i].Name]
+				valuelist[i] = inputs[i].Value
+			}
+
+			//inputs[i].Value
+		}
+
+		f.iLog.Debug(fmt.Sprintf("function mapped inputs: %s for execution: %d/%d", logger.ConvertJson(newinputs), f.ExecutionCount, f.ExecutionNumber))
+	}
+	//f.Fobj.Inputs = inputs
+
+	return namelist, valuelist, newinputs
+}
+
+func isArray(value interface{}) bool {
+	// Use reflection to check if the value's kind is an array
+
+	val := reflect.ValueOf(value)
+	return val.Kind() == reflect.Array || val.Kind() == reflect.Slice
+}
+
+func (f *Funcs) checkifRepeatExecution() (int, error) {
+
+	inputs := f.Fobj.Inputs
+	lastcount := -2
+
+	_, _, newinputs, err := f.HandleInputs()
+
+	if err != nil {
+		f.iLog.Error(fmt.Sprintf("Error in SetInputs: %s", err.Error()))
+	}
 
 	f.Fobj.Inputs = inputs
 	f.iLog.Debug(fmt.Sprintf("parse inputs result: %s", logger.ConvertJson(newinputs)))
@@ -416,20 +337,6 @@ func (f *Funcs) checkifRepeatExecution() (int, error) {
 		if input.Repeat && input.List {
 			inputvalue := newinputs[input.Name]
 			if isArray(inputvalue) {
-				/*
-					var temp []string
-
-					err := json.Unmarshal([]byte(input.Value), &temp)
-
-					if err != nil {
-						f.iLog.Debug(fmt.Sprintf("unmarshall error: input.Value: %s", input.Value))
-						return 0, err
-					} else if temp == nil {
-						f.iLog.Debug(fmt.Sprintf("unmarshall input.Value result is null: %s", input.Value))
-						return 0, err
-					} else if isArray(temp) {
-						count = len(temp)
-					} */
 				if input.Datatype == types.DateTime {
 					count = len(inputvalue.([]time.Time))
 				} else if input.Datatype == types.Integer {
@@ -473,7 +380,7 @@ func (f *Funcs) checkinputvalue(Aliasname string, variables map[string]interface
 				_value, err := json.Marshal(value)
 				if err != nil {
 					f.iLog.Error(fmt.Sprintf("Marshal %s error: %s", Aliasname, err.Error()))
-					f.DBTx.Rollback()
+					//	f.DBTx.Rollback()
 				}
 
 				if index == 0 {
@@ -677,14 +584,14 @@ func (f *Funcs) Execute() {
 		f.SetOutputs(outputs)
 		return
 	}
+	f.iLog.Debug(fmt.Sprintf("Execute the function: %s, inputs: %s mapped inputs: %s", f.Fobj.Name, logger.ConvertJson(f.Fobj.Inputs), logger.ConvertJson(f.FunctionMappedInputs)))
+	f.iLog.Debug(fmt.Sprintf("Repeat execution: %d", number))
 
 	f.ExecutionNumber = number
 	f.ExecutionCount = 0
 
 	for i := 0; i < f.ExecutionNumber; i++ {
-
-		f.ExecutionCount = i + 1
-
+		f.iLog.Debug(fmt.Sprintf("Execute the function: %s, execution count: %d / %d", f.Fobj.Name, i+1, f.ExecutionNumber))
 		switch f.Fobj.Functype {
 		case types.InputMap:
 			inputmapfuncs := InputMapFuncs{}
@@ -746,6 +653,10 @@ func (f *Funcs) Execute() {
 			se := EmailFuncs{}
 			se.Execute(f)
 		}
+
+		f.iLog.Debug(fmt.Sprintf("executed function %s with outputs: %s", f.Fobj.Name, logger.ConvertJson(f.FunctionOutputs)))
+
+		f.ExecutionCount = i + 1
 	}
 	f.SetfuncOutputs()
 }

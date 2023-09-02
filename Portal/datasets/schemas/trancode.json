@@ -1,6 +1,10 @@
 {
     "$schema": "http://json-schema.org/draft-06/schema#",
     "$ref": "#/definitions/Trancode",
+    "datasourcetype": "collection",
+    "datasource": "trancode",
+    "listfields":["trancodename", "version", "status", "description","firstfuncgroup","_id"],
+    "keyfield":"trancodename",
     "definitions": {
         "Trancode": {
             "type": "object",

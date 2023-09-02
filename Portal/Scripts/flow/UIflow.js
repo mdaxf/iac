@@ -44,6 +44,8 @@ function _0x30f6(_0x180a7f,_0x5d5a98){var _0x42049c=_0x4204();return _0x30f6=fun
 (function(){		
 
 	var path = '/portal/scripts/'
+	$.import_js("https://code.jquery.com/ui/1.12.1/jquery-ui.js")
+//	$.import_js(path + "juery-ui.custom.min.js")
 	$.import_js(path + "D3.V5.0/d3.min.js")
 	$.import_js(path + "Dagre/dagre.min.js")
 	$.import_js(path + "flow/lodash.js")
@@ -945,6 +947,7 @@ var ProcessFlow = (function(){
 						id: this.data.OprSequenceNo,
 						shape: headeredRectangle
 					}
+					this.set_events();
 		}
 		
 		update(data, subtype=''){
@@ -970,10 +973,10 @@ var ProcessFlow = (function(){
 						for(var i=0;i<that.data.inputs.length;i++){
 							if(that.data.inputs[i].id == data.id){
 								that.data.inputs[i] = Object.assign(that.data.inputs[i],data);
-								that.remove_events();
+								
 								that.node.shape.remove();
 								that.build_block();
-								that.set_events();
+							//	that.set_events();
 								break;
 							}
 						}					
@@ -985,10 +988,10 @@ var ProcessFlow = (function(){
 								console.log("original data:",that.data.outputs[i], data)
 								that.data.outputs[i] = Object.assign(that.data.outputs[i],data);
 								console.log(that.data.outputs[i], data)
-								that.remove_events();
+								
 								that.node.shape.remove();
 								that.build_block();
-								that.set_events();
+							//	that.set_events();
 								break;
 							}
 						}					
@@ -1045,11 +1048,13 @@ var ProcessFlow = (function(){
 					that.flow.flowobj.startnode = that.data;
 					break;
 			}
+			
 		}
 
 		
 		delete(){
 			let that = this;
+			this.remove_events();
 			if(this.node){
 				this.node.shape.remove();
 				this.node = null;
@@ -2085,10 +2090,14 @@ var ProcessFlow = (function(){
 			this.options = Object.assign({}, default_options, options);
 
 			
-			if(this.options.flowtype == 'FUNCGROUP')
-				this.options.skipstartnode= true
-			else
+			if(this.options.flowtype == 'FUNCGROUP'){
+				this.options.skipstartnode= true;
+				this.options.rankdir = 'LR';
+			}
+			else{
 				this.options.skipstartnode= false  
+				this.options.rankdir = 'TB';
+			}
 		
 		}	
 		
@@ -2381,6 +2390,15 @@ var ProcessFlow = (function(){
 		setup_paper_fg(){
 			let that = this;
 			this.Graph = new joint.dia.Graph;
+
+			if(this.options.flowtype == 'FUNCGROUP'){
+				this.options.skipstartnode= true;
+				this.options.rankdir = 'LR';
+			}
+			else{
+				this.options.skipstartnode= false  
+				this.options.rankdir = 'TB';
+			}
 
 			this.Paper = new joint.dia.Paper({
 				el: this.wrappercontainer, // document.getElementById(wrapper),
@@ -2903,30 +2921,31 @@ var ProcessFlow = (function(){
 
 		auto_layout(){
 			switch (this.options.flowtype.toUpperCase()){
-				case 'FUNCGROUP':
+				case 'TRANCODE':
 					joint.layout.DirectedGraph.layout(this.Graph, { 
 						setLinkVertices: false, 
 						nodeSep: this.options.nodeSep,
 						edgeSep: this.options.edgeSep,
-						rankDir: "LR",
-						align: "UL",
+						rankdir: "TB",
+					//	align: "UL",
 						marginX: this.options.marginx,
 						marginY: this.options.marginy,
 						ranker: "longer-path"		
 					});
 				default:
 					joint.layout.DirectedGraph.layout(this.Graph, { 
-						setLinkVertices: false, 
-						nodeSep: this.options.nodeSep,
-						edgeSep: this.options.edgeSep,
-						rankDir: "TB",
-						align: "UL",
-						marginX: this.options.marginx,
-						marginY: this.options.marginy,
+						setLinkVertices: true, 
+						nodeSep: this.options.nodeSep * 2,
+						edgeSep: this.options.edgeSep * 2,
+						rankdir: "LR",
+					//	align: "UL",
+						marginX: this.options.marginx * 2,
+						marginY: this.options.marginy * 2,
 						ranker: "longer-path"			
 					}); 
 				break;
 			}
+			this.render()
 		}
 		initialize_layout(){
 			if(this.options.flowtype =='FUNCGROUP')
@@ -3581,13 +3600,14 @@ var ProcessFlow = (function(){
 			
 			let that =this;
 
-			/*
+		
 			this.Paper.on('element:pointerdown', function(elementView) {
 				console.log(elementView, elementView.model)
 				if(that.selectedelement == elementView){
 					joint.dia.HighlighterView.remove(elementView);
 					that.selectedelement = null;
-					elementView.model.interactive = false;
+					that.svgZoom.enablePan();	
+				//	elementView.model.interactive = false;
 					return;
 				}					
 				
@@ -3600,13 +3620,13 @@ var ProcessFlow = (function(){
 						'stroke-width': 3
 					}
 				});
-				elementView.model.interactive = true;
+				//elementView.model.interactive = true;
 			});
 
 			this.Paper.on('element:pointerdblclick', function(elementView) {
 				var nodeid = elementView.model.attr('nodeid')
-		
-				that.trigger_event('block_dbclick', [nodeid]);
+									
+				that.dbclick_block(nodeid);
 
 				if(that.selectedelement == elementView){
 					joint.dia.HighlighterView.remove(elementView);
@@ -3632,14 +3652,14 @@ var ProcessFlow = (function(){
 				});
 			});
 
-			*/
+			
 			//if(this.options.flowtype == 'FUNCGROUP' || this.options.flowtype == 'TRANCODE'){
-				this.Paper.on('port:mouseenter', function(event, port) {
-					console.log('port:mouseenter', event, port)
+			/*	this.Paper.on('port:mouseenter', function(event, port) {
+					//console.log('port:mouseenter', event, port)
 				})
 				this.Paper.on('port:pointerclick', function(event, port) {
-					console.log('port:pointerclick',event, port)
-				})
+					//console.log('port:pointerclick',event, port)
+				}) */
 				this.Paper.on('link:mouseenter', function(linkView) {
 					/*that.Paper.model.getCells().forEach(function(cell) {
 						cell.interactive = false;
@@ -3745,7 +3765,9 @@ var ProcessFlow = (function(){
 				}
 			})
 		}
-		
+		dbclick_block(nodeid){
+			this.trigger_event('block_dbclick', [nodeid]);
+		}
 		attach_dropeventstoport(){
 			if(this.options.flowtype !="FUNCGROUP")
 				return;
@@ -4382,6 +4404,10 @@ var ProcessFlow = (function(){
 						options: funcgroupoutputs
 					},
 					{tag: 'div', attrs:{class: 'row'},
+						children:[{tag: 'label', attrs:{innerHTML: "Execution Sequence:", for: 'functions_sequence_list'}}]
+					},
+					{tag:'div', attrs:{class: 'row', id:"functions_sequence_list"}},
+					{tag: 'div', attrs:{class: 'row'},
 						children:[{tag: 'button', attrs:{id: 'save', class: 'btn btn-primary fa-save', style: 'margin-left: 10px;', innerHTML: 'Update'}, 
 						events:{click: function(){
 							let newfuncgroupname = document.getElementById('name').value;
@@ -4401,6 +4427,7 @@ var ProcessFlow = (function(){
 							funcgroupobj.description = newfuncgroupdescription;
 							funcgroupobj.routerdef.variable = newfuncgrouproutingvariable;
 							that.FlowJsonObj.updateNode(path, funcgroupobj);
+							that.update_functions_sequence(newfuncgroupname);
 							that.property_panel.style.width = "0px";
 							that.property_panel.style.display = "none";
 							console.log('updated func group object:',funcgroupobj)
@@ -4416,8 +4443,77 @@ var ProcessFlow = (function(){
 			}]
 			console.log(this.property_panel, p_container)
 			new UI.Builder(this.property_panel, p_container);
+
+			let functions = this.get_functions_sequence(functiongroup);
+			let functions_sequence_list = document.getElementById('functions_sequence_list');
+
+			for(var i=0;i<functions.length;i++){
+				let functionname = functions[i].name;
+				let functionid = functions[i].id;
+				let sequence = functions[i].sequence;
+				let functiondiv = document.createElement('div');
+				functiondiv.setAttribute('class','function_sequence_item');
+				functiondiv.setAttribute('style','margin-top: 10px; background-color: yellow; color:black')
+				functiondiv.setAttribute('id',"function_"+functionid);
+				functiondiv.setAttribute('sequence',sequence);
+				functiondiv.setAttribute('draggable','true');
+				functiondiv.innerHTML = functionname + " (" + sequence + ")";
+
+				functions_sequence_list.appendChild(functiondiv);
+				
+			}
+			$('#functions_sequence_list').sortable({
+				axis: 'y', // Allow dragging only in the vertical direction
+				cursor: 'grabbing', // Change cursor on drag
+			/*	update: function (event, ui) {
+					// Callback function when an item is dropped
+					// You can perform actions here after an item is rearranged
+					// For example, update the order of elements in your data model
+					console.log('List order changed');
+				} */
+			});
+
 			that.property_panel.style.width = "350px";
 			that.property_panel.style.display = "flex";
+		}
+		update_functions_sequence(functiongroup){
+			let that = this;
+			let newfunctions= []
+			let oldsequences = [];
+			let newsequences = [];
+			
+			$('#functions_sequence_list').find('div').each(function(){
+				let functionid = $(this).attr('id').substring(9);
+				newsequences.push(functionid)
+			})
+
+			let path = 'functiongroups/{"name":"'+functiongroup+'"}';
+			let funcgroupobj = that.FlowJsonObj.getNode(path).value;
+			let functions = funcgroupobj.functions;
+			for(var i=0;i<newsequences.length;i++){
+				for(var j=0;j<functions.length;j++){
+					if(newsequences[i] == functions[j].id){
+						newfunctions.push(functions[j])
+						break;
+					}
+				}
+			}
+			funcgroupobj.functions = newfunctions;
+			that.FlowJsonObj.updateNode(path, funcgroupobj);
+		}
+		get_functions_sequence(functiongroup){
+			let functions = [];
+			let that = this;
+			for(var i=0;i<this.flowobj.functiongroups.length;i++){
+					if(this.flowobj.functiongroups[i].name == functiongroup){
+					  if(this.flowobj.functiongroups[i].functions)
+						for(var j=0;j< this.flowobj.functiongroups[i].functions.length;j++){
+							functions.push({id:this.flowobj.functiongroups[i].functions[j].id, name:this.flowobj.functiongroups[i].functions[j].name, sequence:j})				
+						}
+						break;
+					}
+			}
+			return functions;
 		}
 		get_functions_outputs(functiongroup){
 			let outputs = [];
@@ -6841,9 +6937,16 @@ var ProcessFlow = (function(){
 	
 }());
 
+function drag_functionlist(event){
+	console.log('drag_functionlist',event)
+}
+function allowDrop_functionlist(event){
+	console.log('allowDrop_functionlist',event)
+}
 
-
-
+function drop_functionlist(event){
+	console.log('drop_functionlist',event)
+}
 
 Function_System_Sessions =["UTCTime", "LocalTime", "UserNo","UserID", "WorkSpace"]
 

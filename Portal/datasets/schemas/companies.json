@@ -14,13 +14,6 @@
                 },
                 "index": 0 
             },
-            "Links":{
-                "lng":{
-                    "code": "Links",
-                    "default":"Links"
-                },
-                "index": 1             
-            },
             "System": {
                 "lng":{
                     "code": "System",
@@ -34,8 +27,7 @@
                 "cols": 2,         
                 "fields": [
                     "Name",  "Code",
-                    "Description", "dummy",             
-                    
+                    "Description", "dummy",                     
                     "active"
                 ]
             }
@@ -46,37 +38,6 @@
                 "cols": 2,
                 "fields":["createdby", "createdon", "updatedby", "updatedon"]
             }]
-        },
-        "Links":{
-            "tables": [{
-                "cols": 1,
-                "fields": [                    
-                    {"User":{
-                        "type": "link",
-                        "table": "userskills",
-                        "linkfields": [
-                            {"ID": "SkillID"}
-                        ],
-                        "subtable": {
-                            "table": "users",
-                            "fields": ["Name", "LoginName", "LoginCode", "Active"],
-                            "linkfields": [
-                                {"UserID": "ID"}
-                            ]
-                        }                        
-                    }}
-                ]
-            }]
-        },
-        "Query":{
-            "tablename": "skills",
-            "fields": [
-                "ID",
-                "Name",
-                "Description",
-                "Level"
-            ],
-            "where": "id = :id"
         }
     },    
     "definitions": {
@@ -113,14 +74,7 @@
                         "code": "Active",
                         "default":"Active"
                     }
-                },
-                "workspaceSchema": {
-                    "type": "string",
-                    "lng":{
-                        "code": "WorkSpaces",
-                        "default":"WorkSpaces"
-                    } 
-                },                
+                },               
                 "createdby": {
                     "type": "string",
                     "readonly": true,

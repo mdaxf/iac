@@ -59,6 +59,11 @@
       "endpoints": [
         {
           "method": "POST",
+          "path": "/query",
+          "handler": "GetDatabyQuery"
+        },
+        {
+          "method": "POST",
           "path": "/get",
           "handler": "GetDataFromTables"
         },

@@ -10,6 +10,7 @@
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
+
 // limitations under the License.
 HTMLElement.prototype.getElementByClassName = function (cls) {
     var list = this.getElementsByClassName(cls);
@@ -200,12 +201,13 @@ var UI;
                             return false;
                     })
                 }
+                else{
+                    if(fail) 
+                        fail();
+                }
                     
             }
-            if(fail) 
-                fail();
-
-            return false;
+            return ;
         }
         login(username, password, success, fail){
             
@@ -330,8 +332,8 @@ var UI;
         }, function(){
              console.log("token updated fail:", UI.userlogin.username);
             // console.log(UI.Page);
-            //if(UI.Page)
-               // window.location.href = UI.userlogin.loginurl;
+            if(UI.Page)
+                window.location.href = UI.userlogin.loginurl;
              //   new UI.Page({file:'pages/logon.json'});
             
         })
@@ -503,7 +505,7 @@ var UI;
         }
         createStackItem(instance) {
             return {
-                sessionObject: Session.cloneObject(this.snapshoot.sessionObject),
+                sessionData: Session.cloneObject(this.snapshoot.sessionData),
                 inputs: Session.cloneObject(this._inputs),
                 outputs: Session.cloneObject(this._outputs),
                 children: Session.cloneObject(this.children),
@@ -539,6 +541,8 @@ var UI;
                 this.model = null;
             } */
         //    // console.log(item, this.stack, this._item)
+            if (item != null)
+                this.snapshoot.sessionData = Session.cloneObject(item.sessionData)
             return item;
         }
         pushToStack(stackItem) {
@@ -979,9 +983,9 @@ function rAFThrottle(func) {
         1: "px",
     };
     const orientationClass = {
-        0: "vertical",
-        1: "horizontal",
-        2: "floating",
+        0: "iac-ui-page-vertical",
+        1: "iac-ui-page-horizontal",
+        2: "iac-ui-page-floating",
     };
     const POPUP_PANEL_ID = "-ui-page-popup-panel";
 
@@ -1035,6 +1039,11 @@ function rAFThrottle(func) {
             if(this.configuration.inlinestyle){
                 this.panelElement.setAttribute("style", this.configuration.inlinestyle);
             }
+
+            if(this.configuration.height)
+                this.panelElement.style.height = this.configuration.height;
+            if(this.configuration.width)
+                this.panelElement.style.width = this.configuration.width;
             
             if(this.configuration.panels.length > 0){
                 for(let panel of this.configuration.panels){
@@ -1157,6 +1166,7 @@ function rAFThrottle(func) {
             await this.loadviewconfiguration(configuration);   
         }
         builview(){
+            
             this.loaded = false;
             // console.log(this.configuration)
             if(!this.configuration.name)
@@ -1178,7 +1188,7 @@ function rAFThrottle(func) {
             this.outputs ={};
             this.promiseCount =0;
             this.Promiseitems = {};
-            this.create();
+            this.preloaddata();
                         
         }
         clear(){
@@ -1193,13 +1203,40 @@ function rAFThrottle(func) {
             }
             //delete Session.view[UI.safeId(this.id)];
         }
-        create(){
-          //  // console.log(this, this.Panel.panelElement);
-            Session.views[UI.safeId(this.id)] = this;
-            // console.log(this.configuration)
+        async preloaddata(){
+            let that = this
             if(this.configuration.inputs)        
                 this.createinputs(this.configuration.inputs);
+
+            if(this.configuration.onloadcode && this.configuration.onloadcode != ""){
+                
+                let data={};
+                data.code = this.configuration.onloadcode;
+                data.inputs = this.inputs;
+                console.log("execute code to load data,"    , data)
+                await this.executeLoadData(data, function(response){
+                    console.log("load data success:", response);
+                    let responsedata = JSON.parse(response);
+                    Session.snapshoot.sessionData =  Object.assign({},Session.snapshoot.sessionData, responsedata.Outputs);
+                    that.inputs = Object.assign({},that.inputs, responsedata.Outputs);
+                    that.create();
+                }, function(error){
+                    console.log("error:", error);
+                    UI.ShowError("Load the data wrong:",error);
+                });
+                
+            }
+            else 
+                that.create();
+        }
+        async create(){
+            
+          //  // console.log(this, this.Panel.panelElement);
+            Session.views[UI.safeId(this.id)] = this;
+            //console.log(this.configuration)
+
      
+            
             if(this.configuration.content){                
                 this.content = this.configuration.content;
                 this.view.innerHTML = UI.createFragment(this.createcontext(this.content));
@@ -1467,6 +1504,13 @@ function rAFThrottle(func) {
             newcontent = newcontent.replaceAll("$PageID", UI.safeId(this.id));
             newcontent = newcontent.replaceAll("$ViewID", UI.safeId(this.id));
             newcontent = newcontent.replaceAll("$View", 'Session.views["'+UI.safeId(this.id)+'"]');
+
+            let inputnames = Object.keys(this.inputs);
+
+            for(var i=0;i<inputnames.length;i++){                
+                newcontent = newcontent.replaceAll("{"+inputnames[i] +"}", this.inputs[inputnames[i]]);
+            }
+
             return newcontent;
         }
         submit(){
@@ -1489,7 +1533,7 @@ function rAFThrottle(func) {
                                 "code":action.code,
                                 "inputs":Session.snapshoot.sessionData,
                             }
-                            this.executeTransaction(url,data, this.updateoutputs, function(error){ console.log(error)});
+                            this.executeTransaction(data, this.updateoutputs, function(error){ console.log(error)});
                             if(Session.snapshoot.sessionData.action !="")
                                 this.executeactionchain();
                         }
@@ -1540,7 +1584,8 @@ function rAFThrottle(func) {
         updateoutputs(outputs){
             Session.snapshoot.sessionData =  Object.assign({},Session.snapshoot.sessionData, outputs);
         }
-        executeTransaction(url,inputs, func, fail){
+        executeTransaction(inputs, func, fail){
+            let url = "/trancode/execute";
             UI.ajax.post(url, inputs).then((response) => {
                    if(typeof(func) == 'function')
                         func(response); 
@@ -1551,13 +1596,15 @@ function rAFThrottle(func) {
                     // console.log(error);
                 });
         }
-        executeLoadData(url,inputs, func, fail){
+        executeLoadData(inputs, func, fail){
             // console.log('execute loading data')
-            UI.ajax.get(url, inputs, false).then((response) => {
+            let url = "/trancode/execute";
+            UI.ajax.post(url, inputs, false).then((response) => {
                 if(typeof(func) == 'function')
                     func(response); 
      
-                }).catch((error) => {    
+                }).catch((error) => {  
+                    console.log(error);  
                     if(typeof(fail) == 'function')
                         fail(error);
                         // console.log(error);
@@ -1719,7 +1766,7 @@ function rAFThrottle(func) {
                     "code":this.configuration.onInitialize,
                     "inputs":Session.snapshoot.sessionData,
                 }
-                await this.executeTransaction(url,data, this.updatesession, function(error){
+                await this.executeTransaction(data, this.updatesession, function(error){
                         console.log(error)
                 });   
             }
@@ -1735,12 +1782,12 @@ function rAFThrottle(func) {
 
             if(this.configuration.onLoad){
 
-                let url = "/exetrancode";
+               
                 let data = {
                     "code":this.configuration.onLoad,
                     "inputs":Session.snapshoot.sessionData,
                 }
-                await this.executeTransaction(url,data, this.updatesession, function(error){
+                await this.executeTransaction(data, this.updatesession, function(error){
                      console.log(error)
                 });   
             }
@@ -1790,15 +1837,15 @@ function rAFThrottle(func) {
             pagecontent.style.alignItems = "flex-start";
             switch (this.configuration.orientation) {                
                 case 0:
-                    pagecontent.style.flexDirection = "row";
+                    pagecontent.style.flexDirection = "column";
                     break;
                 case 1:
-                    pagecontent.style.flexDirection = "column";
+                    pagecontent.style.flexDirection = "row";
                     break;
                 case 3:
                     pagecontent.style.flexDirection = "floating";
                 default:
-                    pagecontent.style.flexDirection = "row";
+                    pagecontent.style.flexDirection = "column";
                     break;
             }
             this.page.element = pagecontent;
@@ -1842,7 +1889,7 @@ function rAFThrottle(func) {
         updatesession(data){
             Session.snapshoot.sessionData =  Object.assign({},Session.snapshoot.sessionData, data);
         }
-        async executeTransaction(url,inputs, func, fail){
+        async executeTransaction(inputs, func, fail){
             UI.ajax.post(url, inputs).then((response) => {
                    if(typeof(func) == 'function')
                         func(response); 

@@ -36411,3 +36411,13 @@ span.k-widget.iac-ui-ctdatetime > span.k-picker-wrap > input.iac-ui-success.iac-
   font-size: 14px;
   padding: 0 46px 0 8px;
 }
+
+.iac-ui-page-vertical{
+  display:flex;
+  flex-direction: column;
+}
+
+.iac-ui-page-horizontal{
+  display:flex;
+  flex-direction: row;
+}

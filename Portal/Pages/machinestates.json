@@ -1,0 +1,102 @@
+{
+	"name": "Machine State Timeline",
+	"title": "Machine State Timeline",
+	"version": "1.0.0",
+	"isdefault": true,
+	"orientation": 0,
+	"initcode": "",
+	"onloadcode": "",
+	"attrs": {
+		"style": "width: 100%; height: 100%;"
+	},
+	"panels": [
+		{
+			"name": "machine_console_header",
+			"view": {
+				"name": "machine console header",
+				"type": "view-type",
+				"file": "templates/machine_conosleheader.html",
+				"inlinestyle": "height: 100%;",
+				"inputs":{    
+					"Machine":"",
+					"Description":"",
+					"CurrentState":"",
+					"OEE_Value":"",
+					"Performance":"",
+					"Availability":"",
+					"Quality":""
+				},
+				"outputs":{},
+				"onloadcode":"IAC_Machine_Data",
+				"actions":{
+				}
+			},
+			"inlinestyle": "width: 100%;height:150px"
+		},
+		{
+			"name": "Machine_State_Timeline",
+			"orientation": 1,
+			"view": {
+				"name": "Machine State Timeline",
+				"type": "view-type",
+				"file": "templates/machine_statetimeline.html",
+				"inlinestyle": "height: 100%",
+				"inputs":{    
+					"Machine":"Machine01"
+				},
+				"outputs":{
+					"action": ""
+				},
+				"actions":{
+				}
+			},
+			"inlinestyle": "width: 100%;height:150px"
+		},
+		{
+			"name":"machine console content",
+			"orientation": 1,
+			"height": "auto",
+			"panels": [
+			{
+				"name": "machine_downtime_analysis",
+				"orientation": 1,
+				"view": {
+					"name": "machine_downtime_analysis",
+					"type": "view-type",
+					"file": "templates/machine_downtime_analysis.html",
+					"inlinestyle": "height: 100%;",
+					"inputs":{    
+						"Machine":"Machine01"
+					},
+					"outputs":{
+						"action": ""
+					},
+					"actions":{
+					}
+				},
+				"inlinestyle": "width: 50%;"
+			},{
+				"name": "machine_production_analysis",
+				"orientation": 1,
+				"view": {
+					"name": "machine_production_analysis",
+					"type": "view-type",
+					"file": "templates/machine_production_analysis.html",
+					"inlinestyle": "height: 100%;",
+					"inputs":{    
+						"Machine":"Machine01"
+					},
+					"outputs":{
+						"action": ""
+					},
+					"actions":{
+					}
+				},
+				"inlinestyle": "width: 50%;"
+			}
+		]
+
+		}
+
+	]
+}

@@ -150,12 +150,25 @@ var UI = UI || {};
         updateNode(path, newValue) {
             this.updateNodeValue(path,newValue) ;  
         }
+        simpleUpdateNode(key, newValue) {
+            if (!this.options.allowChanges) {
+                console.log("Modifications are not allowed.");
+                return;
+            }
+            const node = this.getNode(key);
+            console.log("simpleUpdateNode", node, key, newValue)
+            if (node) {
+                this.data[key] = newValue;
+                this.changed = true;
+            }
+            console.log(this.data)
+        }
         updateNodeValue(path, newValue) {
           if (!this.options.allowChanges) {
             console.log("Modifications are not allowed.");
             return;
           }
-        //  console.log('updateNodeValue',path, newValue )
+      //    console.log('updateNodeValue',path, newValue )
           let isValueObj =this.isValidJSON(newValue);
         
           if(isValueObj){
@@ -962,6 +975,7 @@ var UI = UI || {};
                 }
                 events={
                     "click": function(){
+                        that.getdetailsavedata();
                         that.trigger_event("save", [that.data]);
                     }}
                 new UI.FormControl(actionbar, 'button',attrs,events)
@@ -1028,9 +1042,9 @@ var UI = UI || {};
                     if(key1.hasOwnProperty("cols"))
                         cols = key1["cols"]
                     
-                    let rows = -1;
+                    let rows = 0;
                     if(key1.hasOwnProperty("rows"))
-                    rows = tables[i]["rows"]
+                        rows = tables[i]["rows"]
 
                     let fields = key1["fields"]
                     
@@ -1041,6 +1055,7 @@ var UI = UI || {};
 
                         if(cellnumber >= cols){
                             let width = 100/cols;
+                            rows += 1;
                             tr = (new UI.FormControl(table, 'tr',{"class": "ui-json-detail-page-tab-content-tr-"+cols,})).control;
                             cellnumber = 0;
                         }
@@ -1119,12 +1134,24 @@ var UI = UI || {};
                                         attrs.innerHTML = value
                                         attrs["data-key"] = field
                                     }
-                                    new UI.FormControl(td, tag,attrs);
+                                    let schemadata = that.jschema.getPropertiesFromSchema(field);
+                                    let setnullvalue = false;
+                                    let schemanullvalue = "";
+                                    if(schemadata.properties.hasOwnProperty("nullvalue")){
+                                     setnullvalue = true;
+                                     schemanullvalue = schemadata.properties["nullvalue"]                       
+                                    }
+
+                                    control = (new UI.FormControl(td, tag,attrs)).control;
+
+                                    if(setnullvalue){
+                                       control.setAttribute("nullvalue", schemanullvalue)
+                                    }
                                 }
                             }
                             
                         }else{
-                            this.createcellelement(tr, field, key, i,rows,wrapper,cellnumber,null)
+                            this.createcellelement(tr, field, key, i,rows,cellnumber,wrapper,null)
                         }
                     }
 
@@ -1133,23 +1160,45 @@ var UI = UI || {};
 
             $('.ui-json-detail-page-tab-content-container').find('input').change(function(){
                 let key = $(this).attr('data-key');
-                
-                let value = $(this).val();
-           //     console.log('change:',key, value)
-                that.updateNode(key, value);
+                if(this.getAttribute('type') == 'checkbox'){
+                    that.simpleUpdateNode(key,this.checked);
+                }else{
+                    let value = $(this).val();
+                    that.simpleUpdateNode(key, value);
+                }
             })
             $('.ui-json-detail-page-tab-content-container').find('select').change(function(){
                 let key = $(this).attr('data-key');
                 let value = $(this).val();
-                that.updateNode(key, value);
+                that.simpleUpdateNode(key, value);
             })
         }
 
+        getdetailsavedata(){
+            let that = this
+            $('.ui-json-detail-page-tab-content-container').find('input').each(function(){
+                let key = $(this).attr('data-key');
+                if(this.getAttribute('type') == 'checkbox'){
+                    that.simpleUpdateNode(key,this.checked);
+                }else{
+                    let value = $(this).val();
+                    that.simpleUpdateNode(key, value);
+                }
+            })
+
+            $('.ui-json-detail-page-tab-content-container').find('select').each(function(){
+                let key = $(this).attr('data-key');
+                let value = $(this).val();
+                that.simpleUpdateNode(key, value);
+            })
+        
+        }
         createcellelement(tr, field,key, i,rows,cellnumber,wrapper,linkobj){
             let that = this;
             let attrs = {};
             let td = (new UI.FormControl(tr, 'td',attrs)).control;
         //    console.log(that.allowChanges)
+            console.log("create cell element:", tr, field, key, i,rows,cellnumber,wrapper,linkobj)
 
             if(field != "dummy" && field != "save" && field != "cancel"){
                 let node = that.getNode(field);
@@ -1182,6 +1231,14 @@ var UI = UI || {};
                    if(schemadata.properties.hasOwnProperty("format"))
                        schemaformate = schemadata.properties["format"]
 
+                   let setnullvalue = false;
+                   let schemanullvalue = "";
+                   if(schemadata.properties.hasOwnProperty("nullvalue")){
+                    setnullvalue = true;
+                    schemanullvalue = schemadata.properties["nullvalue"]                       
+                   }
+                    
+                   
                    let lngcode = lng['code']
                    let lngdefault = lng['default']    
                    attrs={
@@ -1201,6 +1258,7 @@ var UI = UI || {};
                     "styles": "width:100%"
                    }
                 //   div = (new UI.FormControl(td, 'div',attrs)).control;
+                   let control = null
                    div = td;
                    if(datatype == 'boolean'){
                        try{
@@ -1231,7 +1289,8 @@ var UI = UI || {};
                        if(schemareadonly || !that.allowChanges)
                            attrs["disabled"] = true;
 
-                       new UI.FormControl(div, 'input',attrs);
+                       control = (new UI.FormControl(div, 'input',attrs)).control;
+
                    
                    }
                    else if(schemaoptions && schemaoptions !={} ){
@@ -1266,7 +1325,7 @@ var UI = UI || {};
                            if(schemaformate == "datetime")
                                attrs["type"] = "datetime-local"
 
-                           new UI.FormControl(div, 'input',attrs);   
+                               control = (new UI.FormControl(div, 'input',attrs)).control;   
                        }         
 
                    }else{
@@ -1282,9 +1341,13 @@ var UI = UI || {};
 
                        if(schemareadonly || !that.allowChanges)
                            attrs["disabled"] = true;
-                       new UI.FormControl(div, 'input',attrs);   
+                           control = (new UI.FormControl(div, 'input',attrs)).control;   
                    }
                    
+                   if(setnullvalue){
+                        control.setAttribute('nullvalue', schemanullvalue)
+                   }
+
                    if(linkobj != null){
                         attrs = {
                             "name": "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber+ "-link",
@@ -1315,7 +1378,7 @@ var UI = UI || {};
                         $(unlink).click(function(){
                             let datakey = $('#'+fieldid).attr('data-key');
                             $(this).closest('td').find('input').val('');
-                            that.updateNode(datakey, '');
+                            that.simpleUpdateNode(datakey, '');
                         })
                         
                    }
@@ -1355,7 +1418,8 @@ var UI = UI || {};
                 console.log("execute the action:",field, data)
                 $('#'+fieldid).val(data.selectedKey);
                 let datakey = $('#'+fieldid).attr('data-key');
-                that.updateNode(datakey, data.selectedKey);
+                console.log(fieldid, datakey, data.selectedKey)
+                that.simpleUpdateNode(datakey, data.selectedKey);
                 Session.snapshoot.sessionData.entity = org_entity;
                 Session.snapshoot.sessionData.selectedKey = org_selectedKey;
                 Session.snapshoot.sessionData.ui_dataschema = org_schema;
