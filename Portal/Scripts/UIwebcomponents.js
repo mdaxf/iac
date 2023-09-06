@@ -19,6 +19,191 @@ customElements.define('ui-tabulator', class extends HTMLElement {
         return ["schema", "datakey_field", "datakey_value", "data_viewonly"];
     }
 
+    loaddatabyschema(){
+        let ajax = new UI.Ajax("");
+      
+        if(this.schema == null)
+          return;
+        
+        console.log(this.schema, this.datakey_field, this.datakey_value, this.data_viewonly)
+        ajax.get('/portal/datasets/schemas/'+ this.schema + '.json').then((response) => {
+          let schema = JSON.parse(response);
+          this.schemadata = schema;
+  
+          if(schema == null){
+              UI.ShowError('Data Schema Not Found');
+              return;
+          }
+          let type = ""; 
+          let datasource = "";
+          let listfields = [];
+          if(schema.hasOwnProperty('datasourcetype'))
+              type = schema.datasourcetype;
+          if(schema.hasOwnProperty('datasource'))
+              datasource = schema.datasource;
+          if(schema.hasOwnProperty('listfields'))
+              listfields = schema.listfields;
+             
+          let data ={}
+          for(var i=0;i<listfields.length;i++){
+              data[listfields[i]] = 1;
+          }
+          let jdataschema =new UI.JSONSchema(schema)
+          //    console.log(jdataschema)
+  
+              
+          let fieldpropertiesobj = {};
+          for(var i=0;i<listfields.length;i++){
+              let fieldschema = jdataschema.getPropertiesFromSchema(listfields[i].replace('.','/'));
+              if(fieldschema)
+                  fieldpropertiesobj[listfields[i]] =  fieldschema.properties;
+              else 
+                  fieldpropertiesobj[listfields[i]] = null;
+                  
+          }
+  
+           //   console.log(fieldpropertiesobj)
+          this.keyfield = "";
+          if(schema.hasOwnProperty('keyfield'))
+              this.keyfield = schema.keyfield;
+          let url = "";
+  
+          let inputs={};
+          if(type == "collection" && datasource !='' && data != '{}'){
+                  
+              inputs["collectionname"] = datasource;                 
+              inputs["data"] = data;
+              inputs["operation"] = "list";
+              url = '/collection/list'
+          }
+          else if(type == "table" && datasource !=''){
+                
+              inputs["tablename"] = datasource;                 
+              inputs["operation"] = "list";
+              data ={}                    
+              data[datasource] = {
+                  "fields":listfields
+              }
+              inputs["data"] = data;
+              inputs["where"] = {};
+                  
+              url = '/sqldata/get'
+          }
+          else {
+              UI.ShowError('Data Source Not Found');
+              return;
+          }
+          if(this.data_url != null)
+              url = this.data_url;
+  
+          this.url = url;
+          this.inputs = inputs;
+  
+          let Tabulator_Columns = [];
+          
+          Tabulator_Columns.push(
+              {formatter:"rowSelection", titleFormatter:"rowSelection", hozAlign:"center", width:30, headerSort:false, cellClick:function(e, cell){
+                  cell.getRow().toggleSelect();
+                  console.log(cell, e)
+                }}
+          )
+          for(var i=0;i<listfields.length;i++){
+              let fieldschema = fieldpropertiesobj[listfields[i]];
+              let lng = null;
+              let type = "string"
+              if(fieldschema){
+                  if(fieldschema.hasOwnProperty('lng'))
+                      lng = fieldschema.lng;
+              
+                  if(fieldschema.hasOwnProperty('type'))
+                      type = fieldschema.type;
+              }
+              let column = {title:listfields[i], field:listfields[i],headerSort: true};
+              if(lng){
+                  column.title = lng.default;
+              //    column.lngcode = lng.code;
+              }
+  
+              if(type == "boolean"){
+                  column.formatter = "tickCross";
+                  column.hozAlign = "center";
+                  column.width = 50;
+                  column.sorttype = "boolean";
+                  column.headerFilter ="tickCross"
+              }
+              else if(type == "integer" || type == "number"){                
+                  column.sorter = "number";
+                  column.headerFilter ="input"
+              }else {
+                  column.sorter = "string";
+                  column.headerFilter ="input"
+              }
+              Tabulator_Columns.push(column);
+          }
+      //    console.log(Tabulator_Columns, fieldpropertiesobj, listfields)
+          let height = this.parentElement.clientHeight;
+          if(height == 0)
+              height = 400;
+          else
+              height = height - 50;
+          this.uitabulator.style.height = height + "px";
+  
+          let Tabulator_Data = [];
+          this.Table = new Tabulator(this.uitabulator, {
+              height: height + "px",
+              layout:"fitColumns",
+              resizableColumnFit:true,
+              responsiveLayout:"hide",
+          //    autoColumns:true,
+          //    layout: "fitColumns",
+              columns: Tabulator_Columns,
+              data: Tabulator_Data
+          });
+  
+          if(this.data_method.toLowerCase() == "get"){
+              ajax.get(url, inputs).then((response) => {
+                  Tabulator_Data = JSON.parse(response)["data"];
+              //    console.log(response,Tabulator_Data)
+                 this.Table.setData(Tabulator_Data);
+              }).catch((error) => {
+                  UI.ShowError(error);
+              })
+          }else{
+              ajax.post(url, inputs).then((response) => {
+                  Tabulator_Data = JSON.parse(response)["data"];
+                  //    console.log(response,data)
+                 this.Table.setData(Tabulator_Data);
+              }).catch((error) => {
+                  UI.ShowError(error);
+              })
+          }
+  
+  
+        }).catch((error) => {
+          UI.ShowError(error);
+        });
+  
+    }
+    createemptytable(){
+        let Tabulator_Data = [];
+        let height = this.parentElement.clientHeight;
+        if(height == 0)
+            height = 400;
+        else
+            height = height - 50;
+        this.uitabulator.style.height = height + "px";
+
+    //    this.Table = new Tabulator(this.uitabulator, {autoColumns:true, data:[]});
+       /* this.Table = new Tabulator(this.uitabulator, {
+              height: height + "px",
+              layout:"fitColumns",
+              resizableColumnFit:true,
+              responsiveLayout:"hide",
+          //    autoColumns:true,
+          //    layout: "fitColumns",
+              data: Tabulator_Data
+          }); */
+    }
     connectedCallback() {
         this.schema = this.getAttribute("schema");
         this.datakey_field = this.getAttribute("datakey_field");
@@ -29,171 +214,30 @@ customElements.define('ui-tabulator', class extends HTMLElement {
 
         if(!this.data_method)
             this.data_method = "";
-      const uitabulator = document.createElement('div');
-      this.shadow.appendChild(uitabulator);
+        this.uitabulator = document.createElement('div');
+        this.shadow.appendChild(this.uitabulator);
       
-      let ajax = new UI.Ajax("");
-      
-      if(this.schema == null)
-        return;
-      
-      console.log(this.schema, this.datakey_field, this.datakey_value, this.data_viewonly)
-      ajax.get('/portal/datasets/schemas/'+ this.schema + '.json').then((response) => {
-        let schema = JSON.parse(response);
-        this.schemadata = schema;
-
-        if(schema == null){
-            UI.ShowError('Data Schema Not Found');
-            return;
-        }
-        let type = ""; 
-        let datasource = "";
-        let listfields = [];
-        if(schema.hasOwnProperty('datasourcetype'))
-            type = schema.datasourcetype;
-        if(schema.hasOwnProperty('datasource'))
-            datasource = schema.datasource;
-        if(schema.hasOwnProperty('listfields'))
-            listfields = schema.listfields;
-           
-        let data ={}
-        for(var i=0;i<listfields.length;i++){
-            data[listfields[i]] = 1;
-        }
-        let jdataschema =new UI.JSONSchema(schema)
-        //    console.log(jdataschema)
-
-            
-        let fieldpropertiesobj = {};
-        for(var i=0;i<listfields.length;i++){
-            let fieldschema = jdataschema.getPropertiesFromSchema(listfields[i].replace('.','/'));
-            if(fieldschema)
-                fieldpropertiesobj[listfields[i]] =  fieldschema.properties;
-            else 
-                fieldpropertiesobj[listfields[i]] = null;
-                
-        }
-
-         //   console.log(fieldpropertiesobj)
-        this.keyfield = "";
-        if(schema.hasOwnProperty('keyfield'))
-            this.keyfield = schema.keyfield;
-        let url = "";
-
-        let inputs={};
-        if(type == "collection" && datasource !='' && data != '{}'){
-                
-            inputs["collectionname"] = datasource;                 
-            inputs["data"] = data;
-            inputs["operation"] = "list";
-            url = '/collection/list'
-        }
-        else if(type == "table" && datasource !=''){
-              
-            inputs["tablename"] = datasource;                 
-            inputs["operation"] = "list";
-            data ={}                    
-            data[datasource] = {
-                "fields":listfields
-            }
-            inputs["data"] = data;
-            inputs["where"] = {};
-                
-            url = '/sqldata/get'
-        }
-        else {
-            UI.ShowError('Data Source Not Found');
-            return;
-        }
-        if(this.data_url != null)
-            url = this.data_url;
-
-        this.url = url;
-        this.inputs = inputs;
-
-        let Tabulator_Columns = [];
-        
-        Tabulator_Columns.push(
-            {formatter:"rowSelection", titleFormatter:"rowSelection", hozAlign:"center", width:30, headerSort:false, cellClick:function(e, cell){
-                cell.getRow().toggleSelect();
-                console.log(cell, e)
-              }}
-        )
-        for(var i=0;i<listfields.length;i++){
-            let fieldschema = fieldpropertiesobj[listfields[i]];
-            let lng = null;
-            let type = "string"
-            if(fieldschema){
-                if(fieldschema.hasOwnProperty('lng'))
-                    lng = fieldschema.lng;
-            
-                if(fieldschema.hasOwnProperty('type'))
-                    type = fieldschema.type;
-            }
-            let column = {title:listfields[i], field:listfields[i],headerSort: true};
-            if(lng){
-                column.title = lng.default;
-            //    column.lngcode = lng.code;
-            }
-
-            if(type == "boolean"){
-                column.formatter = "tickCross";
-                column.hozAlign = "center";
-                column.width = 50;
-                column.sorttype = "boolean";
-                column.headerFilter ="tickCross"
-            }
-            else if(type == "integer" || type == "number"){                
-                column.sorter = "number";
-                column.headerFilter ="input"
-            }else {
-                column.sorter = "string";
-                column.headerFilter ="input"
-            }
-            Tabulator_Columns.push(column);
-        }
-    //    console.log(Tabulator_Columns, fieldpropertiesobj, listfields)
-        let height = this.parentElement.clientHeight;
-        if(height == 0)
-            height = 400;
+        if(this.schema != null && this.schema != "")
+            this.loaddatabyschema();
         else
-            height = height - 50;
-        uitabulator.style.height = height + "px";
+            this.createemptytable();
+    }
 
-        let Tabulator_Data = [];
-        this.Table = new Tabulator(uitabulator, {
-            height: height + "px",
-            layout:"fitColumns",
-            resizableColumnFit:true,
-            responsiveLayout:"hide",
-        //    autoColumns:true,
-        //    layout: "fitColumns",
-            columns: Tabulator_Columns,
-            data: Tabulator_Data
-        });
-
-        if(this.data_method.toLowerCase() == "get"){
-            ajax.get(url, inputs).then((response) => {
-                Tabulator_Data = JSON.parse(response)["data"];
-            //    console.log(response,Tabulator_Data)
-               this.Table.setData(Tabulator_Data);
-            }).catch((error) => {
-                UI.ShowError(error);
-            })
-        }else{
-            ajax.post(url, inputs).then((response) => {
-                Tabulator_Data = JSON.parse(response)["data"];
-                //    console.log(response,data)
-               this.Table.setData(Tabulator_Data);
-            }).catch((error) => {
-                UI.ShowError(error);
-            })
-        }
-
-
-      }).catch((error) => {
-        UI.ShowError(error);
-      });
+    loaddatabyQuery(query){
+        let ajax = new UI.Ajax("");
+        let url = "/sqldata/query"
+        let inputs = {}        
+        inputs["querystr"] = query;
+        inputs["operation"] = "query";
+        console.log(url, inputs )
+        ajax.post(url,inputs,false).then((response) => {
+            let data = JSON.parse(response)["data"];
+        //    console.log(data)
+            this.Table = new Tabulator(this.uitabulator, {autoColumns:true, data:data});
+            //this.Table.setData(data);
+        }).catch((error) => {
+            UI.ShowError(error);
+        })
 
 
     }

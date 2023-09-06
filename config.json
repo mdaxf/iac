@@ -38,18 +38,13 @@
       ]
     },
     {
-      "path": "role",
-      "module": "RoleController",    
+      "path": "function",
+      "module": "FunctionController",    
       "endpoints": [
         {
-          "method": "GET",
-          "path": "/roles",
-          "handler": "List"
-        },
-        {
           "method": "POST",
-          "path": "/roles",
-          "handler": "Create"
+          "path": "/test",
+          "handler": "TestExecFunction"
         }
       ]
     },

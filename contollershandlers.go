@@ -23,10 +23,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mdaxf/iac/controllers/collectionop"
 	"github.com/mdaxf/iac/controllers/databaseop"
+	"github.com/mdaxf/iac/controllers/function"
 	"github.com/mdaxf/iac/controllers/role"
 	"github.com/mdaxf/iac/controllers/trans"
 	"github.com/mdaxf/iac/controllers/user"
-
 	"github.com/mdaxf/iac/framework/auth"
 )
 
@@ -64,6 +64,9 @@ func getModule(module string) reflect.Value {
 		return reflect.ValueOf(moduleInstance)
 	case "DBController":
 		moduleInstance := &databaseop.DBController{}
+		return reflect.ValueOf(moduleInstance)
+	case "FunctionController":
+		moduleInstance := &function.FunctionController{}
 		return reflect.ValueOf(moduleInstance)
 	}
 

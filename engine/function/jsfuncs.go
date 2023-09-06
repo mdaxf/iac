@@ -46,31 +46,37 @@ func (cf *JSFuncs) Validate(f *Funcs) (bool, error) {
 	return true, nil
 }
 
-func (cf *JSFuncs) Testfunction(f *Funcs) (map[string]interface{}, error) {
+func (cf *JSFuncs) Testfunction(content string, inputs interface{}, outputs []string) (map[string]interface{}, error) {
 
-	pass, err := cf.Validate(f)
+	/* pass, err := cf.Validate(f)
 
 	if !pass {
 		return nil, err
 	}
+	*/
+	namelist := make([]string, 0)
+	valuelist := make([]string, 0)
 
-	namelist, valuelist, _ := f.SetInputs()
+	for key, value := range inputs.(map[string]interface{}) {
+		namelist = append(namelist, key)
+		valuelist = append(valuelist, value.(string))
+	}
 
 	vm := otto.New()
 	for i := 0; i < len(namelist); i++ {
 		vm.Set(namelist[i], valuelist[i])
 	}
 
-	vm.Run(f.Fobj.Content)
+	vm.Run(content)
 
-	outputs := make(map[string]interface{})
+	functionoutputs := make(map[string]interface{})
 
-	for i := 0; i < len(f.Fobj.Outputs); i++ {
-		if value, err := vm.Get(f.Fobj.Outputs[i].Name); err == nil {
-			outputs[f.Fobj.Outputs[i].Name] = value.String()
+	for i := 0; i < len(outputs); i++ {
+		if value, err := vm.Get(outputs[i]); err == nil {
+			functionoutputs[outputs[i]] = value.String()
 		} else {
 			fmt.Println(err)
 		}
 	}
-	return outputs, nil
+	return functionoutputs, nil
 }

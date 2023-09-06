@@ -44,7 +44,7 @@ function _0x30f6(_0x180a7f,_0x5d5a98){var _0x42049c=_0x4204();return _0x30f6=fun
 (function(){		
 
 	var path = '/portal/scripts/'
-	$.import_js("https://code.jquery.com/ui/1.12.1/jquery-ui.js")
+	$.import_js(path + "jquery-ui.js")
 //	$.import_js(path + "juery-ui.custom.min.js")
 	$.import_js(path + "D3.V5.0/d3.min.js")
 	$.import_js(path + "Dagre/dagre.min.js")
@@ -947,7 +947,7 @@ var ProcessFlow = (function(){
 						id: this.data.OprSequenceNo,
 						shape: headeredRectangle
 					}
-					this.set_events();
+				//	this.set_events();
 		}
 		
 		update(data, subtype=''){
@@ -961,8 +961,8 @@ var ProcessFlow = (function(){
 					if(subtype == ''){
 						that.data = Object.assign(that.data,data);
 						data = that.data;
-						that.node.shape.attr('functionheader/functionname', that.data.functionName);
-						that.node.shape.attr('functionname/text', that.data.functionName);
+						that.node.shape.attr('functionheader/functionname', that.data.name);
+						that.node.shape.attr('functionname/text', that.data.name);
 						that.node.shape.attr('functionheader/fill', Function_Type_Color_List[that.data.functype]);
 					//	that.node.shape.attr('nodeid', data.id);
 						that.node.shape.resize(that.data.width, that.data.height);
@@ -1307,8 +1307,8 @@ var ProcessFlow = (function(){
 			if(subtype == ''){
 				that.data = Object.assign(that.data,data);
 				data = that.data;
-				that.node.shape.attr('functionheader/functionname', that.data.functionName);
-				that.node.shape.attr('functionname/text', that.data.functionName);
+				that.node.shape.attr('functionheader/functionname', that.data.name);
+				that.node.shape.attr('functionname/text', that.data.name);
 				that.node.shape.attr('functionheader/fill', Function_Type_Color_List[that.data.functype]);
 			//	that.node.shape.attr('nodeid', data.id);
 				that.node.shape.resize(that.data.width, that.data.height);
@@ -4171,6 +4171,49 @@ var ProcessFlow = (function(){
 								case 'Parameters':
 									that.build_trancode_parameters();
 									break;
+								case 'Paste':
+									let copieddata = sessionStorage.getItem("BPM_Editor_Copy")
+									
+									if(!copieddata){
+										UI.ShowError("There is no copied block!")
+										return
+									}
+									copieddata = JSON.parse(copieddata)
+									if(copieddata.type != "FunctionGroup")
+									{
+										UI.ShowError("The copied block is not correct type!")
+										return
+									}
+									let fgdata = {...that.FlowJsonObj.getNode('functiongroups/{"id":"' +copieddata.nodeid+'"}').value}
+									console.log(fgdata)
+									let newfuncgroupname = prompt('Please input the new function group name',fgdata.name);
+									
+									if(/[^A-Za-z0-9]_-/.test(newfuncgroupname)){
+										alert('The fucntion group name can only contain letters and numbers')
+										return;
+									}
+									console.log(newfuncgroupname)
+									if(newfuncgroupname && newfuncgroupname != fgdata.name && !that.validate_funcgroupname(newfuncgroupname)){
+										fgdata.id = UIFlow.generateUUID();
+										fgdata.x = fgdata.x + 250
+										fgdata.y = fgdata.y + 150
+										fgdata.name = newfuncgroupname 
+										fgdata.functiongroupname = newfuncgroupname
+										for(var i=0;i<fgdata.functions.length; i++){
+											fgdata.functions[i].id = UIFlow.generateUUID();
+											for(var j=0;j<fgdata.functions[i].inputs.length;j++)
+												fgdata.functions[i].inputs[j].id = UIFlow.generateUUID()
+										
+											for(var j=0;j<fgdata.functions[i].outputs.length;j++)
+												fgdata.functions[i].outputs[j].id = UIFlow.generateUUID()
+										}
+
+										console.log(newfuncgroupname)
+										that.FlowJsonObj.addNode("functiongroups",fgdata)
+										that.render();									
+									}								
+
+									break;
 							}
 
 						}, 
@@ -4184,6 +4227,22 @@ var ProcessFlow = (function(){
 								name: 'Add Function Group',
 								icon: 'fa-plus',
 								disabled: false
+							},
+							'Paste':{
+								name: 'Paste Function Group',
+								icon: 'fa-paste',
+								disabled: function(){
+									let copieddata = sessionStorage.getItem("BPM_Editor_Copy")
+									
+									if(!copieddata || copieddata ==""){										
+										return true
+									}
+									copieddata = JSON.parse(copieddata)
+									if(copieddata.type != "FunctionGroup")
+										return true
+
+									return false;
+								}
 							},
 							'AutoLayout':{
 								name: 'Auto layout',
@@ -4312,6 +4371,15 @@ var ProcessFlow = (function(){
 										that.reload();
 									}
 									break;
+
+								case "Copy":
+									var copydata ={
+										"type": "FunctionGroup",
+										"nodeid": nodeid
+									} 
+									sessionStorage.setItem("BPM_Editor_Copy", JSON.stringify(copydata))
+									
+									break;
 							}
 
 						}, 
@@ -4337,6 +4405,11 @@ var ProcessFlow = (function(){
 								icon: 'fa-cog',
 								disabled: false
 								
+							},
+							'Copy':{
+								name: 'Copy',
+								icon: 'fa-copy',
+								disabled: false
 							},						
 							'Delete':{
 								name: 'Delete',
@@ -5380,7 +5453,48 @@ var ProcessFlow = (function(){
 									that.reload();								
 								//	that.setup_objects(newoptions, "");
 									break;
+								case 'Paste':
+									let copieddata = sessionStorage.getItem("BPM_Editor_Copy")
+										
+									if(!copieddata){
+										UI.ShowError("There is no copied block!")
+										return
+									}
+									copieddata = JSON.parse(copieddata)
+									if(copieddata.type != "Function")
+										{
+											UI.ShowError("The copied block is not correct type!")
+											return
+										}
+									let functiondata = {...that.FlowJsonObj.getNode('functiongroups/{"name":"' +that.funcgroupname+'"}/functions/{"id": "'+copieddata.nodeid+'"}').value}
+									console.log(functiondata)
+									let newfunctioname = prompt('Please input the new function name',functiondata.name);
 									
+									if(/[^A-Za-z0-9]_-/.test(newfunctioname)){
+										alert('The fucntion name can only contain letters and numbers')
+										return;
+									}
+									console.log(newfunctioname)
+									if(newfunctioname !="" && that.validate_functionname(newfunctioname)){
+										functiondata.id = UIFlow.generateUUID();
+										functiondata.x = functiondata.x + 250
+										functiondata.y = functiondata.y + 150
+										functiondata.name = newfunctioname 
+										functiondata.functionName = newfunctioname
+										for(var j=0;j<functiondata.inputs.length;j++)
+											functiondata.inputs[j].id = UIFlow.generateUUID()
+											
+										for(var j=0;j<functiondata.outputs.length;j++)
+											functiondata.outputs[j].id = UIFlow.generateUUID()
+											
+										console.log(newfunctioname)
+										that.FlowJsonObj.addNode('functiongroups/{"name":"' +that.funcgroupname+'"}/functions',functiondata)
+										that.reload();									
+									}
+									else
+										UI.ShowError("Can not paste the function!")								
+	
+									break;	
 							}
 
 
@@ -5395,6 +5509,22 @@ var ProcessFlow = (function(){
 								name: 'Add Function',
 								icon: 'fa-plus',
 								disabled: false
+							},
+							'Paste':{
+								name: "Paste Function",
+								icon: 'fa-paste',
+								diabled: function(){
+									let copieddata = sessionStorage.getItem("BPM_Editor_Copy")
+									
+									if(copieddata == null || copieddata ==""){										
+										return true
+									}
+									copieddata = JSON.parse(copieddata)
+									if(copieddata.type != "Function")
+										return true
+
+									return false;
+								}
 							},
 							'AutoLayout':{
 								name: 'Auto layout',
@@ -5473,6 +5603,7 @@ var ProcessFlow = (function(){
 											that.add_functionOutput(block, outputname,outnumber, $triggerElement);
 										}
 										break;
+									
 								case 'Delete':
 									var result = confirm("Are you sure you want to delete?");
 									if(result){
@@ -5480,6 +5611,74 @@ var ProcessFlow = (function(){
 										that.reload();
 									}
 									break;
+								case "Copy":
+									var copydata ={
+										"type": "Function",
+										"nodeid": nodeid
+									} 
+									sessionStorage.setItem("BPM_Editor_Copy", JSON.stringify(copydata))
+										
+									break;	
+								case "PasteInput":
+									var copieddata = sessionStorage.getItem("BPM_Editor_Copy")
+										
+									if(!copieddata){
+										UI.ShowError("There is no copied block!")
+										return
+									}
+									copieddata = JSON.parse(copieddata)
+									if(copieddata.type != "Function_input")
+										{
+											UI.ShowError("The copied block is not correct type!")
+											return
+										}
+									var functioniodata = {...that.FlowJsonObj.getNode('functiongroups/{"name":"' +that.funcgroupname+'"}/functions/{"id": "'+copieddata.functionid+'"}/inputs/{"id":"'+copieddata.id+'"}').value}
+									console.log(functioniodata)
+									var newioname = prompt('Please input the new input name',functioniodata.name);
+									
+									if(/[^A-Za-z0-9]_-/.test(newioname)){
+										alert('The fucntion io name can only contain letters and numbers')
+										return;
+									}
+									console.log(newioname)
+									if(newioname !="" && that.validate_functionparametername(block,newioname, "input")){
+										functioniodata.id = UIFlow.generateUUID();
+										functioniodata.name = newioname										
+										that.FlowJsonObj.addNode('functiongroups/{"name":"' +that.funcgroupname+'"}/functions/{"id": "'+nodeid+'"}/inputs',functioniodata)
+										that.reload();									
+									}else
+										UI.ShowError("Cannot paste the input to the function,",functionname, newioname)	
+								break
+								case "PasteOutput":
+									var copieddata = sessionStorage.getItem("BPM_Editor_Copy")
+										
+									if(!copieddata){
+										UI.ShowError("There is no copied block!")
+										return
+									}
+									copieddata = JSON.parse(copieddata)
+									if(copieddata.type != "Function_output")
+										{
+											UI.ShowError("The copied block is not correct type!")
+											return
+										}
+									var functioniodata = {...that.FlowJsonObj.getNode('functiongroups/{"name":"' +that.funcgroupname+'"}/functions/{"id": "'+nodeid+'"}/outputs/{"id":"'+copieddata.id+'"}').value}
+									console.log(functioniodata)
+									var newioname = prompt('Please input the new output name',functioniodata.name);
+									
+									if(/[^A-Za-z0-9]_-/.test(newioname)){
+										alert('The fucntion io name can only contain letters and numbers')
+										return;
+									}
+									console.log(newioname)
+									if(newioname!="" && that.validate_functionparametername(block, newioname, "output")){
+										functioniodata.id = UIFlow.generateUUID();
+										functioniodata.name = newioname										
+										that.FlowJsonObj.addNode('functiongroups/{"name":"' +that.funcgroupname+'"}/functions/{"id": "'+copieddata.functionid+'"}/outputs',functioniodata)
+										that.reload();									
+									}else
+										UI.ShowError("Cannot paste the output to the function,",functionname, newioname)		
+								break
 							}
 
 						}, 
@@ -5494,6 +5693,11 @@ var ProcessFlow = (function(){
 								icon: 'fa-cog',
 								disabled: false
 							},
+							'Copy':{
+								name: "Copy",
+								icon: 'fa-copy',
+								disabled:false,
+							},
 							'AddInputs':{
 								name: 'Add Inputs',
 								icon: 'fa-plus',
@@ -5503,6 +5707,38 @@ var ProcessFlow = (function(){
 								name: 'Add Outputs',
 								icon: 'fa-plus',
 								disabled: false
+							},
+							'PasteInput':{
+								name: "Paste Inputs",
+								icon: 'fa-copy',
+								diabled: function(){
+									let copieddata = sessionStorage.getItem("BPM_Editor_Copy")
+									
+									if(copieddata == null || copieddata ==""){										
+										return true
+									}
+									copieddata = JSON.parse(copieddata)
+									if(copieddata.type != "Function_input")
+										return true
+
+									return false;
+								}
+							},
+							'PasteOutput':{
+								name: "Paste Output",
+								icon: 'fa-copy',
+								diabled: function(){
+									let copieddata = sessionStorage.getItem("BPM_Editor_Copy")
+									
+									if(copieddata == null || copieddata ==""){									
+										return true
+									}
+									copieddata = JSON.parse(copieddata)
+									if(copieddata.type != "Function_output")
+										return true
+
+									return false;
+								}
 							},
 							'Delete':{
 								name: 'Delete',
@@ -5587,6 +5823,15 @@ var ProcessFlow = (function(){
 
 									}
 									break;
+								case "Copy":
+									var copydata ={
+										"type": "Function_"+ type,
+										"functionid": node,
+										"id": portid
+									} 
+									sessionStorage.setItem("BPM_Editor_Copy", JSON.stringify(copydata))
+											
+									break;	
 							}
 						}, 
 						items:{
@@ -5599,7 +5844,12 @@ var ProcessFlow = (function(){
 								name: 'Change Name',
 								icon: 'fa-plus',
 								disabled: false
-							},							
+							},	
+							'Copy':{
+								name: "Copy",
+								icon: 'fa-copy',
+								disabled:false,
+							},						
 							'Delete':{
 								name: 'Delete',
 								icon: 'fa-trash',
@@ -5744,10 +5994,12 @@ var ProcessFlow = (function(){
 			
 		}
 		validate_functionname(name){
-			for(var i=0;i<this.nodes.length;i++){				
-				if(this.nodes[i].functionName == name)
+			for(var i=0;i<this.nodes.length;i++){	
+				console.log(name, this.nodes[i].name)			
+				if(this.nodes[i].name == name)
 					return false			
 			}
+			console.log("validate function name:", name)
 			return true;
 		}
 		add_function(functype){
@@ -6000,29 +6252,117 @@ var ProcessFlow = (function(){
 						click: function(){
 							console.log('open popup panle')
 							//document.getElementById('popup').remove();
+							let page = Session.CurrentPage
+							let popup = new UI.Popup(page.container);
+							popup.createPopup();
+							popup.title = Function_Type_List[functionobj.functype]+" Script Editor";
 
 							let attrs=[{
-								attrs:{
-									id:"popup",
-									class:"modal flow-popup-panel",
-									style:"display:block;min-height:390px;min-width:900px; width:80%;height:80%"
+								attrs:{									
+									style:"display:block;min-height:600px;min-width:1200px; width:100%;height:100%"
 								},							
 								children:[
-									{tag:"h3", attrs:{innerHTML: Function_Type_List[functionobj.functype]+" Script Editor", lngcode:Function_Type_List[functionobj.functype]+"_Script_Editor"}},
-									{tag:"textarea", attrs:{id:"script-editor", style:"height:100%;width:100%"}},
-									{tag:'div', attr:{id:'script-editor-buttons', class:'btn-group'},
+								//	{tag:"h3", attrs:{innerHTML: Function_Type_List[functionobj.functype]+" Script Editor", lngcode:Function_Type_List[functionobj.functype]+"_Script_Editor"}},
+									{tag:"textarea", attrs:{id:"script-editor", style:"height:70%;width:100%"}},
+									{tag:"div", attrs:{id:"script-editor-additional-section", style:"height:200px;margin-top:10px;margin-left:20px;"}},
+									{tag:'div', //attr:{id:'script-editor-buttons', class:'btn-group'},
 										children:[
 											{tag: "button", attrs:{id:"save-script", innerHTML:"Update", class:"btn btn-primary", lngcode:"Update"},events:{click: function(){
+												let content = script_editor.getValue();
 												$('#functioncontent').val(script_editor.getValue());
-												document.getElementById('popup').remove();
+												functionobj.content = script_editor.getValue();
+												let table = document.getElementById('script-editor-additional-section-tab-content-output-table');
+												if(table){
+													let columns = table.Table.getColumns()
+													columns.forEach(column => {
+														let columnfield = column._column.field
+														
+														let output_path = path +'/outputs';
+														let outputobj = that.FlowJsonObj.getNode(output_path + '/{"name":"'+columnfield+'"}');
+														console.log('outputobj:', outputobj, columnfield)
+														if(!outputobj || outputobj == null){
+															let output = {
+																id: UIFlow.generateUUID(),
+																name: columnfield,
+																datatype: 0,
+																description: columnfield,
+																value:'',
+																list: true,
+																outputdest:[],
+																aliasname:[]
+															}
+															that.FlowJsonObj.addNode(output_path,output);
+														}
+														that.refresh()
 
+													})
+
+												}												
+												popup.close()
 											}}},
-											{tag: "button", attrs:{id:"cancel-script", innerHTML:"Cancel", class:"btn btn-secondary",lngcode:"Cancel"}, events:{click: function(){document.getElementById('popup').remove()}}},
+											{tag: "button", attrs:{id:"test-script", innerHTML:"Test", class:"btn btn-primary", lngcode:"Test"},events:{click: function(){			
+												//document.getElementById('script-editor-additional-section');
+												if(functionobj.functype == 3){
+													let inputs = [];
+													let querystr = script_editor.getValue();
+													$('.script_inputs').each(function(){
+														let inputvalue = $(this).val();
+														let inputname = $(this).attr('inputname');
+														
+														querystr = UI.replaceAll(querystr,'@'+inputname, "'"+inputvalue+"'");
+														
+													})
+
+													let table = document.getElementById('script-editor-additional-section-tab-content-output-table');
+													table.loaddatabyQuery(querystr)
+													let key = "outputs";
+													$('.ui-json-detail-page-tab').removeClass('ui-json-detail-page-tab-active');
+													$("#script-editor-additional-section-tab-header-output").addClass('ui-json-detail-page-tab-active');
+													$('.ui-json-detail-page-tab-content').hide();
+													$('#script-editor-additional-section-tab-content-'+key).show();
+												}else if(functionobj.functype == 2){
+													let inputs = {};
+													let outputs = [];
+													let scriptcontent = script_editor.getValue();
+													$('.script_inputs').each(function(){
+														let inputvalue = $(this).val();
+														let inputname = $(this).attr('inputname');														
+														inputs[inputname] = inputvalue;														
+													})
+													$('.script_outputs').each(function(){
+														
+														let outputname = $(this).attr('outputname');
+														outputs.push(outputname)
+													})
+													let data={
+														content: scriptcontent,
+														inputs:inputs,
+														outputs:outputs,
+														type: 2
+													}
+
+													UI.Post("/function/test",data, function(response){console.log(response)
+														if(response == null || response == "")
+															return;
+
+														let data = JSON.parse(response).data;	
+														$('.script_outputs').each(function(){
+															let outputname = $(this).attr('outputname');
+															if(data.hasOwnProperty(outputname))
+																$(this).html(data[outputname])
+														})
+
+													}, function(error){console.log(error)})
+																								}
+											}}},
+											{tag: "button", attrs:{id:"cancel-script", innerHTML:"Cancel", class:"btn btn-secondary",lngcode:"Cancel"}, events:{click: function(){popup.close();}}},
 										]
 									},
 									
 								]}]
-							new UI.Builder(null, attrs);
+							new UI.Builder(popup.popup, attrs);
+							popup.open();
+
 							let script_editor = CodeMirror.fromTextArea(document.getElementById("script-editor"), {
 								styleActiveLine: true,
 								lineNumbers: true,
@@ -6038,10 +6378,85 @@ var ProcessFlow = (function(){
 								gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
 							});
 							let width = $('#popup').width() - 40;
-							let height = $('#popup').height() - 90;
+							let height = $('#popup').height() - 90-100;
 							script_editor.setValue($('#functioncontent').val());
 							script_editor.setSize(width, height);
 
+							let additional_section = document.getElementById('script-editor-additional-section');
+							if(functionobj.functype == 1 || functionobj.functype == 2){
+								additional_section.style.display = 'flex';
+								additional_section.style.flexDirection = 'row';
+								additional_section.style.alignItems = 'flex-start';
+								additional_section.style.width = width + "px";
+
+								let additional_section_input = (new UI.FormControl(additional_section, 'div', {id:'script-editor-additional-section-input', style:'width:45%;height:100%;'})).control;
+
+								let inputs = functionobj.inputs;
+								let tabledata ={};
+								let headers = [{innerHTML: 'Input Name', style:'width:45%;'}, {innerHTML: 'Input Value', style:'width:auto;'}];
+								let columns = [{control:'', }, {control:'input', type:'text', style:'width:100%;'}];
+								let rows = [];
+								for(var i=0;i<inputs.length;i++){
+									let input = inputs[i];
+									rows.push([{data:{innerHTML: input.name, style:'width:45%;'}}, {data:{value: input.value, style:'width:auto;', inputname:input.name, class: "script_inputs"   }}]);									
+								}
+								tabledata.headers = headers;
+								tabledata.columns = columns;
+								tabledata.rows = rows;
+								new UI.HtmlTable(additional_section_input, tabledata);
+
+								let additional_section_output = (new UI.FormControl(additional_section, 'div', {id:'script-editor-additional-section-output', style:'width:auto;height:100%;'})).control;
+
+								tabledata ={};
+								headers = [{innerHTML: 'Output Name', style:'width:45%;'}, {innerHTML: 'Output Value', style:'width:auto;'}];
+								columns = [{control:'', }, {control:''}];
+								rows = [];
+								let outputs = functionobj.outputs;
+								for(var i=0;i<outputs.length;i++){
+									let output = outputs[i];
+									rows.push([{data:{innerHTML: output.name, style:'width:45%;'}}, {data:{innerHTML: output.value, style:'width:auto;',outputname:output.name, class: "script_outputs"   }}]);
+								}
+								tabledata.headers = headers;
+								tabledata.columns = columns;
+								tabledata.rows = rows;
+								new UI.HtmlTable(additional_section_output, tabledata);							
+							}else if(functionobj.functype == 3){
+								let tab = (new UI.FormControl(additional_section, 'div', {id:'script-editor-additional-section-tab', style:'width:100%;height:100%;'})).control;
+								let tab_header = (new UI.FormControl(tab, 'ul', {id:'script-editor-additional-section-tab-header', class:'ui-json-detail-page-tabs', style:'width:100%;height:30px;'})).control;
+								let tab_content = (new UI.FormControl(tab, 'div', {id:'script-editor-additional-section-tab-content', class:'tab-content', style:'width:100%;height:calc(100% - 30px);'})).control;
+								let tab_header_input = (new UI.FormControl(tab_header, 'li', {id:'script-editor-additional-section-tab-header-input', data_key:"inputs",class:'ui-json-detail-page-tab ui-json-detail-page-tab-active', innerHtml:"Inputs"})).control;
+								let tab_header_output = (new UI.FormControl(tab_header, 'li', {id:'script-editor-additional-section-tab-header-output', data_key:"outputs", class:'ui-json-detail-page-tab', innerHtml:"Outputs"})).control;
+								let tab_header_error = (new UI.FormControl(tab_header, 'li', {id:'script-editor-additional-section-tab-header-output', data_key:"error", class:'ui-json-detail-page-tab', innerHtml:"Errors"})).control;
+
+								let tab_content_input = (new UI.FormControl(tab_content, 'div', {id:'script-editor-additional-section-tab-content-inputs', data_key:"inputs", class:'ui-json-detail-page-tab-content', style:'width:100%;height:100%;'})).control;
+								let inputs = functionobj.inputs;
+								let tabledata ={};
+								let headers = [{innerHTML: 'Input Name', style:'width:45%;'}, {innerHTML: 'Input Value', style:'width:auto;'}];
+								let columns = [{control:'', }, {control:'input', type:'text', style:'width:100%;'}];
+								let rows = [];
+								for(var i=0;i<inputs.length;i++){
+									let input = inputs[i];
+									rows.push([{data:{innerHTML: input.name, style:'width:45%;'}}, {data:{value: input.value, style:'width:auto;', inputname:input.name, class: "script_inputs"   }}]);									
+								}
+								tabledata.headers = headers;
+								tabledata.columns = columns;
+								tabledata.rows = rows;
+								new UI.HtmlTable(tab_content_input, tabledata);
+
+								let tab_content_output = (new UI.FormControl(tab_content, 'div', {id:'script-editor-additional-section-tab-content-outputs', data_key:"outputs", class:'ui-json-detail-page-tab-content', style:'width:100%;height:100%; display:none'})).control;
+								let tab_content_error = (new UI.FormControl(tab_content, 'div', {id:'script-editor-additional-section-tab-content-errors', data_key:"error", class:'ui-json-detail-page-tab-content', style:'width:100%;height:100%; display:none'})).control;
+								
+								new UI.FormControl(tab_content_output, 'ui-tabulator', {id:'script-editor-additional-section-tab-content-output-table'});								
+
+								$('.ui-json-detail-page-tab').click(function(){
+									let key = $(this).attr('data_key');
+									$('.ui-json-detail-page-tab').removeClass('ui-json-detail-page-tab-active');
+									$(this).addClass('ui-json-detail-page-tab-active');
+									$('.ui-json-detail-page-tab-content').hide();
+									$('#script-editor-additional-section-tab-content-'+key).show();
+								})
+
+							}
 						}
 					}
 					new UI.FormControl(property_container, 'button', {id:"openpopup", style:"width:100%;", innerHTML:"Script Editor"}, events);		
@@ -6069,7 +6484,7 @@ var ProcessFlow = (function(){
 				lngcode: 'Update'
 			}
 			var savefuntion = function(){
-				let oldfunctionname = functionobj.functionName;
+				let oldfunctionname = functionobj.name;
 				let functionname = $('#functionname').val();
 				//console.log(oldfunctionname,functionname)
 				
@@ -6112,7 +6527,7 @@ var ProcessFlow = (function(){
 								}
 								if(!found){
 									let input = functypeobj.inputs[key];
-									input.id = UI.generateUUID();
+									input.id = UIFlow.generateUUID();
 									functionobj.inputs.push(input);
 									let path_input = path + "inputs";
 									that.FlowJsonObj.addNode(path_input,input);
@@ -6130,7 +6545,7 @@ var ProcessFlow = (function(){
 								}
 								if(!found){
 									let output = functypeobj.outputs[key];
-									output.id = UI.generateUUID();
+									output.id = UIFlow.generateUUID();
 									output.outputdest= [];
 									output.aliasname= [];
 									functionobj.outputs.push(output);
@@ -6285,14 +6700,27 @@ var ProcessFlow = (function(){
 					selected:parameterobj.source,
 					attrs:{class: 'form-control', placeholder: 'Parameter Source', id: 'parametersource', style: 'width: 100%;', value:parameterobj.source}, 
 					options:Function_Source_List}
-				new UI.Selection(property_container, attrs);
+				
+				
+				let parametersource_element = (new UI.Selection(property_container, attrs)).control;
+				parametersource_element.addEventListener('change', function(){
+					let sourcetype = document.getElementById('parametersource').value;
+					console.log("source clicked,", sourcetype)
+					that.build_parameteraliasname_section(functionid, sourcetype, parameterobj.aliasname==undefined?'':parameterobj.aliasname)
+				});
 				new UI.FormControl(property_container, 'br', {});
 
 				attrs={ for: 'parameteraliasname', innerHTML: 'Parameter Alias Name'}
 				new UI.FormControl(property_container, 'label', attrs);
 				new UI.FormControl(property_container, 'br', {});
-				attrs={class: 'form-control', placeholder: 'Parameter Alias Name', id: 'parameteraliasname', value: parameterobj.aliasname==undefined?'':parameterobj.aliasname, style: 'width: 100%;'}
-				new UI.FormControl(property_container, 'input', attrs);
+				attrs = {style:"width:100%", id: 'parameteraliasname_section'}
+				new UI.FormControl(property_container, 'div', attrs)
+				
+				this.build_parameteraliasname_section(functionid,parameterobj.source,parameterobj.aliasname==undefined?'':parameterobj.aliasname)
+			/*	attrs={class: 'form-control', placeholder: 'Parameter Alias Name', id: 'parameteraliasname', value: parameterobj.aliasname==undefined?'':parameterobj.aliasname, style: 'width: 100%;'}
+				if(parameterobj.source == 0)
+					attrs.disabled = true				
+				new UI.FormControl(parameteraliasname_section, 'input', attrs); */
 				
 		
 			}else{
@@ -6437,7 +6865,83 @@ var ProcessFlow = (function(){
 			that.property_panel.style.display = "flex";
 		}
 
+		build_parameteraliasname_section(functionid,sourcetype, selectedvalue){
+			let that =this;
+			let parameteraliasname_section = document.getElementById("parameteraliasname_section")
+			parameteraliasname_section.innerHTML = "";
+			let attrs ={};
+			attrs={class: 'form-control', placeholder: 'Parameter Alias Name', id: 'parameteraliasname', value: selectedvalue, style: 'width: 100%;'}
 
+			switch(parseInt(sourcetype)){
+				case 1:
+					attrs.list = "parameteraliasname_list"
+					
+					new UI.FormControl(parameteraliasname_section, 'input', attrs);	
+
+					attrs={id:"parameteraliasname_list"}
+					var datalist = (new UI.FormControl(parameteraliasname_section, 'datalist', attrs)).control;	
+					let previousfunctionoutputs =this.Calculate_PreviousFunctionOutputs(functionid);
+					for(var i=0;i<previousfunctionoutputs.length;i++){
+						attrs={value: previousfunctionoutputs[i]}
+						new UI.FormControl(datalist, 'option', attrs);	
+					}
+					break;
+				case 2:
+					attrs.list = "parameteraliasname_list"
+					new UI.FormControl(parameteraliasname_section, 'input', attrs);	
+
+					attrs={id:"parameteraliasname_list"}
+					var datalist = (new UI.FormControl(parameteraliasname_section, 'datalist', attrs)).control;	
+					
+
+					Function_System_Sessions.forEach(function(obj){
+						attrs = {value: obj}
+						new UI.FormControl(datalist, 'option', attrs);
+					})
+					break;
+				case 3:
+					attrs.list = "parameteraliasname_list"
+					new UI.FormControl(parameteraliasname_section, 'input', attrs);
+					attrs={id:"parameteraliasname_list"}
+					var datalist = (new UI.FormControl(parameteraliasname_section, 'datalist', attrs)).control;
+					Object.keys(this.Calculate_UserSessions()).forEach(function(obj,index){
+						attrs = {value: obj}
+						new UI.FormControl(datalist, 'option', attrs);
+					})
+					break;
+				case 4:
+					attrs.list = "parameteraliasname_list"
+					new UI.FormControl(parameteraliasname_section, 'input', attrs);
+					attrs={id:"parameteraliasname_list"}
+					var datalist = (new UI.FormControl(parameteraliasname_section, 'datalist', attrs)).control;
+					this.flowobj.outputs.forEach(function(parameter){
+						attrs = {value: parameter.name}
+						new UI.FormControl(datalist, 'option', attrs);
+					})
+					break;
+				default:
+					
+					attrs.disabled = true
+					new UI.FormControl(parameteraliasname_section, 'input', attrs);
+					break;
+			}
+			
+		}
+		Calculate_PreviousFunctionOutputs(functionid){
+			let outputs =[];
+			let functions = this.FlowJsonObj.getNode('functiongroups/{"name":"'+this.funcgroupname+'"}/functions').value;
+			console.log(functions)
+			for(var i=0;i<functions.length;i++){
+				if(functions[i].id != functionid){
+					for(var j=0;j<functions[i].outputs.length;j++)
+					{
+						let value = functions[i].name +"."+ functions[i].outputs[j].name;
+						outputs.push(value)
+					}						
+				}
+			}
+			return outputs;
+		}
 		menu_click(menudata) {
 			let that = this;
 			console.log(menudata, this)
@@ -6882,7 +7386,7 @@ var ProcessFlow = (function(){
 			that.item_panel.style.display = "block";
 			
 		}
-
+		
 		Calculate_UserSessions(){
 			let flowobj = this.flowobj;
 			let UserSessions = {}
@@ -6936,17 +7440,6 @@ var ProcessFlow = (function(){
 	return ProcessFlow;
 	
 }());
-
-function drag_functionlist(event){
-	console.log('drag_functionlist',event)
-}
-function allowDrop_functionlist(event){
-	console.log('allowDrop_functionlist',event)
-}
-
-function drop_functionlist(event){
-	console.log('drop_functionlist',event)
-}
 
 Function_System_Sessions =["UTCTime", "LocalTime", "UserNo","UserID", "WorkSpace"]
 

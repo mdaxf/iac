@@ -34,7 +34,7 @@
                 "cols": 3,
                 "rows": 3,            
                 "fields": [
-                    {"PictureUrl": {"tag": "img", "attrs":{"rowspan": 3, "class": "img-thumbnail", "style": "width: 100px; height: 100px;"}, "nodeattrs":{"src":"user/image?username={@LoginName}"}}},
+                    {"PictureUrl": {"tag": "img", "attrs":{"rowspan": 3, "class": "img-thumbnail", "style": "width: 100px; height: 100px;"}, "nodeattrs":{"src":"user/image?username={LoginName}"}}},
                     "Name", "dummy", 
                     "FirstName", 
                     "MiddleName", 

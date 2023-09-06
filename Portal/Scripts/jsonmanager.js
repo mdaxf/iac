@@ -161,7 +161,7 @@ var UI = UI || {};
                 this.data[key] = newValue;
                 this.changed = true;
             }
-            console.log(this.data)
+        //    console.log(this.data)
         }
         updateNodeValue(path, newValue) {
           if (!this.options.allowChanges) {
@@ -284,16 +284,16 @@ var UI = UI || {};
                 index: -1,
               };
 
-          console.log('getnode:',path)
+        //  console.log('getnode:',path)
           const keys = path.toString().includes("/")? path.toString().split("/"): [path];
           let currentNode = this.data;
           let arrayPath = null;
           let isArrayElement = false;
           let index = -1;
-          console.log(keys)
+        //  console.log(keys)
           for (let i = 0; i < keys.length; i++) {
             const key = keys[i];
-            console.log(i,currentNode,key, this.isValidJSON(key))
+        //    console.log(i,currentNode,key, this.isValidJSON(key))
             isArrayElement = Array.isArray(currentNode)
             if(this.isValidJSON(key)){
 
@@ -312,7 +312,7 @@ var UI = UI || {};
 
             }
             else{
-                console.log(currentNode,key)
+            //    console.log(currentNode,key)
                 let findobj = this.findNodebykey(currentNode,key);
                 if(findobj){
                     currentNode = findobj.value;
@@ -335,7 +335,7 @@ var UI = UI || {};
         }
 
         isValidJSON(str){
-            console.log(str)
+        //    console.log(str)
             if(str == null || str == undefined)
                 return false;
             if(typeof str == 'object')
@@ -350,16 +350,16 @@ var UI = UI || {};
             return typeof obj == 'object';
         }
         findNodebykey(jsonObject,key){
-            console.log('findNodebykey',jsonObject,key, Array.isArray(jsonObject),jsonObject.hasOwnProperty(key))
+        //    console.log('findNodebykey',jsonObject,key, Array.isArray(jsonObject),jsonObject.hasOwnProperty(key))
             if(Array.isArray(jsonObject)){
 
                 if(this.isValidJSON(key)){
                     for (var i=0;i<jsonObject.length;i++){
-                        console.log('check the node:',i,jsonObject[i] )
+                    //    console.log('check the node:',i,jsonObject[i] )
                         let node = jsonObject[i];
                         let found = true;
                         for (const searchKey in key) {
-                            console.log("check the key:", searchKey, key[searchKey], node[searchKey])
+                        //    console.log("check the key:", searchKey, key[searchKey], node[searchKey])
                             if (key.hasOwnProperty(searchKey) && node[searchKey] != key[searchKey]) {
                               found = false;
                               break;
@@ -1108,21 +1108,38 @@ var UI = UI || {};
                                         value = node.value
                                     }
                                     attrs = {};
-                                    console.log(field)
-                                    if(field.hasOwnProperty("nodeattrs")){
-                                        attrs = fieldvalue.hasOwnProperty("nodeattrs")
-                                        var matches = attrs.match(/\{([^}]+)\}/g);
-                                        if (matches) {
+                                    console.log(field,fieldvalue)
+                                    if(fieldvalue.hasOwnProperty("nodeattrs")){
+                                        attrs = fieldvalue["nodeattrs"]
+                                        const regex = /\{([^}]+)\}/g;
+                                        var matches  =[];
+
+                                        if(typeof attrs == "string")
+                                            matches = attrs.match(regex);
+                                        else if(typeof attrs == "object"){
+                                            for(const key in attrs){
+                                                let value = attrs[key];
+                                                if(typeof value == "string")
+                                                    matches = matches.concat(value.match(regex));
+                                            }
+                                        }
+                                        console.log(matches)
+                                        if (matches.length > 0) {
                                             var extractedValues = matches.map(function(match) {
                                                 return match.slice(1, -1); // Remove the curly braces
                                             });
+                                            console.log(extractedValues, node)
 
-                                            if(node.hasOwnProperty("value")){
-                                                value = node.value
-                                                attrs = attrs.replaceAll('{'+extractedValues+'}', value)
-                                            }                                            
+                                            for(var n=0;n<extractedValues.length;n++){
+                                                let node1 = that.getNode(extractedValues[n]);
+                                                if(node1 && node1.hasOwnProperty("value")){
+                                                    let value1 = node1.value
+                                                    attrs = JSON.parse(JSON.stringify(attrs).replaceAll('{'+extractedValues[n]+'}', value1))
+                                                }                                         
+                                            }   
                                         }                                        
                                     }
+                                    console.log(field,attrs)
                                     if(tag != "input" ||tag != "select"){
                                        
                                         attrs.name = "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber;
@@ -1132,9 +1149,10 @@ var UI = UI || {};
 
                                         attrs.name = "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber;
                                         attrs.innerHTML = value
-                                        attrs["data-key"] = field
+                                        attrs["data-key"] = fieldkey
                                     }
-                                    let schemadata = that.jschema.getPropertiesFromSchema(field);
+                                    console.log(fieldkey, field,attrs,that.jschema)
+                                    let schemadata = that.jschema.getPropertiesFromSchema(fieldkey);
                                     let setnullvalue = false;
                                     let schemanullvalue = "";
                                     if(schemadata.properties.hasOwnProperty("nullvalue")){
@@ -1142,7 +1160,7 @@ var UI = UI || {};
                                      schemanullvalue = schemadata.properties["nullvalue"]                       
                                     }
 
-                                    control = (new UI.FormControl(td, tag,attrs)).control;
+                                    let control = (new UI.FormControl(td, tag,attrs)).control;
 
                                     if(setnullvalue){
                                        control.setAttribute("nullvalue", schemanullvalue)

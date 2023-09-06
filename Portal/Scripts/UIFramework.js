@@ -122,7 +122,41 @@ var UI;
             }
           }
         UI.Ajax = Ajax; 
-        UI.ajax = new Ajax("");   
+        UI.ajax = new Ajax("");  
+        
+        function GetbyUrl(url, success, fail){
+            return UI.ajax.initializeRequest('GET', url).then((response) => {
+                if(success)
+                    success(response);
+            }).catch((error) => {
+                if(fail)
+                    fail(error);
+            });
+        }
+        function GetbyData(url, data, success, fail){
+            return UI.ajax.get(url, data).then((response) => {
+                if(success)
+                    success(response);
+            }).catch((error) => {
+                if(fail)
+                    fail(error);
+            });
+        }
+
+        function Post(url, data, success, fail){
+            return UI.ajax.post(url, data).then((response) => {
+                if(success)
+                    success(response);
+            }).catch((error) => {
+                if(fail)
+                    fail(error);
+            })
+        }
+
+        UI.GetbyUrl = GetbyUrl;
+        UI.GetbyData = GetbyData;
+        UI.Post = Post;
+
 })(UI || (UI = {}));
 
 (function (UI) {
@@ -1460,7 +1494,7 @@ function rAFThrottle(func) {
             var s = document.createElement("script");
             s.src = path;
             s.async = false;
-            s.setAttribute("viewid", this.id);
+        //    s.setAttribute("viewid", this.id);
 
             s.onload = function () {
                 that.Promiseitems[path] = false;
@@ -1487,14 +1521,14 @@ function rAFThrottle(func) {
             var s = document.createElement("link");
             s.href = link;
             s.rel = "stylesheet";
-            s.setAttribute("viewid", this.id);
+        //    s.setAttribute("viewid", this.id);
             document.head.appendChild(s);
             return s;
         }
         createStyleContent(Content) {
             var s = document.createElement("style");
             s.setAttribute("type", "text/css");
-            s.setAttribute("viewid", this.id);
+        //    s.setAttribute("viewid", this.id);
             s.textContent  = Content;
             document.head.appendChild(s);
             return s;
