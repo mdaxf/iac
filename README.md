@@ -28,4 +28,9 @@ BPM Editor:
 
 ![image](https://github.com/mdaxf/iac/assets/23530144/af71dc95-77cb-4328-b707-97fcb82f4991)
 
+The Machine Data Collection use case which builds with the IACF:
+
+https://github.com/mdaxf/iac/assets/23530144/5ab6e3da-03a5-4215-a986-566c3516be1d
+
+
 
