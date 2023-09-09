@@ -371,6 +371,7 @@ func getDataFromRequest(ctx *gin.Context) (TranCodeData, error) {
 
 type TranCodeData struct {
 	TranCode string                 `json:"code"`
+	Version  string                 `json:"version"`
 	UUID     string                 `json:"uuid"`
 	Data     map[string]interface{} `json:"data"`
 	Inputs   map[string]interface{} `json:"inputs"`

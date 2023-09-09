@@ -55,11 +55,11 @@ func (cf *JSFuncs) Testfunction(content string, inputs interface{}, outputs []st
 	}
 	*/
 	namelist := make([]string, 0)
-	valuelist := make([]string, 0)
+	valuelist := make([]interface{}, 0)
 
 	for key, value := range inputs.(map[string]interface{}) {
 		namelist = append(namelist, key)
-		valuelist = append(valuelist, value.(string))
+		valuelist = append(valuelist, value)
 	}
 
 	vm := otto.New()
@@ -73,7 +73,7 @@ func (cf *JSFuncs) Testfunction(content string, inputs interface{}, outputs []st
 
 	for i := 0; i < len(outputs); i++ {
 		if value, err := vm.Get(outputs[i]); err == nil {
-			functionoutputs[outputs[i]] = value.String()
+			functionoutputs[outputs[i]] = value
 		} else {
 			fmt.Println(err)
 		}

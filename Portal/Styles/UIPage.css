@@ -874,123 +874,24 @@ h6 {
 }
 
 /* End of headings */
-.ErrorMessageSummary, .WarningMessageSummary, .InfoMessageSummary, .errorMsg, .infoMsg, .warningMsg, .Errors {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  font-size: 16px;
-  margin: 15px auto;
-  max-width: 600px;
-  width: 100%;
-  padding: 0 10px;
-  z-index: 200;
-  color: white;
-  /* #TFS96594
-    &:empty{
-        display:none;
-    }*/
-}
+
 
 .iac-ui-popup .iac-ui-popup-body .Errors {
   position: relative;
 }
 
-.InfoMessageSummary, .infoMsg, .WarningMessageSummary, .warningMsg, .ErrorMessageSummary, .errorMsg, .ErrorMessage {
-  padding: 1em 0.5em 1em 3em;
-  position: relative;
-}
-
-.InfoMessageSummary:not(.iac-ui-no-icon):before, .infoMsg:not(.iac-ui-no-icon):before, .WarningMessageSummary:not(.iac-ui-no-icon):before, .warningMsg:not(.iac-ui-no-icon):before, .ErrorMessageSummary:not(.iac-ui-no-icon):before, .errorMsg:not(.iac-ui-no-icon):before, .ErrorMessage:not(.iac-ui-no-icon):before, .InfoMessageSummary .iac-ui-message-custom-icon:before, .infoMsg .iac-ui-message-custom-icon:before, .WarningMessageSummary .iac-ui-message-custom-icon:before, .warningMsg .iac-ui-message-custom-icon:before, .ErrorMessageSummary .iac-ui-message-custom-icon:before, .errorMsg .iac-ui-message-custom-icon:before, .ErrorMessage .iac-ui-message-custom-icon:before {
+.ui-message-summary {
+  width: 80%;
+  left:10%;
+  height: auto;
   position: absolute;
-  left: .675em;
-  top: .6em;
-  display: inline-block;
-  font: normal normal normal 14px/1 IACFontIcon;
-  /*copied from iac font css*/
-  font-size: inherit;
-  text-rendering: auto;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-transform: translate(0, 0);
-          transform: translate(0, 0);
-  font-size: 1.375em;
-}
-
-.InfoMessageSummary, .infoMsg, .WarningMessageSummary, .warningMsg, .ErrorMessageSummary, .errorMsg, .ErrorMessage {
-  border-radius: 4px;
-  -webkit-box-shadow: 0 1px 3px 1px rgba(0, 0, 0, 0.3);
-          box-shadow: 0 1px 3px 1px rgba(0, 0, 0, 0.3);
-  margin: 10px 0;
-  word-wrap: break-word;
-  border-width: 0 0 0 5px;
-  border-style: solid;
-  overflow: hidden;
-  white-space: pre-wrap;
-  line-height: 1.2em;
-  min-height: 1.2em;
-}
-
-.InfoMessageSummary, .infoMsg {
-  background-color: #F2F5F7 !important;
-  color: #3D3D3D;
-  border-color: #00B8DE;
-}
-
-.InfoMessageSummary:not(.iac-ui-no-icon):before, .infoMsg:not(.iac-ui-no-icon):before {
-  content: "";
-  color: #00B8DE !important;
-}
-
-.WarningMessageSummary, .warningMsg {
-  background-color: #FFF3E9 !important;
-  color: #3D3D3D;
-  border-color: #E87B00;
-}
-
-.WarningMessageSummary:not(.iac-ui-no-icon):before, .warningMsg:not(.iac-ui-no-icon):before {
-  content: "";
-  color: #E87B00 !important;
-}
-
-.ErrorMessageSummary, .errorMsg, .ErrorMessage {
-  background-color: #FFF0EE !important;
-  color: #3D3D3D;
-  border-color: #EA4F37;
-}
-
-.ErrorMessageSummary:not(.iac-ui-no-icon):before, .errorMsg:not(.iac-ui-no-icon):before, .ErrorMessage:not(.iac-ui-no-icon):before {
-  content: "";
-  color: #EA4F37 !important;
-}
-
-.inputError, .InputError {
-  background: #fff url("/Portal/Styles/images/icons_sprite.png") -94px -78px no-repeat 99%;
-}
-
-.ErrorMessageSummary, .WarningMessageSummary, .InfoMessageSummary, .errorMsg, .infoMsg, .warningMsg, .Errors {
-  z-index: 300000;
-  -webkit-box-sizing: border-box;
-          box-sizing: border-box;
-}
-
-.ErrorMessageSummary ul, .errorMsg ul, .ErrorMessage ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.ErrorsOverlay {
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  z-index: 100;
-  background: rgba(119, 121, 124, 0.5);
+  z-index: 100;  
   top: 0;
   display: -webkit-box;
   display: -webkit-flex;
   display: -ms-flexbox;
   display: flex;
+  flex-direction: column;
   -webkit-box-pack: center;
   -webkit-justify-content: center;
       -ms-flex-pack: center;
@@ -998,30 +899,48 @@ h6 {
   -webkit-box-align: center;
   -webkit-align-items: center;
       -ms-flex-align: center;
-          align-items: center;
+          align-items: center;   
 }
-
-.ErrorsOverlay > iframe {
-  opacity: 0;
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
+.ui-errormessage-summary{
+  background: #EA4F37;
+  width:100%;
+  height: auto;
+}
+.ui-warningmessage-summary{
+  background: #f8e00a;
+  width:100%;
+  height: auto;
+}
+.ui-successmessage-summary{
+  background: #00a651;
+  width:100%;
+  height: auto;
+}
+.ui-infomessage-summary{
+  background: #368EC4;
+  width:100%;
+  height: auto;
+}
+.ui-message-item {
+  color: white;
+  margin: 10px 10px 10px 10px;
+  font-size: 1.2em;
+  font-weight: bold;
+  display: inline-block;
   width: 100%;
-  height: 100%;
+  text-align: center;
+  -o-text-overflow: ellipsis;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.ErrorMessageSummary {
-  display: none;
+.ui-message-item::before {
+  content: "\f06a";
+  font-family: FontAwesome;
+  color: white;
+  margin-right: 10px;;
 }
 
-/* FDC error message in dashboard view */
-.FDCContext .errorRendererMessage {
-  color: #808080;
-  font-size: 14px;
-  font-family: "Segoe UI", serif;
-}
 
 /*!
  *  Font Awesome 4.7.0 by @davegandy - http://fontawesome.io - @fontawesome
@@ -30579,6 +30498,7 @@ span.k-widget.iac-ui-ctdatetime > span.k-picker-wrap.iac-ui-groupsolid > *[disab
           box-shadow: 0 5px 15px rgba(0, 0, 0, 0.25);
   font-family: arial,lucida,helvetica,sans-serif;
   color: #3D3D3D;
+  resize: auto;
 }
 
 .iac-ui-popup .iac-ui-popup-head {

@@ -6320,7 +6320,7 @@ var ProcessFlow = (function(){
 													$("#script-editor-additional-section-tab-header-output").addClass('ui-json-detail-page-tab-active');
 													$('.ui-json-detail-page-tab-content').hide();
 													$('#script-editor-additional-section-tab-content-'+key).show();
-												}else if(functionobj.functype == 2){
+												}else if(functionobj.functype == 2 || functionobj.functype == 1){
 													let inputs = {};
 													let outputs = [];
 													let scriptcontent = script_editor.getValue();
@@ -6338,7 +6338,7 @@ var ProcessFlow = (function(){
 														content: scriptcontent,
 														inputs:inputs,
 														outputs:outputs,
-														type: 2
+														type: functionobj.functype
 													}
 
 													UI.Post("/function/test",data, function(response){console.log(response)
@@ -6389,32 +6389,40 @@ var ProcessFlow = (function(){
 								additional_section.style.alignItems = 'flex-start';
 								additional_section.style.width = width + "px";
 
-								let additional_section_input = (new UI.FormControl(additional_section, 'div', {id:'script-editor-additional-section-input', style:'width:45%;height:100%;'})).control;
+								let additional_section_input = (new UI.FormControl(additional_section, 'div', {id:'script-editor-additional-section-input', style:'width:48%;height:100%;border: inset;overflow:auto;'})).control;
 
 								let inputs = functionobj.inputs;
 								let tabledata ={};
-								let headers = [{innerHTML: 'Input Name', style:'width:45%;'}, {innerHTML: 'Input Value', style:'width:auto;'}];
+								let headers = [{innerHTML: 'Input Name', style:'width:49%;'}, {innerHTML: 'Input Value', style:'width:49%;'}];
 								let columns = [{control:'', }, {control:'input', type:'text', style:'width:100%;'}];
 								let rows = [];
 								for(var i=0;i<inputs.length;i++){
 									let input = inputs[i];
-									rows.push([{data:{innerHTML: input.name, style:'width:45%;'}}, {data:{value: input.value, style:'width:auto;', inputname:input.name, class: "script_inputs"   }}]);									
+									rows.push([{data:{innerHTML: input.name, style:'width:49%;'}}, {data:{value: input.value, style:'width:49%;', inputname:input.name, class: "script_inputs"   }}]);									
+								}
+								tabledata.attrs = {
+									class:'ui-flow-parameters-table',
+									style: 'width:100%; border-style: solid;border-collapse: collapse;'
 								}
 								tabledata.headers = headers;
 								tabledata.columns = columns;
 								tabledata.rows = rows;
 								new UI.HtmlTable(additional_section_input, tabledata);
 
-								let additional_section_output = (new UI.FormControl(additional_section, 'div', {id:'script-editor-additional-section-output', style:'width:auto;height:100%;'})).control;
+								let additional_section_output = (new UI.FormControl(additional_section, 'div', {id:'script-editor-additional-section-output', style:'width:48%;height:100%; border: inset;overflow:auto;'})).control;
 
 								tabledata ={};
-								headers = [{innerHTML: 'Output Name', style:'width:45%;'}, {innerHTML: 'Output Value', style:'width:auto;'}];
+								headers = [{innerHTML: 'Output Name', style:'width:49%;'}, {innerHTML: 'Output Value', style:'width:49%;'}];
 								columns = [{control:'', }, {control:''}];
 								rows = [];
 								let outputs = functionobj.outputs;
 								for(var i=0;i<outputs.length;i++){
 									let output = outputs[i];
-									rows.push([{data:{innerHTML: output.name, style:'width:45%;'}}, {data:{innerHTML: output.value, style:'width:auto;',outputname:output.name, class: "script_outputs"   }}]);
+									rows.push([{data:{innerHTML: output.name, style:'width:49%;'}}, {data:{innerHTML: output.value, style:'width:49%;',outputname:output.name, class: "script_outputs"   }}]);
+								}
+								tabledata.attrs = {
+									class:'ui-flow-parameters-table',
+									style: 'width:100%; border-style: solid;border-collapse: collapse;'
 								}
 								tabledata.headers = headers;
 								tabledata.columns = columns;
@@ -6431,12 +6439,16 @@ var ProcessFlow = (function(){
 								let tab_content_input = (new UI.FormControl(tab_content, 'div', {id:'script-editor-additional-section-tab-content-inputs', data_key:"inputs", class:'ui-json-detail-page-tab-content', style:'width:100%;height:100%;'})).control;
 								let inputs = functionobj.inputs;
 								let tabledata ={};
-								let headers = [{innerHTML: 'Input Name', style:'width:45%;'}, {innerHTML: 'Input Value', style:'width:auto;'}];
+								let headers = [{innerHTML: 'Input Name', style:'width:49%;'}, {innerHTML: 'Input Value', style:'width:49%;'}];
 								let columns = [{control:'', }, {control:'input', type:'text', style:'width:100%;'}];
 								let rows = [];
 								for(var i=0;i<inputs.length;i++){
 									let input = inputs[i];
-									rows.push([{data:{innerHTML: input.name, style:'width:45%;'}}, {data:{value: input.value, style:'width:auto;', inputname:input.name, class: "script_inputs"   }}]);									
+									rows.push([{data:{innerHTML: input.name, style:'width:49%;'}}, {data:{value: input.value, style:'width:49%;', inputname:input.name, class: "script_inputs"   }}]);									
+								}
+								tabledata.attrs = {
+									class:'ui-flow-parameters-table',
+									style: 'width:100%; height:100%; overflow:auto;border-style: ridge;border-collapse: collapse;'
 								}
 								tabledata.headers = headers;
 								tabledata.columns = columns;

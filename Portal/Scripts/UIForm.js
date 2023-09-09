@@ -35,7 +35,7 @@ var UI = UI || {};
                     this.control.innerText = this.attrs[key];
                 else if(this.tag =='select' && (key.toLowerCase() == 'selected' || key.toLowerCase() == 'options' || key.toLowerCase() == 'value')){
                 }
-                else
+                else if(this.attrs[key] != null && this.attrs[key] != undefined && this.attrs[key] != '' && typeof this.attrs[key] != 'object') 
                     this.control.setAttribute(key, this.attrs[key]);
             }
         //    this.control.classList.add("ui");

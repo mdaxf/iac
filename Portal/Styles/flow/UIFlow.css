@@ -455,3 +455,12 @@ g.joint-type-processflow-stepblock tspan{
 		box-shadow: 2px 2px 3px rgba(0, 0, 0, 0.1);
 		padding: 2px 0px 2px 4px;
 	  }
+
+.ui-flow-parameters-table > thead > tr > td
+.ui-flow-parameters-table > tbody > tr > td
+{
+	width: 100%;
+	border: #8f8d8d;
+	border-collapse: collapse;
+	box-sizing: border-box;
+}

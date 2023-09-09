@@ -3,7 +3,6 @@ package databaseop
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"reflect"
 	"strings"
 
@@ -11,6 +10,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/mdaxf/iac/controllers/common"
 	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/logger"
 )
@@ -37,7 +38,7 @@ func (db *DBController) GetDatabyQuery(ctx *gin.Context) {
 	iLog.Debug(fmt.Sprintf("Get data by query"))
 
 	var data QueryInput
-	body, err := GetRequestBody(ctx)
+	body, err := common.GetRequestBody(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -567,7 +568,7 @@ func (db *DBController) GetDataFromRequest(ctx *gin.Context) (DBData, error) {
 	iLog.Debug(fmt.Sprintf("GetDataFromRequest"))
 
 	var data DBData
-	body, err := GetRequestBody(ctx)
+	body, err := common.GetRequestBody(ctx)
 	iLog.Debug(fmt.Sprintf("GetDataFromRequest body: %s", body))
 	if err != nil {
 		iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
@@ -580,18 +581,4 @@ func (db *DBController) GetDataFromRequest(ctx *gin.Context) (DBData, error) {
 	}
 	iLog.Debug(fmt.Sprintf("GetDataFromRequest data: %s", data))
 	return data, nil
-}
-
-func GetRequestBody(ctx *gin.Context) ([]byte, error) {
-	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetRequestBody"}
-	iLog.Debug(fmt.Sprintf("GetRequestBody"))
-
-	body, err := ioutil.ReadAll(ctx.Request.Body)
-
-	if err != nil {
-		iLog.Error(fmt.Sprintf("GetRequestBody error: %s", err.Error()))
-		return nil, err
-	}
-	iLog.Debug(fmt.Sprintf("GetRequestBody body: %s", body))
-	return body, nil
 }

@@ -6,7 +6,7 @@ var UI = UI || {};
             this.originalObject = JSON.parse(JSON.stringify(jsonObject));        
           this.data = (typeof jsonObject == 'string')? JSON.parse(jsonObject) : jsonObject;
           this.options = options;
-          console.log(options)
+          UI.Log(options)
           this.changed = false;
           this.schemafile = options.schemafile || '';
           this.schema = this.options.schema || null;
@@ -15,7 +15,7 @@ var UI = UI || {};
           this.options.allowChanges = this.allowChanges;
 
           this.loadschema();
-        //  console.log(this.schemafile,this.schema)
+        //  UI.Log(this.schemafile,this.schema)
         }
         get(url, stream) {
             return new Promise((resolve, reject) => {
@@ -43,10 +43,10 @@ var UI = UI || {};
                 let ajax = new UI.Ajax("");
                 ajax.get(this.schemafile,false).then((response) => {
                     that.schema = JSON.parse(response);
-                 //   console.log(this.schemafile,response)
+                 //   UI.Log(this.schemafile,response)
                     that.getSchemaDefinitions();
                 }).catch((error) => {
-                    console.log(error);
+                    UI.Log(error);
                 })
             }
             else if(this.schema !={})
@@ -54,7 +54,7 @@ var UI = UI || {};
             
         }
         getSchemaDefinitions(){
-        //    console.log(this.schema)
+        //    UI.Log(this.schema)
             this.schemaRootNode = null
             if(this.schema !=null && this.schema !={}){
               if(this.schema.hasOwnProperty('definitions') && this.schema.hasOwnProperty("$ref")){
@@ -79,31 +79,31 @@ var UI = UI || {};
         }
         inserNodeKey(path, key){
             if (!this.options.allowChanges) {
-                console.log("Modifications are not allowed.");
+                UI.Log("Modifications are not allowed.");
                 return;
             } 
             const node = this.getNode(path);
             if (node) {
-            //    console.log(node,key)
+            //    UI.Log(node,key)
                 if (node.isArrayElement) {
                     node.value.push({});
                 } else {
                     node.value[key] = null;
                 }
-            //    console.log(node)
+            //    UI.Log(node)
                 this.changed = true;
             }
         }
         insertNode(path, Value) {
             if (!this.options.allowChanges) {
-                console.log("Modifications are not allowed.");
+                UI.Log("Modifications are not allowed.");
                 return;
             } 
            
             const node = this.getNode(path);
             let isvalidJson = this.isValidJSON(Value);
             if (node) {
-             //   console.log('insert node value:',node, isvalidJson, path, Value)
+             //   UI.Log('insert node value:',node, isvalidJson, path, Value)
                 if (Array.isArray(node.value)) {  
                                 
                     if(isvalidJson){
@@ -128,7 +128,7 @@ var UI = UI || {};
                         else
                             valueobj = Value;
                         
-                     //   console.log(valueobj)
+                     //   UI.Log(valueobj)
                         for (const key in valueobj) {
                            // if (valueobj.hasOwnProperty(key)) {
                                 const element = valueobj[key];
@@ -152,23 +152,37 @@ var UI = UI || {};
         }
         simpleUpdateNode(key, newValue) {
             if (!this.options.allowChanges) {
-                console.log("Modifications are not allowed.");
+                UI.Log("Modifications are not allowed.");
                 return;
             }
             const node = this.getNode(key);
-            console.log("simpleUpdateNode", node, key, newValue)
+            UI.Log("simpleUpdateNode", node, key, newValue)
             if (node) {
                 this.data[key] = newValue;
                 this.changed = true;
             }
-        //    console.log(this.data)
+        //    UI.Log(this.data)
         }
+        setNodewithKey(path, key, value)  {
+            if (!this.options.allowChanges) {
+                UI.Log("Modifications are not allowed.");
+                return;
+            }
+            const node = this.getNode(path);
+            UI.Log('set node value:',node)
+            if (node) {
+                node.value[key]= value;
+                this.changed = true;
+                UI.Log(this.data, node)
+            }
+        }
+
         updateNodeValue(path, newValue) {
           if (!this.options.allowChanges) {
-            console.log("Modifications are not allowed.");
+            UI.Log("Modifications are not allowed.");
             return;
           }
-      //    console.log('updateNodeValue',path, newValue )
+      //    UI.Log('updateNodeValue',path, newValue )
           let isValueObj =this.isValidJSON(newValue);
         
           if(isValueObj){
@@ -180,7 +194,7 @@ var UI = UI || {};
             path = paths.join('/');            
             newValue = JSON.parse(`{"${lastPath}":"${newValue}"}`);
             
-         //   console.log(newValue);
+         //   UI.Log(newValue);
          }
           const node = this.getNode(path);
           if (node) {
@@ -197,7 +211,7 @@ var UI = UI || {};
             }
 
             /*
-            console.log('find node:',node, path)
+            UI.Log('find node:',node, path)
             if (node.isArrayElement) {
               const arrayNode = this.getNode(node.arrayPath);
               if (arrayNode) {
@@ -206,7 +220,7 @@ var UI = UI || {};
                         valueobj = JSON.parse(newValue);
                     else
                         valueobj = newValue;
-                //    console.log(arrayNode, newValue)
+                //    UI.Log(arrayNode, newValue)
                     for (const key in valueobj) {
                         if (valueobj.hasOwnProperty(key)) {
                             const element = valueobj[key];
@@ -222,7 +236,7 @@ var UI = UI || {};
                     else
                         valueobj = newValue;
 
-                    console.log(node, valueobj)
+                    UI.Log(node, valueobj)
                     for (const key in valueobj) {
                         if (valueobj.hasOwnProperty(key)) {
                             const element = valueobj[key];
@@ -232,13 +246,13 @@ var UI = UI || {};
             } */
             this.changed = true;
           } else {
-            console.log("Invalid path:", path);
+            UI.Log("Invalid path:", path);
           }
         }
 
         deleteNode(path) {
             if (!this.options.allowChanges) {
-                console.log("Modifications are not allowed.");
+                UI.Log("Modifications are not allowed.");
                 return;
             }
             
@@ -259,7 +273,7 @@ var UI = UI || {};
                 }
                 this.changed = true;
             } else {
-                console.log("Invalid path:", path);
+                UI.Log("Invalid path:", path);
             }
         }
 
@@ -284,16 +298,16 @@ var UI = UI || {};
                 index: -1,
               };
 
-        //  console.log('getnode:',path)
+        //  UI.Log('getnode:',path)
           const keys = path.toString().includes("/")? path.toString().split("/"): [path];
           let currentNode = this.data;
           let arrayPath = null;
           let isArrayElement = false;
           let index = -1;
-        //  console.log(keys)
+        //  UI.Log(keys)
           for (let i = 0; i < keys.length; i++) {
             const key = keys[i];
-        //    console.log(i,currentNode,key, this.isValidJSON(key))
+        //    UI.Log(i,currentNode,key, this.isValidJSON(key))
             isArrayElement = Array.isArray(currentNode)
             if(this.isValidJSON(key)){
 
@@ -312,7 +326,7 @@ var UI = UI || {};
 
             }
             else{
-            //    console.log(currentNode,key)
+            //    UI.Log(currentNode,key)
                 let findobj = this.findNodebykey(currentNode,key);
                 if(findobj){
                     currentNode = findobj.value;
@@ -335,7 +349,7 @@ var UI = UI || {};
         }
 
         isValidJSON(str){
-        //    console.log(str)
+        //    UI.Log(str)
             if(str == null || str == undefined)
                 return false;
             if(typeof str == 'object')
@@ -350,16 +364,16 @@ var UI = UI || {};
             return typeof obj == 'object';
         }
         findNodebykey(jsonObject,key){
-        //    console.log('findNodebykey',jsonObject,key, Array.isArray(jsonObject),jsonObject.hasOwnProperty(key))
+        //    UI.Log('findNodebykey',jsonObject,key, Array.isArray(jsonObject),jsonObject.hasOwnProperty(key))
             if(Array.isArray(jsonObject)){
 
                 if(this.isValidJSON(key)){
                     for (var i=0;i<jsonObject.length;i++){
-                    //    console.log('check the node:',i,jsonObject[i] )
+                    //    UI.Log('check the node:',i,jsonObject[i] )
                         let node = jsonObject[i];
                         let found = true;
                         for (const searchKey in key) {
-                        //    console.log("check the key:", searchKey, key[searchKey], node[searchKey])
+                        //    UI.Log("check the key:", searchKey, key[searchKey], node[searchKey])
                             if (key.hasOwnProperty(searchKey) && node[searchKey] != key[searchKey]) {
                               found = false;
                               break;
@@ -467,16 +481,16 @@ var UI = UI || {};
           const keys = path.toString().includes("/")? path.toString().split("/"): [path];
           let Properties = {};
           let schemaNode = this.schemaRootNode
-        //  console.log(schemaNode, path, keys)
+        //  UI.Log(schemaNode, path, keys)
           let isArray = false;
           for(var i=0;i<keys.length;i++){
             let key = keys[i]
-        //    console.log(this.schema,schemaNode,key)
+        //    UI.Log(this.schema,schemaNode,key)
             if(!schemaNode.properties.hasOwnProperty(key))
                 return null;
 
             Properties = schemaNode.properties[key];
-         //   console.log(key, Properties)
+         //   UI.Log(key, Properties)
             if(Properties.hasOwnProperty('$ref') || (Properties.hasOwnProperty('type') && Properties['type'] == 'array')){
                 let nodepath = '';
                 
@@ -500,13 +514,13 @@ var UI = UI || {};
                     nodepath = nodepath.replace('#/','')
                 
                 let paths = nodepath.includes('/')? nodepath.split('/'):[nodepath];
-            //    console.log(paths)
+            //    UI.Log(paths)
                 let currentNode = this.schema
                 for(var j=0;j<paths.length;j++){
                     let path1 = paths[j];
                     currentNode =currentNode[path1]                    
                 }
-           //    console.log(i, key, keys,schemaNode,currentNode)
+           //    UI.Log(i, key, keys,schemaNode,currentNode)
                 if(currentNode.hasOwnProperty('type')){
                     if(currentNode['type'] == 'object'){
                         if(i == keys.length-1){
@@ -522,7 +536,7 @@ var UI = UI || {};
                     }
                     else{
                         let pro =  currentNode.hasOwnProperty('properties')? currentNode['properties']: currentNode
-                    //    console.log(key, path, pro, Properties)
+                    //    UI.Log(key, path, pro, Properties)
                         pro = Object.assign(pro, Properties)
                         return{
                             node: schemaNode,
@@ -565,16 +579,16 @@ var UI = UI || {};
           
           let Properties = {};
           let schemaNode = this.schemaRootNode
-        //  console.log('get the schema definition:',path)
+        //  UI.Log('get the schema definition:',path)
 
           for(var i=0;i<keys.length;i++){
             let key = keys[i]
-         //   console.log(schemaNode)
+         //   UI.Log(schemaNode)
             if(!schemaNode.properties.hasOwnProperty(key))
                 return null;
 
             Properties = schemaNode.properties[key];
-          //  console.log(key, Properties)
+          //  UI.Log(key, Properties)
             if(Properties.hasOwnProperty('$ref') || (Properties.hasOwnProperty('type') && Properties['type'] == 'array')){
                 let nodepath = '';
                 if(Properties.hasOwnProperty('$ref'))
@@ -588,13 +602,13 @@ var UI = UI || {};
                     nodepath = nodepath.replace('#/','')
                 
                 let paths = nodepath.includes('/')? nodepath.split('/'):[nodepath];
-          //      console.log(paths)
+          //      UI.Log(paths)
                 let currentSchemaDefinition = this.schema
                 for(var j=0;j<paths.length;j++){
                     let path1 = paths[j];
                     currentSchemaDefinition =currentSchemaDefinition[path1]                    
                 }
-             //   console.log(currentSchemaDefinition, i, keys)
+             //   UI.Log(currentSchemaDefinition, i, keys)
 
                 if(currentSchemaDefinition.hasOwnProperty('type')){
                     if(currentSchemaDefinition['type'] == 'object'){
@@ -706,7 +720,7 @@ var UI = UI || {};
             
             let lngcode =""; 
             let lngdefault = key
-        //    console.log(lng,lngcode, lngdefault)
+        //    UI.Log(lng,lngcode, lngdefault)
 
             if(this.schema && this.schema!={}){
                 if(!isarray )
@@ -732,7 +746,7 @@ var UI = UI || {};
                         isarray = true;
                 }
                 
-            //    console.log(key,requiredfields,hiddenfields, unchangablefields, invalidateNode, schemadata)
+            //    UI.Log(key,requiredfields,hiddenfields, unchangablefields, invalidateNode, schemadata)
                 if(schemadata !=null){
                     if(requiredfields.find(item => item == key) != undefined)
                         required = true;
@@ -749,7 +763,7 @@ var UI = UI || {};
                     else
                         unchangable = false;
                     
-                //    console.log('parsed value:', key,required, hidden,unchangable)
+                //    UI.Log('parsed value:', key,required, hidden,unchangable)
                 }
 
                 if(lng !=null && lng !={}){
@@ -769,7 +783,7 @@ var UI = UI || {};
                  
                 let nodeeditablevalue ='';
                 
-            //    console.log(lng,lngcode, lngdefault)
+            //    UI.Log(lng,lngcode, lngdefault)
                 let nodelabelvalue = '<label for="node_'+id+'" key="'+ key +'" lngcode="'+lngcode+'">'+lngdefault+'</label>'
 
                 if(children.length > 0){
@@ -794,7 +808,7 @@ var UI = UI || {};
                     if(Array.isArray(values)){
                         nodeeditablevalue =  '<select class="node_input"  '+((!editable || unchangable)? 'disabled' : '') +' id="node_'+id+'" >'
                         for(var n=0;n<values.length;n++){
-                         //   console.log(node[key],values[n],optionlngcodes[n], optiondefaults[n])
+                         //   UI.Log(node[key],values[n],optionlngcodes[n], optiondefaults[n])
                             nodeeditablevalue += '<option value="'+values[n]+'" lngcode="'+optionlngcodes[n]+'" '+(value == values[n]? 'selected':'') +' >' + optiondefaults[n] + '</option>'
                         }
                         nodeeditablevalue += '</select>'
@@ -806,7 +820,7 @@ var UI = UI || {};
                 }else
                     nodeeditablevalue = '';
                
-            //    console.log(schemaoptions,editable, unchangable, showlabelonly,key,node[key], nodelabelvalue, nodeeditablevalue)
+            //    UI.Log(schemaoptions,editable, unchangable, showlabelonly,key,node[key], nodelabelvalue, nodeeditablevalue)
                 let nodevalue = nodelabelvalue + nodeeditablevalue;
 
                 let item ={
@@ -960,7 +974,7 @@ var UI = UI || {};
             let actionbar = (new UI.FormControl(wrapper, 'div',{"style":"display:inline-block;height:30px; float:right", "class": "ui_actions_section"})).control;
 
             let events={}
-            console.log(this.allowChanges)
+            UI.Log(this.allowChanges)
 
             if(this.allowChanges){
                 
@@ -1025,7 +1039,7 @@ var UI = UI || {};
                 let tabcontentitem = (new UI.FormControl(tabcontent, 'div',attrs)).control;
 
                 let tables = item["tables"]
-            //    console.log(tables)
+            //    UI.Log(tables)
                 if(tables != null && tables != undefined && tables !={})
                 for(var i=0;i<tables.length;i++){
                     let key1 = tables[i];
@@ -1035,7 +1049,7 @@ var UI = UI || {};
                     if(key1.hasOwnProperty("style"))
                         style = key1["style"]
 
-           //         console.log(tables,key1, style)
+           //         UI.Log(tables,key1, style)
                     let table = (new UI.FormControl(tabcontentitem, 'table',{"class":"table table-bordered table-hover", "style":style})).control;
 
                     let cols = 1
@@ -1065,7 +1079,7 @@ var UI = UI || {};
                             let fieldkey = Object.keys(field)[0];
                             let fieldvalue = field[fieldkey];
 
-                        //    console.log(fieldkey, fieldvalue)
+                        //    UI.Log(fieldkey, fieldvalue)
                             let type =""
                             if(fieldvalue.hasOwnProperty("type"))
                                 type = fieldvalue["type"]
@@ -1108,7 +1122,7 @@ var UI = UI || {};
                                         value = node.value
                                     }
                                     attrs = {};
-                                    console.log(field,fieldvalue)
+                                    UI.Log(field,fieldvalue)
                                     if(fieldvalue.hasOwnProperty("nodeattrs")){
                                         attrs = fieldvalue["nodeattrs"]
                                         const regex = /\{([^}]+)\}/g;
@@ -1123,12 +1137,12 @@ var UI = UI || {};
                                                     matches = matches.concat(value.match(regex));
                                             }
                                         }
-                                        console.log(matches)
+                                        UI.Log(matches)
                                         if (matches.length > 0) {
                                             var extractedValues = matches.map(function(match) {
                                                 return match.slice(1, -1); // Remove the curly braces
                                             });
-                                            console.log(extractedValues, node)
+                                            UI.Log(extractedValues, node)
 
                                             for(var n=0;n<extractedValues.length;n++){
                                                 let node1 = that.getNode(extractedValues[n]);
@@ -1139,7 +1153,7 @@ var UI = UI || {};
                                             }   
                                         }                                        
                                     }
-                                    console.log(field,attrs)
+                                    UI.Log(field,attrs)
                                     if(tag != "input" ||tag != "select"){
                                        
                                         attrs.name = "ui-json-detail-page-tab-content-"+key+"-table-"+i+"-row-"+rows+"-cell-"+cellnumber;
@@ -1151,7 +1165,7 @@ var UI = UI || {};
                                         attrs.innerHTML = value
                                         attrs["data-key"] = fieldkey
                                     }
-                                    console.log(fieldkey, field,attrs,that.jschema)
+                                    UI.Log(fieldkey, field,attrs,that.jschema)
                                     let schemadata = that.jschema.getPropertiesFromSchema(fieldkey);
                                     let setnullvalue = false;
                                     let schemanullvalue = "";
@@ -1215,12 +1229,12 @@ var UI = UI || {};
             let that = this;
             let attrs = {};
             let td = (new UI.FormControl(tr, 'td',attrs)).control;
-        //    console.log(that.allowChanges)
-            console.log("create cell element:", tr, field, key, i,rows,cellnumber,wrapper,linkobj)
+        //    UI.Log(that.allowChanges)
+            UI.Log("create cell element:", tr, field, key, i,rows,cellnumber,wrapper,linkobj)
 
             if(field != "dummy" && field != "save" && field != "cancel"){
                 let node = that.getNode(field);
-            //    console.log(field, node)
+            //    UI.Log(field, node)
                 let value = "";
                    if(node)
                    if(node.hasOwnProperty("value")){
@@ -1233,7 +1247,7 @@ var UI = UI || {};
                    let schemadata = that.jschema.getPropertiesFromSchema(field);
                    let schemaformate ="";
                    let schemareadonly = false;
-               //    console.log(field, value, schemadata)
+               //    UI.Log(field, value, schemadata)
                    if(schemadata.properties.hasOwnProperty("type"))
                        datatype = schemadata.properties["type"]
                
@@ -1322,7 +1336,7 @@ var UI = UI || {};
                            else
                                nodeeditablevalue =  '<select class="node_input"  data-key="'+field+'" id="ui-json-detail-page-tab-content-'+key+'-table-'+i+'-row-'+rows+'-cell-'+cellnumber+'" >'
                            for(var n=0;n<values.length;n++){
-                            //   console.log(node[key],values[n],optionlngcodes[n], optiondefaults[n])
+                            //   UI.Log(node[key],values[n],optionlngcodes[n], optiondefaults[n])
                                nodeeditablevalue += '<option value="'+values[n]+'" lngcode="'+optionlngcodes[n]+'" '+(value == values[n]? 'selected':'') +' >' + optiondefaults[n] + '</option>'
                            }
                            nodeeditablevalue += '</select>'
@@ -1424,19 +1438,19 @@ var UI = UI || {};
                     "CANCEL":{"type": "script", "next": "","page":"","panels":[], "script": "cancelitem"},
                 }
             }
-         //   console.log(cfg)
+         //   UI.Log(cfg)
             let org_schema = Session.snapshoot.sessionData.ui_dataschema
             let org_entity = Session.snapshoot.sessionData.entity
             let org_selectedKey = Session.snapshoot.sessionData.selectedKey
             let inputs = {}
             inputs.ui_dataschema = schema
-        //    console.log(inputs)
+        //    UI.Log(inputs)
             cfg.inputs = inputs;
             cfg.actions.SELECT.script = function(data){
-                console.log("execute the action:",field, data)
+                UI.Log("execute the action:",field, data)
                 $('#'+fieldid).val(data.selectedKey);
                 let datakey = $('#'+fieldid).attr('data-key');
-                console.log(fieldid, datakey, data.selectedKey)
+                UI.Log(fieldid, datakey, data.selectedKey)
                 that.simpleUpdateNode(datakey, data.selectedKey);
                 Session.snapshoot.sessionData.entity = org_entity;
                 Session.snapshoot.sessionData.selectedKey = org_selectedKey;
@@ -1444,7 +1458,7 @@ var UI = UI || {};
                 $('#ui-json-detail-page-linked-item-section').remove();
             }
             cfg.actions.CANCEL.script = function(data){
-                console.log("execute the action:", data)
+                UI.Log("execute the action:", data)
 
                 Session.snapshoot.sessionData.entity = org_entity;
                 Session.snapshoot.sessionData.selectedKey = org_selectedKey;
@@ -1452,13 +1466,13 @@ var UI = UI || {};
                 $('#ui-json-detail-page-linked-item-section').remove();
             }
             Session.snapshoot.sessionData.ui_dataschema = schema
-            console.log(cfg)
+            UI.Log(cfg)
             new UI.View(panel,cfg)
         }
         displayhyperlinkmaster(data){
             
             data = Session.snapshoot.sessionData
-            console.log("displayhyperlinkmaster",data)
+            UI.Log("displayhyperlinkmaster",data)
             schema = data.ui_linkedjdata.masterschema;
             let cfg = {
                 "file":"templates/datalist.html", 
@@ -1469,20 +1483,20 @@ var UI = UI || {};
                 }
             }
             let page =Session.CurrentPage;
-            console.log(page)
+            UI.Log(page)
             let org_schema = Session.snapshoot.sessionData.ui_dataschema
             let org_entity = Session.snapshoot.sessionData.entity
             let org_selectedKey = Session.snapshoot.sessionData.selectedKey
 
             let inputs = {}
             inputs.ui_dataschema = schema
-        //    console.log(inputs)
+        //    UI.Log(inputs)
             cfg.inputs = inputs;
             cfg.actions.SELECT.script = function(data){
-                console.log("execute the action:", data)
+                UI.Log("execute the action:", data)
 
                 let insertdata ={}
-                console.log(data.ui_linkedjdata)
+                UI.Log(data.ui_linkedjdata)
                 for(var i=0;i<data.ui_linkedjdata.linkfields.length;i++){
                     if(data.ui_linkedjdata.linkfields[i].hasOwnProperty(data.ui_linkedjdata.keyfield)){
                         let valuefield = data.ui_linkedjdata.linkfields[i][data.ui_linkedjdata.keyfield];
@@ -1514,7 +1528,7 @@ var UI = UI || {};
                     /*if(id != undefined)
                         detail.jdata.ID = id */
                 }).catch((error) => {
-                    console.log(error);
+                    UI.Log(error);
                     page.popupClose();
                 });
                 Session.snapshoot.sessionData.entity = org_entity;
@@ -1524,7 +1538,7 @@ var UI = UI || {};
                 
             }
             cfg.actions.CANCEL.script = function(data){
-                console.log("execute the action:", data)
+                UI.Log("execute the action:", data)
 
                 Session.snapshoot.sessionData.entity = org_entity;
                 Session.snapshoot.sessionData.selectedKey = org_selectedKey;
@@ -1532,7 +1546,7 @@ var UI = UI || {};
                 page.popupClose();
             }
             Session.snapshoot.sessionData.ui_dataschema = schema
-            //console.log(cfg)
+            //UI.Log(cfg)
             //new UI.View(panel,cfg) 
             page.popupOpen(cfg);
             page.popup.onClose(function(){
@@ -1560,7 +1574,7 @@ var UI = UI || {};
                 keyfield = fieldvalue["keyfield"];
             }
             else{
-                console.log("There is a linked field defined.")
+                UI.Log("There is a linked field defined.")
                 return;
             }                
 
@@ -1570,7 +1584,7 @@ var UI = UI || {};
                 let linkfields = fieldvalue["linkfields"];
                 let wherestr = "";
                 for(var i=0;i<linkfields.length;i++){
-                    console.log(linkfields[i],keyvalue)
+                    UI.Log(linkfields[i],keyvalue)
                     if(linkfields[i].hasOwnProperty(keyfield)){
                         wherestr += linkfields[i][keyfield] + " = '" + keyvalue + "'";                        
                     }
@@ -1599,7 +1613,7 @@ var UI = UI || {};
             panel.view = view;
             configuration.panels = [panel];
 
-            console.log("display the list screen",configuration,inputs)
+            UI.Log("display the list screen",configuration,inputs)
             new UI.Page(configuration);
         
         }
@@ -1737,7 +1751,7 @@ var UI = UI || {};
             }
         }
         trigger_event(event, args) {
-            console.log(event,args)
+            UI.Log(event,args)
 			if (this.options['on_' + event]) {
 				this.options['on_' + event].apply(null, args);
 			}
@@ -1763,7 +1777,7 @@ var UI = UI || {};
             });
         }
         getSchemaRootDefinitions(){
-            //    console.log(this.schema)
+            //    UI.Log(this.schema)
             this.schemaRootNode = null
             if(this.schema !=null && this.schema !={}){
                 if(this.schema.hasOwnProperty('definitions') && this.schema.hasOwnProperty("$ref")){
@@ -1965,16 +1979,16 @@ var UI = UI || {};
             const keys = path.toString().includes("/")? path.toString().split("/"): [path];
             let Properties = {};
             let schemaNode = this.schemaRootNode
-          //  console.log(schemaNode, path, keys)
+          //  UI.Log(schemaNode, path, keys)
             let isArray = false;
             for(var i=0;i<keys.length;i++){
               let key = keys[i]
-            //  console.log(this.schema,schemaNode,key)
+            //  UI.Log(this.schema,schemaNode,key)
               if(!schemaNode.properties.hasOwnProperty(key))
                   return null;
   
               Properties = schemaNode.properties[key];
-           //   console.log(key, Properties)
+           //   UI.Log(key, Properties)
               if(Properties.hasOwnProperty('$ref') || (Properties.hasOwnProperty('type') && Properties['type'] == 'array')){
                   let nodepath = '';
                   
@@ -1998,13 +2012,13 @@ var UI = UI || {};
                       nodepath = nodepath.replace('#/','')
                   
                   let paths = nodepath.includes('/')? nodepath.split('/'):[nodepath];
-              //    console.log(paths)
+              //    UI.Log(paths)
                   let currentNode = this.schema
                   for(var j=0;j<paths.length;j++){
                       let path1 = paths[j];
                       currentNode =currentNode[path1]                    
                   }
-             //    console.log(i, key, keys,schemaNode,currentNode)
+             //    UI.Log(i, key, keys,schemaNode,currentNode)
                   if(currentNode.hasOwnProperty('type')){
                       if(currentNode['type'] == 'object'){
                           if(i == keys.length-1){
@@ -2020,7 +2034,7 @@ var UI = UI || {};
                       }
                       else{
                           let pro =  currentNode.hasOwnProperty('properties')? currentNode['properties']: currentNode
-                      //    console.log(key, path, pro, Properties)
+                      //    UI.Log(key, path, pro, Properties)
                           pro = Object.assign(pro, Properties)
                           return{
                               node: schemaNode,
@@ -2063,16 +2077,16 @@ var UI = UI || {};
             
             let Properties = {};
             let schemaNode = this.schemaRootNode
-          //  console.log('get the schema definition:',path)
+          //  UI.Log('get the schema definition:',path)
   
             for(var i=0;i<keys.length;i++){
               let key = keys[i]
-           //   console.log(schemaNode)
+           //   UI.Log(schemaNode)
               if(!schemaNode.properties.hasOwnProperty(key))
                   return null;
   
               Properties = schemaNode.properties[key];
-            //  console.log(key, Properties)
+            //  UI.Log(key, Properties)
               if(Properties.hasOwnProperty('$ref') || (Properties.hasOwnProperty('type') && Properties['type'] == 'array')){
                   let nodepath = '';
                   if(Properties.hasOwnProperty('$ref'))
@@ -2086,13 +2100,13 @@ var UI = UI || {};
                       nodepath = nodepath.replace('#/','')
                   
                   let paths = nodepath.includes('/')? nodepath.split('/'):[nodepath];
-            //      console.log(paths)
+            //      UI.Log(paths)
                   let currentSchemaDefinition = this.schema
                   for(var j=0;j<paths.length;j++){
                       let path1 = paths[j];
                       currentSchemaDefinition =currentSchemaDefinition[path1]                    
                   }
-               //   console.log(currentSchemaDefinition, i, keys)
+               //   UI.Log(currentSchemaDefinition, i, keys)
   
                   if(currentSchemaDefinition.hasOwnProperty('type')){
                       if(currentSchemaDefinition['type'] == 'object'){

@@ -14,17 +14,21 @@
   <script src="scripts/jsonmanager.js"></script>
   <script src="scripts/layouteditor.js"></script>
   <script src="scripts/jstree.js"></script>
+  <script src="scripts/ui.jstree.js"></script>
   <script src='Scripts/codemirror5/lib/codemirror.js'></script>
   <script src='Scripts/codemirror5/lib/diff_match_patch.js'></script>
   <script src='Scripts/codemirror5/addon/merge/merge.js'></script>
   <link rel='stylesheet' href='styles/codemirror.css'>
   <link rel='stylesheet' href='Scripts/codemirror5/addon/merge/merge.css'>
   <link rel='stylesheet' href='styles/UIPage.css'>
-  <link rel="stylesheet" href="styles/jstree/jstree.css" />
+  <link rel='stylesheet' href='styles/jstree/jstree.css'>
   
 </head>
 <body>
- <div class="container-fluid">
+<div class="layouteditor_container" style="display:flex; flex-direction: row;">
+  <div class="page_structure_tree" style="width:350px; height:100%"></div>
+  <div class="container-fluid"></div>
+</div>
   <script type="text/javascript">
 
     $Context.onLoaded(function() {

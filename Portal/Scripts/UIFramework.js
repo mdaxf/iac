@@ -129,8 +129,11 @@ var UI;
                 if(success)
                     success(response);
             }).catch((error) => {
+                UI.ShowError(error);
                 if(fail)
                     fail(error);
+
+                    
             });
         }
         function GetbyData(url, data, success, fail){
@@ -138,6 +141,7 @@ var UI;
                 if(success)
                     success(response);
             }).catch((error) => {
+                UI.ShowError(error);
                 if(fail)
                     fail(error);
             });
@@ -148,14 +152,29 @@ var UI;
                 if(success)
                     success(response);
             }).catch((error) => {
+                UI.ShowError(error);
                 if(fail)
                     fail(error);
             })
         }
 
+        function CallTranCode(Code, Version, inputs, success, fail){
+            let url = UI.CONTROLLER_URL+"/trancode/execute";
+            let Data = {"code":Code, "version":Version, "inputs":inputs};
+            return UI.ajax.post(url, Data).then((response) => {
+                if(success){
+                    success(response);
+                }
+            }).catch((error) => {
+                UI.ShowError(error);
+                if(fail)
+                    fail(error);
+            })
+        }
         UI.GetbyUrl = GetbyUrl;
         UI.GetbyData = GetbyData;
         UI.Post = Post;
+        UI.CallTranCode = CallTranCode;
 
 })(UI || (UI = {}));
 
@@ -180,7 +199,7 @@ var UI;
         }
         checkiflogin(success, fail){
             let userdata = sessionStorage.getItem(this.sessionkey);
-        //    // console.log(userdata)
+        //    // UI.Log(userdata)
             if(userdata){
                 let userjdata = JSON.parse(userdata);
                 this.userID = userjdata.ID;
@@ -204,10 +223,10 @@ var UI;
 
                 let parsedDate = new Date(this.expirateon);
 
-           //     // console.log(this.token, parsedDate, new Date(), (parsedDate > new Date()))
+           //     // UI.Log(this.token, parsedDate, new Date(), (parsedDate > new Date()))
 
                 if(parsedDate > new Date()){
-                  //  // console.log("renew")
+                  //  // UI.Log("renew")
                     UI.ajax.post(UI.CONTROLLER_URL+"/user/login", {"username":this.username, "password":this.password, "token":this.token, "clientid": this.clientid, "renew": true}).then((response) => {
                         userjdata = JSON.parse(response);
                         this.userID = userjdata.ID;
@@ -220,7 +239,7 @@ var UI;
                         this.expirateon = userjdata.expirateon;
                         userjdata.updatedon = new Date();
 
-                        // console.log(userjdata)
+                        // UI.Log(userjdata)
                         sessionStorage.setItem(this.sessionkey, JSON.stringify(userjdata));
                         
                         if(success){
@@ -229,13 +248,14 @@ var UI;
                         return true;
     
                     }).catch((error) => {
-                        // console.log(error)
+                        UI.ShowError(error);
                         if(fail)
                             fail();
                             return false;
                     })
                 }
                 else{
+                    UI.ShowError("User token expired, please login again.");
                     if(fail) 
                         fail();
                 }
@@ -246,7 +266,7 @@ var UI;
         login(username, password, success, fail){
             
             let userdata = sessionStorage.getItem(this.sessionkey);
-       //     // console.log(userdata)
+       //     // UI.Log(userdata)
             if(userdata){
                 
                 let userjdata = JSON.parse(userdata);
@@ -282,6 +302,7 @@ var UI;
                     }   
 
                 }).catch((error) => {
+                    UI.ShowError(error);
                     if(fail)
                         fail();
                 })
@@ -292,7 +313,7 @@ var UI;
                 if(this.clientid == ""){
                     this.clientid = UI.generateUUID();
                 }
-                // console.log(this.clientid,username,password)
+                // UI.Log(this.clientid,username,password)
                 UI.ajax.post(UI.CONTROLLER_URL+"/user/login", {"username":username, "password":password, "token":this.token, "clientid": this.clientid, "renew": false}).then((response) => {
                     let userjdata = JSON.parse(response);
                     this.userID = userjdata.ID;
@@ -312,7 +333,7 @@ var UI;
                     }                
 
                 }).catch((error) => {
-                    // console.log(error)
+                    UI.ShowError(error);
                     if(fail)
                         fail();
                 })
@@ -324,7 +345,7 @@ var UI;
 
             if(userdata){
                 let userjdata = JSON.parse(userdata);
-         //       // console.log(userjdata)
+         //       // UI.Log(userjdata)
                 let username = userjdata.username;
                 let token = userjdata.token;
                 let clientid = userjdata.clientid;
@@ -342,6 +363,7 @@ var UI;
                     } 
                 
                 }).catch((error) => {
+                    UI.ShowError(error);
                     if(fail)
                         fail();
                 })
@@ -361,11 +383,12 @@ var UI;
 
     function tokencheck(){
         UI.userlogin.checkiflogin(function(){
-            console.log("token updated success:", UI.userlogin.username);
+            UI.Log("token updated success:", UI.userlogin.username);
             UI.userlogin.tokenupdatetimer = window.setTimeout(tokencheck, UI.userlogin.tokenchecktime);
         }, function(){
-             console.log("token updated fail:", UI.userlogin.username);
-            // console.log(UI.Page);
+            UI.ShowError("token updated fail:", UI.userlogin.username);
+            // UI.Log("token updated fail:", UI.userlogin.username);
+            // UI.Log(UI.Page);
             if(UI.Page)
                 window.location.href = UI.userlogin.loginurl;
              //   new UI.Page({file:'pages/logon.json'});
@@ -384,20 +407,21 @@ var UI;
         }
         loadMenus(parentID,Success, Fail){
             let userdata = sessionStorage.getItem(UI.userlogin.sessionkey);
-        //     console.log(userdata)
+        //     UI.Log(userdata)
             if(userdata){
                 
                 let userjdata = JSON.parse(userdata);
                 let userID = userjdata.id;
                 let isMobile = this.isMobile()? "1":"0";
-                sessionStorage.removeItem(this.sessionmenuprefix+userID)
+                sessionStorage.removeItem(this.sessionmenuprefix+userID+ "_"+parentID)
                 UI.ajax.get(UI.CONTROLLER_URL+"/user/menus?userid="+userID +"&mobile="+isMobile + "&parentid="+parentID).then((response) => {
                     let menus = JSON.parse(response);
                     sessionStorage.setItem(this.sessionmenuprefix+userID+ "_"+parentID, JSON.stringify(menus));
                     if(Success)
                         Success(menus);
                 }).catch((error) => {
-                    console.log(error);
+                    
+                    UI.ShowError(error);
                     if(Fail)
                         Fail();
                 })
@@ -428,7 +452,7 @@ var UI;
 
     function isScriptLoaded(scriptSrc) {
         let arr = Array.from(document.getElementsByTagName('script'))
-        // console.log(scriptSrc, arr);
+        // UI.Log(scriptSrc, arr);
         for(var i=0;i<arr.length;i++)
         {
             let script = arr[i];
@@ -442,7 +466,7 @@ var UI;
                 let checkedsrc = scriptSrc.toLowerCase();
                 let check = src.indexOf(checkedsrc) != -1 || checkedsrc.indexOf(src) != -1;
 
-                // console.log(src, checkedsrc, check);
+                // UI.Log(src, checkedsrc, check);
 
                 if (check)
                     return true;
@@ -500,14 +524,109 @@ var UI;
     }
     UI.createFragment = createFragment;
 
-    ShowError = function (error) {
-        console.log(error);
-        alert(error);
-         
-    }
-    UI.ShowError = ShowError;
 })(UI || (UI = {}));
 
+(function (UI) {
+    class UIMessage{
+        constructor(message, type="Error"){
+            this.message = message;
+            this.timer = null;
+            this.className = "ui-errormessage-summary";
+            if(type == "Warning")
+                this.className = "ui-warningmessage-summary";
+            else if(type == "Success")
+                this.className = "ui-successmessage-summary";
+            else if(type == "Info")
+                this.className = "ui-infomessage-summary";
+
+            this.show();
+            this.clear = this.clear.bind(this);
+            UI.messageItems.push(this);
+        }
+
+        show(){
+            let attrs ={}
+            let messageSection = document.getElementsByClassName("ui-message-summary");  
+            if(messageSection.length == 0){
+                attrs = {
+                    "class": "ui-message-summary",
+                }
+                messageSection = (new UI.FormControl(document.body,"div", attrs)).control;
+            }else{
+                messageSection = messageSection[0];
+            }
+            let messageEl = document.getElementsByClassName(this.className);         
+            
+            if(messageEl.length == 0){
+                attrs ={
+                    "class": this.className,
+                }
+                messageEl = (new UI.FormControl(messageSection,"div", attrs)).control;
+            }else{
+                messageEl = messageEl[0];
+            }
+            let event = {
+                "click": this.clear
+            }
+            attrs ={
+                "class": "ui-message-item",
+                innerHTML: this.message
+            }        
+            this.control = (new UI.FormControl(messageEl,"div", attrs, event)).control;
+            messageEl.style.display = "block";   
+            this.timer = window.setTimeout(this.clear, 60000);
+        }
+        clear=()=>{
+            for(var i=0;i<UI.messageItems.length;i++){
+                if(UI.messageItems[i] == this){
+                    UI.messageItems.splice(i,1);
+                    break;
+                }
+            }
+            this.control.remove();
+            clearTimeout(this.timer)
+            let messageEl = document.getElementsByClassName(this.className);
+            if(messageEl.length > 0){
+                messageEl = messageEl[0];
+                if(messageEl.children.length == 0)
+                    messageEl.style.display = "none";
+            }
+        }
+
+    }
+    UI.UIMessage = UIMessage;
+
+    function ShowError(error) {
+        UI.Log(error);
+        new UI.UIMessage(error, 'Error');       
+    }
+
+    function ClearAllMessages(){
+        UI.messageItems.forEach(item => {
+            item.clear();
+        });
+
+        let messageEl = document.getElementsByClassName("ui-message-summary");         
+        if(messageEl.length > 0){
+            messageEl.innerHTML = "";
+            messageEl.style.display = "none";
+        }
+    }
+    UI.ShowError = ShowError;
+    UI.ClearAllMessages = ClearAllMessages;
+    UI.messageItems = []
+
+    function ShowMessage(message, type) {
+        new UI.UIMessage(message, type);
+    }
+    UI.ShowMessage = ShowMessage;
+
+    function Log(...args){
+        console.log(...args);
+    }
+    UI.Log = Log;
+
+})(UI || (UI = {}));
 
 (function (UI){
     class UISession{
@@ -574,7 +693,7 @@ var UI;
             else {
                 this.model = null;
             } */
-        //    // console.log(item, this.stack, this._item)
+        //    // UI.Log(item, this.stack, this._item)
             if (item != null)
                 this.snapshoot.sessionData = Session.cloneObject(item.sessionData)
             return item;
@@ -657,7 +776,7 @@ var UI;
                         return false;
                 }
                 catch (e) {
-                    // console.log(e);
+                    // UI.Log(e);
                 }
             }
             return true;
@@ -1040,7 +1159,7 @@ function rAFThrottle(func) {
             }
         */
         constructor(page,configuration){
-          //  console.log(page,configuration)
+          //  UI.Log(page,configuration)
             this.page = page;
             this.configuration  = configuration;
             this.configuration.orientation = this.configuration.orientation || 0;
@@ -1150,7 +1269,7 @@ function rAFThrottle(func) {
 
         */
         constructor(Panel, configuration){
-            // console.log(Panel,configuration)
+            // UI.Log(Panel,configuration)
             super();
            /* if(Panel.page.configuration.name !="Logon page"){
 
@@ -1185,12 +1304,12 @@ function rAFThrottle(func) {
         }
         async validelogin(Panel,configuration){
             await UI.userlogin.checkiflogin(function(){
-                // console.log("login success:", UI.userlogin.username);  
+                // UI.Log("login success:", UI.userlogin.username);  
                 this.initialize(Panel,configuration);
               }, function(){
                 //  UI.startpage("pages/logon.json");
-                 // // console.log(pagefile);
-                  // console.log("there is no validated login user!");
+                 // // UI.Log(pagefile);
+                  // UI.Log("there is no validated login user!");
                 //  new UI.Page({file:"pages/logon.json"});
                   window.location.href = UI.userlogin.loginurl;
                 //  return;
@@ -1202,7 +1321,7 @@ function rAFThrottle(func) {
         builview(){
             
             this.loaded = false;
-            // console.log(this.configuration)
+            // UI.Log(this.configuration)
             if(!this.configuration.name)
             {
                 return;
@@ -1227,11 +1346,11 @@ function rAFThrottle(func) {
         }
         clear(){
             this.fireOnUnloading();
-            // console.log("clear view",this);
+            // UI.Log("clear view",this);
             delete Session.views[this.id];
        //     const elements = document.querySelectorAll(`[viewID="${this.id}"]`);
             const elements = document.querySelectorAll(`[id="${this.id}"]`);
-            // console.log(elements)
+            // UI.Log(elements)
             for (let i = 0; i < elements.length; i++) {
                 elements[i].remove();
             }
@@ -1243,19 +1362,20 @@ function rAFThrottle(func) {
                 this.createinputs(this.configuration.inputs);
 
             if(this.configuration.onloadcode && this.configuration.onloadcode != ""){
-                
+                /*
                 let data={};
                 data.code = this.configuration.onloadcode;
                 data.inputs = this.inputs;
-                console.log("execute code to load data,"    , data)
-                await this.executeLoadData(data, function(response){
-                    console.log("load data success:", response);
+                UI.Log("execute code to load data,"    , data)
+                */
+                await this.executeLoadData(this.configuration.onloadcode, this.inputs, function(response){
+                 //   UI.Log("load data success:", response);
                     let responsedata = JSON.parse(response);
                     Session.snapshoot.sessionData =  Object.assign({},Session.snapshoot.sessionData, responsedata.Outputs);
                     that.inputs = Object.assign({},that.inputs, responsedata.Outputs);
                     that.create();
                 }, function(error){
-                    console.log("error:", error);
+                    
                     UI.ShowError("Load the data wrong:",error);
                 });
                 
@@ -1265,9 +1385,9 @@ function rAFThrottle(func) {
         }
         async create(){
             
-          //  // console.log(this, this.Panel.panelElement);
+          //  // UI.Log(this, this.Panel.panelElement);
             Session.views[UI.safeId(this.id)] = this;
-            //console.log(this.configuration)
+            //UI.Log(this.configuration)
 
      
             
@@ -1304,7 +1424,7 @@ function rAFThrottle(func) {
 
             Session.views[UI.safeId(this.id)] = this;
 
-            // console.log(this,this.onLoaded)
+            // UI.Log(this,this.onLoaded)
             
             if(this.promiseCount == 0)
                 this.fireOnLoaded();
@@ -1334,7 +1454,7 @@ function rAFThrottle(func) {
                 this.builview(); 
                              
             }).catch((error) => {
-                // console.log("error:",error);
+                // UI.Log("error:",error);
             })
         }
 
@@ -1352,7 +1472,7 @@ function rAFThrottle(func) {
 
             let ajax = new UI.Ajax("");
             await ajax.get(file,false).then((response) => {
-            //    // console.log(response)
+            //    // UI.Log(response)
                 Session.fileResponsitory[file] = response;
                 //return response;
                 that.buildviewwithresponse(response);
@@ -1363,7 +1483,7 @@ function rAFThrottle(func) {
                     that.fireOnLoaded();
 
             }).catch((error) => {
-                // console.log(error);
+                UI.ShowError("Load the file wrong:",error);
             })
         }
         createwithCode(code){
@@ -1375,7 +1495,8 @@ function rAFThrottle(func) {
             ajax.get(code,false).then((response) => {
                 that.buildviewwithresponse(response.data);
             }).catch((error) => {
-                // console.log(error)
+                // UI.Log(error)
+                UI.ShowError("Load the code wrong:",error);
             })
         }
         buildform(form){
@@ -1412,7 +1533,7 @@ function rAFThrottle(func) {
                 else if(styles[i].textContent)
                     this.createStyleContent(styles[i].textContent);
             }
-            // console.log('scripts:',scripts)
+            // UI.Log('scripts:',scripts)
             for (let i = 0; i < scripts.length; i++) {
                 if(scripts[i].src){
                     
@@ -1430,7 +1551,7 @@ function rAFThrottle(func) {
             }) 
             
             
-            // console.log(scripts)
+            // UI.Log(scripts)
             for (let i = 0; i < scripts.length; i++) {
                 if(scripts[i].src){                
 
@@ -1446,7 +1567,7 @@ function rAFThrottle(func) {
         }
         createinputs(inputs){
             let inputscript = "";
-            // console.log(Session.snapshoot.sessionData,inputs);
+            // UI.Log(Session.snapshoot.sessionData,inputs);
             Object.keys(inputs).reduce((acc, key) => {
                 if(Session.snapshoot.sessionData.hasOwnProperty(key)   ){
                     inputs[key] = Session.snapshoot.sessionData[key];                      
@@ -1454,7 +1575,7 @@ function rAFThrottle(func) {
             }, {})
 
             this.inputs = inputs;
-            // console.log(inputs)
+            // UI.Log(inputs)
             return inputscript;
         }
         createoutputs(outputs){
@@ -1470,7 +1591,7 @@ function rAFThrottle(func) {
         }
         createcommonfunctions(){
           let s = 'object_'+UI.safeId(this.id) + ' = ' + `Session.views[`+this.id+`]` + ';';
-          // console.log(s)
+          // UI.Log(s)
           this.createScriptContent(s);
         }
         getoutputs(){
@@ -1512,7 +1633,7 @@ function rAFThrottle(func) {
             s.setAttribute("viewid", this.id);
             
             s.textContent =this.createcontext(Content)
-        //    // console.log(s);
+        //    // UI.Log(s);
             this.view.appendChild(s);
            // document.head.appendChild(s);
             return s;
@@ -1548,7 +1669,7 @@ function rAFThrottle(func) {
             return newcontent;
         }
         submit(){
-        //    // console.log("submit",this.inputs,this.outputs);
+        //    // UI.Log("submit",this.inputs,this.outputs);
             Session.snapshoot.sessionData =  Object.assign({},Session.snapshoot.sessionData, this.getoutputs());
 
             if(this.outputs.action){
@@ -1557,17 +1678,13 @@ function rAFThrottle(func) {
         }
         executeactionchain(){
             if(Session.snapshoot.sessionData.action){
-                //    // console.log(this.configuration.actions[this.outputs.action])
+                //    // UI.Log(this.configuration.actions[this.outputs.action])
                     if(this.configuration.actions[this.outputs.action]){
                         var action = this.configuration.actions[this.outputs.action];
-                        // console.log("selected action:",this.outputs.action,action)
+                        // UI.Log("selected action:",this.outputs.action,action)
                         if(action.type == "Transaction"){
-                            let url = "/exetrancode";
-                            let data = {
-                                "code":action.code,
-                                "inputs":Session.snapshoot.sessionData,
-                            }
-                            this.executeTransaction(data, this.updateoutputs, function(error){ console.log(error)});
+                            
+                            this.executeTransaction(action.code, Session.snapshoot.sessionData, this.updateoutputs, function(error){ UI.ShowError(error)});
                             if(Session.snapshoot.sessionData.action !="")
                                 this.executeactionchain();
                         }
@@ -1587,7 +1704,7 @@ function rAFThrottle(func) {
                         }
                         else if(action.type == "view"){
                             if(action.panels){
-                                // console.log("actions:",action.panels)
+                                // UI.Log("actions:",action.panels)
                                 for (var i=0; i<action.panels.length; i++){
                                     let viewpanel = action.panels[i].panel;
                                     let panel = Session.panels[UI.safeId(viewpanel)];
@@ -1618,7 +1735,9 @@ function rAFThrottle(func) {
         updateoutputs(outputs){
             Session.snapshoot.sessionData =  Object.assign({},Session.snapshoot.sessionData, outputs);
         }
-        executeTransaction(inputs, func, fail){
+        executeTransaction(Code, inputs, func, fail){
+            UI.CallTranCode(Code, "", inputs, func, fail);
+            /*
             let url = "/trancode/execute";
             UI.ajax.post(url, inputs).then((response) => {
                    if(typeof(func) == 'function')
@@ -1627,25 +1746,26 @@ function rAFThrottle(func) {
                 }).catch((error) => {
                     if(typeof(fail) == 'function')
                         fail(error);
-                    // console.log(error);
-                });
+                    // UI.Log(error);
+                }); */
         }
-        executeLoadData(inputs, func, fail){
-            // console.log('execute loading data')
-            let url = "/trancode/execute";
+        executeLoadData(Code, inputs, func, fail){
+            // UI.Log('execute loading data')
+            UI.CallTranCode(Code, "", inputs, func, fail);
+           /* let url = "/trancode/execute";
             UI.ajax.post(url, inputs, false).then((response) => {
                 if(typeof(func) == 'function')
                     func(response); 
      
                 }).catch((error) => {  
-                    console.log(error);  
+                    UI.Log(error);  
                     if(typeof(fail) == 'function')
                         fail(error);
-                        // console.log(error);
-                });
+                        // UI.Log(error);
+                }); */
         }
         onLoaded(func) {   
-            // console.log(func)        
+            // UI.Log(func)        
             this.addEventListener("loaded", func);
             this.loaded = true;
             let readyevent = new CustomEvent("Viewready");
@@ -1654,13 +1774,13 @@ function rAFThrottle(func) {
         fireOnLoaded() {
             let that = this
             if(that.loaded){
-                // console.log("fireOnLoaded",document.readyState)
+                // UI.Log("fireOnLoaded",document.readyState)
                 this.fireEvent("loaded");
                 this.clearListeners("loaded");
             }
             else{
                 this.view.addEventListener("Viewready", function() {
-                    // console.log("fireOnLoaded with Viewready event")
+                    // UI.Log("fireOnLoaded with Viewready event")
                     that.fireEvent("loaded");
                     that.clearListeners("loaded");
                     that.view.removeEventListener("Viewready",this);
@@ -1714,7 +1834,7 @@ function rAFThrottle(func) {
         */    
         constructor(configuration, pageID = null) {
             super();
-            // console.log(configuration)
+            // UI.Log(configuration)
             this.configuration = configuration;
             this.page={};
             this.panels = [];
@@ -1726,7 +1846,7 @@ function rAFThrottle(func) {
             UI.tokencheck();
                         
             if(pageID != null && pageID in Session.pages && pageID != undefined){
-                // console.log("pageID:",pageID)
+                // UI.Log("pageID:",pageID)
                 this.configuration = Session.pages[pageID].configuration;
                 this.id = pageID;
                 this.create();
@@ -1737,9 +1857,9 @@ function rAFThrottle(func) {
                 let found = false;
                 
                 for(var key in Session.pages){
-                  //  console.log(key, this.configuration)
+                  //  UI.Log(key, this.configuration)
                     if(Session.pages[key].configuration.name == this.configuration.name){
-                        // console.log(Session.pages[key], configuration.name)
+                        // UI.Log(Session.pages[key], configuration.name)
                         this.id = key;
                         found = true;
                         this.create();
@@ -1785,7 +1905,7 @@ function rAFThrottle(func) {
                 this.configuration = pagedata;
                 this.init();
             }).catch((error) => {
-                // console.log(error);
+                UI.ShowError(error)
             })
 
         }
@@ -1795,13 +1915,8 @@ function rAFThrottle(func) {
 
             if(this.configuration.onInitialize){
 
-                let url = "/exetrancode";
-                let data = {
-                    "code":this.configuration.onInitialize,
-                    "inputs":Session.snapshoot.sessionData,
-                }
-                await this.executeTransaction(data, this.updatesession, function(error){
-                        console.log(error)
+                await this.executeTransaction(this.configuration.onInitialize,Session.snapshoot.sessionData , this.updatesession, function(error){
+                    UI.ShowError(error)
                 });   
             }
 
@@ -1816,17 +1931,12 @@ function rAFThrottle(func) {
 
             if(this.configuration.onLoad){
 
-               
-                let data = {
-                    "code":this.configuration.onLoad,
-                    "inputs":Session.snapshoot.sessionData,
-                }
-                await this.executeTransaction(data, this.updatesession, function(error){
-                     console.log(error)
+                await this.executeTransaction(this.configuration.onLoad,data,Session.snapshoot.sessionData, this.updatesession, function(error){
+                     UI.ShowError(error)
                 });   
             }
             
-            // console.log(this.configuration)
+            // UI.Log(this.configuration)
             let id = this.id;
             let page =null;
             let pagediv = document.getElementsByClassName("iac-ui-page-header");
@@ -1892,9 +2002,9 @@ function rAFThrottle(func) {
             this.PageID = id;
             this.PageTitle = this.configuration.title || this.configuration.name;
 
-           // console.log(Session.snapshoot.sessionData,this.configuration.title)
+           // UI.Log(Session.snapshoot.sessionData,this.configuration.title)
             for(var key in Session.snapshoot.sessionData){
-              //  console.log(key, this.configuration.title)
+              //  UI.Log(key, this.configuration.title)
               this.PageTitle = this.PageTitle.replaceAll('{'+key+'}' , Session.snapshoot.sessionData[key])
             }
             document.title = this.PageTitle ;
@@ -1923,7 +2033,9 @@ function rAFThrottle(func) {
         updatesession(data){
             Session.snapshoot.sessionData =  Object.assign({},Session.snapshoot.sessionData, data);
         }
-        async executeTransaction(inputs, func, fail){
+        async executeTransaction(Code, inputs, func, fail){
+            UI.CallTranCode(Code, "", inputs, func, fail);
+            /*
             UI.ajax.post(url, inputs).then((response) => {
                    if(typeof(func) == 'function')
                         func(response); 
@@ -1931,8 +2043,8 @@ function rAFThrottle(func) {
                 }).catch((error) => {
                     if(typeof(fail) == 'function')
                         fail(error);
-                    // console.log(error);
-                });
+                    // UI.Log(error);
+                }); */
         }
         Refresh(){
            this.clear();
@@ -1971,7 +2083,7 @@ function rAFThrottle(func) {
         back(){
             if(Session.stack.length > 0){
                 let stackitem = Session.popFromStack();
-                // console.log("page back action:", stackitem)
+                // UI.Log("page back action:", stackitem)
 
                 if(!stackitem)
                     return;
@@ -2003,12 +2115,12 @@ function rAFThrottle(func) {
             this.page={};
         }  
         setevents(){
-            // console.log('set events')
+            // UI.Log('set events')
             let that = this;
             window.addEventListener("resize", that.resize)
         }
         resize(){
-         //   // console.log('start to resize')
+         //   // UI.Log('start to resize')
             let width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
             let height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
             $('.ui-page').css('width',width+'px');
@@ -2023,7 +2135,7 @@ function rAFThrottle(func) {
     class Pageheader{
         constructor(root){
             this.root = root;
-            // console.log('create header for page:',root)
+            // UI.Log('create header for page:',root)
             this.element = this.getHeaderContainer();
             this.headerBreadcrumbs();
             this. headerMenuActions();
@@ -2099,7 +2211,7 @@ function rAFThrottle(func) {
             let interval = null;
             let that = this;
             let init = true;
-                // console.log('clock renderer:', init)
+                // UI.Log('clock renderer:', init)
                 if (init) {
                     
                     let element = that.createElAndAppend(this.headerClock,"span", "iac-ui-header-clock clock");
@@ -2137,12 +2249,12 @@ function rAFThrottle(func) {
                         let element = that.headerIconRender("user", "images/avatardefault.png");
                         ajax.get(`../user/image?username=${UI.userlogin.username}`, function (data) {
                             let imageurl = JSON.parse(data);
-                            // console.log(imageurl)
+                            // UI.Log(imageurl)
                                 if (imageurl) {
                                     element.children[0].src = imageurl;
                                 }
                             }, function (error) {
-                                 console.log(error);
+                                 UI.ShowError(error);
                             });
 
                             element.classList.add("iac-ui-header-action");
@@ -2157,12 +2269,12 @@ function rAFThrottle(func) {
                             item.textContent = "Logout";
                             item.setAttribute("lngcode", "Logout");    
                             li.addEventListener("click", function () {
-                                // console.log("logout")
+                                // UI.Log("logout")
                                 UI.userlogin.logout();
                             });
                             this.headerUserimage.appendChild(element);
                             let popup = UI.ContextPopup.createPopup(list);
-                            // console.log(popup)
+                            // UI.Log(popup)
                             popup.attach(element);
                     }
                     else{
@@ -2185,7 +2297,7 @@ function rAFThrottle(func) {
                         });
                         this.headerUserimage.appendChild(element);
                         let popup = UI.UI.ContextPopup.createPopup(list);
-                        // console.log(popup)
+                        // UI.Log(popup)
                         popup.attach(element);
                     }
                 //    return element;
@@ -2240,7 +2352,7 @@ function rAFThrottle(func) {
                             Session.popFromStack(idx);
                             let page = new UI.Page("",pageid);
                         }
-                        // console.log("crumbs clicked:", item, idx);
+                        // UI.Log("crumbs clicked:", item, idx);
 
 
 
@@ -2284,7 +2396,7 @@ function rAFThrottle(func) {
                     let element2 = that.createElAndAppend(this.headerMenuicon, "a","ui-page-header-icon-home");
                     
                     element2.addEventListener("click", function(){
-                        // console.log("home clicked")
+                        // UI.Log("home clicked")
                         Session.CurrentPage.home();})
                 }
             }
@@ -2297,18 +2409,18 @@ function rAFThrottle(func) {
   
 (function (UI) {
     function startpage(pagefile){
-        // console.log(pagefile);
+        // UI.Log(pagefile);
         let page = new UI.Page({file:pagefile});
 
        /*
         let ajax = new UI.Ajax("");
         ajax.get(pagefile,false).then((response) => {
-            // console.log(response)
+            // UI.Log(response)
             let page = new UI.Page(JSON.parse(response));
 
             //page.create();            
         }).catch((error) => {
-            // console.log(error);
+            // UI.Log(error);
         })
         */
     }
@@ -2325,6 +2437,6 @@ function rAFThrottle(func) {
 })(UI || (UI = {}));
 
 /*
-// console.log("UI loaded");
-// console.log(UI.Ajax);
+// UI.Log("UI loaded");
+// UI.Log(UI.Ajax);
 */
