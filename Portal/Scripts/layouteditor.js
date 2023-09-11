@@ -90,18 +90,64 @@ var LayoutEditor = {
             // create and load it all from JSON above
             LayoutEditor.grid = CustomGridStack.addGrid(document.querySelector('.container-fluid'), LayoutEditor.Options);
 
-            let gridEls = CustomGridStack.getElements('.grid-stack-item');
+
+ 
+            $($('.container-fluid').find('.grid-stack')[0] ).css('background-color', 'lightgrey');
+            $($('.container-fluid').find('.grid-stack')[0] ).css('width', LayoutEditor.FullWidth+'px');
+            $($('.container-fluid').find('.grid-stack')[0] ).css('height', LayoutEditor.FullHeight+'px');
+            LayoutEditor.render();
+
+          /*  let gridEls = CustomGridStack.getElements('.grid-stack-item');
             gridEls.forEach(gridEl => {
                 LayoutEditor.addSelectEvent(gridEl);
-            })
-            $($('.container-fluid').find('.grid-stack')[0] ).css('background-color', 'lightgrey');
-            $($('.container-fluid').find('.grid-stack')[0] ).css('width', width+'px');
-            $($('.container-fluid').find('.grid-stack')[0] ).css('height', height+'px');
-            $('.selected').length > 0 ? $('.btn_removepanel').show() : $('.btn_removepanel').hide();
+            }) */
+
+          //  $('.selected').length > 0 ? $('.btn_removepanel').show() : $('.btn_removepanel').hide();
 
             window.addEventListener('resize', LayoutEditor.window_resize);
-            LayoutEditor.attachContextEvents();
+          //  LayoutEditor.attachContextEvents();
             LayoutEditor.ShowPageStructure();
+        },
+        generateLayout:function(){          
+          LayoutEditor.destroy(true);
+          document.querySelector('.container-fluid').innerHTML = '';
+          LayoutEditor.Options = { // main grid options
+            cellHeight: LayoutEditor.cellHeight, // should be 50 - top/bottom
+            cellWidth: LayoutEditor.cellWidth, // should be 50 - left/right
+            verticalMargin: 1,
+            horizontalMargin: 1,
+            margin: 1,
+            minRow: 2, // don't collapse when empty
+            column:100,
+            disableOneColumnMode: true,
+            acceptWidgets: true,
+            subGridOpts: LayoutEditor.subOptions,
+            subGridDynamic: true,
+            id: 'main_layout_panel',
+            children: []
+          };
+
+          layoutdata = LayoutEditor.getpaneldatafrompaneldata(LayoutEditor.JsonObj.data, 0)
+          UI.Log(LayoutEditor.Options, layoutdata)
+          LayoutEditor.Options = Object.assign(LayoutEditor.Options,layoutdata);
+          // create and load it all from JSON above
+          LayoutEditor.grid = CustomGridStack.addGrid(document.querySelector('.container-fluid'), LayoutEditor.Options);
+
+          $($('.container-fluid').find('.grid-stack')[0] ).css('background-color', 'lightgrey');
+          $($('.container-fluid').find('.grid-stack')[0] ).css('width', LayoutEditor.FullWidth+'px');
+          $($('.container-fluid').find('.grid-stack')[0] ).css('height', LayoutEditor.FullHeight+'px');
+          LayoutEditor.render();
+
+          let gridEls = CustomGridStack.getElements('.grid-stack-item');
+        /*  gridEls.forEach(gridEl => {
+              LayoutEditor.addSelectEvent(gridEl);
+          })
+          */
+        //  $('.selected').length > 0 ? $('.btn_removepanel').show() : $('.btn_removepanel').hide();
+
+          window.addEventListener('resize', LayoutEditor.window_resize);
+       //   LayoutEditor.attachContextEvents();     
+
         },
         convertwidthtole:function(width, widthunit){
           if(widthunit == '%')
@@ -132,14 +178,20 @@ var LayoutEditor = {
           else
             return parseInt(leheight);
         },
-        getpaneldatafrompaneldata:function(paneldata, level=0){
+        getpaneldatafrompaneldata:function(paneldata, level=0, parent = null){
           let children = [];
-          UI.Log('json data:',paneldata)
+        //  UI.Log('json data:',paneldata)
+          let orientation= paneldata.hasOwnProperty('orientation')?paneldata.orientation: 1
           if(paneldata.hasOwnProperty('panels')){
             let panels = paneldata.panels;
+
             for(var i=0;i<panels.length;i++){
-              let panel = LayoutEditor.getpaneldatafrompaneldata(panels[i], level+1);
+              let panel = LayoutEditor.getpaneldatafrompaneldata(panels[i], level+1, paneldata);
               children.push(panel);
+            }
+
+            for(var i=0;i<panels.length;i++){
+              
             }
             //children = LayoutEditor.getpaneldatafrompaneldata(paneldata.panels);
           }
@@ -160,7 +212,28 @@ var LayoutEditor = {
             let height =  paneldata.hasOwnProperty('height')? paneldata.height:100;
             let lewidth = LayoutEditor.convertwidthtole(width, widthunit);
             let leheight = LayoutEditor.convertheighttole(height, heightunit);
+            let iscontainer = paneldata.hasOwnProperty('iscontainer')? paneldata.iscontainer:false;
+            let subGridOpts = {children:children}
+            if(!iscontainer){
+              let content = '<div class="fa fa-link">' + paneldata.hasOwnProperty('view')?paneldata.view.name : "" + '</div>'
+              if(paneldata.hasOwnProperty('view')){
+                if(!paneldata.view.hasOwnProperty('ID'))
+                  paneldata.view.id = UI.generateUUID();
+              }
 
+              if(paneldata.hasOwnProperty('panelviews')){
+                for(var i=0;i<paneldata.panelviews.length;i++){
+                  content += '<div class="fa fa-link">' + paneldata.panelviews[i].name +'</div>'
+                  if(!paneldata.panelviews[i].hasOwnProperty('ID'))
+                    paneldata.panelviews[i].id = UI.generateUUID();
+                }
+
+              }
+            }else{
+              subGridOpts.acceptWidgets = true;
+            }
+
+            
             panel = {
               x: paneldata.hasOwnProperty('x')? paneldata.x:0,
               y:  paneldata.hasOwnProperty('y')? paneldata.y:0,
@@ -170,16 +243,20 @@ var LayoutEditor = {
               height:  height,
               widthunit:  widthunit,
               heightunit:  heightunit,
+              iscontainer: iscontainer,
+              locked: !iscontainer,
+              noMove: true,
               id:  paneldata.hasOwnProperty('id')? paneldata.id: UI.generateUUID(),
               name: paneldata.hasOwnProperty('name')? paneldata.name:'panel',
               content: paneldata.hasOwnProperty('name')?paneldata.name:'panel',
               view: paneldata.hasOwnProperty('view')?paneldata.view:{},
+              panelviews :paneldata.hasOwnProperty('panelviews')?paneldata.panelviews:[],
               class: paneldata.hasOwnProperty('class')?paneldata.class:'',
               orientation: paneldata.hasOwnProperty('orientation')?paneldata.orientation: 1,
               inlinestyle: paneldata.hasOwnProperty('inlinestyle')?paneldata.inlinestyle:'',
               widthmethod: paneldata.hasOwnProperty('widthmethod')?paneldata.widthmethod:false,
               heightmethod: paneldata.hasOwnProperty('heightmethod')?paneldata.heightmethod:false,
-              subGridOpts: {children:children}
+              subGridOpts: subGridOpts
             }
           }
           UI.Log('panel data:',panel)
@@ -203,20 +280,21 @@ var LayoutEditor = {
           LayoutEditor.Options.push(node); 
           LayoutEditor.grid.removeAll();
           LayoutEditor.load(LayoutEditor.Options,false);    
-          LayoutEditor.capatureevents();
+        //  LayoutEditor.capatureevents();
         /*  let subgrid = LayoutEditor.grid.makeSubGrid(node);
           LayoutEditor.addSelectEvent(subgrid)      */  
         },
 
-        addPanel: function (subgrid = null){
-            UI.Log(subgrid)
+        addPanel: function (grid){
+            UI.Log(grid)
             let count = $('.grid-stack-item').length + 1;
             let content = '<div class="layout_panel_operations" style="display:inline-block"><div>panel'+count+'" ></div></div>'            
-            if(subgrid == null)
-                LayoutEditor.grid.addWidget({x:0, y:100, content:content, w:10, h:100, id:'panel'+count, name:'panel'+count,width:100,height:100,view:'',class:'layout_panel'});
+            if(grid == null || grid == undefined || grid == "")
+                LayoutEditor.grid.addWidget({x:0, y:100, content:content, w:10, h:100, id:UI.generateUUID(), name:'panel'+count,width:100,height:100,view:{},class:'layout_panel'});
             else{     
-              UI.Log(subgrid)         
-              subGrid.addWidget({x:0, y:100, content:content, w:10, h:100, id:'panel'+count, name:'panel'+count,width:100,height:100,view:'',class:'layout_panel'});
+              
+              UI.Log(grid)         
+              grid.addWidget({x:0, y:100, content:content, w:10, h:100, id:UI.generateUUID(), name:'panel'+count,width:100,height:100,view:{},class:'layout_panel'});
             }
 
         //    LayoutEditor.addSelectEvent(cell)
@@ -225,7 +303,7 @@ var LayoutEditor = {
           LayoutEditor.Options = LayoutEditor.grid.save(true, false);
           LayoutEditor.grid.removeAll();
           LayoutEditor.load(LayoutEditor.Options,false); 
-          LayoutEditor.attachContextEvents();
+        //  LayoutEditor.attachContextEvents();
         },
         save:function(content = true, full = true) {},
         generateJson:function(content = true, full = true) {
@@ -243,6 +321,7 @@ var LayoutEditor = {
             LayoutEditor.JsonObj.updateNode("", {panels: panels} )     
         },
         getsubpaneldata:function(paneldata){
+          UI.Log("panel data:", paneldata)
           let data = JSON.parse(JSON.stringify(paneldata));
           if(data.hasOwnProperty('subGridOpts'))
             delete data.subGridOpts;
@@ -276,6 +355,7 @@ var LayoutEditor = {
           if(children.length > 0)
             data.panels = children;
 
+          UI.Log("parsed panel data:", data)
           return data;
           
         },
@@ -299,6 +379,7 @@ var LayoutEditor = {
             items.forEach(function(item) {
               UI.Log('Item moved:', item.el);
               UI.Log('New position:', item.x, item.y);
+              LayoutEditor.generateJson();              
             });
           });
           
@@ -306,6 +387,7 @@ var LayoutEditor = {
           LayoutEditor.grid.on('resizestop', function(event, item) {
             UI.Log('Item resized:', item.el);
             UI.Log('New size:', item.width, item.height);
+            LayoutEditor.generateJson();
           });
 
         },
@@ -636,6 +718,7 @@ var LayoutEditor = {
             if(!el)
                 return;
             let grid = LayoutEditor.findGridNodeByelement(LayoutEditor.grid.engine.nodes, el);
+
             UI.Log(grid)
             if(!grid)
                 return;
@@ -655,6 +738,16 @@ var LayoutEditor = {
             }
             new UI.FormControl(container, 'input',attrs);
             
+            attrs={
+              for: 'panelcontainer',
+              innerHTML: 'Is a Parent Panel?', 
+          }
+          new UI.FormControl(container, 'label',attrs);
+
+          attrs = {id: 'panelcontainer',style: 'width: 100%; display: col;', value: grid.hasOwnProperty('iscontainer')? grid.iscontainer : false };
+          new UI.CheckBox(container,'checkbox',attrs);
+
+
             attrs={
                 for: 'oritenorienorientationtationtion',
                 innerHTML: 'orientation'
@@ -685,7 +778,7 @@ var LayoutEditor = {
           new UI.FormControl(rowdiv, 'label',attrs);
           
           rowdiv = (new UI.FormControl(container, 'div',{style: "display: row;"})).control;
-          attrs = {id: 'widthmethod',style: 'width: 30%; display: col;', checked: grid.widthmethod || ''},
+          attrs = {id: 'widthmethod',style: 'width: 30%; display: col;', value: grid.widthmethod || false},
   
           new UI.CheckBox(rowdiv,'checkbox',attrs);
           attrs={
@@ -717,7 +810,7 @@ var LayoutEditor = {
           }
           new UI.FormControl(rowdiv, 'label',attrs);
           rowdiv = (new UI.FormControl(container, 'div',{style: "display: row;"})).control;
-          attrs = {id: 'heightmethod',style: 'width: 30%; display: col;', checked: grid.heightmethod || ''};  
+          attrs = {id: 'heightmethod',style: 'width: 30%; display: col;', value: grid.heightmethod || false};  
           new UI.CheckBox(rowdiv,'checkbox',attrs);
             attrs={
                 id: 'height',
@@ -747,98 +840,6 @@ var LayoutEditor = {
             }
             new UI.FormControl(container, 'textarea',attrs);
 
-            if(!subgrid){
-              attrs={
-                innerHTML: 'Link View',
-                
-              }
-              new UI.FormControl(container, 'h3',attrs);
-              attrs={
-                  id: 'view_name',
-                  styles:'width: 100%;',
-                  value:  (grid.view ?  grid.view.name : ''),
-              }
-              new UI.FormControl(container, 'input',attrs);
-              new UI.FormControl(container, 'br');
-              attrs={
-                  id: 'view_config',
-                  styles:'width: 100%;',
-                  value: (grid.view ? grid.view.config : ''),
-              }
-              new UI.FormControl(container, 'input',attrs);
-
-              let clickevent = {"click": function(){
-                let currentpage = Session.CurrentPage
-                let popup = new UI.Popup(currentpage.container);
-                popup.createPopup();
-                popup.title = $('#name').val() + "'s View definition";
-                let attrs=[{
-                  attrs:{
-                    id:"popup",									
-                    style:"display:block;min-height:600px;min-width:1200px; width:100%;height:100%"
-                  },							
-                  children:[
-                  
-                    {tag:"textarea", attrs:{id:"script-editor", style:"height:80%;width:100%"}},
-                  
-                    {tag:'div', //attr:{id:'script-editor-buttons', class:'btn-group'},
-                      children:[
-                        {tag: "button", attrs:{id:"save-script", innerHTML:"Update", class:"btn btn-primary", lngcode:"Update"},events:{click: function(){
-                          let scriptcontent = script_editor.getValue();			
-                          $('#panel_view_definition').val(scriptcontent);								
-                          popup.close()
-                        }}},                        
-                        {tag: "button", attrs:{id:"cancel-script", innerHTML:"Cancel", class:"btn btn-secondary",lngcode:"Cancel"}, events:{click: function(){popup.close();}}},
-                      ]
-                    },
-                    
-                  ]}]
-                new UI.Builder(popup.popup, attrs);
-                popup.open();
-
-                let script_editor = CodeMirror.fromTextArea(document.getElementById("script-editor"), {
-                  styleActiveLine: true,
-                  lineNumbers: true,
-                  matchBrackets: true,
-                  autoCloseBrackets: true,
-                  autoCloseTags: true,
-                  matchTags: {bothTags: true},
-                //   extraKeys: {"Ctrl-J": "toMatchingTag"},
-                  mode: "javascript",
-                  lineWrapping: true,
-                  extraKeys: {"Ctrl-Q": function(cm){ cm.foldCode(cm.getCursor()); }},
-                  foldGutter: true,
-                  gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
-                });
-                let width = $('#popup').width() - 40;
-                let height = $('#popup').height() - 70;
-                script_editor.setSize(width, height);
-
-                let jsondata = $('#panel_view_definition').val();
-                script_editor.setValue(jsondata);
-                try{
-                  jsondata = JSON.parse(jsondata);
-                  script_editor.setValue(jsondata);
-                }
-                catch(e){
-                  UI.Log(e)                
-                }
-              //  script_editor.setValue(JSON.parse($('#panel_view_definition').val()));
-                
-
-              }}
-              new UI.FormControl(container, 'button',{innerHTML: 'Link View',class: 'btn btn-primary',style: 'width: 100%;'},clickevent);
-              new UI.FormControl(container, 'br');
-              attrs={
-                id: 'panel_view_definition',
-                type: 'text',
-                innerHTML: JSON.stringify(grid.view)  || '',
-                style: 'width: 100%; min-height: 100px;'
-              }
-              new UI.FormControl(container, 'textarea',attrs);
-
-            }
-
             attrs={
                 innerHTML: 'Save',
                 class: 'btn btn-primary',
@@ -856,12 +857,10 @@ var LayoutEditor = {
                 let orientation = $('#orientation').val();
                 let widthmethod = $('#widthmethod').is(':checked');
                 let heightmethod = $('#heightmethod').is(':checked');
-                let panelview = $('#panel_view_definition').val();
+                
                 UI.Log(name, width, height, style,orientation)
                 grid.name = name;
-                
-                let cellwidth = LayoutEditor.grid.cellWidth();
-                let pagewidth = cellwidth * 100;
+
                 grid.w = LayoutEditor.convertwidthtole(width, widthunit);
                 grid.width = width;
                 grid.h = LayoutEditor.convertheighttole(height, heightunit);
@@ -872,32 +871,9 @@ var LayoutEditor = {
                 grid.orientation = orientation;
                 grid.widthmethod = widthmethod;
                 grid.heightmethod = heightmethod;
-                if(!subgrid){
-                  let view_name = $('#view_name').val();
-                  let view_config = $('#view_config').val();
-                  let view = {name: view_name, config: view_config};
-                  
-
-                  if(panelview !=""){
-                    try{
-                      let panelviewobj = JSON.parse(panelview);
-                      UI.Log(panelviewobj)
-                      view = panelviewobj;
-                      view_name = view.name;
-                      view_config = view.config || view.file;
-                    }catch(e){
-                      UI.Log(e)
-                    }
-                  }
-                  grid.view = view;
-                  let content = '<div class="layout_panel_operations" style="display:inline-block"><div>'+name+'" ></div>'
-                  content += '<div>'+ view_name +'</div>'
-                  content += '<div>'+ view_config +'</div></div>'   
-                  grid.content = content;
-                }else{
-                  grid.content = name
-                }
-
+                grid.iscontainer = $('#panelcontainer').is(':checked');                
+                grid.content = name         
+                LayoutEditor.grid.update(el, grid.x, grid.y, grid.w, grid.h);       
                 LayoutEditor.generateJson();
                 LayoutEditor.render();
                 $('#properties').remove(); 
@@ -915,53 +891,110 @@ var LayoutEditor = {
             new UI.FormControl(container, 'button',attrs, events);
         },
         ShowViewProperties: function(path){
-          view = LayoutEditor.JsonObj.getNode(path); 
+          let view = LayoutEditor.JsonObj.getNode(path); 
+          UI.Log("view node:", path,view)
           UI.Log(view)
+
           if(view == null){
-            view = {name: '', config: ''};
+            view = {name: '', config: '', inputs:{}, outputs:{}, actions:{}};
+          }else{
+            if(view.value =="")
+              view = {name: '', config: '', inputs:{}, outputs:{}, actions:{}};
+            else
+              view = view.value
           }
           let container = LayoutEditor.CreatePropertySection(view.name);
           attrs={
-            for: 'name',
-            innerHTML: 'Name'
+            for: 'name',  innerHTML: 'Name'
           }
           new UI.FormControl(container, 'label',attrs);
           attrs={
-            id: 'name',
-            type: 'text',
-            value: view.name || '',
-            placeholder: 'Name',
-            style: 'width: 100%;'
+            id: 'name', type: 'text', value: view.name || '',   placeholder: 'Name',       style: 'width: 100%;'
           }
           new UI.FormControl(container, 'input',attrs);
           attrs={
-            for: 'config',
-            innerHTML: 'Config'
+            for: 'config',    innerHTML: 'Config'
           }
           new UI.FormControl(container, 'label',attrs);
           attrs={
-            id: 'config',
-            type: 'text',
-            value: view.config || '',
-            placeholder: 'Config',
-            style: 'width: 100%;'
+            id: 'config',     type: 'text',     value: view.config || '',       placeholder: 'Config',         style: 'width: 100%;'
           }
           new UI.FormControl(container, 'input',attrs);
+
+          attrs ={for: "file", innerHTML: "File"}
+          new UI.FormControl(container, 'label',attrs);
+          attrs={
+            id: 'file',          type: 'text',         value: view.file || '',       placeholder: 'file to show the content',       style: 'width: 100%;'
+          }
+          new UI.FormControl(container, 'input',attrs);
+          attrs ={for: "View_inputs", innerHTML: "Inputs"}
+          new UI.FormControl(container, 'label',attrs);
+          let parameterstr = "";
+          if(view.hasOwnProperty("inputs")){
+            UI.Log(view.inputs)
+            for(key in view.inputs){
+              UI.Log(parameterstr, key)
+              parameterstr = parameterstr + key + ";"
+            }
+          }  
+          attrs={
+            id: 'View_inputs',
+            type: 'text',
+            innerHTML: parameterstr || '',
+            placeholder: 'inputs to render the view',
+            style: 'width: 100%;'
+          }
+          new UI.FormControl(container, 'textarea',attrs);
+          attrs ={for: "View_outputs", innerHTML: "Outputs"}
+          new UI.FormControl(container, 'label',attrs);
+          parameterstr = "";
+          if(view.hasOwnProperty("outputs")){
+            for(key in view.outputs)
+                parameterstr = parameterstr + key + ";"
+          }          
+          attrs={
+            id: 'View_outputs',
+            type: 'text',
+            innerHTML: parameterstr || '',
+            placeholder: 'Outputs that view generated',
+            style: 'width: 100%;'
+          }
+          new UI.FormControl(container, 'textarea',attrs);
+
           attrs={
             innerHTML: 'Save',
             class: 'btn btn-primary'
           }
           let events={
             "click": function(){
-              UI.Log('click')
+              UI.Log('click', view)
               let name = $('#name').val();
-              let config = $('#config').val();
-              UI.Log(name, config)
+              let config = $('#config').val();             
               view.name = name;
               view.config = config;
-              LayoutEditor.JsonObj.updateNode(path, view)
-              LayoutEditor.generateJson();
-              LayoutEditor.render();
+              view.file = $('#file').val();
+              let parameterstr = $('#View_inputs').val()
+              let parameterlist = parameterstr.split(';')
+              let inputs={}
+              for(var i=0;i<parameterlist.length;i++){
+                parameterlist[i] = parameterlist[i].trim()
+                if(parameterlist[i]!="")
+                  inputs[parameterlist[i]] = ""
+              }
+              view.inputs =inputs;
+              parameterstr = $('#View_outputs').val()
+               parameterlist = parameterstr.split(';')
+              let outputs={}
+              for(var i=0;i<parameterlist.length;i++){
+                parameterlist[i] = parameterlist[i].trim()
+                if(parameterlist[i]!="")
+                  outputs[parameterlist[i]] = ""
+              }
+              view.outputs =outputs;
+              UI.Log(path, view)
+              LayoutEditor.JsonObj.updateNodeValue(path,view)
+              LayoutEditor.generateLayout();
+              LayoutEditor.ShowPageStructure();
               $('#properties').remove(); 
             }
           }
@@ -982,82 +1015,47 @@ var LayoutEditor = {
           let paths = path.split('/');
           let actionname = paths[paths.length-1];
           let container = LayoutEditor.CreatePropertySection(actionname);
-          /*
-          "actions":{
-            "BACK": {"type": "page", "next": "","page":"pages/pagelist.json", "panels":[]}
-          }
-          */
-          attrs={
-            for: 'type',
-            innerHTML: 'Type'
-          }
+          let attrs={for: 'name', innerHTML: 'Name', lngcode: 'Name'}
+          new UI.FormControl(container, 'label',attrs);
+          attrs={id: 'name', type: 'text', value: actionname, placeholder: 'Name', style: 'width: 100%; disabled'}
+          new UI.FormControl(container, 'input',attrs);
+
+          attrs={for: 'type', innerHTML: 'Type', lngcode: 'Type'}
           new UI.FormControl(container, 'label',attrs);
           attrs={
-            attrs:{id: 'type',style: 'width: 100%;'},
-            selected: action.type || '',
+            attrs:{id: 'type',style: 'width: 100%;'}, selected: action.type || '',
             options: [
-              {attrs:{value: 'Transaction', innerHTML: 'Transaction'}},
-              {attrs:{value: 'Home', innerHTML: 'Home'}},
-              {attrs:{value: 'Back', innerHTML: 'Back'}},
-              {attrs:{value: 'page', innerHTML: 'Page'}},
-              {attrs:{value: 'script', innerHTML: 'Script'}}, 
-              {attrs:{value: 'view', innerHTML: 'View'}}],
+              {attrs:{value: 'Transaction', innerHTML: 'Transaction', lngcode: 'Transaction'}},
+              {attrs:{value: 'Home', innerHTML: 'Home', lngcode: 'Home'}},
+              {attrs:{value: 'Back', innerHTML: 'Back',lngcode: 'Back'}},
+              {attrs:{value: 'page', innerHTML: 'Page',lngcode: 'Page'}},
+              {attrs:{value: 'script', innerHTML: 'Script',lngcode: 'Script'}}, 
+              {attrs:{value: 'view', innerHTML: 'View',lngcode: 'View'}}],
           }
           new UI.Selection(container,attrs);
 
-          attrs={
-            for: 'next',
-            innerHTML: 'Next'
-          }
+          attrs={for: 'trancode',innerHTML: 'TranCode',lngcode: 'TranCode'}
           new UI.FormControl(container, 'label',attrs);
-          attrs={
-            id: 'next',
-            type: 'text',
-            value: action.next || '',
-            placeholder: 'Next',
-            style: 'width: 100%;'
-          }
+          attrs={id: 'trancode',    type: 'text',      value: action.code || '',   placeholder: 'Page',       style: 'width: 100%;'      }
           new UI.FormControl(container, 'input',attrs);
-          attrs={
-            for: 'page',
-            innerHTML: 'Page'
-          }
+          attrs={for: 'actionpage',innerHTML: 'Page'}
           new UI.FormControl(container, 'label',attrs);
-          attrs={
-            id: 'page',
-            type: 'text',
-            value: action.page || '',
-            placeholder: 'Page',
-            style: 'width: 100%;'
-          }
+          attrs={id: 'actionpage',    type: 'text',      value: action.page || '',   placeholder: 'Page',       style: 'width: 100%;'      }
           new UI.FormControl(container, 'input',attrs);
-          attrs={
-            for: 'script',
-            innerHTML: 'Script'
-          }
+          attrs={      for: 'script',         innerHTML: 'Script'       }
           new UI.FormControl(container, 'label',attrs);
-          attrs={
-            id: 'script',
-            type: 'text',
-            value: action.script || '',
-            placeholder: 'Script',
-            style: 'width: 100%;'
-          }
+          attrs={     id: 'script',            type: 'text',          value: action.script || '',            placeholder: 'Script',            style: 'width: 100%;'          }
           new UI.FormControl(container, 'textArea',attrs);
 
-          attrs={
-            for: 'view',
-            innerHTML: 'View'
-          }
+          attrs={   for: 'view',      innerHTML: 'View'    }
           new UI.FormControl(container, 'label',attrs);
-          attrs={
-            id: 'view',
-            type: 'text',
-            value: action.view || '',
-            placeholder: 'View',
-            style: 'width: 100%;'
-          }
+          attrs={      id: 'view',  type: 'text',  value: action.view || '',  placeholder: 'View',       style: 'width: 100%;' }
           new UI.FormControl(container, 'textArea',attrs);
+
+          attrs={for: 'next',innerHTML: 'Next'}
+          new UI.FormControl(container, 'label',attrs);
+          attrs={id: 'next', type: 'text', value: action.next || '', placeholder: 'Next',style: 'width: 100%;'}
+          new UI.FormControl(container, 'input',attrs);
 
           attrs={
             innerHTML: 'Save',
@@ -1066,20 +1064,35 @@ var LayoutEditor = {
           let events={
             "click": function(){
               UI.Log('click')
+              
               let type = $('#type').val();
               let next = $('#next').val();
-              let page = $('#page').val();
+              let page = $('#actionpage').val();
               let script = $('#script').val();
               let view = $('#view').val();
+              let trancode = $('#trancode').val();
               UI.Log(type, next, page, script, view)
               action.type = type;
               action.next = next;
               action.page = page;
               action.script = script;
               action.view = view;
+              action.code = trancode;
+              let paths = path.split('/');
+              let actionpath =[];
+              let viewtype = "view";
+              for(var i=path.length-1;i>=0;i--){
+                actionpath.push(path[i]);
+                if(path[i] == 'panelviews'){
+                  viewtype = "panelviews";
+                  break;
+                }else if(path[i] == 'view'){
+                  break;
+                }
+              }
               LayoutEditor.JsonObj.updateNode(path, action)
-              LayoutEditor.generateJson();
-              LayoutEditor.render();
+              LayoutEditor.generateLayout();
+              LayoutEditor.ShowPageStructure();
               $('#properties').remove(); 
             }
           }
@@ -1100,17 +1113,15 @@ var LayoutEditor = {
           let container = document.getElementsByClassName('page_structure_tree')[0];
           container.innerHTML = "";
           new UI.FormControl(container, 'div', {id:'ui-json-object-tree',class:'tree',style:'width:100%;height:100%;'});
-
-
-          
+         
           let rootid = LayoutEditor.JsonObj.data.id ? LayoutEditor.JsonObj.data.id : UI.generateUUID();
           let rootdata ={
             text: LayoutEditor.JsonObj.data.name,
             id: rootid,
             parent: "#",
             state: { opened: true },
-            a_attr: {"node-type": "page", "data-key":LayoutEditor.JsonObj.data.name} ,
-            icon: "fa fa-newspaper",          
+            a_attr: {"node-type": "page", "panelid":"#" ,"data-key":LayoutEditor.JsonObj.data.name} ,
+            icon: "fa-brands fa-delicious",          
           }
           let nodelist =[];
           nodelist.push(rootdata);
@@ -1133,7 +1144,7 @@ var LayoutEditor = {
             }
             });		
           });  
-          $('#ui-json-object-tree').on("select_node.jstree", function (e, data) {
+       /*   $('#ui-json-object-tree').on("select_node.jstree", function (e, data) {
             const selectedNodeData = data.node;
             let nodeId = selectedNodeData.id;
             let nodeText = selectedNodeData.text;
@@ -1144,7 +1155,7 @@ var LayoutEditor = {
                 LayoutEditor.ShowRootProperties();
                 break;
               case 'panel':
-                let element = LayoutEditor.getGridbyPanelID(nodeId, LayoutEditor.grid.engine.nodes)
+                let element = (LayoutEditor.getGridNodebyPanelID(nodeId, LayoutEditor.grid.engine.nodes)).el
                 UI.Log(element)
                 LayoutEditor.ShowProperties($(element));
                 break;
@@ -1153,17 +1164,14 @@ var LayoutEditor = {
                 LayoutEditor.ShowViewProperties(nodekey);
                 break;
               case 'panelview':
-                let panelview = LayoutEditor.findPanelView(LayoutEditor.JsonObj.data, nodekey);
-                UI.Log(panelview)
-                LayoutEditor.ShowProperties(panelview);
+                LayoutEditor.ShowViewProperties(nodekey);
                 break;
               case 'action':
-                let action = LayoutEditor.findAction(LayoutEditor.JsonObj.data, nodekey);
-                UI.Log(action)
-                LayoutEditor.ShowProperties(action);
+                let action = LayoutEditor.ShowActionProperties(nodekey);
+            
                 break;              
             }
-          });
+          });   */
           LayoutEditor.AttachContextMenutoTree();
         },
         AttachContextMenutoTree: function(){
@@ -1173,29 +1181,50 @@ var LayoutEditor = {
               UI.Log($triggerElement,e)
               let node = $triggerElement.closest('li.jstree-node');
               let panelid = node.attr('id');
-              let element = LayoutEditor.getGridbyPanelID(panelid, LayoutEditor.grid.engine.nodes)
+              let gridNode = (LayoutEditor.getGridNodebyPanelID(panelid, LayoutEditor.grid.engine.nodes))
+              let element = (gridNode).el
               let nodekey = $triggerElement.attr('data-key').replace(/'/g, '"');;
               UI.Log(element,node,panelid,nodekey)
               return{
                 callback: function(key, options,e){
                   UI.Log(key, options,e)
                   switch(key){
-                    case 'Add Subpanel':               
-                     
-                      LayoutEditor.addPanel(element.gridstack);
-                      LayoutEditor.generateJson();
-                      layoutEditor.render();
-                      layoutEditor.ShowPageStructure();
+                    case 'Add Subpanel':   
+                      UI.Log('Add Subpanel:', nodekey, gridNode,gridNode.grid)
+                      let subpanelname = prompt("Please enter subpanel name", "");
+                      if (subpanelname != null) {
+                        let subpanel = {x:0, y:100, content:subpanelname, w:10, h:100, id:UI.generateUUID(), name:subpanelname,width:100,height:100,view:{},class:'layout_panel'}
+                        let panelpath = nodekey + "/panels";
+                        let panels = LayoutEditor.JsonObj.addNode(panelpath, subpanel);
+                        LayoutEditor.generateLayout();
+
+                        LayoutEditor.ShowPageStructure();
+                      }
                       break;
                     case 'Properties':
                       LayoutEditor.ShowProperties($(element));
                       break;
-                    case 'Remove':
-                      let gridEl = element;
-                      LayoutEditor.grid.removeWidget(gridEl);
+                    case 'Remove':                      
+                      /*let gridEl = CustomGridStack.getElements('.grid-stack-item[gs-id="'+panelid+'"]');
+                      UI.Log("remove the panel:",gridEl)
+                      LayoutEditor.grid.removeWidget(gridEl[0]); */
+                      LayoutEditor.removeGridNodebyPanelID(panelid,LayoutEditor.grid.engine.nodes);
                       LayoutEditor.generateJson();
-                      layoutEditor.render();
-                      layoutEditor.ShowPageStructure();
+                      LayoutEditor.render();
+                      LayoutEditor.ShowPageStructure();
+                      break;
+                    case 'Add Panel View':
+                      let viewname = prompt("Please enter view name", "");
+                      if (viewname != null) {
+                        let view = {name: viewname, config: '', file: '', inputs: {}, outputs: {}};
+                        let panelviewspath = nodekey + "/panelviews";
+                        let panelviews = LayoutEditor.JsonObj.addNode(panelviewspath, view);
+                      /*  gridNode.panelviews.push(view);
+                        LayoutEditor.generateJson();
+                        LayoutEditor.render(); */
+                        LayoutEditor.generateLayout();
+                        LayoutEditor.ShowPageStructure();
+                      }
                       break;
                   }
 
@@ -1211,32 +1240,33 @@ var LayoutEditor = {
                     icon: 'fa-plus',
                     disabled:function(){
                       let nodedata = (LayoutEditor.JsonObj.getNode(nodekey)).value;
-                      if(nodedata.hasOwnProperty('view')|| nodedata.hasOwnProperty('panelviews')){
-                        return true;
-                      }else{
-                        return false;
-                      } 
+                      if(nodedata.hasOwnProperty('iscontainer')){
+                        if (nodedata.iscontainer == true)
+                            return false;
+                      }
+                      return true;
                     }
                   }, 
-                  'Link View':{
+                /*  'Link View':{
                     name: 'Link View',
                     icon: 'fa-plus',
                     disabled:function(){
+                     
                       let nodedata = (LayoutEditor.JsonObj.getNode(nodekey)).value;
-                      if(nodedata.hasOwnProperty('panels')){
-                        if (nodedata.panels.length > 0)
+                      if(nodedata.hasOwnProperty('iscontainer')){
+                        if (nodedata.iscontainer == true)
                             return true;
                       }
                       return false;
                     }
-                  }, 
+                  },  */
                   'Add Panel View':{
                     name: 'Add Panel View',
                     icon: 'fa-plus',
                     disabled:function(){
                       let nodedata = (LayoutEditor.JsonObj.getNode(nodekey)).value;
-                      if(nodedata.hasOwnProperty('panels')){
-                        if (nodedata.panels.length > 0)
+                      if(nodedata.hasOwnProperty('iscontainer')){
+                        if (nodedata.iscontainer == true)
                             return true;
                       }
                       return false;
@@ -1257,7 +1287,7 @@ var LayoutEditor = {
                   "sep1":'------------',
                   'Quit':{
                     name: 'Quit',
-                    icon: function($element, key, item){ return 'context-menu-icon context-menu-icon-quit'; },
+                    icon: function(){ return 'context-menu-icon context-menu-icon-quit'; },
                   }
                 }
 
@@ -1270,10 +1300,11 @@ var LayoutEditor = {
             build:function($triggerElement,e){
               UI.Log($triggerElement,e)
               let node = $triggerElement.closest('li.jstree-node');
-              let panelid = node.attr('id');
-              let element = LayoutEditor.getGridbyPanelID(panelid, LayoutEditor.grid.engine.nodes)
-              let nodekey = $triggerElement.attr('data-key').replace(/'/g, '"');;
-              UI.Log(element,node,panelid,nodekey)
+              let viewpanelid = $triggerElement.attr('panelid');
+              let gridNode = (LayoutEditor.getGridNodebyPanelID(viewpanelid, LayoutEditor.grid.engine.nodes))
+              let nodekey = $triggerElement.attr('data-key').replace(/'/g, '"');
+              let viewtype = $triggerElement.attr('viewtype');
+              UI.Log(node,nodekey,viewpanelid,gridNode, viewtype)
               return{
                 callback: function(key, options,e){
                   UI.Log(key, options,e)
@@ -1300,10 +1331,10 @@ var LayoutEditor = {
                           actions[actionname] = action;
                           UI.Log(nodekey + "/actions", actions)
                           LayoutEditor.JsonObj.setNodewithKey(nodekey, 'actions', actions);
-                          
+                          LayoutEditor.generateLayout();
                           LayoutEditor.ShowPageStructure();
-                          LayoutEditor.ShowActionProperties(nodekey + "/actions/" + actionname);
-                        }
+                          
+                        } 
                       break;
                     case 'Properties':
                       LayoutEditor.ShowViewProperties(nodekey);
@@ -1339,7 +1370,7 @@ var LayoutEditor = {
                   "sep1":'------------',
                   'Quit':{
                     name: 'Quit',
-                    icon: function($element, key, item){ return 'context-menu-icon context-menu-icon-quit'; },
+                    icon: function(){ return 'context-menu-icon context-menu-icon-quit'; },
                   }
                 }
 
@@ -1352,10 +1383,8 @@ var LayoutEditor = {
             build:function($triggerElement,e){
               UI.Log($triggerElement,e)
               let node = $triggerElement.closest('li.jstree-node');
-              let panelid = node.attr('id');
-              let element = LayoutEditor.getGridbyPanelID(panelid, LayoutEditor.grid.engine.nodes)
               let nodekey = $triggerElement.attr('data-key').replace(/'/g, '"');;
-              UI.Log(element,node,panelid,nodekey)
+              UI.Log(node,nodekey)
               return{
                 callback: function(key, options,e){
                   UI.Log(key, options,e)
@@ -1364,7 +1393,11 @@ var LayoutEditor = {
                       LayoutEditor.ShowActionProperties(nodekey);
                       break;
                     case 'Remove':
-                      
+
+                      LayoutEditor.JsonObj.deleteNode(nodekey);
+                      LayoutEditor.generateLayout();
+                      LayoutEditor.ShowPageStructure();
+
                       break;
                   }
 
@@ -1383,7 +1416,7 @@ var LayoutEditor = {
                   "sep1":'------------',
                   'Quit':{
                     name: 'Quit',
-                    icon: function($element, key, item){ return 'context-menu-icon context-menu-icon-quit'; },
+                    icon: function(){ return 'context-menu-icon context-menu-icon-quit'; },
                   }
                 }
 
@@ -1397,16 +1430,17 @@ var LayoutEditor = {
             build:function($triggerElement,e){
               UI.Log($triggerElement,e)
               let node = $triggerElement.closest('li.jstree-node');
-              let panelid = node.attr('id');
-              let element = LayoutEditor.getGridbyPanelID(panelid, LayoutEditor.grid.engine.nodes)
               let nodekey = $triggerElement.attr('data-key').replace(/'/g, '"');;
-              UI.Log(element,node,panelid,nodekey)
+              UI.Log(node,nodekey)
               return{
                 callback: function(key, options,e){
                   UI.Log(key, options,e)
                   switch(key){
                     case 'Add Panel':            
                       LayoutEditor.addPanel();
+                      LayoutEditor.generateJson();
+                      LayoutEditor.render();
+                      LayoutEditor.ShowPageStructure();
                       break;
                     case 'Properties':
                       LayoutEditor.ShowRootProperties();
@@ -1415,7 +1449,7 @@ var LayoutEditor = {
                       LayoutEditor.savelayout();
                       break;
                     case 'Redlines':
-                      LayoutEditor.showRedlines();
+                      LayoutEditor.JsonObj.showRedlines();
                       break;
                   }
 
@@ -1436,16 +1470,16 @@ var LayoutEditor = {
                     icon: 'fa-save',
                     disabled:false
                   },
-                /*   'Save As':{
-                    name: 'Save As',
-                    icon: 'fa-save',
+                 'Import':{
+                    name: 'Import',
+                    icon: 'fa-file-import',
                     disabled:false
                   }, 
                   'Export':{
                     name: 'Export',
                     icon: 'fa-export',
                     disabled:false
-                  },  */
+                  },  
                   'Redlines':{
                     name: 'Redlines Change',
                     icon: 'fa-code-compare',
@@ -1454,7 +1488,7 @@ var LayoutEditor = {
                   "sep1":'------------',
                   'Quit':{
                     name: 'Quit',
-                    icon: function($element, key, item){ return 'context-menu-icon context-menu-icon-quit'; },
+                    icon: function(){ return 'context-menu-icon context-menu-icon-quit'; },
                   }
                 }
 
@@ -1463,19 +1497,49 @@ var LayoutEditor = {
                     
           })
         },
-        getGridbyPanelID: function(panelid, nodes){
-          
+        removeGridNodebyPanelID: function(panelid, nodes){
           for(var i=0;i<nodes.length;i++){
-            if(nodes[i].id == panelid)
-              return nodes[i].el;
+            if(nodes[i].id == panelid){
+              nodes.splice(i,1);
+              return;              
+            }
           }
           for(var i=0;i<nodes.length;i++){
             if(nodes[i].subGrid)
               if(nodes[i].subGrid.engine)
                 if(nodes[i].subGrid.engine.nodes){
-                  let el = LayoutEditor.getGridbyPanelID(panelid, nodes[i].subGrid.engine.nodes)
-                  if(el != null)
-                    return el;
+                  LayoutEditor.removeGridNodebyPanelID(panelid, nodes[i].subGrid.engine.nodes)
+                }
+          }
+        },
+        getGridNodebyPath: function(path){
+          let paths = path.split('/');
+          UI.Log(path, paths)
+          for(var i=paths.length-1;i>=0;i--){
+            if(paths[i] == 'panels'){
+              UI.Log(i,paths[i-1], paths[i])
+              let node = JSON.parse(paths[i+1]);
+              if(node.hasOwnProperty('id')){
+                return LayoutEditor.getGridNodebyPanelID(node.id, LayoutEditor.grid.engine.nodes);
+              }
+              break;
+            }
+          }
+          
+        },
+        getGridNodebyPanelID: function(panelid, nodes){
+          
+          for(var i=0;i<nodes.length;i++){
+            if(nodes[i].id == panelid)
+              return nodes[i];
+          }
+          for(var i=0;i<nodes.length;i++){
+            if(nodes[i].subGrid)
+              if(nodes[i].subGrid.engine)
+                if(nodes[i].subGrid.engine.nodes){
+                  let node = LayoutEditor.getGridNodebyPanelID(panelid, nodes[i].subGrid.engine.nodes)
+                  if(node != null)
+                    return node;
                 }
           }
           return null;          
@@ -1484,21 +1548,23 @@ var LayoutEditor = {
           let panellist =[];
           UI.Log("get the panel tree node:", panel, parent)
           
-          if(panel.hasOwnProperty('panels')){
-            let key = parentkey + "/{'id':'" + panel.id + "'}";
-            let data = {
-              id: panel.id,
-              parent: parent,
-              text: panel.name,              
-              a_attr: {"node-type": "panel", "data-key":key} ,
-              icon: "fa fa-solid fa-square", 
-              state: { opened: true },
-            }
-            panellist.push(data); 
+          if(panel.hasOwnProperty('iscontainer') && panel.iscontainer == true){
+            if(panel.hasOwnProperty('panels')){
+              let key = parentkey + "/{'id':'" + panel.id + "'}";
+              let data = {
+                id: panel.id,
+                parent: parent,
+                text: panel.name,              
+                a_attr: {"node-type": "panel", "panelid":panel.id, "data-key":key} ,
+                icon: "fa-solid fa-border-all", 
+                state: { opened: true },
+              }
+              panellist.push(data); 
 
-            for(var i=0;i<panel.panels.length;i++){
-              let childpanels = LayoutEditor.getChildPanels(panel.id, panel.panels[i], key + "/panels");
-              panellist = panellist.concat(childpanels);
+              for(var i=0;i<panel.panels.length;i++){
+                let childpanels = LayoutEditor.getChildPanels(panel.id, panel.panels[i], key + "/panels");
+                panellist = panellist.concat(childpanels);
+              }
             }
           }else if(panel.hasOwnProperty('view')){
             let datakey = parentkey + "/{'id':'" + panel.id + "'}";
@@ -1507,19 +1573,22 @@ var LayoutEditor = {
               parent: parent,
               text: panel.name,
               type: "panel",
-              a_attr: {"node-type": "panel", "data-key":datakey} ,
-              icon: "fa fa-regular fa-square",
+              a_attr: {"node-type": "panel", "panelid":panel.id,"data-key":datakey} ,
+              icon: "fa-solid fa-square",
               state: { opened: true },
             }
             panellist.push(data); 
-            let viewID = UI.generateUUID();
+            if(panel.view.hasOwnProperty('id')){
+
+            }
+            let viewID = panel.view.id? panel.view.id: UI.generateUUID();
             let viewkey = datakey + "/view";
             data = {
               id: viewID,
               parent: panel.id,
               text: panel.view.name ? panel.view.name : "-----",
-              a_attr: {"node-type": "view", "data-key":viewkey} ,
-              icon: "fa fa-regular fa-flag",
+              a_attr: {"node-type": "view", "panelid":panel.id, "data-key":viewkey, viewtype: "view"} ,
+              icon: "fa fa-solid fa-flag",
               state: { opened: true },
             }
             panellist.push(data);
@@ -1531,8 +1600,8 @@ var LayoutEditor = {
                   id: UI.generateUUID(),
                   parent: viewID,
                   text: key,
-                  a_attr: {"node-type": "action", "data-key": viewkey + "/actions/" + key} ,
-                  icon: "fa fa-regular fa-diamond",
+                  a_attr: {"node-type": "action", "panelid":panel.id, "data-key": viewkey + "/actions/" + key} ,
+                  icon: "fa-solid fa-square-caret-right",
                   state: { opened: true },
                 }
                 panellist.push(data); 
@@ -1541,10 +1610,10 @@ var LayoutEditor = {
             let panelviewnodeid = UI.generateUUID()
             let panelviewkey = datakey + "/panelviews";
             data = {
-              id: UI.generateUUID(),
+              id: panelviewnodeid,
               parent: panel.id,
               text: "Panel Views",
-              a_attr: {"node-type": "panelviewcontainer", "data-key":panelviewkey} ,
+              a_attr: {"node-type": "panelviewcontainer","panelid":panel.id, "data-key":panelviewkey} ,
               icon: "fa fa-regular fa-layer-group",
               state: { opened: true },
             }
@@ -1558,8 +1627,8 @@ var LayoutEditor = {
                   id: panelviewid,
                   parent: panelviewnodeid,
                   text: panelview.name,
-                  a_attr: {"node-type": "panelview", "data-key":panelviewkey + "/{'name':'" + panelview.name + "'}"} ,
-                  icon: "fa fa-regular fa-expand",
+                  a_attr: {"node-type": "view", "panelid":panel.id, "data-key":panelviewkey + "/{'name':'" + panelview.name + "'}", viewtype: "panelview"} ,
+                  icon: "fa-regular fa-flag",
                   state: { opened: true },
                 }
                 panellist.push(data); 
@@ -1572,8 +1641,8 @@ var LayoutEditor = {
                       parent: panelviewid,
                       text: key,
                       type: "action",
-                      a_attr: {"node-type": "action", "data-key":panelviewkey + "/{'name':'" + panelview.name + "'}/actions/"+key} ,
-                      icon: "fa fa-regular fa-diamond",
+                      a_attr: {"node-type": "action", "panelid":panel.id, "data-key":panelviewkey + "/{'name':'" + panelview.name + "'}/actions/"+key} ,
+                      icon: "fa-solid fa-square-caret-right",
                       state: { opened: true },
                     }
                     panellist.push(data); 

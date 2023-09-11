@@ -1,25 +1,5 @@
-<!DOCTYPE html>
-<html lang="en" >
 <head>
-<meta charset="UTF-8">
 <link rel='stylesheet' href='styles/codemirror.css'>
-
-</head>
-<body translate="no" >
-<section>
-<div class="container">
-    <div class="tab_menu">
-        <div class="tab_item active" value="Editor">Editor</div>
-        <div class="tab_item" value="Preview">Preview</div>
-    </div>
-    <div class="code-container">
-        <textarea id="html-code"></textarea>
-    </div>
-    <iframe id="code_result" width="100%" height="500px" style="border: 0.5px solid gray; display:none">
-    </iframe>
-
-</div>
-</section>
 <script src='Scripts/codemirror5/lib/codemirror.js'></script>
 <script src='Scripts/codemirror5/mode/xml/xml.js'></script>
 <script src='Scripts/codemirror5/mode/css/css.js'></script>
@@ -36,9 +16,51 @@
 <script src='Scripts/codemirror5/addon/fold/brace-fold.js'></script>
 <script src='Scripts/codemirror5/addon/fold/xml-fold.js'></script>
 <script src='Scripts/codemirror5/addon/fold/comment-fold.js'></script> 
+</head>
+<body translate="no" >
+<div class="container">
+    <div class="tab_menu">
+        <div class="tab_item" value="Menu" lngcode="Menu">Menu</div>
+        <div class="tab_item active" value="Configuration" lngcode="Configuration">Configuration</div>
+        <div class="tab_item" value="Editor" lngcode="Editor">Editor</div>
+        <div class="tab_item" value="Javascript" lngcode="Javascript">Javascript</div>
+        <div class="tab_item" value="Styles" lngcode="Styles">Styles</div>                
+        <div class="tab_item" value="Preview" lngcode="Preview">Preview</div>
+    </div>
+    <div class="view-configuration item_container" data-key="Configuration">
+        <div id="properties" class="properties" style="width: 600px; height: 100%; background-color: white; display: block;">
+            <div id="properties_content" style="overflow: auto; height: 100%; width: 100%; padding: 10px;">
+                <h2>Properties</h2><hr>
+                <label for="name">Name</label>
+                <input id="name" type="text" value="" placeholder="Name" style="width: 100%;">             
+                <label for="View_inputs">Inputs</label>
+                <textarea id="View_inputs" type="text" placeholder="inputs to render the view" style="width: 100%;"></textarea>
+                <label for="View_outputs">Outputs</label>
+                <textarea id="View_outputs" type="text" placeholder="Outputs that view generated" style="width: 100%;"></textarea>
+                <label for="View_actions">Actions</label>
+                <textarea id="View_actions" type="text" placeholder="Outputs that view generated" style="width: 100%;"></textarea>
+            </div>
+        </div>
+    </div>
+    <div class="code-container item_container" data-key="Editor">
+        <textarea id="html-code"></textarea>
+    </div>
+    <div class="script-container item_container" data-key="Javascript">
+        <textarea id="script-code"></textarea>
+    </div>
+    <div class="styles-container item_container" data-key="Styles">
+        <textarea id="styles-code"></textarea>
+    </div>
+    <iframe id="code_result" class="item_container" data-key="Preview" width="100%" height="100%" style="border: 0.5px solid gray; display:none">
+    </iframe>
+
+</div>
+
 <script id="rendered-js" >
     var html_value;
     var html_editor;
+    var script_editor;
+    var styles_editor;
     $Context.onLoaded(function(){
         $('code_result').css('height', $(window).height() - 200);
         $('#code_result').hide();
@@ -46,23 +68,23 @@
         let height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
         height = height - $('.tab_menu').height()-70;
         width = width - 80;
-        $('.code-container').css('height', height);
-        $('.code-container').css('width', width);
-   //     console.log(width,height)
+        $('.item_container').css('height', height);
+        $('.item_container').css('width', width);
+        $('.item_container').hide();
+
+        $('.code-container').show();
+
         $('.tab_item').click(function(){
+            if($(this).attr('value') == 'Menu')
+                return;
+            if($(this).attr('value') == 'Preview'){
+                run_preview_code();
+            }
             $('.tab_item').removeClass('active');
             $(this).addClass('active');
             console.log($(this).attr('value'));
-            if($(this).attr('value') == 'Preview'){
-                $('.code-container').hide();
-                $('#code_result').show();
-                run_preview_code();
-            }else{
-                
-                $('.code-container').show();
-                $('#code_result').hide();
-                
-            }
+            $('.item_container').hide();
+            $('.item_container[data-key="'+$(this).attr('value')+'"]').show();
         })
        
         html_editor = CodeMirror.fromTextArea(document.getElementById("html-code"), {
@@ -84,12 +106,51 @@
      //   console.log(html_editor)
         if(html_editor)
             html_editor.setSize(width, height);
+
+        script_editor = CodeMirror.fromTextArea(document.getElementById("script-code"), {
+            styleActiveLine: true,
+            lineNumbers: true,
+            matchBrackets: true,
+            autoCloseBrackets: true,
+            autoCloseTags: true,
+            matchTags: {bothTags: true},
+         //   extraKeys: {"Ctrl-J": "toMatchingTag"},
+            mode: "javascript",
+            lineWrapping: true,
+            extraKeys: {"Ctrl-Q": function(cm){ cm.foldCode(cm.getCursor()); }},
+            foldGutter: true,
+            gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
+        });
+        if(script_editor)
+            script_editor.setSize(width, height);
+
+        styles_editor = CodeMirror.fromTextArea(document.getElementById("styles-code"), {
+            styleActiveLine: true,
+            lineNumbers: true,
+            matchBrackets: true,
+            autoCloseBrackets: true,
+            autoCloseTags: true,
+            matchTags: {bothTags: true},
+         //   extraKeys: {"Ctrl-J": "toMatchingTag"},
+            mode: "css",
+            lineWrapping: true,
+            extraKeys: {"Ctrl-Q": function(cm){ cm.foldCode(cm.getCursor()); }},
+            foldGutter: true,
+            gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
+        });
+        if(styles_editor)
+            styles_editor.setSize(width, height);
     })
 
     function run_preview_code() {
         var doc = document.getElementById('code_result').contentWindow.document;
         html_value = html_editor.getValue();
+        
+        let script = script_editor.getValue();
+        let styles = styles_editor.getValue();
         doc.open();
+        doc.write("<script>"+script + "<\/script>");
+        doc.write("<style>"+styles + "<\/style>");
         doc.write(html_value);
         doc.close();
         let width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
