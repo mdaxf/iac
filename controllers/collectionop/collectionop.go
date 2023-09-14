@@ -58,14 +58,14 @@ func (c *CollectionController) GetListofCollectionData(ctx *gin.Context) {
 
 	collectionName := data.CollectionName
 	operation := data.Operation
-	condition := data.Data
+	items := data.Data
 	/*
 		condition := map[string]interface{}{}
 		for _, key := range Keys {
 			condition[key] = 1
 		}
 	*/
-	jsonData, err := json.Marshal(condition)
+	jsonData, err := json.Marshal(items)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error marshaling json: %v", err))
 	}
@@ -157,6 +157,38 @@ func (c *CollectionController) GetDetailCollectionDatabyID(ctx *gin.Context) {
 		iLog.Debug(fmt.Sprintf("Collection Name: %s, operation: %s data: %s", collectionName, operation, filter))
 	*/
 	collectionitems, err := documents.DocDBCon.GetItembyID(collectionName, value.(string))
+
+	if err != nil {
+
+		iLog.Error(fmt.Sprintf("failed to retrieve the detail data from collection: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": collectionitems})
+}
+func (c *CollectionController) GetDetailCollectionDatabyName(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDetailCollectionDatabyName"}
+	iLog.Debug(fmt.Sprintf("Get default collection detail data from respository"))
+
+	var data CollectionData
+	if err := ctx.BindJSON(&data); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	collectionName := data.CollectionName
+
+	list := data.Data
+	value := list["name"]
+
+	iLog.Debug(fmt.Sprintf("Collection Name: %s, data: %s", collectionName, list))
+	if collectionName == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid collection name"})
+		return
+	}
+
+	collectionitems, err := documents.DocDBCon.GetDefaultItembyName(collectionName, value.(string))
 
 	if err != nil {
 

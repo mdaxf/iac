@@ -1,0 +1,41 @@
+{
+	"name": "View List",
+	"title": "View List",
+	"version": "1.0.0",
+	"isdefault": true,
+	"orientation": 0,
+	"initcode": "",
+	"onloadcode": "",
+	"attrs": {
+		"style": "width: 100%; height: auto;"
+	},
+	"panels": [
+		{
+			"name": "content",
+			"orientation": 0,
+			"view": {
+				"name": "View List",
+				"type": "view-type",
+				"file": "templates/datalist.html",
+				"inlinestyle": "height: 100%;",
+				"inputs":{    
+					"ui_dataschema":"",
+					"menu_viewonly":0
+				},
+				"outputs":{
+					"selectedKey": "",
+					"datasource":"",
+					"datasourcetype":"",
+					"ui_dataschema":"",
+					"ui_schema":null,   
+					"action": ""
+				},
+				"actions":{
+					"NEW":{"type": "page", "next": "","page":"pages/vieweditor.json","panels":[{"panel": "content","view":"views/vieweditor.json"}]},
+					"SELECT":{"type": "page", "next": "","page":"pages/vieweditor.json","panels":[{"panel": "content","view":"views/vieweditor.json"}]}
+				}
+			},
+			"inlinestyle": "width: 100%;height:auto"
+		}
+	]
+}

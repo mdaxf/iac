@@ -98,6 +98,10 @@
           "method": "POST",
           "path": "/id",
           "handler": "GetDetailCollectionDatabyID"
+        },{
+          "method": "POST",
+          "path": "/name",
+          "handler": "GetDetailCollectionDatabyName"
         }
       ]},
     {

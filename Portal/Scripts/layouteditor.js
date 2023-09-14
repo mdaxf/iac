@@ -63,9 +63,19 @@ var LayoutEditor = {
                   "attrs": {
                     "style": "width: 100%; height: 100%;"
                   },
-                  "panels": []
+                  "panels": [{
+                    x: 0,y:0, width: 100, height:LayoutEditor.cellWidth, 
+                    widthunit: '%', heightunit: 'px', 
+                    iscontainer: false, noMove: true, 
+                    id: UI.generateUUID(), 
+                    name: 'main_layout_panel', 
+                    content: 'main_layout_panel', 
+                    class: 'main_layout_panel', 
+                    orientation: 0, inlinestyle: '', widthmethod: false, heightmethod: false, 
+                    subGridOpts: {children: []}
+                  }]
                 }
-                LayoutEditor.JsonObj = new UI.JSONManager(sampledata, {allowChanges:true})
+                LayoutEditor.JsonObj = new UI.JSONManager(sampledata, {allowChanges:true, schema:LayoutEditor.schema})
             }
 
 
@@ -180,8 +190,12 @@ var LayoutEditor = {
         },
         getpaneldatafrompaneldata:function(paneldata, level=0, parent = null){
           let children = [];
-        //  UI.Log('json data:',paneldata)
-          let orientation= paneldata.hasOwnProperty('orientation')?paneldata.orientation: 1
+          UI.Log('json data:',paneldata)
+          /*
+          0: flex-direction: column; vertical
+          1: flex-direction: row;
+          */
+          let orientation= paneldata.hasOwnProperty('orientation')?paneldata.orientation: 0
           if(paneldata.hasOwnProperty('panels')){
             let panels = paneldata.panels;
 
@@ -189,11 +203,47 @@ var LayoutEditor = {
               let panel = LayoutEditor.getpaneldatafrompaneldata(panels[i], level+1, paneldata);
               children.push(panel);
             }
-
-            for(var i=0;i<panels.length;i++){
-              
+          /*
+            let wcalcpanels = [];
+            let hcalcpanels =[];
+            let subtotalw = 0;
+            let subtotalh = 0;
+            for(var i=0;i<children.length;i++){
+              if(children[i].heightmethod  && orientation == 0){                
+                hcalcpanels.push(children[i]);
+                children = children.splice(i,1);
+              }else if(children[i].widthmethod && orientation == 1){                
+                 wcalcpanels.push(children[i]);
+                 children = children.splice(i,1);
+              }else{
+                if(orientation == 0){
+                  subtotalh += children[i].h;
+                }else{
+                  subtotalw += children[i].w;
+              }
+              }
             }
-            //children = LayoutEditor.getpaneldatafrompaneldata(paneldata.panels);
+            
+            if(hcalcpanels.length == 1){
+              let h = LayoutEditor.FullHeight - subtotalh;
+              for(var i=0;i<hcalcpanels.length;i++){
+                hcalcpanels[i].h = h > 0? h:0;
+                children.push(hcalcpanels[i]);
+              }
+            }else if (hcalcpanels.length > 1){
+              children = children.concat(hcalcpanels);
+            }
+
+            if(wcalcpanels.length ==1){
+              let w = 100 - subtotalw;
+              for(var i=0;i<wcalcpanels.length;i++){
+                wcalcpanels.w = w > 0? w:0;
+                children.push(wcalcpanels[i]);
+              }
+            }else if(wcalcpanels.length > 1){
+              children = children.concat(wcalcpanels);
+            }
+            */          
           }
           if(level == 0){
             let rootpanel = JSON.parse(JSON.stringify(paneldata));
@@ -512,11 +562,10 @@ var LayoutEditor = {
               ajax.post('/collection/update',inputs).then((response) => {
                 let result = JSON.parse(response);
                 UI.Log(result);
-                if(result.data.status == 'Success'){
-                  LayoutEditor.JsonObj.data= result.Outputs.data;
-                  LayoutEditor.JsonObj.changed = false;
-                  alert('Layout saved successfully');
-                }
+                //LayoutEditor.JsonObj.data= result.Outputs.data;
+                LayoutEditor.JsonObj.changed = false;
+                
+                UI.ShowMessage('Layout saved successfully','Success');
 
               }).catch((error) => {
                   UI.Log(error);
@@ -699,6 +748,7 @@ var LayoutEditor = {
             let style = $('#style').val();
             UI.Log(name, version, isdefault, orientation)
             LayoutEditor.JsonObj.updateNode("", {name: name, version: version, isdefault: isdefault, orientation: orientation, initcode: initcode, onloadcode: onloadcode, attrs: {style: style}} )     
+            LayoutEditor.ShowPageStructure();
             $('#properties').remove(); 
           }}
           new UI.FormControl(container, 'button',attrs,events);
@@ -875,6 +925,7 @@ var LayoutEditor = {
                 grid.content = name         
                 LayoutEditor.grid.update(el, grid.x, grid.y, grid.w, grid.h);       
                 LayoutEditor.generateJson();
+                LayoutEditor.ShowPageStructure();
                 LayoutEditor.render();
                 $('#properties').remove(); 
               }
@@ -904,6 +955,7 @@ var LayoutEditor = {
               view = view.value
           }
           let container = LayoutEditor.CreatePropertySection(view.name);
+
           attrs={
             for: 'name',  innerHTML: 'Name'
           }
@@ -917,10 +969,11 @@ var LayoutEditor = {
           }
           new UI.FormControl(container, 'label',attrs);
           attrs={
-            id: 'config',     type: 'text',     value: view.config || '',       placeholder: 'Config',         style: 'width: 100%;'
+            id: 'config',     type: 'text',     value: view.config || '',       placeholder: 'Config',         style: 'width: 80%;'
           }
           new UI.FormControl(container, 'input',attrs);
-
+          attrs={id: 'linkconfig', class:"fa-solid fa-link", style: "width: 20%;", onclick: "LayoutEditor.load_viewConfigue('"+path+"')"} 
+          new UI.FormControl(container, 'i',attrs);
           attrs ={for: "file", innerHTML: "File"}
           new UI.FormControl(container, 'label',attrs);
           attrs={
@@ -1009,8 +1062,84 @@ var LayoutEditor = {
             }}
           new UI.FormControl(container, 'button',attrs, events);
         },
+        load_viewConfigue: function(path){
+          
+          let cfg = {
+            "file":"templates/datalist.html", 
+            "name": "View List", 
+            "actions": {
+                "SELECT":{"type": "script", "next": "","page":"","panels":[], "script": "selectitem"},
+                "CANCEL":{"type": "script", "next": "","page":"","panels":[], "script": "cancelitem"},
+            }
+          }
+          let page =Session.CurrentPage;
+          UI.Log(page)
+          let org_schema = Session.snapshoot.sessionData.ui_dataschema
+          let org_entity = Session.snapshoot.sessionData.entity
+          let org_selectedKey = Session.snapshoot.sessionData.selectedKey
+
+          let inputs = {}
+          inputs.ui_dataschema = 'uiview'
+        //    UI.Log(inputs)
+          cfg.inputs = inputs;
+          cfg.actions.SELECT.script = function(data){
+            UI.Log(data)
+           
+          //  Session.snapshoot.sessionData.selectedKey = data.key;
+          //  Session.snapshoot.sessionData.ui_dataschema = data.schema;
+            let url = "/collection/id"
+            let inputs={
+              collectionname:'UI_View',
+              data: {"_id": data.selectedKey},
+              operation: "detail"
+            }
+            UI.Log("get the detail view:",inputs)
+            UI.Post(url, inputs, function(response){
+              UI.Log(response)
+              let result = JSON.parse(response);
+              let view = LayoutEditor.JsonObj.getNode(path);
+              let data = {};
+              data.name = result.data.name;
+              data.config = result.data.name;
+              data.title = result.data.title;
+              data.revision = result.data.revision;
+              data.inputs = result.data.inputs;
+              data.outputs = result.data.outputs;
+              data.actions = result.data.actions;
+              view.value.type = "document"
+              let viewdata = Object.assign(view.value, data);
+              view.value = viewdata;
+              LayoutEditor.generateLayout();
+              LayoutEditor.ShowPageStructure();
+              page.popupClose();  
+              Session.snapshoot.sessionData.ui_dataschema = org_schema;
+              Session.snapshoot.sessionData.selectedKey = org_selectedKey;
+            }, function(error){
+              UI.ShowError(error);
+                            
+              page.popupClose(); 
+              Session.snapshoot.sessionData.ui_dataschema = org_schema;
+              Session.snapshoot.sessionData.selectedKey = org_selectedKey; 
+            })                     
+          }
+          cfg.actions.CANCEL.script = function(data){
+            UI.Log("execute the action:", data)
+            Session.snapshoot.sessionData.selectedKey = org_selectedKey;
+            Session.snapshoot.sessionData.ui_dataschema = org_schema;
+            page.popupClose();
+          }
+          Session.snapshoot.sessionData.ui_dataschema = "uiview"
+          //UI.Log(cfg)
+          //new UI.View(panel,cfg) 
+          page.popupOpen(cfg);
+          page.popup.onClose(function(){
+              Session.snapshoot.sessionData.selectedKey = org_selectedKey;
+              Session.snapshoot.sessionData.ui_dataschema = org_schema;
+          })
+
+        },
         ShowActionProperties: function(path){
-          let action = LayoutEditor.JsonObj.getNode(path);
+          let action = LayoutEditor.JsonObj.getNode(path).value;
           UI.Log(action)
           let paths = path.split('/');
           let actionname = paths[paths.length-1];
@@ -1090,7 +1219,7 @@ var LayoutEditor = {
                   break;
                 }
               }
-              LayoutEditor.JsonObj.updateNode(path, action)
+            //  LayoutEditor.JsonObj.updateNode(path, action)
               LayoutEditor.generateLayout();
               LayoutEditor.ShowPageStructure();
               $('#properties').remove(); 
@@ -1226,6 +1355,9 @@ var LayoutEditor = {
                         LayoutEditor.ShowPageStructure();
                       }
                       break;
+                    case 'Link View':
+                      LayoutEditor.load_viewConfigue(nodekey+"/view");
+                      break;
                   }
 
                 }, 
@@ -1247,7 +1379,7 @@ var LayoutEditor = {
                       return true;
                     }
                   }, 
-                /*  'Link View':{
+                  'Link View':{
                     name: 'Link View',
                     icon: 'fa-plus',
                     disabled:function(){
@@ -1259,7 +1391,7 @@ var LayoutEditor = {
                       }
                       return false;
                     }
-                  },  */
+                  },  
                   'Add Panel View':{
                     name: 'Add Panel View',
                     icon: 'fa-plus',
@@ -1339,6 +1471,10 @@ var LayoutEditor = {
                     case 'Properties':
                       LayoutEditor.ShowViewProperties(nodekey);
                       break;
+                    case 'Link View':
+                      LayoutEditor.load_viewConfigue(nodekey);
+                    
+                    break;
                     case 'Remove':
                       
                       break;
@@ -1350,6 +1486,11 @@ var LayoutEditor = {
                     name: 'Properties',
                     icon: 'fa-cog',
                     disabled: false
+                  },
+                  'Link View':{
+                    name: 'Link View',
+                    icon: 'fa-link',
+                    disabled:false
                   },
                   'Add Action':{
                     name: 'Add Action',
@@ -1448,6 +1589,15 @@ var LayoutEditor = {
                     case 'Save':
                       LayoutEditor.savelayout();
                       break;
+                    case 'Export':
+                     
+                      let pagejson = LayoutEditor.JsonObj.data;
+                      let blob = new Blob([JSON.stringify(pagejson)], {type: "text/plain;charset=utf-8"});
+                      let file = new File([blob], 'page_'+pagejson.name+'_'+pagejson.version+".json", {type: "text/plain;charset=utf-8"});                      
+                      
+                      saveAs(file)
+
+                    break;
                     case 'Redlines':
                       LayoutEditor.JsonObj.showRedlines();
                       break;

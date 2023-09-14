@@ -101,6 +101,25 @@ func (doc *DocDB) QueryCollection(collectionname string, filter bson.M, projecti
 
 	return results, nil
 }
+func (doc *DocDB) GetDefaultItembyName(collectionname string, name string) (bson.M, error) {
+
+	MongoDBCollection := doc.MongoDBDatabase.Collection(collectionname)
+
+	filter := bson.M{"name": name, "isdefault": true}
+
+	doc.iLog.Debug(fmt.Sprintf("GetDefaultItembyName: %s from collection:%s", filter, collectionname))
+	//var result bson.Raw
+	var result bson.M
+	err := MongoDBCollection.FindOne(context.Background(), filter).Decode(&result)
+
+	if err != nil {
+		doc.iLog.Error(fmt.Sprintf("failed to get data from collection with error: %s", err))
+	}
+	doc.iLog.Debug(fmt.Sprintf("GetDefaultItembyName: %s", result))
+
+	return result, err
+}
+
 func (doc *DocDB) GetItembyID(collectionname string, id string) (bson.M, error) {
 
 	MongoDBCollection := doc.MongoDBDatabase.Collection(collectionname)

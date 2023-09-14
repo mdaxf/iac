@@ -21,24 +21,31 @@
 <div class="container">
     <div class="tab_menu">
         <div class="tab_item" value="Menu" lngcode="Menu">Menu</div>
-        <div class="tab_item active" value="Configuration" lngcode="Configuration">Configuration</div>
-        <div class="tab_item" value="Editor" lngcode="Editor">Editor</div>
+        <div class="tab_item" value="Configuration" lngcode="Configuration">Configuration</div>
+        <div class="tab_item active" value="Editor" lngcode="Editor">Editor</div>
         <div class="tab_item" value="Javascript" lngcode="Javascript">Javascript</div>
         <div class="tab_item" value="Styles" lngcode="Styles">Styles</div>                
         <div class="tab_item" value="Preview" lngcode="Preview">Preview</div>
     </div>
     <div class="view-configuration item_container" data-key="Configuration">
-        <div id="properties" class="properties" style="width: 600px; height: 100%; background-color: white; display: block;">
+        <div id="properties" class="properties" style="width: 100%; height: 100%; background-color: white; display: block;">
             <div id="properties_content" style="overflow: auto; height: 100%; width: 100%; padding: 10px;">
                 <h2>Properties</h2><hr>
                 <label for="name">Name</label>
-                <input id="name" type="text" value="" placeholder="Name" style="width: 100%;">             
+                <input id="name" type="text" value="" placeholder="Name" style="width: 100%;"> 
+                <label for="revision">Revision</label>
+                <input id="revision" type="text" value="" placeholder="Revision" style="width: 100%;">    
+                <label for="isdefault">Is Default Revision?</label>
+                <input id="isdefault" type="checkbox" value="" placeholder="is default?" style="width: 100%;">                             
+                <label for="title">Title</label>
+                <input id="title" type="text" value="" placeholder="Title" style="width: 100%;">   
                 <label for="View_inputs">Inputs</label>
                 <textarea id="View_inputs" type="text" placeholder="inputs to render the view" style="width: 100%;"></textarea>
                 <label for="View_outputs">Outputs</label>
                 <textarea id="View_outputs" type="text" placeholder="Outputs that view generated" style="width: 100%;"></textarea>
                 <label for="View_actions">Actions</label>
                 <textarea id="View_actions" type="text" placeholder="Outputs that view generated" style="width: 100%;"></textarea>
+                <button class="btn btn_primary" value="Save" onclick="$ViewID_Save()">Save</button>
             </div>
         </div>
     </div>
@@ -61,6 +68,7 @@
     var html_editor;
     var script_editor;
     var styles_editor;
+    var viewdata={};
     $Context.onLoaded(function(){
         $('code_result').css('height', $(window).height() - 200);
         $('#code_result').hide();
@@ -75,8 +83,15 @@
         $('.code-container').show();
 
         $('.tab_item').click(function(){
-            if($(this).attr('value') == 'Menu')
-                return;
+            if($(this).attr('value') == 'Menu'){
+                let list = document.createElement("ul");               
+                let htmlstr = '<li><a onclick="$ViewID_Save()"><icon class="fa fa-save"><icon><span lngcode="Save">Save</span></a></li>';
+                htmlstr += '<li><a onclick="$ViewID_Export()"><icon class="fa fa-export"><icon><span lngcode="Export">Export</span></a></li>';
+                htmlstr += '<li><a onclick="$ViewID_Quit()"><icon class="fa fa-quit"><icon><span lngcode="Quit">Quit</span></a></li>';
+                list.innerHTML = htmlstr;
+                let popup = UI.ContextPopup.createPopup(list);
+                popup.attach(this);  
+            }                
             if($(this).attr('value') == 'Preview'){
                 run_preview_code();
             }
@@ -140,8 +155,112 @@
         });
         if(styles_editor)
             styles_editor.setSize(width, height);
+
+        if($Context.inputs.selectedKey !=""){
+            let inputs={
+                collectionname:'UI_View',
+                data: {"_id": $Context.inputs.selectedKey},
+                operation: "detail"
+            }
+
+            UI.Post('/collection/id',inputs, 
+                function(response){
+                    UI.Log(response);
+                    let result = JSON.parse(response);
+                    viewdata = result.data;
+                    $('#name').val(viewdata.name);
+                    $('#title').val(viewdata.title);
+                    $('#revision').val(viewdata.revision);
+                    $('#isdefault').prop('checked', viewdata.isdefault);
+                    html_editor.setValue(viewdata.html);
+                    script_editor.setValue(viewdata.script);
+                    styles_editor.setValue(viewdata.styles);
+
+                    let inputs = Object.keys(viewdata.inputs);
+                    $('#View_inputs').val(inputs.join(';'));
+                    let outputs = Object.keys(viewdata.outputs);
+                    $('#View_outputs').val(outputs.join(';'));
+                    
+                    $('#View_actions').val(JSON.stringify(viewdata.actions));
+                }, 
+                function(error){
+                    UI.Log(error); 
+                    UI.ShowError(error);
+                    return;})
+
+        }        
     })
 
+    function $ViewID_Save(){
+        let html = html_editor.getValue();
+        let script = script_editor.getValue();
+        let styles = styles_editor.getValue();
+                
+        viewdata.name = $('#name').val();
+        viewdata.title = $('#title').val();
+        viewdata.revision = $('#revision').val();
+        viewdata.html = html;
+        viewdata.script = script;
+        viewdata.styles = styles;
+        viewdata.isdefault = $('#isdefault').prop('checked');
+        let parameterstr = $('#View_inputs').val()
+        let parameterlist = parameterstr.split(';')
+        let inputs={}
+        for(var i=0;i<parameterlist.length;i++){
+            parameterlist[i] = parameterlist[i].trim()
+           if(parameterlist[i]!="")
+                inputs[parameterlist[i]] = ""
+        }
+        viewdata.inputs =inputs;
+        parameterstr = $('#View_outputs').val()
+        parameterlist = parameterstr.split(';')
+        let outputs={}
+        for(var i=0;i<parameterlist.length;i++){
+            parameterlist[i] = parameterlist[i].trim()
+            if(parameterlist[i]!="")
+               outputs[parameterlist[i]] = ""
+        }
+        viewdata.outputs =outputs;
+        if (viewdata.name == '') {
+            UI.ShowError('Please input view name!');
+            return;
+        }
+        if(viewdata.revision ==""){
+            UI.ShowError('Please input view revision!');
+            return;
+        }
+        if (viewdata.title == '') {
+            UI.ShowError('Please input view title!');
+            return;
+        }
+        if(viewdata.uuid == undefined || viewdata.uuid == null || viewdata.uuid == ''){
+            viewdata.uuid = UI.generateUUID();
+        }
+        let actions = {};
+        try{
+            actions = JSON.parse($('#View_actions').val());
+        }
+        catch(e){
+            UI.Log(e);
+        }
+        viewdata.actions = actions;        
+        let callinputs = {
+            collectionname:  "UI_View",
+            data: viewdata,
+            keys: ["name"],
+            operation: "update"
+        }
+        UI.Log(callinputs)
+
+        UI.Post('/collection/update',callinputs, function(response){
+            let result = JSON.parse(response);
+            UI.Log(result);
+            UI.ShowMessage('View saved successfully','Success');
+        }, function(error){
+            UI.Log(error);
+        })
+
+    }
     function run_preview_code() {
         var doc = document.getElementById('code_result').contentWindow.document;
         html_value = html_editor.getValue();

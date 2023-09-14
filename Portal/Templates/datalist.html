@@ -75,7 +75,7 @@
             $Context.outputs.ui_dataschema =  $Context.inputs.ui_dataschema;
             $Context.outputs.ui_schema = schema;
 
-            console.log(action.toUpperCase(), selectedKeys[0], $Context.outputs.ui_dataschema, $Context.outputs.ui_schema)
+           UI.Log(action.toUpperCase(), selectedKeys[0], $Context.outputs.ui_dataschema, $Context.outputs.ui_schema)
 
             $Context.submit();
             

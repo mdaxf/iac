@@ -17,13 +17,16 @@
 				"type": "view-type",
 				"file": "templates/vieweditor.html",
 				"inlinestyle": "height: 100%;",
-				"inputs":{       
+				"inputs":{ 
+					"selectedKey": ""  ,
+					"ui_dataschema":"" ,
+					"ui_schema":{}   
 				},
 				"outputs":{
 					"action": ""
 				},
 				"actions":{
-					
+					"BACK": {"type": "page", "next": "","page":"pages/viewlist.json", "panels":[]}
 				},
 				"initcode": ""				
 			},

@@ -53,7 +53,7 @@ function _0x30f6(_0x180a7f,_0x5d5a98){var _0x42049c=_0x4204();return _0x30f6=fun
 	$.import_js(path + "flow/backbone.js") 
 	$.import_js(path + "flow/joint.js")
 	$.import_js(path + "flow/svg-pan-zoom.js")  
-	$.import_js(path + "flow/filesave.js")  
+	$.import_js(path + "filesave.js")  
 	$.import_js(path + "jsonmanager.js")  
 	$.import_js(path + "jstree.js")  
 	$.import_js(path + "UIForm.js")  

@@ -131,9 +131,7 @@ var UI;
             }).catch((error) => {
                 UI.ShowError(error);
                 if(fail)
-                    fail(error);
-
-                    
+                    fail(error);                   
             });
         }
         function GetbyData(url, data, success, fail){
@@ -297,6 +295,8 @@ var UI;
 
                     sessionStorage.setItem(this.sessionkey, JSON.stringify(userjdata));
 
+                    this.tokenupdatetimer = window.setTimeout(UI.tokencheck, this.tokenchecktime);
+
                     if(success){
                         success();
                     }   
@@ -397,6 +397,7 @@ var UI;
     }
 
     UI.tokencheck = tokencheck;
+    
 
 })(UI || (UI = {}));
 
@@ -821,6 +822,7 @@ function rAFThrottle(func) {
 (function (UI) {
     class ContextPopup {
         constructor(menu) {
+            $('.iac-ui-header-popup').remove();
             this.visible = false;
             var dropdown = document.createElement("div");
             dropdown.classList.add("iac-ui-header-popup");
@@ -1281,7 +1283,7 @@ function rAFThrottle(func) {
             }; */
             this.initialize(Panel,configuration);
         }
-        initialize(Panel,configuration){            
+        async initialize(Panel,configuration){            
             
             this.Panel = Panel;
             if(configuration.name){
@@ -1290,11 +1292,13 @@ function rAFThrottle(func) {
                     this.builview();
                     return; 
                 }
-            } 
-            if(configuration.config) {
-
-                this.loadconfiguration(configuration);
+            }
+            if(configuration.type =="document"){
                 
+                await this.loadviewconfigurationfromdocument(configuration);
+
+            }else if(configuration.config) {
+                await this.loadviewconfiguration(configuration);                 
             }
             else
             {    
@@ -1315,9 +1319,9 @@ function rAFThrottle(func) {
                 //  return;
               });
         }
-        async loadconfiguration(configuration){
+       /* async loadconfiguration(configuration){
             await this.loadviewconfiguration(configuration);   
-        }
+        } */
         builview(){
             
             this.loaded = false;
@@ -1394,20 +1398,23 @@ function rAFThrottle(func) {
             if(this.configuration.content){                
                 this.content = this.configuration.content;
                 this.view.innerHTML = UI.createFragment(this.createcontext(this.content));
-            }
-            if(this.configuration.file)
+            }else if(this.configuration.html){
+                this.content = this.configuration.html;
+                this.view.innerHTML = UI.createFragment(this.createcontext(this.content));
+            } else if(this.configuration.file)
                 this.loadfile(this.configuration.file)
-            
-            if(this.configuration.form)
+            else if(this.configuration.form)
                 this.buildform(this.configuration.form);
-
-            if(this.configuration.code){
+            else if(this.configuration.code){
                 this.createwithCode(this.configuration.code);
             }
 
             if(this.configuration.style){
                 this.createStyleContent(this.configuration.style);                
             }  
+            if(this.configuration.styles){
+                this.createStyleContent(this.configuration.styles);                
+            }
 
             if(this.configuration.inlinestyle){
                 this.view.setAttribute("style", this.configuration.inlinestyle);
@@ -1457,7 +1464,22 @@ function rAFThrottle(func) {
                 // UI.Log("error:",error);
             })
         }
-
+        async loadviewconfigurationfromdocument(configuration){
+            
+            let url = "/collection/name"
+            let inputs ={
+                "name":configuration.config
+            }
+            UI.Log("loadviewconfigurationfromdocument:",url);
+            UI.Post(url, inputs, function(response){
+                let result = JSON.parse(response);
+                UI.Log("loadviewconfigurationfromdocument:",response);
+                configuration = Object.assign(configuration,result.data);
+                this.builview();
+            }, function(error){
+                UI.ShowError("Load the data wrong:",error);
+            })
+        }
         async loadfile(file){
             let that = this
             
@@ -2296,7 +2318,7 @@ function rAFThrottle(func) {
                             window.location.href = UI.userlogin.loginurl;
                         });
                         this.headerUserimage.appendChild(element);
-                        let popup = UI.UI.ContextPopup.createPopup(list);
+                        let popup = UI.ContextPopup.createPopup(list);
                         // UI.Log(popup)
                         popup.attach(element);
                     }
