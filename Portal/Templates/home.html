@@ -56,12 +56,14 @@
                     let page = $(this).attr("data-page");
                     if(Type =="2"){
                       let configuration = {};
-                      configuration.name = $(this).attr("data-pagename");
+                      configuration.title = $(this).attr("data-pagename");
                       let panel = {}
-                      panel.name = "content_panel";
+                      panel.name = "Content";
                       let view ={}
-                      view.name = "content_view";
+                      view.name = "Portal Menu";
                       view.file ="templates/home.html";
+                      view.type = "document"
+                    //  view.config = "Portal Menu"
                       let inputs={}                      
                       inputs.menu_parentid = $(this).attr("data-pageid");
                       inputs.menu_viewonly = $(this).attr("data-viewonly");
@@ -84,6 +86,7 @@
                       view.inputs = inputs;
                       panel.view = view;
                       configuration.panels = [panel];
+                      configuration.name = "Portal Menu"
                       new UI.Page(configuration);
                     }
                     else{
@@ -104,13 +107,18 @@
                       }
                       inputs.menu_viewonly = $(this).attr("data-viewonly");
                       Session.snapshoot.sessionData =  Object.assign({},Session.snapshoot.sessionData, inputs);
-                      new UI.Page({"file": "pages/"+page})
+                      if(page.endsWith(".json"))
+                        new UI.Page({"file": "pages/"+page})
+                      else
+                        new UI.Page({"name": page})
+                      
                     }
                 })
             }
 
         },function(){
-
+          UI.ShowError("Failed to load menus");
+          
         }) 
     });
 </script>

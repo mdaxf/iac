@@ -196,6 +196,28 @@ func (doc *DocDB) InsertCollection(collectionname string, idata interface{}) (*m
 	return insertResult, err
 }
 
+func (doc *DocDB) DeleteItemFromCollection(collectionname string, documentid string) error {
+	doc.iLog.Debug(fmt.Sprintf("Delete the item %s from collection %s", documentid, collectionname))
+
+	MongoDBCollection := doc.MongoDBDatabase.Collection(collectionname)
+
+	objectid, err := primitive.ObjectIDFromHex(documentid)
+	if err != nil {
+		doc.iLog.Error(fmt.Sprintf("failed to convert id to objectid with error: %s", err))
+		return err
+	}
+
+	filter := bson.M{"_id": objectid}
+
+	_, err = MongoDBCollection.DeleteOne(context.Background(), filter)
+
+	if err != nil {
+		doc.iLog.Error(fmt.Sprintf("Delete the item %s from collection %s error %s!", documentid, collectionname, err))
+		return err
+	}
+	return nil
+}
+
 func (doc *DocDB) convertToBsonM(data interface{}) (bson.M, error) {
 	dataBytes, err := bson.Marshal(data)
 	if err != nil {

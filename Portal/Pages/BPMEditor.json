@@ -18,10 +18,10 @@
 				"file": "Templates/bleditor.html",
 				"inlinestyle": "height: 100%;",
 				"inputs":{ 
-					"selectedname": ""      
+					"selectedID": ""      
 				},
 				"outputs":{
-					"selectedname": "",
+					"selectedID": "",
 					"action": ""
 				},
 				"actions":{

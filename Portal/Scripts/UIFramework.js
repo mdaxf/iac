@@ -35,7 +35,7 @@ var UI;
               this.token = token;
               if(!token || token == ''){
                 let sessionkey= window.location.origin+"_"+ "user";
-                var userdata = sessionStorage.getItem(sessionkey);
+                var userdata = localStorage.getItem(sessionkey);
                 if(userdata){
                     var userjdata = JSON.parse(userdata);
                     this.token = userjdata.token;
@@ -125,6 +125,7 @@ var UI;
         UI.ajax = new Ajax("");  
         
         function GetbyUrl(url, success, fail){
+            UI.ajax = new Ajax("");             
             return UI.ajax.initializeRequest('GET', url).then((response) => {
                 if(success)
                     success(response);
@@ -135,6 +136,7 @@ var UI;
             });
         }
         function GetbyData(url, data, success, fail){
+            UI.ajax = new Ajax(""); 
             return UI.ajax.get(url, data).then((response) => {
                 if(success)
                     success(response);
@@ -146,6 +148,7 @@ var UI;
         }
 
         function Post(url, data, success, fail){
+            UI.ajax = new Ajax(""); 
             return UI.ajax.post(url, data).then((response) => {
                 if(success)
                     success(response);
@@ -157,6 +160,7 @@ var UI;
         }
 
         function CallTranCode(Code, Version, inputs, success, fail){
+            UI.ajax = new Ajax(""); 
             let url = UI.CONTROLLER_URL+"/trancode/execute";
             let Data = {"code":Code, "version":Version, "inputs":inputs};
             return UI.ajax.post(url, Data).then((response) => {
@@ -196,7 +200,7 @@ var UI;
             this.loginurl = "login.html"
         }
         checkiflogin(success, fail){
-            let userdata = sessionStorage.getItem(this.sessionkey);
+            let userdata = localStorage.getItem(this.sessionkey);
         //    // UI.Log(userdata)
             if(userdata){
                 let userjdata = JSON.parse(userdata);
@@ -238,7 +242,7 @@ var UI;
                         userjdata.updatedon = new Date();
 
                         // UI.Log(userjdata)
-                        sessionStorage.setItem(this.sessionkey, JSON.stringify(userjdata));
+                        localStorage.setItem(this.sessionkey, JSON.stringify(userjdata));
                         
                         if(success){
                             success();                        
@@ -293,7 +297,7 @@ var UI;
                     this.expirateon = userjdata.expirateon;
                     userjdata.updatedon = new Date();
 
-                    sessionStorage.setItem(this.sessionkey, JSON.stringify(userjdata));
+                    localStorage.setItem(this.sessionkey, JSON.stringify(userjdata));
 
                     this.tokenupdatetimer = window.setTimeout(UI.tokencheck, this.tokenchecktime);
 
@@ -326,7 +330,7 @@ var UI;
                     this.expirateon = userjdata.expirateon;
                     userjdata.updatedon = new Date();
 
-                    sessionStorage.setItem(this.sessionkey, JSON.stringify(userjdata));
+                    localStorage.setItem(this.sessionkey, JSON.stringify(userjdata));
                     
                     if(success){
                         success();
@@ -340,7 +344,7 @@ var UI;
             }
         }
         logout(success, fail){
-            let userdata = sessionStorage.getItem(this.sessionkey);
+            let userdata = localStorage.getItem(this.sessionkey);
             
 
             if(userdata){
@@ -351,7 +355,7 @@ var UI;
                 let clientid = userjdata.clientid;
 
                 UI.ajax.post(UI.CONTROLLER_URL+"/user/logout", {"username":username, "token":token, "clientid": clientid}).then((response) => {
-                    sessionStorage.removeItem(this.sessionkey);
+                    localStorage.removeItem(this.sessionkey);
                     this.userID = 0;
                     this.username = "";
                     this.password = "";
@@ -368,7 +372,7 @@ var UI;
                         fail();
                 })
             }
-            sessionStorage.removeItem(this.sessionkey);
+            localStorage.removeItem(this.sessionkey);
             this.username = "";
             this.userID = 0;
             this.password = "";
@@ -407,17 +411,18 @@ var UI;
             this.sessionmenuprefix= window.location.origin+"_"+ "menu_";
         }
         loadMenus(parentID,Success, Fail){
-            let userdata = sessionStorage.getItem(UI.userlogin.sessionkey);
-        //     UI.Log(userdata)
+            let userdata = localStorage.getItem(UI.userlogin.sessionkey);
+            UI.Log("load the menu for the user:",userdata)
             if(userdata){
                 
                 let userjdata = JSON.parse(userdata);
                 let userID = userjdata.id;
                 let isMobile = this.isMobile()? "1":"0";
-                sessionStorage.removeItem(this.sessionmenuprefix+userID+ "_"+parentID)
-                UI.ajax.get(UI.CONTROLLER_URL+"/user/menus?userid="+userID +"&mobile="+isMobile + "&parentid="+parentID).then((response) => {
+                localStorage.removeItem(this.sessionmenuprefix+userID+ "_"+parentID)
+                let ajax = new UI.Ajax("");
+                ajax.get(UI.CONTROLLER_URL+"/user/menus?userid="+userID +"&mobile="+isMobile + "&parentid="+parentID).then((response) => {
                     let menus = JSON.parse(response);
-                    sessionStorage.setItem(this.sessionmenuprefix+userID+ "_"+parentID, JSON.stringify(menus));
+                    localStorage.setItem(this.sessionmenuprefix+userID+ "_"+parentID, JSON.stringify(menus));
                     if(Success)
                         Success(menus);
                 }).catch((error) => {
@@ -426,6 +431,9 @@ var UI;
                     if(Fail)
                         Fail();
                 })
+            }else{
+                localStorage.clear();
+                window.location.href = UI.userlogin.loginurl;
             }
 
         }
@@ -497,17 +505,22 @@ var UI;
     UI.replaceAll = replaceAll;
 
     function createFragment(html) {
+    //    UI.Log('createFragment:', html);
         if (html == null)
             html = "";
-        let range = document.createRange();
+       let range = document.createRange();
+    //    UI.Log('createRange:', range)
         if (range.createContextualFragment) {
             try {
-                return range.createContextualFragment(html);
+                let fragment = range.createContextualFragment(html);
+        //        UI.Log('created Fragment by range:', fragment)
+                return fragment;
             }
             catch (e) {
                 // createContextualFragment is not supported on Safari (ios)
+                UI.ShowError(e);
             }
-        }
+        } 
         let div = document.createElement("div");
         div.innerHTML = html;
         let inlineScripts = parseInlineScripts(div);
@@ -521,6 +534,7 @@ var UI;
         while ((child = div.firstChild)) {
             fragment.appendChild(child);
         }
+    //    UI.Log('created Fragment:', fragment)
         return fragment;
     }
     UI.createFragment = createFragment;
@@ -528,6 +542,7 @@ var UI;
 })(UI || (UI = {}));
 
 (function (UI) {
+    
     class UIMessage{
         constructor(message, type="Error"){
             this.message = message;
@@ -666,9 +681,9 @@ var UI;
                 views: Session.cloneObject(this.views),
                 panels: Session.cloneObject(this.panels),
                 pages: Session.cloneObject(this.pages),
-                viewResponsitory: Session.cloneObject(this.viewResponsitory),
-                pageResponsitory: Session.cloneObject(this.pageResponsitory),
-                fileResponsitory: Session.cloneObject(this.fileResponsitory),
+            //    viewResponsitory: Session.cloneObject(this.viewResponsitory),
+            //    pageResponsitory: Session.cloneObject(this.pageResponsitory),
+            //    fileResponsitory: Session.cloneObject(this.fileResponsitory),
                 configuration: Session.cloneObject(this.configurator),
                 CurrentPage: Session.cloneObject(this.CurrentPage),
                 Instance: instance,
@@ -1123,6 +1138,48 @@ function rAFThrottle(func) {
         }
     }
     UI.HTMLOverlay = HTMLOverlay;
+
+    function ConfirmationPopup(title, message, continueMsg, cancelMsg) {
+        return new Promise(async (resolve, reject) => {
+            let shouldContinue = false;
+            const popup = new UI.Popup(document.body);
+            popup.modal = true;
+            popup.onClose(() => {
+                resolve(shouldContinue);
+            });
+            const literals = ["ConfirmationTitle", "ConfirmationMessage", "ContinueAction", "CancelAction"];
+            //const [title, message, continueMsg, cancelMsg] = await Promise.all(literals.map(l => UI.Literals.get(l)));
+            popup.title = title;
+            const content = document.createElement("div");
+            content.className = "iac-popup-content";
+            content.textContent = message;
+            let span = document.createElement("span");
+            span.textContent = cancelMsg;
+            const cancelButton = document.createElement("button");
+            cancelButton.className = "iac-button";
+            cancelButton.appendChild(span);
+            cancelButton.addEventListener("click", () => {
+                popup.close();
+            });
+            span = document.createElement("span");
+            span.textContent = continueMsg;
+            const continueButton = document.createElement("button");
+            continueButton.className = "btn btn-primary";
+            continueButton.appendChild(span);
+            continueButton.addEventListener("click", () => {
+                shouldContinue = true;
+                popup.close();
+            });
+            const footer = document.createElement("div");
+            footer.className = "apr-popup-footer apr-laflex-container apr-align-right";
+            footer.appendChild(cancelButton);
+            footer.appendChild(continueButton);
+            popup.body.appendChild(content);
+            popup.body.appendChild(footer);
+            popup.open();
+        });
+    }
+    UI.ConfirmationPopup = ConfirmationPopup;
 })(UI || (UI = {}));
 (function (UI) {
   
@@ -1160,7 +1217,7 @@ function rAFThrottle(func) {
 
             }
         */
-        constructor(page,configuration){
+        constructor(page,configuration, parent = null){
           //  UI.Log(page,configuration)
             this.page = page;
             this.configuration  = configuration;
@@ -1171,12 +1228,18 @@ function rAFThrottle(func) {
             this.view = null;
             this.panel = null;
             this.name = UI.safeName(this.configuration.name);
+            this.parent = parent;
         }
         create(popup = false){
             this.panel = document.createElement("div");
             this.panel.className = "ui-panel";
             this.panel.classList.add(UI.safeClass(`panel_${this.configuration.name}`));
-            this.panel.classList.add(orientationClass[this.configuration.orientation]);
+
+            if((this.configuration.hasOwnProperty("panels") && this.configuration.panels.length > 0) 
+                || (this.configuration.hasOwnProperty("iscontainer") && this.configuration.iscontainer )){
+                this.panel.classList.add(orientationClass[this.configuration.orientation]);
+            }
+
             if(popup)
                 this.panel.classList.add("ui-page-popup-panel");
 
@@ -1192,17 +1255,45 @@ function rAFThrottle(func) {
             this.id = paneliId;
             this.panelElement = this.panel;
             if(this.configuration.inlinestyle){
-                this.panelElement.setAttribute("style", this.configuration.inlinestyle);
+                this.panel.setAttribute("style", this.configuration.inlinestyle);
             }
-
-            if(this.configuration.height)
-                this.panelElement.style.height = this.configuration.height;
-            if(this.configuration.width)
-                this.panelElement.style.width = this.configuration.width;
             
+            if(this.configuration.height)
+                this.panel.style.height = this.configuration.height;
+            if(this.configuration.width)
+                this.panel.style.width = this.configuration.width;
+            
+            /*
+            this.panel.style = this.panel.style || {};
+            if(this.configuration.hasOwnProperty("widthmethod") && this.configuration.widthmethod){
+                    this.panel.style.width = "auto"
+            }else if(this.configuration.hasOwnProperty("width") ){
+                    this.panel.style.width = this.configuration.width + unitStyle[this.configuration.widthunit];
+            }
+    
+            if(this.configuration.hasOwnProperty("heightmethod") && this.configuration.heightmethod){
+                    this.panel.style.height =  "auto";
+            }else if(this.configuration.hasOwnProperty("height")){
+                  this.panel.style.height = this.configuration.height + unitStyle[this.configuration.heightunit];
+            }*/
+            UI.Log(this.configuration, this.panel.style)
             if(this.configuration.panels.length > 0){
+                // calculate the sub panels width and height
+               /* let totalwidth = 0;
+                let totalheight = 0;
+                let count = 0;
+                let panelwidth =this.panelElement.width;
+                let panelheight = this.panelElement.height;
+                 
+                for (let panel of this.configuration.panels) {
+                    if(panel.widthmethod)
+                        total += panel.width;
+                    else
+                        count++;
+                } */
+
                 for(let panel of this.configuration.panels){
-                    let p = new Panel(this.page,panel);
+                    let p = new Panel(this.page,panel, this.panel);
                     p.create();
                     this.panel.appendChild(p.panel);
                 }
@@ -1243,7 +1334,8 @@ function rAFThrottle(func) {
             this.panel.innerHTML = "";
         }
         changeview(view){
-            this.clear();
+            //this.view.clear();
+            this.clear();            
             this.configuration.view = {
                 "config": view
             };
@@ -1289,6 +1381,7 @@ function rAFThrottle(func) {
             if(configuration.name){
                 if(configuration.name in Session.viewResponsitory){
                     this.configuration = Session.viewResponsitory[configuration.name];
+                    this.configuration = Object.assign({},this.configuration, configuration);
                     this.builview();
                     return; 
                 }
@@ -1352,7 +1445,10 @@ function rAFThrottle(func) {
             this.fireOnUnloading();
             // UI.Log("clear view",this);
             delete Session.views[this.id];
-       //     const elements = document.querySelectorAll(`[viewID="${this.id}"]`);
+            const items = document.querySelectorAll(`[viewID="${this.id}"]`);
+            for (let i = 0; i < items.length; i++) {
+                items[i].remove();
+            }
             const elements = document.querySelectorAll(`[id="${this.id}"]`);
             // UI.Log(elements)
             for (let i = 0; i < elements.length; i++) {
@@ -1388,7 +1484,7 @@ function rAFThrottle(func) {
                 that.create();
         }
         async create(){
-            
+
           //  // UI.Log(this, this.Panel.panelElement);
             Session.views[UI.safeId(this.id)] = this;
             //UI.Log(this.configuration)
@@ -1399,8 +1495,16 @@ function rAFThrottle(func) {
                 this.content = this.configuration.content;
                 this.view.innerHTML = UI.createFragment(this.createcontext(this.content));
             }else if(this.configuration.html){
+                this.buildviewwithresponse(this.configuration.html);
+                /*
+                UI.Log("create view with html", this.configuration.html)
                 this.content = this.configuration.html;
-                this.view.innerHTML = UI.createFragment(this.createcontext(this.content));
+                let innerHtml = this.createcontext(this.content);
+                //this.view.innerHTML = UI.createFragment(this.createcontext(this.content));
+                let fragmentcontent = UI.createFragment(this.createcontext(this.content));
+                UI.Log("create view with html", fragmentcontent)
+                this.view.innerHTML = innerHtml
+                */
             } else if(this.configuration.file)
                 this.loadfile(this.configuration.file)
             else if(this.configuration.form)
@@ -1421,7 +1525,7 @@ function rAFThrottle(func) {
             } 
                         
             if(this.configuration.script){
-                this.createScript(this.configuration.script);
+                this.createScriptContent(this.configuration.script);
             }
 
             if(this.configuration.inlinescript){
@@ -1433,6 +1537,13 @@ function rAFThrottle(func) {
 
             // UI.Log(this,this.onLoaded)
             
+            if(this.configuration.onloadedscript){
+                if(typeof this.configuration.onloadedscript == "string")
+                    this.createScriptContent(this.configuration.onloadedscript);
+                else
+                    this.configuration.onloadedscript();
+            }
+
             if(this.promiseCount == 0)
                 this.fireOnLoaded();
 
@@ -1465,17 +1576,25 @@ function rAFThrottle(func) {
             })
         }
         async loadviewconfigurationfromdocument(configuration){
-            
+            let that = this
             let url = "/collection/name"
+            
             let inputs ={
-                "name":configuration.config
+                collectionname: "UI_View",
+                data: {"name":configuration.name}
             }
-            UI.Log("loadviewconfigurationfromdocument:",url);
+            this.configuration ={};
+            UI.Log("loadviewconfigurationfromdocument:",url, this.configuration);
             UI.Post(url, inputs, function(response){
                 let result = JSON.parse(response);
-                UI.Log("loadviewconfigurationfromdocument:",response);
-                configuration = Object.assign(configuration,result.data);
-                this.builview();
+                
+                UI.Log("loadviewconfigurationfromdocument:",result,that.configuration);
+                that.configuration = Object.assign({}, that.configuration, result.data,configuration); 
+            //    UI.Log("loadviewconfigurationfromdocument:",this.configuration,configuration, result.data);
+            //    Object.assign({},this.configuration,result.data);
+                UI.Log("loadviewconfigurationfromdocument:",that.configuration,configuration, result.data);
+                
+                that.builview();
             }, function(error){
                 UI.ShowError("Load the data wrong:",error);
             })
@@ -1543,7 +1662,7 @@ function rAFThrottle(func) {
             const head = doc.querySelector('head');
             const body = doc.querySelector('body');
 
-            const styles = head.querySelectorAll('link');
+            const styles = doc.querySelectorAll('link');
             let scripts = doc.querySelectorAll('script[src]');
             
 
@@ -1554,6 +1673,7 @@ function rAFThrottle(func) {
                 }
                 else if(styles[i].textContent)
                     this.createStyleContent(styles[i].textContent);
+                styles[i].remove();
             }
             // UI.Log('scripts:',scripts)
             for (let i = 0; i < scripts.length; i++) {
@@ -1564,6 +1684,7 @@ function rAFThrottle(func) {
                 }
                 else if(scripts[i].textContent)
                     this.createScriptContent(scripts[i].textContent);
+                scripts[i].remove();
             }
             
             scripts = doc.querySelectorAll('script:not([src])');
@@ -1582,8 +1703,9 @@ function rAFThrottle(func) {
                 }
                 else if(scripts[i].textContent)
                     this.createScriptContent(scripts[i].textContent);
+                scripts[i].remove();
             }
-            
+            UI.Log(doc, body)
             this.view.appendChild(UI.createFragment(this.createcontext(body.innerHTML)));
 
         }
@@ -1649,7 +1771,23 @@ function rAFThrottle(func) {
             return s;
         }
         createScriptContent(Content) {
+            let that = this;
+            const scriptTagRegex = /<script\s+src="([^"]+)"><\/script>/g;
+            /*
+            let match = scriptTagRegex.exec(Content);
+            while (match) {
+                this.createScript(match[1]);
+                match = scriptTagRegex.exec(Content);
+            } 
+            */
+            Content = Content.replace(scriptTagRegex, (match, src) => {
+                that.createScript(src);
+                return "";
+              });
             
+            if(Content.trim() == "")
+                return;
+
             var s = document.createElement("script");
             s.type = "text/javascript";
             s.setAttribute("viewid", this.id);
@@ -1704,6 +1842,7 @@ function rAFThrottle(func) {
                     if(this.configuration.actions[this.outputs.action]){
                         var action = this.configuration.actions[this.outputs.action];
                         // UI.Log("selected action:",this.outputs.action,action)
+                        Session.snapshoot.sessionData.action ="";
                         if(action.type == "Transaction"){
                             
                             this.executeTransaction(action.code, Session.snapshoot.sessionData, this.updateoutputs, function(error){ UI.ShowError(error)});
@@ -1730,18 +1869,26 @@ function rAFThrottle(func) {
                                 for (var i=0; i<action.panels.length; i++){
                                     let viewpanel = action.panels[i].panel;
                                     let panel = Session.panels[UI.safeId(viewpanel)];
-                                    if(panel){
+                                    if(panel && action.panels[i].view){
                                         panel.changeview(action.panels[i].view);
                                     }
                                 }
                             }
                         }                    
                         else if(action.type == "page"){
+                            
+                            if(!action.page || action.page == ""){
+                                UI.Log("there is no page to load");
+                                return;
+                            }
                             this.Panel.page.clear();
                             if(action.page.toLowerCase().indexOf("home.json") !=-1){
                                 Session.clearstack();
                             }
-                            let page = new Page({"file":action.page});    
+                            if(action.page.endsWith(".json"))
+                                new Page({"file":action.page});
+                            else
+                                new Page({"name":action.page});    
                         }
                         else if(action.type == "script"){
                             if(action.script){
@@ -1856,7 +2003,7 @@ function rAFThrottle(func) {
         */    
         constructor(configuration, pageID = null) {
             super();
-            // UI.Log(configuration)
+            UI.Log("Page configuration:",configuration)
             this.configuration = configuration;
             this.page={};
             this.panels = [];
@@ -1870,12 +2017,14 @@ function rAFThrottle(func) {
             if(pageID != null && pageID in Session.pages && pageID != undefined){
                 // UI.Log("pageID:",pageID)
                 this.configuration = Session.pages[pageID].configuration;
+                this.configuration = Object.assign({},this.configuration,configuration);
                 this.id = pageID;
                 this.create();
             }
             else if(configuration.name in Session.pageResponsitory)
             {
                 this.configuration = Session.pageResponsitory[configuration.name];
+                this.configuration = Object.assign({},this.configuration,configuration);
                 let found = false;
                 
                 for(var key in Session.pages){
@@ -1890,15 +2039,38 @@ function rAFThrottle(func) {
                 }
                 if(!found)
                     this.init();
+            }            
+            else if(configuration.name && (configuration.file == undefined || configuration.file == "")){
+                this.loadconfig(configuration);
             }
             else if(configuration.file){
                 this.loadfile(configuration);
             }
             else{
                 Session.pageResponsitory[this.configuration.name] = this.configuration;
+
                 this.init();
             }
 
+        }
+        async loadconfig(configuration){
+            let that = this
+            let url = "/collection/name"
+            
+            let inputs ={
+                collectionname: "UI_Page",
+                data: {"name":configuration.name}
+            }
+
+            await UI.Post(url, inputs, function(response){
+                let result = JSON.parse(response);
+                that.configuration = Object.assign({},that.configuration,result.data,configuration);
+                UI.Log("loadconfig:",that.configuration,configuration, result.data);
+                that.init();
+            }, function(error){
+                UI.ShowError("Load the data wrong:",error);
+            })
+            
         }
         loadfile(configuration){
             if(configuration.file in Session.pageResponsitory){
@@ -1921,10 +2093,10 @@ function rAFThrottle(func) {
 
             let ajax = new UI.Ajax("");
             ajax.get(configuration.file,false).then((response) => {
-                let pagedata = JSON.parse(response);
-                Session.pageResponsitory[configuration.file] = pagedata;
+                let pagedata = JSON.parse(response);               
                 
                 this.configuration = pagedata;
+                Session.pageResponsitory[this.configuration.name || configuration.file] = pagedata;
                 this.init();
             }).catch((error) => {
                 UI.ShowError(error)
@@ -1946,11 +2118,7 @@ function rAFThrottle(func) {
         }
         async create(){  
             this.configuration.title = this.configuration.title || this.configuration.name;     
-
-            if(this.configuration.name == "IAC Home"){
-                Session.clearstack();
-            }
-
+  
             if(this.configuration.onLoad){
 
                 await this.executeTransaction(this.configuration.onLoad,data,Session.snapshoot.sessionData, this.updatesession, function(error){
@@ -2033,8 +2201,18 @@ function rAFThrottle(func) {
 
             Session.pages[this.id] = this;
             Session.CurrentPage = this;
-                        
-            let stackitem = Session.createStackItem(this);                 
+
+            if(this.configuration.name == "IAC Home" && (Session.snapshoot.sessionData.menu_parentid == "" 
+                || Session.snapshoot.sessionData.menu_parentid == undefined || Session.snapshoot.sessionData.menu_parentid == null 
+                || Session.snapshoot.sessionData.menu_parentid == "0" )){
+               
+                Session.clearstack();
+            }
+
+            let stackitem = Session.createStackItem(this);   
+            
+            UI.Log("push to stack:",stackitem)
+
             Session.pushToStack(stackitem);
 
             new Pageheader(page)
@@ -2123,12 +2301,12 @@ function rAFThrottle(func) {
             new Page({"file":"pages/home.json"});
         }
         clear(){
-            /*this.page.innerHTML = "";
-            this.panels.each((panel) => {
-                panel.clear();
-            }); */
+            /*this.page.innerHTML = ""; */       
             
             let that =this;
+            this.panels.forEach((panel) => {
+                panel.clear();
+            }); 
             window.removeEventListener("resize", that.resize)
             this.pageElement.remove();
             this.pageElement = null;

@@ -26,7 +26,7 @@
         let loginprocess = false;
         if(myParam == null || !myParam.endsWith("logon.json")){
             
-            if(sessionStorage.getItem(UI.userlogin.sessionkey) == null){
+            if(localStorage.getItem(UI.userlogin.sessionkey) == null){
                 window.location.href = "login.html";
                 loginprocess = true;
 

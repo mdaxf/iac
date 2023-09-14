@@ -69,6 +69,7 @@
     var script_editor;
     var styles_editor;
     var viewdata={};
+    var viewID = $Context.inputs.selectedKey;
     $Context.onLoaded(function(){
         $('code_result').css('height', $(window).height() - 200);
         $('#code_result').hide();
@@ -156,10 +157,10 @@
         if(styles_editor)
             styles_editor.setSize(width, height);
 
-        if($Context.inputs.selectedKey !=""){
+        if(viewID !=""){
             let inputs={
                 collectionname:'UI_View',
-                data: {"_id": $Context.inputs.selectedKey},
+                data: {"_id": viewID},
                 operation: "detail"
             }
 
@@ -168,6 +169,7 @@
                     UI.Log(response);
                     let result = JSON.parse(response);
                     viewdata = result.data;
+                   
                     $('#name').val(viewdata.name);
                     $('#title').val(viewdata.title);
                     $('#revision').val(viewdata.revision);
@@ -195,7 +197,7 @@
         let html = html_editor.getValue();
         let script = script_editor.getValue();
         let styles = styles_editor.getValue();
-                
+        viewdata["_id"] = viewID;        
         viewdata.name = $('#name').val();
         viewdata.title = $('#title').val();
         viewdata.revision = $('#revision').val();
@@ -247,7 +249,7 @@
         let callinputs = {
             collectionname:  "UI_View",
             data: viewdata,
-            keys: ["name"],
+            keys: ["_id"],
             operation: "update"
         }
         UI.Log(callinputs)
@@ -255,6 +257,7 @@
         UI.Post('/collection/update',callinputs, function(response){
             let result = JSON.parse(response);
             UI.Log(result);
+            viewID = result.data.id;
             UI.ShowMessage('View saved successfully','Success');
         }, function(error){
             UI.Log(error);

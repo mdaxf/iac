@@ -145,6 +145,10 @@ func (c *CollectionController) GetDetailCollectionDatabyID(ctx *gin.Context) {
 		return
 	}
 
+	if value == nil || value == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid id"})
+		return
+	}
 	/*	jsonData, err := json.Marshal(list)
 
 			if err != nil {
@@ -289,7 +293,7 @@ func (c *CollectionController) UpdateCollectionData(ctx *gin.Context) {
 		}
 
 		list["system"] = system
-
+		delete(list, "_id")
 		iLog.Debug(fmt.Sprintf("Insert collection to respository: %s", collectionName))
 		insertResult, err := documents.DocDBCon.InsertCollection(collectionName, list)
 		if err != nil {
@@ -298,6 +302,7 @@ func (c *CollectionController) UpdateCollectionData(ctx *gin.Context) {
 			return
 		}
 		id = insertResult.InsertedID.(primitive.ObjectID).Hex()
+		//	list["_id"] = id
 
 	} else if list != nil {
 
@@ -328,12 +333,57 @@ func (c *CollectionController) UpdateCollectionData(ctx *gin.Context) {
 			return
 		}
 	}
+	rdata := make(map[string]interface{})
+	rdata["id"] = id
+
 	result := map[string]interface{}{
-		"data":   list,
+		"data":   rdata,
 		"status": "Success",
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": result})
 }
+func (c *CollectionController) DeleteCollectionDatabyID(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "DeleteCollectionData"}
+	iLog.Debug(fmt.Sprintf("delete collection data to respository"))
+	var data CollectionData
+	if err := ctx.BindJSON(&data); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	collectionName := data.CollectionName
+	operation := data.Operation
+	list := data.Data
+	value := list["_id"]
+
+	iLog.Debug(fmt.Sprintf("Collection Name: %s, operation: %s data: %s", collectionName, operation, list))
+	if collectionName == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid collection name"})
+		return
+	}
+
+	if value == nil || value == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid id"})
+		return
+	}
+
+	err := documents.DocDBCon.DeleteItemFromCollection(collectionName, value.(string))
+
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Delete item from collection error!"})
+		return
+	}
+
+	rdata := make(map[string]interface{})
+	rdata["id"] = value
+	result := map[string]interface{}{
+		"data":   rdata,
+		"status": "Success",
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": result})
+}
+
 func (c *CollectionController) buildProjectionFromJSON(jsonData []byte, converttype string) (bson.M, error) {
 	// Parse JSON into a Go map
 	var jsonMap map[string]interface{}

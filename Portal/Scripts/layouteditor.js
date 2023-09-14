@@ -294,8 +294,8 @@ var LayoutEditor = {
               widthunit:  widthunit,
               heightunit:  heightunit,
               iscontainer: iscontainer,
-              locked: !iscontainer,
-              noMove: true,
+            //  locked: !iscontainer,
+            //  noMove: true,
               id:  paneldata.hasOwnProperty('id')? paneldata.id: UI.generateUUID(),
               name: paneldata.hasOwnProperty('name')? paneldata.name:'panel',
               content: paneldata.hasOwnProperty('name')?paneldata.name:'panel',
@@ -1066,7 +1066,8 @@ var LayoutEditor = {
           
           let cfg = {
             "file":"templates/datalist.html", 
-            "name": "View List", 
+            "name": "Data List", 
+            "type": "document", 
             "actions": {
                 "SELECT":{"type": "script", "next": "","page":"","panels":[], "script": "selectitem"},
                 "CANCEL":{"type": "script", "next": "","page":"","panels":[], "script": "cancelitem"},
@@ -1161,16 +1162,56 @@ var LayoutEditor = {
               {attrs:{value: 'script', innerHTML: 'Script',lngcode: 'Script'}}, 
               {attrs:{value: 'view', innerHTML: 'View',lngcode: 'View'}}],
           }
-          new UI.Selection(container,attrs);
+          let events = {
+            "change": function(){
+              let type = $('#type').val();
+                $('#trancode_section').prop("disabled", true);
+                $('#actionpage_section').prop("disabled", true);
+                $('#script').prop("disabled", true);
+                $('#view').prop("disabled", true);
+              if(type == 'Transaction')
+                $('#trancode_section').prop("disabled", false);
+              else if( type == 'page')
+                $('#actionpage_section').prop("disabled", false);
+              else if( type == 'script')
+                $('#script').prop("disabled", false);
+              else if( type == 'view')
+                $('#view').prop("disabled", false);
+            }
+          }
+          new UI.Selection(container,attrs,events);
 
           attrs={for: 'trancode',innerHTML: 'TranCode',lngcode: 'TranCode'}
           new UI.FormControl(container, 'label',attrs);
+
+          let row = (new UI.FormControl(container, 'div',{id:'trancode_section',style:"display:row; width:100%" })).control;
+
           attrs={id: 'trancode',    type: 'text',      value: action.code || '',   placeholder: 'Page',       style: 'width: 100%;'      }
-          new UI.FormControl(container, 'input',attrs);
+          new UI.FormControl(row, 'input',attrs);
+          events={"click": function(){
+            LayoutEditor.SelectEntity("TranCode")
+          }}
+          new UI.FormControl(row, 'li', {class: "fa fa-plus",style: 'width: 50%;'}, events)
+          events={"click": function(){
+            LayoutEditor.OpenEntity("TranCode")
+          }}
+          new UI.FormControl(row, 'li', {class: "fa fa-link",style: 'width: 50%;'}, events)
+          new UI.FormControl(container, 'br');
           attrs={for: 'actionpage',innerHTML: 'Page'}
           new UI.FormControl(container, 'label',attrs);
+
+          row = (new UI.FormControl(container, 'div',{id:'actionpage_section',style:"display:row; width:100%" })).control;
           attrs={id: 'actionpage',    type: 'text',      value: action.page || '',   placeholder: 'Page',       style: 'width: 100%;'      }
-          new UI.FormControl(container, 'input',attrs);
+          new UI.FormControl(row, 'input',attrs);
+          events={"click": function(){
+            LayoutEditor.SelectEntity("Page")
+          }}
+          new UI.FormControl(row, 'li', {class: "fa fa-plus",style: 'width: 50%;'}, events)
+          events={"click": function(){
+            LayoutEditor.OpenEntity("Page")
+          }}
+          new UI.FormControl(row, 'li', {class: "fa fa-link",style: 'width: 50%;'}, events)
+
           attrs={      for: 'script',         innerHTML: 'Script'       }
           new UI.FormControl(container, 'label',attrs);
           attrs={     id: 'script',            type: 'text',          value: action.script || '',            placeholder: 'Script',            style: 'width: 100%;'          }
@@ -1190,7 +1231,7 @@ var LayoutEditor = {
             innerHTML: 'Save',
             class: 'btn btn-primary'
           }
-          let events={
+          events={
             "click": function(){
               UI.Log('click')
               
@@ -1236,6 +1277,26 @@ var LayoutEditor = {
             }
           }
           new UI.FormControl(container, 'button',attrs, events);
+          let type = $('#type').val();
+          $('#trancode_section').prop("disabled", true);
+          $('#actionpage_section').prop("disabled", true);
+          $('#script').prop("disabled", true);
+          $('#view').prop("disabled", true);
+          if(type == 'Transaction')
+            $('#trancode_section').prop("disabled", false);
+          else if( type == 'page')
+            $('#actionpage_section').prop("disabled", false);
+          else if( type == 'script')
+            $('#script').prop("disabled", false);
+          else if( type == 'view')
+            $('#view').prop("disabled", false);
+
+        },
+        SelectEntity: function(entity){
+
+        },
+        OpenEntity: function(entity){
+
         },
         ShowPageStructure: function(){
 
@@ -1320,11 +1381,21 @@ var LayoutEditor = {
                   switch(key){
                     case 'Add Subpanel':   
                       UI.Log('Add Subpanel:', nodekey, gridNode,gridNode.grid)
-                      let subpanelname = prompt("Please enter subpanel name", "");
+                     let subpanelname = prompt("Please enter subpanel name", "");
                       if (subpanelname != null) {
+                       /*  let subpanel = {x:0, y:100, content:subpanelname, w:10, h:100, id:UI.generateUUID(), name:subpanelname,width:100,height:100,view:{},class:'layout_panel'}
+                        let panelpath = nodekey + "/panels";
+                        let panels = LayoutEditor.JsonObj.addNode(panelpath, subpanel); */
                         let subpanel = {x:0, y:100, content:subpanelname, w:10, h:100, id:UI.generateUUID(), name:subpanelname,width:100,height:100,view:{},class:'layout_panel'}
                         let panelpath = nodekey + "/panels";
-                        let panels = LayoutEditor.JsonObj.addNode(panelpath, subpanel);
+                        let panels = LayoutEditor.JsonObj.getNode(panelpath);
+                        if(panels == null){
+                          panels = LayoutEditor.JsonObj.addNode(nodekey, {panels:[subpanel]});
+                        }
+                        else{
+                          panels = LayoutEditor.JsonObj.addNode(panelpath, subpanel);
+                        }
+                        
                         LayoutEditor.generateLayout();
 
                         LayoutEditor.ShowPageStructure();
@@ -1478,6 +1549,15 @@ var LayoutEditor = {
                     case 'Remove':
                       
                       break;
+                    case 'Goto View':
+                      let nodedata = (LayoutEditor.JsonObj.getNode(nodekey)).value;
+                      let viewname = nodedata.name;
+                      
+                      Session.snapshoot.sessionData.selectedViewName = viewname;
+                      Session.snapshoot.sessionData.OldselectedKey = Session.snapshoot.sessionData.selectedKey;
+                      Session.snapshoot.sessionData.selectedKey = "";
+                      new UI.Page({"name": "View Editor"})
+                    break;
                   }
 
                 }, 
@@ -1492,6 +1572,17 @@ var LayoutEditor = {
                     icon: 'fa-link',
                     disabled:false
                   },
+                  'Goto View':{
+                    name: 'Goto View',
+                    icon: 'fa-regular fa-folder-open',
+                    disabled:function(){
+                      let nodedata = (LayoutEditor.JsonObj.getNode(nodekey)).value;
+                      if(nodedata.hasOwnProperty('name') && nodedata.hasOwnProperty('type') && nodedata.type == 'document'){
+                        return false
+                      }
+                      return true;
+                    }
+                  },
                   'Add Action':{
                     name: 'Add Action',
                     icon: 'fa-plus',
@@ -1502,12 +1593,13 @@ var LayoutEditor = {
                     icon: 'fa-minus',
                     disabled: function(){
                       let nodedata = (LayoutEditor.JsonObj.getNode(nodekey)).value;
-                      if(nodedata.hasOwnProperty('actions')){
-                        if (nodedata.actions.length > 0)
-                            return true;
+                      if(nodedata.hasOwnProperty('name')){
+                        return false
                       }
+                      return true;
                     }
-                  },
+                  },                
+
                   "sep1":'------------',
                   'Quit':{
                     name: 'Quit',
@@ -1699,8 +1791,7 @@ var LayoutEditor = {
           UI.Log("get the panel tree node:", panel, parent)
           
           if(panel.hasOwnProperty('iscontainer') && panel.iscontainer == true){
-            if(panel.hasOwnProperty('panels')){
-              let key = parentkey + "/{'id':'" + panel.id + "'}";
+            let key = parentkey + "/{'id':'" + panel.id + "'}";
               let data = {
                 id: panel.id,
                 parent: parent,
@@ -1711,6 +1802,7 @@ var LayoutEditor = {
               }
               panellist.push(data); 
 
+            if(panel.hasOwnProperty('panels')){
               for(var i=0;i<panel.panels.length;i++){
                 let childpanels = LayoutEditor.getChildPanels(panel.id, panel.panels[i], key + "/panels");
                 panellist = panellist.concat(childpanels);

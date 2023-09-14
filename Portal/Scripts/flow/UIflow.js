@@ -2109,6 +2109,7 @@ var ProcessFlow = (function(){
 			section.style.width = "100%"
 			section.style.height = "100%"
 			this.sectionwrapper = wrapper
+			this.wrapper = wrapper
 
 			let attrs=[{
 				'class':'processflow_container uiflow_process_flow_menubar_container',
@@ -2116,7 +2117,7 @@ var ProcessFlow = (function(){
 			},
 			{
 				'class':'processflow_container',
-				'id':this.wrapper,
+				'id':this.wrapper+"_flow_container",
 				'style':'width:100%;height:100%;display:flex'
 			},
 			{
@@ -2133,7 +2134,7 @@ var ProcessFlow = (function(){
 			}]
 			new UI.Builder(section, attrs)
 			this.menu_panel = document.getElementById(this.wrapper+'_flow_menu_panel')
-			this.wrappercontainer = document.getElementById(this.wrapper)
+			this.wrappercontainer = document.getElementById(this.wrapper+"_flow_container")
 			this.property_panel = document.getElementById(wrapper+'_flow_property_panel')
 			this.item_panel = document.getElementById(wrapper+'_flow_items_panel')
 
@@ -2905,7 +2906,7 @@ var ProcessFlow = (function(){
 		}
 		
 		zoom(){
-			console.log(this.wrapper,this.container,$(this.container))
+		//	console.log(this.wrapper,this.container,$(this.container))
 			this.svgZoom = svgPanZoom($(this.wrappercontainer).find('svg')[0], {
 			  center: true,
 			  zoomEnabled: true,

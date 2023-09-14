@@ -47,10 +47,10 @@
         $(document).ready(function(){
           console.log("Logon page loaded")
           
-          isLogged = UI.userlogin.checkiflogin(function(){
+          UI.userlogin.checkiflogin(function(){
             window.location.href = 'UIPage.html';
           }, function(){
-            sessionStorage.clear();
+            localStorage.clear();
             console.log("not logged")
           });
         })

@@ -4,7 +4,7 @@
     "datasourcetype": "collection",
     "datasource": "trancode",
     "listfields":["trancodename", "version", "status", "description","firstfuncgroup","_id"],
-    "keyfield":"trancodename",
+    "keyfield":"_id",
     "definitions": {
         "Trancode": {
             "type": "object",

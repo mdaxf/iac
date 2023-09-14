@@ -102,6 +102,10 @@
           "method": "POST",
           "path": "/name",
           "handler": "GetDetailCollectionDatabyName"
+        },{
+          "method": "POST",
+          "path": "/delete",
+          "handler": "DeleteCollectionDatabyID"
         }
       ]},
     {

@@ -262,7 +262,7 @@ customElements.define('ui-tabulator', class extends HTMLElement {
         let ajax = new UI.Ajax("");
         if(this.data_method.toLocaleLowerCase() == "get"){
             ajax.get(this.url, this.inputs).then((response) => {
-                Tabulator_Data = JSON.parse(response)["data"];
+                let Tabulator_Data = JSON.parse(response)["data"];
                 //    console.log(response,data)
                this.Table.setData(Tabulator_Data);
             }).catch((error) => {
@@ -270,7 +270,7 @@ customElements.define('ui-tabulator', class extends HTMLElement {
             })
         }else{
             ajax.post(this.url, this.inputs).then((response) => {
-                Tabulator_Data = JSON.parse(response)["data"];
+                let Tabulator_Data = JSON.parse(response)["data"];
                 //    console.log(response,data)
                this.Table.setData(Tabulator_Data);
             }).catch((error) => {

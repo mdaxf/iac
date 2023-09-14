@@ -68,6 +68,20 @@
 
             let ajax = new UI.Ajax("");
             let inputs={
+              collectionname:'Transaction_Code',
+              data: {"_id": $Context.inputs.selectedID},
+              operation: "detail"
+            }
+            console.log(inputs)
+            ajax.post('/collection/id',inputs).then((response) => {
+                console.log(JSON.parse(response))
+                let result = JSON.parse(response)                
+                loadProcessFlow(result.data)
+          		UI.ShowMessage("Load BPM data Successful!", "Success")
+            }).catch((error) => {
+                UI.ShowError(error)
+            })
+            /* let inputs={
                 "code": $Context.inputs.selectedname
             }
             console.log(inputs)
@@ -77,7 +91,7 @@
           
             }).catch((error) => {
                 console.log(error);
-            })
+            }) */
         });
 
         function loadProcessFlow(response){
