@@ -34,8 +34,10 @@ var err error
 var ilog logger.Log
 
 func initialize() {
+
 	ilog = logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Initialization"}
 	initializeloger()
+	ilog.Debug("initialize logger")
 	config.SessionCacheTimeout = 1800
 	initializecache()
 	initializeDatabase()
@@ -50,6 +52,19 @@ func initialize() {
 func initializeDatabase() {
 
 	ilog.Debug("initialize Database")
+	databaseconfig := GlobalConfiguration.DatabaseConfig
+
+	if databaseconfig["type"] == nil {
+		ilog.Error(fmt.Sprintf("initialize Database error: %s", "DatabaseType is missing"))
+		return
+	}
+	if databaseconfig["connection"] == nil {
+		ilog.Error(fmt.Sprintf("initialize Database error: %s", "DatabaseConnection is missing"))
+		return
+	}
+
+	dbconn.DatabaseType = databaseconfig["type"].(string)
+	dbconn.DatabaseConnection = databaseconfig["connection"].(string)
 
 	err := dbconn.ConnectDB()
 	if err != nil {
@@ -58,26 +73,76 @@ func initializeDatabase() {
 }
 
 func initializecache() {
+	/*
+		type cacheconfigstruct struct {
+			Adapter  string
+			Interval int
+		}
+		var cache cacheconfigstruct
 
+		err := json.Unmarshal(cacheConfig, &cache)
+		if err != nil {
+			ilog.Error(fmt.Sprintf("initialize cache error: %s", err.Error()))
+		} */
 	ilog.Debug("initialize Chche")
 
-	config.SessionCache, err = cache.NewCache("memory", `{"interval":60}`)
+	cacheConfig := GlobalConfiguration.CacheConfig
+
+	ilog.Debug(fmt.Sprintf("initialize cache, %v", cacheConfig))
+
+	if cacheConfig["adapter"] == nil {
+		ilog.Error(fmt.Sprintf("initialize cache error: %s", "CacheType is missing"))
+		cacheConfig["adapter"] = "memory"
+	}
+	if cacheConfig["interval"] == nil {
+		ilog.Error(fmt.Sprintf("initialize cache error: %s", "CacheTTL is missing"))
+		cacheConfig["interval"] = 60
+	}
+
+	config.SessionCache, err = cache.NewCache(cacheConfig["adapter"].(string), fmt.Sprintf(`{"interval":%v}`, int(cacheConfig["interval"].(float64))))
+	//config.SessionCache, err = cache.NewCache("memory", `{"interval":60}`)
 	if err != nil {
 		ilog.Error(fmt.Sprintf("initialize cache error: %s", err.Error()))
 	}
 }
 
 func initializeloger() {
-	logger.Init()
-	ilog.Debug("initialize logger")
+	if GlobalConfiguration.LogConfig == nil {
+		fmt.Errorf("log configuration is missing")
+	}
+	fmt.Println(GlobalConfiguration.LogConfig)
+	logger.Init(GlobalConfiguration.LogConfig)
+
 }
 
 func initializedDocuments() {
 
-	ilog.Debug("initialize Documents")
-	var DatabaseType = "mongodb"
-	var DatabaseConnection = "mongodb://localhost:27017"
-	var DatabaseName = "IAC_CFG"
+	if GlobalConfiguration.DocumentConfig == nil {
+		fmt.Errorf("documentdb configuration is missing")
+		return
+	}
+
+	documentsConfig := GlobalConfiguration.DocumentConfig
+
+	ilog.Debug(fmt.Sprintf("initialize Documents, %v", documentsConfig))
+
+	var DatabaseType = documentsConfig["type"].(string)             // "mongodb"
+	var DatabaseConnection = documentsConfig["connection"].(string) //"mongodb://localhost:27017"
+	var DatabaseName = documentsConfig["database"].(string)         //"IAC_CFG"
+
+	if DatabaseType == "" {
+		ilog.Error(fmt.Sprintf("initialize Documents error: %s", "DatabaseType is missing"))
+		return
+	}
+	if DatabaseConnection == "" {
+		ilog.Error(fmt.Sprintf("initialize Documents error: %s", "DatabaseConnection is missing"))
+		return
+	}
+	if DatabaseName == "" {
+		ilog.Error(fmt.Sprintf("initialize Documents error: %s", "DatabaseName is missing"))
+		return
+	}
+
 	documents.ConnectDB(DatabaseType, DatabaseConnection, DatabaseName)
 
 }

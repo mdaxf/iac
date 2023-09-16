@@ -1,0 +1,141 @@
+{
+  "port": 8080,
+  "controllers": [
+    {
+      "path": "user", 
+      "module": "UserController",    
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/users",
+          "handler": "List"
+        },
+        {
+          "method": "GET",
+          "path": "/image",
+          "handler": "Image"
+        },
+        {
+          "method": "GET",
+          "path": "/menus",
+          "handler": "UserMenus"
+        },
+        {
+          "method": "POST",
+          "path": "/login",
+          "handler": "Login"
+        },
+        {
+          "method": "POST",
+          "path": "/changepwd",
+          "handler": "ChangePassword"
+        },
+        {
+          "method": "POST",
+          "path": "/logout",
+          "handler": "Logout"
+        }
+      ]
+    },
+    {
+      "path": "function",
+      "module": "FunctionController",    
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/test",
+          "handler": "TestExecFunction"
+        }
+      ]
+    },
+    {
+      "path": "sqldata",
+      "module": "DBController",    
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/query",
+          "handler": "GetDatabyQuery"
+        },
+        {
+          "method": "POST",
+          "path": "/get",
+          "handler": "GetDataFromTables"
+        },
+        {
+          "method": "POST",
+          "path": "/update",
+          "handler": "UpdateDataToTable"
+        },
+        {
+          "method": "POST",
+          "path": "/insert",
+          "handler": "InsertDataToTable"
+        },
+        {
+          "method": "POST",
+          "path": "/delete",
+          "handler": "DeleteDataFromTable"
+        }
+      ]},
+    {
+      "path": "collection",
+      "module": "CollectionController",    
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/list",
+          "handler": "GetListofCollectionData"
+        },{
+          "method": "POST",
+          "path": "/update",
+          "handler": "UpdateCollectionData"
+        },{
+          "method": "POST",
+          "path": "/detail",
+          "handler": "GetDetailCollectionData"
+        },{
+          "method": "POST",
+          "path": "/id",
+          "handler": "GetDetailCollectionDatabyID"
+        },{
+          "method": "POST",
+          "path": "/name",
+          "handler": "GetDetailCollectionDatabyName"
+        },{
+          "method": "POST",
+          "path": "/delete",
+          "handler": "DeleteCollectionDatabyID"
+        }
+      ]},
+    {
+      "path": "trancode",
+      "module": "TranCodeController",    
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/execute",
+          "handler": "ExecuteTranCode"
+        },{
+          "method": "GET",
+          "path": "/list",
+          "handler": "GetTranCodeListFromRespository"
+        },{
+          "method": "POST",
+          "path": "/detail",
+          "handler": "GetTranCodeDetailFromRespository"
+        }
+        ,{
+          "method": "POST",
+          "path": "/update",
+          "handler": "UpdateTranCodeToRespository"
+        }
+      ]
+    }  
+  ],
+  "portal":{
+    "path":"/portal",
+    "home":"/portal/UIPage.html",
+    "logon":"/portal/UIPage.html?page=logon"
+  }
+}

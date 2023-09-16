@@ -25,10 +25,10 @@
 
 
         UI.HomeMenu.loadMenus(parentId, function(jdata){
-         //   console.log("menu data:", jdata);
+            console.log("menu data:", jdata);
             let container = document.querySelector(".ui-page-menu");
             for(var i=0;i<jdata.length;i++){
-              
+                
                 let card = document.createElement("div");
                 card.classList.add("ui-page-menu-item");
                 card.setAttribute("data-key",jdata[i].Name);
@@ -40,9 +40,31 @@
 
                 let favor = document.createElement("div");
                 favor.classList.add("remove-from-favs");
-                let icon = document.createElement("img");
-                icon.classList.add("page-icon");
-                icon.setAttribute("src",jdata[i].icon==undefined? "/portal/images/defaultitem.png":jdata[i].icon);
+                var icon = null
+                if (jdata[i].Icon != undefined && jdata[i].Icon != null && jdata[i].Icon !=""){                
+                  UI.Log(jdata[i].Icon)
+                //  jdata[i].Icon = jdata[i].Icon.replace(/\\/g, "/");
+                  if ((jdata[i].Icon).startsWith('<i')){
+                    var tempElement = document.createElement('div');
+                    // Set the HTML content of the temporary element to the string
+                    tempElement.innerHTML = jdata[i].Icon;
+                    let classlist = (tempElement.firstChild.getAttribute('class')).split(" ");
+                   
+                    icon = document.createElement("i")
+                    for(var j=0;j<classlist.length;j++){
+                      if(classlist[j].trim() !="")
+                        icon.classList.add(classlist[j]);
+                    }
+                    icon.classList.add("page-icon");
+                  }
+                }
+                
+                if(icon == undefined || icon == null){
+                //  jdata[i].icon = jdata[i].icon.replace(/\\/g, "/");
+                  icon = document.createElement("img");
+                  icon.classList.add("page-icon");
+                  icon.setAttribute("src",jdata[i].Icon==undefined || jdata[i].Icon==''? "/portal/images/defaultitem.png":jdata[i].Icon);
+                }
                 let header = document.createElement("div");
                 header.classList.add("page-title");
                 header.innerText = jdata[i].Name;
@@ -62,8 +84,8 @@
                       let view ={}
                       view.name = "Portal Menu";
                       view.file ="templates/home.html";
-                      view.type = "document"
-                    //  view.config = "Portal Menu"
+                   //   view.type = "document"
+                   //   view.config = "Portal Menu"
                       let inputs={}                      
                       inputs.menu_parentid = $(this).attr("data-pageid");
                       inputs.menu_viewonly = $(this).attr("data-viewonly");

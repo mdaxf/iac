@@ -30775,6 +30775,15 @@ span.k-widget.iac-ui-ctdatetime > span.k-picker-wrap.iac-ui-groupsolid > *[disab
     /* vertical-align: middle; */
     margin-left: 5px;
   }
+  .ui-page-menu-item i.page-icon {
+    position: relative;
+    height: 30px;
+    width: 30px;
+    font-size: 30px; 
+    /* margin-top: 15px; */
+    /* vertical-align: middle; */
+    margin-left: 5px;
+  }
   .ui-page-menu-item .page-title {
     max-height: 35px;
     overflow: hidden;

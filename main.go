@@ -34,6 +34,7 @@ import (
 
 var wg sync.WaitGroup
 var router *gin.Engine
+var GlobalConfiguration *GlobalConfig
 
 func main() {
 	// Load configuration from the file
@@ -42,6 +43,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 		//	ilog.Error("Failed to load configuration: %v", err)
+	}
+
+	GlobalConfiguration, err = loadGlobalConfig()
+
+	if err != nil {
+		log.Fatalf("Failed to load global configuration: %v", err)
+		//	ilog.Error("Failed to load global configuration: %v", err)
 	}
 
 	initialize()

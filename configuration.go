@@ -49,10 +49,11 @@ type Portal struct {
 	Logon string `json:"logon"`
 }
 
-var gconfig = "config.json"
+var apiconfig = "apiconfig.json"
+var gconfig = "configuration.json"
 
 func loadConfig() (*Config, error) {
-	data, err := ioutil.ReadFile(gconfig)
+	data, err := ioutil.ReadFile(apiconfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read configuration file: %v", err)
 	}
@@ -63,4 +64,30 @@ func loadConfig() (*Config, error) {
 	}
 
 	return &config, nil
+}
+
+func loadGlobalConfig() (*GlobalConfig, error) {
+	jsonFile, err := ioutil.ReadFile(gconfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read configuration file: %v", err)
+	}
+
+	// Create a map to hold the JSON data
+	var jsonData GlobalConfig
+
+	// Unmarshal the JSON data into the map
+	if err := json.Unmarshal(jsonFile, &jsonData); err != nil {
+
+		return nil, fmt.Errorf("failed to parse configuration file: %v", err)
+	}
+	fmt.Println(jsonFile, jsonData)
+	return &jsonData, nil
+}
+
+type GlobalConfig struct {
+	LogConfig          map[string]interface{}   `json:"log"`
+	DocumentConfig     map[string]interface{}   `json:"documentdb"`
+	DatabaseConfig     map[string]interface{}   `json:"database"`
+	AltDatabasesConfig []map[string]interface{} `json:"altdatabases"`
+	CacheConfig        map[string]interface{}   `json:"cache"`
 }

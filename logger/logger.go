@@ -3,6 +3,7 @@ package logger
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/mdaxf/iac/framework/logs"
 )
@@ -32,47 +33,92 @@ type Log struct {
 	User           string
 }
 
-func Init() {
+func Init(config map[string]interface{}) {
 
 	FrameworkLogger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
-	FrameworkLogger.SetLogger(logs.AdapterConsole)
+	//FrameworkLogger.SetLogger(logs.AdapterConsole)
+	setLogger(FrameworkLogger, config, "Framework")
 
 	PortalLogger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
-	PortalLogger.SetLogger(logs.AdapterConsole)
+	//PortalLogger.SetLogger(logs.AdapterConsole)
+	setLogger(PortalLogger, config, "Portal")
 
 	//	PortalLogger.Debug("this is a debug message")
 
 	APILogger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
-	APILogger.SetLogger(logs.AdapterConsole)
-
+	//APILogger.SetLogger(logs.AdapterConsole)
+	setLogger(APILogger, config, "API")
 	//	APILogger.Debug("this is a debug message")
 
 	DatabaseLogger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
-	DatabaseLogger.SetLogger(logs.AdapterConsole)
-
+	//DatabaseLogger.SetLogger(logs.AdapterConsole)
+	setLogger(DatabaseLogger, config, "Database")
 	//	DatabaseLogger.Debug("this is a debug message")
 
 	TranCodeLogger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
-	TranCodeLogger.SetLogger(logs.AdapterConsole)
-
+	//TranCodeLogger.SetLogger(logs.AdapterConsole)
+	setLogger(TranCodeLogger, config, "BPM")
 	//	TranCodeLogger.Debug("this is a debug message")
 
 	JobLogger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
-	JobLogger.SetLogger(logs.AdapterConsole)
-
+	//JobLogger.SetLogger(logs.AdapterConsole)
+	setLogger(JobLogger, config, "Job")
 	//	JobLogger.Debug("this is a debug message")
 
 	Logger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
-	Logger.SetLogger(logs.AdapterConsole)
-
+	//Logger.SetLogger(logs.AdapterConsole)
+	setLogger(Logger, config, "Log")
 	//logs.SetLogger(logs.AdapterMultiFile, ``{"filename":"test.log","separate":["emergency", "alert", "critical", "error", "warning", "notice", "info", "debug"]}``)
+}
+
+func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype string) {
+	logertype := config["type"]
+	if logertype == nil {
+		logertype = "console"
+	}
+	levellist := config["level"].(string)
+	if levellist == "" {
+		levellist = "emergency,alert,critical,error,warning"
+	}
+	levels := strings.Split(levellist, ",")
+
+	level := logs.LevelDebug
+
+	filename := config["filename"]
+	if filename == nil {
+		filename = "c:\\temp\\iac.log"
+	}
+	maxlines := config["maxlines"] //maxlines := config["maxlines"].(int)
+	if maxlines == nil {
+		maxlines = 1000000
+	}
+	maxsize := config["maxsize"]
+	if maxsize == nil {
+		maxsize = 1024 * 1024 * 1024
+	}
+
+	switch logertype {
+	case "console":
+		loger.SetLogger(logs.AdapterConsole)
+	case "file":
+		loger.SetLogger(logs.AdapterFile, fmt.Sprintf(`{"level":%d,"filename":"%s","maxlines":%d,"maxsize":%d, "separate":%s}`, level, filename, maxlines, maxsize, levels))
+	case "multifile":
+		loger.SetLogger(logs.AdapterMultiFile, fmt.Sprintf(`{"filename":"%s","maxlines":%d,"maxsize":%d, "separate":%s}`, filename, maxlines, maxsize, levels))
+	case "smtp":
+		loger.SetLogger(logs.AdapterMail, fmt.Sprintf(`{"username":"%s","password":"%s","host":"%s","subject":"%s","sendTos":"%s","level":%d}`, config["username"], config["password"], config["host"], config["subject"], config["sendTos"], level))
+	case "conn":
+		loger.SetLogger(logs.AdapterConn, fmt.Sprintf(`{"net":"%s","addr":"%s","level":%d}`, config["net"], config["addr"], level))
+	default:
+		loger.SetLogger(logs.AdapterConsole)
+	}
+
 }
 
 func customFormatter(lm *logs.LogMsg) string {

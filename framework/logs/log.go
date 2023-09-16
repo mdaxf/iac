@@ -155,7 +155,7 @@ func NewLogger(channelLens ...int64) *IACLogger {
 	}
 	bl.flushChan = make(chan struct{}, 1)
 	bl.closeChan = make(chan struct{}, 1)
-	bl.setLogger(AdapterConsole)
+	//	bl.setLogger(AdapterConsole)
 	return bl
 }
 

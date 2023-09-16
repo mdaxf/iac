@@ -148,7 +148,7 @@
                             $('#mylinkeddataGrid_datatable').DataTable( {
                             } );
                     }
-
+                    document.getElementById
                     $('table > tbody > tr').on('click', function(){
                         //    console.log('select row', this)
                             if($(this).hasClass('selected')){
@@ -184,7 +184,7 @@
                 return;
             }
             let key = $('table > tbody > tr.selected').find('td[data-key="'+keyfield+'"]').text();
-
+            
             $Context.outputs.SelectedKeyValue = key;
             $Context.outputs.SelectedKeyField = keyfield;
             $Context.outputs.action = action.toUpperCase();

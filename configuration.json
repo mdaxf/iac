@@ -1,0 +1,36 @@
+{
+    "database":{
+        "type":"mysql",
+        "connection": "user:iacf12345678@tcp(localhost:3306)/iac"
+    },
+    "altdatabases":[
+        {
+            "name": "conn1",
+            "type":"mysql",
+            "connection":"user:iacf12345678@tcp(localhost:3306)/iac"
+        }
+    ],
+    "documentdb":{
+        "type": "mongodb",
+        "connection": "mongodb://localhost:27017",
+        "database": "IAC_CFG"
+    },
+    "webserver":{
+        "port": 8080
+    },
+    "log":{
+        "adapter": "console",  
+        "level": "debug,info,warn,error",
+        "file": "c:\\temp\\iac.log",
+        "maxlines":10000,
+        "maxsize": 1024
+    },
+    "cache":{
+        "adapter": "memory",
+        "interval": 3600
+    },
+    "authorization":{
+        "adapter": "memory",
+        "timeout": 3600
+    }
+}

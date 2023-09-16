@@ -1417,7 +1417,7 @@ var UI = UI || {};
                } 
         }
         displaylinkeditem(wrapper, fieldid, schema, field){
-            let attrs = {
+         /*   let attrs = {
                 "name": "ui-json-detail-page-linked-item-section",
                 "id": "ui-json-detail-page-linked-item-section",
                 "style": "width:100%;height:100%; display:float; left:0px; top:80px; position:absolute; background-color:white; z-index:10;",
@@ -1426,13 +1426,17 @@ var UI = UI || {};
             let section = (new UI.FormControl(wrapper, 'div',attrs)).control;
             let that = this;
             let panel = {};
-            panel.panelElement = section;
+            panel.panelElement = section; */
             // let div = document.createElement('div');
            // div.innerHTML = "<h3>Linked Item</h3>"
            // panel.panelElement.appendChild(div);
+           let page =Session.CurrentPage;
+           let that = this;
             let cfg = {
-                "file":"templates/datalist.html", 
-                "name": field+ " list", 
+            //    "file":"templates/datalist.html", 
+                "name": "Data List",
+                "type": "document",
+                "title": field+ " list", 
                 "actions": {
                     "SELECT":{"type": "script", "next": "","page":"","panels":[], "script": "selectitem"},
                     "CANCEL":{"type": "script", "next": "","page":"","panels":[], "script": "cancelitem"},
@@ -1455,7 +1459,7 @@ var UI = UI || {};
                 Session.snapshoot.sessionData.entity = org_entity;
                 Session.snapshoot.sessionData.selectedKey = org_selectedKey;
                 Session.snapshoot.sessionData.ui_dataschema = org_schema;
-                $('#ui-json-detail-page-linked-item-section').remove();
+                page.popupClose();
             }
             cfg.actions.CANCEL.script = function(data){
                 UI.Log("execute the action:", data)
@@ -1463,11 +1467,19 @@ var UI = UI || {};
                 Session.snapshoot.sessionData.entity = org_entity;
                 Session.snapshoot.sessionData.selectedKey = org_selectedKey;
                 Session.snapshoot.sessionData.ui_dataschema = org_schema;
-                $('#ui-json-detail-page-linked-item-section').remove();
+                page.popupClose();
             }
+            cfg.onloadedscript = function(){
+                $('.iac-ui-popup .ui_actions_section button').hide();
+                $('.iac-ui-popup .ui_actions_section button[value="Select"]').show();
+                $('.iac-ui-popup .ui_actions_section button[value="Cancel"]').show();
+              }
             Session.snapshoot.sessionData.ui_dataschema = schema
-            UI.Log(cfg)
-            new UI.View(panel,cfg)
+            page.popupOpen(cfg);  	
+    	    page.popup.onClose(function(){
+                Session.snapshoot.sessionData.selectedKey = org_selectedKey;
+                Session.snapshoot.sessionData.ui_dataschema = org_schema;
+            }) 
         }
         displayhyperlinkmaster(data){
             
@@ -1476,7 +1488,7 @@ var UI = UI || {};
             schema = data.ui_linkedjdata.masterschema;
             let cfg = {
                 "file":"templates/datalist.html", 
-                "name": "Role"+ " Master list", 
+                "title": "Role"+ " Master list", 
                 "actions": {
                     "SELECT":{"type": "script", "next": "","page":"","panels":[], "script": "selectitem"},
                     "CANCEL":{"type": "script", "next": "","page":"","panels":[], "script": "cancelitem"},
@@ -1558,15 +1570,17 @@ var UI = UI || {};
         displayhyperlinks(wrapper,fieldvalue, field){
             let that = this;
             let configuration = {};
-            configuration.name = field + " List";
+            configuration.name = "Data Link List";
             if(fieldvalue.hasOwnProperty("lng"))
                 configuration.title = fieldvalue["lng"]["default"] + " List";
 
             let panel = {}
             panel.name = "datalink_content_panel";
             let view ={}
-            view.name = this.schema["datasource"] +"_"+field+"__datalinklist";
-            view.file ="templates/datalinklist.html";
+            view.title = this.schema["datasource"] +"_"+field+"__datalinklist";
+            view.name = "Data Link List"
+            view.type = "document";
+        //    view.file ="templates/datalinklist.html";
             let inputs={}       
             
             let keyfield ="";

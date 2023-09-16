@@ -5,11 +5,11 @@ customElements.define('ui-tabulator', class extends HTMLElement {
         this.shadow = this.attachShadow({ mode: 'open' });
         let link = document.createElement('link');
         link.setAttribute('rel', 'stylesheet');
-        link.setAttribute('href', 'styles/tabulator/tabulator.min.css');
+        link.setAttribute('href', 'styles/tabulator/tabulator_iac.css');
         this.shadow.appendChild(link);
-        link = document.createElement('link');
+   /*    link = document.createElement('link');
         link.setAttribute('rel', 'stylesheet');
-        link.setAttribute('href', 'styles/uitabulator.css');
+        link.setAttribute('href', 'styles/uitabulator.css'); */
         this.shadow.appendChild(link);
         console.log("ui-tabulator", this)
 

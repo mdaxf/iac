@@ -708,6 +708,12 @@ var LayoutEditor = {
           attrs={id: 'name',type: 'text',value: LayoutEditor.JsonObj.data.name || '',placeholder: 'Name',style: 'width: 100%;'}
           new UI.FormControl(container, 'input',attrs);
           attrs={for: 'version',innerHTML: 'Version'}
+          attrs={for: 'pagetitle',innerHTML: 'Page Title'}
+          new UI.FormControl(container, 'label',attrs);
+          attrs={id: 'pagetitle',type: 'text',value: LayoutEditor.JsonObj.data.title || '',placeholder: 'Page Title',style: 'width: 100%;'}
+          attrs={for: 'pagetitle_lngcode',innerHTML: 'Page Title Language Code'}
+          new UI.FormControl(container, 'label',attrs);
+          attrs={id: 'pagetitle_lngcode',type: 'text',value: LayoutEditor.JsonObj.data.lngcode || '',placeholder: 'Page Title Language Code',style: 'width: 100%;'}          
           new UI.FormControl(container, 'label',attrs);
           attrs={id: 'version',type: 'text',value: LayoutEditor.JsonObj.data.version || '',placeholder: 'Version',style: 'width: 100%;'}
           new UI.FormControl(container, 'input',attrs);
@@ -736,23 +742,25 @@ var LayoutEditor = {
           new UI.FormControl(container, 'label',attrs);
           attrs={id: 'style',type: 'text',value: LayoutEditor.JsonObj.data.attrs.style || '',placeholder: 'inline Style',style: 'width: 100%;'}
           new UI.FormControl(container, 'input',attrs);
-          attrs={innerHTML: 'Save',class: 'btn btn-primary'}
+          attrs={innerHTML: 'Update',lngcode: 'Update',class: 'btn btn-primary'}
           let events={"click": function(){
             UI.Log('click')
             let name = $('#name').val();
             let version = $('#version').val();
+            let title = $('#pagetitle').val();
             let isdefault = $('#isdefault').is(':checked');
             let orientation = $('#orientation').val();
             let initcode = $('#initcode').val();
             let onloadcode = $('#onloadcode').val();
+            let lngcode = $('#pagetitle_lngcode').val();
             let style = $('#style').val();
             UI.Log(name, version, isdefault, orientation)
-            LayoutEditor.JsonObj.updateNode("", {name: name, version: version, isdefault: isdefault, orientation: orientation, initcode: initcode, onloadcode: onloadcode, attrs: {style: style}} )     
+            LayoutEditor.JsonObj.updateNode("", {name: name, version: version, isdefault: isdefault, orientation: orientation, initcode: initcode, onloadcode: onloadcode,title:title,lngcode:lngcode, attrs: {style: style}} )     
             LayoutEditor.ShowPageStructure();
             $('#properties').remove(); 
           }}
           new UI.FormControl(container, 'button',attrs,events);
-          attrs={innerHTML: 'Cancel',class: 'btn btn-primary'}
+          attrs={innerHTML: 'Cancel',lngcode: 'Cancel', class: 'btn btn-primary'}
           events={"click": function(){
             $('#properties').remove(); 
           }}
@@ -891,7 +899,8 @@ var LayoutEditor = {
             new UI.FormControl(container, 'textarea',attrs);
 
             attrs={
-                innerHTML: 'Save',
+                innerHTML: 'Update',
+                lngcode: 'Update',
                 class: 'btn btn-primary',
                 
             }
@@ -1015,7 +1024,7 @@ var LayoutEditor = {
           new UI.FormControl(container, 'textarea',attrs);
 
           attrs={
-            innerHTML: 'Save',
+            innerHTML: 'Update', lngcode: 'Update',
             class: 'btn btn-primary'
           }
           let events={
@@ -1053,7 +1062,7 @@ var LayoutEditor = {
           }
           new UI.FormControl(container, 'button',attrs,events);
           attrs={
-            innerHTML: 'Cancel',
+            innerHTML: 'Cancel', lngcode: 'Cancel',
             class: 'btn btn-primary'
           }
           events={
@@ -1228,7 +1237,7 @@ var LayoutEditor = {
           new UI.FormControl(container, 'input',attrs);
 
           attrs={
-            innerHTML: 'Save',
+            innerHTML: 'Update', lngcode: 'Update',
             class: 'btn btn-primary'
           }
           events={
@@ -1268,7 +1277,7 @@ var LayoutEditor = {
           }
           new UI.FormControl(container, 'button',attrs,events);
           attrs={
-            innerHTML: 'Cancel',
+            innerHTML: 'Cancel',lngcode: 'Cancel',
             class: 'btn btn-primary'
           }
           events={

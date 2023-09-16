@@ -411,6 +411,16 @@ var UI;
             this.sessionmenuprefix= window.location.origin+"_"+ "menu_";
         }
         loadMenus(parentID,Success, Fail){
+
+            let menudata = localStorage.getItem(this.sessionmenuprefix+ "_"+parentID);
+
+            if(menudata){
+                let menus = JSON.parse(menudata)["menus"];
+                if(Success)
+                    Success(menus);
+                return;
+            }
+
             let userdata = localStorage.getItem(UI.userlogin.sessionkey);
             UI.Log("load the menu for the user:",userdata)
             if(userdata){
@@ -422,7 +432,11 @@ var UI;
                 let ajax = new UI.Ajax("");
                 ajax.get(UI.CONTROLLER_URL+"/user/menus?userid="+userID +"&mobile="+isMobile + "&parentid="+parentID).then((response) => {
                     let menus = JSON.parse(response);
-                    localStorage.setItem(this.sessionmenuprefix+userID+ "_"+parentID, JSON.stringify(menus));
+                    let data = {
+                        menus:menus,
+                        createdon: new Date()
+                    }
+                    localStorage.setItem(this.sessionmenuprefix+userID+ "_"+parentID, JSON.stringify(data));
                     if(Success)
                         Success(menus);
                 }).catch((error) => {
@@ -1106,11 +1120,12 @@ function rAFThrottle(func) {
                     //UI.Forms.focusElement(this.prevFocusElement);
                     this.prevFocusElement = null;
                 }
-                this.fireEvent("close", this);
+            //    this.fireEvent("close", this);
                 if (this.content)
                     this.overlayElement.style.display = "none";
                 this._visible = false;
             }
+            this.remove();
             return this;
         }
         remove() {
@@ -1119,11 +1134,12 @@ function rAFThrottle(func) {
                     //UI.Forms.focusElement(this.prevFocusElement);
                     this.prevFocusElement = null;
                 }
-                this.fireEvent("close", this);
+            //    this.fireEvent("close", this);
                 this._visible = false;
             }
             if (this.overlayElement) {
-                this.overlayElement.parentElement.removeChild(this.overlayElement);
+                //this.overlayElement.parentElement.removeChild(this.overlayElement);
+                this.overlayElement.remove()
                 this.overlayElement = null;
             }
             return;
