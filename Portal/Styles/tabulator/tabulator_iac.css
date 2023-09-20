@@ -1299,8 +1299,8 @@ body.tabulator-print-fullscreen-hide > *:not(.tabulator-print-fullscreen) {
   border-right: 1px solid #aaa;
   border-top: 1px solid #000;
   border-bottom: 2px solid #3FB449;
-  background: #ce7706;
-  color: #fff;
+  background: #afe6f7;
+  color: #000000;
 }
 
 @media (hover: hover) and (pointer: fine) {

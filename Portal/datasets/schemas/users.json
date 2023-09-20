@@ -153,6 +153,8 @@
                         ],
                         "keyfield": "ID",
                         "tablename": "user_roles",
+                        "tablekeyfield": "ID",
+                        "schemakeyfield": "userroleid",
                         "schema":"userroles",
                         "masterschema":"roles",
                         "masterdatafield":"roleid",
@@ -177,12 +179,19 @@
                                     "code": "Permission",
                                     "default":"Permission"
                                 } 
+                            },
+                            "userroleid": {
+                                "type": "integer",
+                                "lng":{
+                                    "code": "DBID",
+                                    "default":"ID"
+                                } 
                             }
                         }, 
                         "query": "select roles.Name, roles.Description, user_roles.Permission from user_roles left join roles on user_roles.RoleID = roles.ID where user_roles.UserID = @ID",
                         "data":{
                             "user_roles":{
-                                "fields": ["Permission"],
+                                "fields": ["Permission", "ID as userroleid"],
                                 "subtables": {                          
                                     "roles":{
                                         "fields": ["Name", "Description"],

@@ -63,8 +63,10 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 						} else {
 							ID := user.(User).ID
 							Username := user.(User).Username
-							hasedPassword := user.(User).Password
-							user = User{ID: ID, Username: Username, Email: "", Password: hasedPassword, ClientID: ClientID, CreatedOn: createdt, ExpirateOn: expdt, Token: token}
+							//	hasedPassword := user.(User).Password
+							language := user.(User).Language
+							timezone := user.(User).TimeZone
+							user = User{ID: ID, Username: Username, Language: language, TimeZone: timezone, ClientID: ClientID, CreatedOn: createdt, ExpirateOn: expdt, Token: token}
 							config.SessionCache.Delete(ctx, clienttoken)
 							config.SessionCache.Put(ctx, token, user, 15*time.Minute)
 							ctx.JSON(http.StatusOK, user)
@@ -143,6 +145,8 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 		Name = jdata[0]["Name"].(string)
 		FamilyName = jdata[0]["LastName"].(string)
 		storedPassword = jdata[0]["Password"].(string)
+		language := jdata[0]["LanguageCode"].(string)
+		timezone := jdata[0]["TimeZoneCode"].(string)
 
 		if jdata[0]["Password"] != nil && storedPassword != "" {
 			err = bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(password))
@@ -180,7 +184,7 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 			config.SessionCache.Delete(ctx, sessionid)
 
 		}
-		user := User{ID: ID, Username: username, Email: "", Password: storedPassword, ClientID: ClientID, CreatedOn: createdt, ExpirateOn: expdt, Token: token}
+		user := User{ID: ID, Username: username, Language: language, TimeZone: timezone, ClientID: ClientID, CreatedOn: createdt, ExpirateOn: expdt, Token: token}
 
 		log.Debug(fmt.Sprintf("user:%v", user))
 

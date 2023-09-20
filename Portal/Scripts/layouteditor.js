@@ -487,6 +487,7 @@ var LayoutEditor = {
               selector: '.grid-stack-item', 
               build:function($triggerElement,e){
                 UI.Log($triggerElement,e)
+                UI.translate(document.getElementsByClassName("context-menu-root"));
                 return{
                   callback: function(key, options,e){
                     UI.Log(key, options,e)
@@ -509,7 +510,7 @@ var LayoutEditor = {
                   }, 
                   items:{
                     'Properties':{
-                      name: 'Properties',
+                      name: '<span lngcode="Properties">Properties</span>',
                       icon: 'fa-cog',
                       disabled: false
                     },
@@ -529,8 +530,9 @@ var LayoutEditor = {
                       icon: function($element, key, item){ return 'context-menu-icon context-menu-icon-quit'; },
                     }
                   }
-
+                  
                 }
+                
               },
                       
             })
@@ -565,7 +567,7 @@ var LayoutEditor = {
                 //LayoutEditor.JsonObj.data= result.Outputs.data;
                 LayoutEditor.JsonObj.changed = false;
                 
-                UI.ShowMessage('Layout saved successfully','Success');
+                UI.ShowMessage('<span lngcode="Layout saved successfully">Layout saved successfully</span>','Success');
 
               }).catch((error) => {
                   UI.Log(error);
@@ -615,8 +617,9 @@ var LayoutEditor = {
           });
           popupContent.appendChild(closePopupButton)
           document.body.appendChild(popup)
+          UI.translate(document.getElementsById("popupContainer"));          
           popup.style.display = 'block';
-        
+          
         },
         read_to_import_File:function(file){
 			
@@ -697,6 +700,7 @@ var LayoutEditor = {
           new UI.FormControl(container, 'h2',{innerHTML: ItemTitle +' Properties'});
           new UI.FormControl(container, 'hr');
 
+          UI.translate(document.getElementById('properties'));
           return container;
         },
         ShowRootProperties: function(){
@@ -707,20 +711,28 @@ var LayoutEditor = {
           new UI.FormControl(container, 'label',attrs);
           attrs={id: 'name',type: 'text',value: LayoutEditor.JsonObj.data.name || '',placeholder: 'Name',style: 'width: 100%;'}
           new UI.FormControl(container, 'input',attrs);
+          
           attrs={for: 'version',innerHTML: 'Version'}
-          attrs={for: 'pagetitle',innerHTML: 'Page Title'}
-          new UI.FormControl(container, 'label',attrs);
-          attrs={id: 'pagetitle',type: 'text',value: LayoutEditor.JsonObj.data.title || '',placeholder: 'Page Title',style: 'width: 100%;'}
-          attrs={for: 'pagetitle_lngcode',innerHTML: 'Page Title Language Code'}
-          new UI.FormControl(container, 'label',attrs);
-          attrs={id: 'pagetitle_lngcode',type: 'text',value: LayoutEditor.JsonObj.data.lngcode || '',placeholder: 'Page Title Language Code',style: 'width: 100%;'}          
           new UI.FormControl(container, 'label',attrs);
           attrs={id: 'version',type: 'text',value: LayoutEditor.JsonObj.data.version || '',placeholder: 'Version',style: 'width: 100%;'}
           new UI.FormControl(container, 'input',attrs);
-          attrs={for: 'isdefault',innerHTML: 'Is Default'}
+
+          attrs={for: 'pagetitle',innerHTML: 'Page Title'}
           new UI.FormControl(container, 'label',attrs);
+          attrs={id: 'pagetitle',type: 'text',value: LayoutEditor.JsonObj.data.title || '',placeholder: 'Page Title',style: 'width: 100%;'}
+          new UI.FormControl(container, 'input',attrs);
+          
+          attrs={for: 'pagetitle_lngcode',innerHTML: 'Page Title Language Code'}
+          new UI.FormControl(container, 'label',attrs);
+          attrs={id: 'pagetitle_lngcode',type: 'text',value: LayoutEditor.JsonObj.data.lngcode || '',placeholder: 'Page Title Language Code',style: 'width: 100%;'}          
+          new UI.FormControl(container, 'input',attrs);
+          
+          
+          attrs={for: 'isdefault',innerHTML: 'Is Default'}
+          new UI.FormControl(container, 'label',attrs);          
           attrs={id: 'isdefault',type: 'checkbox',checked: LayoutEditor.JsonObj.data.isdefault || '',style: 'width: 100%;'}
           new UI.FormControl(container, 'input',attrs);
+          
           attrs={for: 'orientation',innerHTML: 'Orientation'}
           new UI.FormControl(container, 'label',attrs);
           attrs={
@@ -765,7 +777,7 @@ var LayoutEditor = {
             $('#properties').remove(); 
           }}
           new UI.FormControl(container, 'button',attrs, events);
-         
+          UI.translate(document.getElementById('properties'));
         },
         ShowProperties: function(selectedElement){
             UI.Log('ShowProperties',selectedElement) 
@@ -949,6 +961,7 @@ var LayoutEditor = {
                 $('#properties').remove(); 
               }}
             new UI.FormControl(container, 'button',attrs, events);
+            UI.translate(document.getElementById('properties'));
         },
         ShowViewProperties: function(path){
           let view = LayoutEditor.JsonObj.getNode(path); 
@@ -1070,6 +1083,7 @@ var LayoutEditor = {
               $('#properties').remove(); 
             }}
           new UI.FormControl(container, 'button',attrs, events);
+          UI.translate(document.getElementById('properties'));
         },
         load_viewConfigue: function(path){
           
@@ -1174,14 +1188,14 @@ var LayoutEditor = {
           let events = {
             "change": function(){
               let type = $('#type').val();
-                $('#trancode_section').prop("disabled", true);
-                $('#actionpage_section').prop("disabled", true);
+                $('#trancode_section input').prop("disabled", true);
+                $('#actionpage_section input').prop("disabled", true);
                 $('#script').prop("disabled", true);
                 $('#view').prop("disabled", true);
               if(type == 'Transaction')
-                $('#trancode_section').prop("disabled", false);
+                $('#trancode_section input').prop("disabled", false);
               else if( type == 'page')
-                $('#actionpage_section').prop("disabled", false);
+                $('#actionpage_section input').prop("disabled", false);
               else if( type == 'script')
                 $('#script').prop("disabled", false);
               else if( type == 'view')
@@ -1287,22 +1301,102 @@ var LayoutEditor = {
           }
           new UI.FormControl(container, 'button',attrs, events);
           let type = $('#type').val();
-          $('#trancode_section').prop("disabled", true);
-          $('#actionpage_section').prop("disabled", true);
+          $('#trancode_section input').prop("disabled", true);
+          $('#actionpage_section input').prop("disabled", true);
           $('#script').prop("disabled", true);
           $('#view').prop("disabled", true);
           if(type == 'Transaction')
-            $('#trancode_section').prop("disabled", false);
+            $('#trancode_section input').prop("disabled", false);
           else if( type == 'page')
-            $('#actionpage_section').prop("disabled", false);
+            $('#actionpage_section input').prop("disabled", false);
           else if( type == 'script')
             $('#script').prop("disabled", false);
           else if( type == 'view')
             $('#view').prop("disabled", false);
 
+          UI.translate(document.getElementById('properties'));
         },
         SelectEntity: function(entity){
+          let collectionname = "";
+          let keyfieldname="";
+          let field = "";
+          let schema = "";
+          if(entity == "Page"){
+            collectionname = "UI_Page";
+            keyfieldname = "name";
+            field = $('#actionpage')
+            schema = "uipage"
+          }
+          else if(entity == "TranCode"){
+            collectionname = "Transaction_Code";
+            keyfieldname = "trancodename";
+            field = $('#trancode')
+            schema = "trancode"
+          }
+          else if(entity == "View"){
+            collectionname = "UI_View";
+            keyfieldname = "name";
+            field = $('#view')
+            schema = "uiview"
+          }
+          else {
+            UI.ShowError("Not support entity type:"+entity);
+            return;
+          }
 
+          let cfg = {
+            "file":"templates/datalist.html", 
+            "name": "Data List", 
+            "type": "document", 
+            "actions": {
+                "MSELECT":{"type": "script", "next": "","page":"","panels":[], "script": "selectitem"},
+                "CANCEL":{"type": "script", "next": "","page":"","panels":[], "script": "cancelitem"},
+            }
+          }
+          let page =Session.CurrentPage;
+          UI.Log(page)
+          let org_schema = Session.snapshoot.sessionData.ui_dataschema
+          let org_entity = Session.snapshoot.sessionData.entity
+          let org_selectedKey = Session.snapshoot.sessionData.selectedKey
+
+          let inputs = {}
+          inputs.ui_dataschema = schema
+        //    UI.Log(inputs)
+          cfg.inputs = inputs;
+          cfg.actions.MSELECT.script = function(data){
+            UI.Log(data)
+            
+            if(data.length != 1){
+              UI.ShowError("Please select one record");
+              return;
+            }
+            let keyvalue = data[0][keyfieldname];
+
+            if(keyvalue ==""){
+              UI.ShowError("Selected record has no key value");
+              return;
+            }
+
+            UI.Log(keyvalue)
+            field.val(keyvalue);
+            Session.snapshoot.sessionData.ui_dataschema = org_schema;
+            Session.snapshoot.sessionData.selectedKey = org_selectedKey;
+            page.popupClose();              
+          }
+          cfg.actions.CANCEL.script = function(data){
+            UI.Log("execute the action:", data)
+            Session.snapshoot.sessionData.selectedKey = org_selectedKey;
+            Session.snapshoot.sessionData.ui_dataschema = org_schema;
+            page.popupClose();
+          }
+          Session.snapshoot.sessionData.ui_dataschema = schema
+          //UI.Log(cfg)
+          //new UI.View(panel,cfg) 
+          page.popupOpen(cfg);
+          page.popup.onClose(function(){
+              Session.snapshoot.sessionData.selectedKey = org_selectedKey;
+              Session.snapshoot.sessionData.ui_dataschema = org_schema;
+          })
         },
         OpenEntity: function(entity){
 
@@ -1384,9 +1478,11 @@ var LayoutEditor = {
               let element = (gridNode).el
               let nodekey = $triggerElement.attr('data-key').replace(/'/g, '"');;
               UI.Log(element,node,panelid,nodekey)
+              UI.translate(document.getElementsByClassName("context-menu-root"));
               return{
                 callback: function(key, options,e){
                   UI.Log(key, options,e)
+                  
                   switch(key){
                     case 'Add Subpanel':   
                       UI.Log('Add Subpanel:', nodekey, gridNode,gridNode.grid)
@@ -1443,12 +1539,12 @@ var LayoutEditor = {
                 }, 
                 items:{
                   'Properties':{
-                    name: 'Properties',
+                    name: '{@Properties}',
                     icon: 'fa-cog',
                     disabled: false
                   },
                   'Add Subpanel':{
-                    name: 'Add Subpanel',
+                    name: '<span lngcode="Add Subpanel">Add Subpanel</span>',
                     icon: 'fa-plus',
                     disabled:function(){
                       let nodedata = (LayoutEditor.JsonObj.getNode(nodekey)).value;
@@ -1460,7 +1556,7 @@ var LayoutEditor = {
                     }
                   }, 
                   'Link View':{
-                    name: 'Link View',
+                    name: '<span lngcode="Link View">Link View</span>',
                     icon: 'fa-plus',
                     disabled:function(){
                      
@@ -1473,7 +1569,7 @@ var LayoutEditor = {
                     }
                   },  
                   'Add Panel View':{
-                    name: 'Add Panel View',
+                    name: '<span lngcode="Add Panel View">Add Panel View</span>',
                     icon: 'fa-plus',
                     disabled:function(){
                       let nodedata = (LayoutEditor.JsonObj.getNode(nodekey)).value;
@@ -1486,7 +1582,7 @@ var LayoutEditor = {
 
                   }, 
                   'Remove':{
-                    name: 'Remove',
+                    name: '<span lngcode="Remove">Remove</span>',
                     icon: 'fa-minus',
                     disabled: function(){
                       let nodedata = (LayoutEditor.JsonObj.getNode(nodekey)).value;
@@ -1498,7 +1594,7 @@ var LayoutEditor = {
                   },
                   "sep1":'------------',
                   'Quit':{
-                    name: 'Quit',
+                    name: '<span lngcode="Quit">Quit</span>',
                     icon: function(){ return 'context-menu-icon context-menu-icon-quit'; },
                   }
                 }

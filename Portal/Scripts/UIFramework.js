@@ -193,6 +193,8 @@ var UI;
             this.createdon = "";
             this.expirateon = "";
             this.tokenchecktime = 1000*60*5;
+            this.language = "en";
+            this.timezone = "";
             this.logonpage = "Logon page";
             this.tokenupdatetimer = null;
             this.updatedon = null;
@@ -214,7 +216,8 @@ var UI;
                 this.expirateon = userjdata.expirateon;               
                 this.updatedon = userjdata.updatedon;
                 this.updatedon = new Date(this.updatedon);
-
+                this.language = userjdata.language;
+                this.timezone = userjdata.timezone;
                 let checkedtime = new Date(this.updatedon.getTime() + this.tokenchecktime);
                 if(checkedtime > new Date()){
                     if(success){
@@ -239,6 +242,8 @@ var UI;
                         this.clientid = userjdata.clientid;
                         this.createdon = userjdata.createdon;
                         this.expirateon = userjdata.expirateon;
+                        this.language = userjdata.language;
+                        this.timezone = userjdata.timezone;
                         userjdata.updatedon = new Date();
 
                         // UI.Log(userjdata)
@@ -280,6 +285,8 @@ var UI;
                 this.clientid = userjdata.clientid;
                 this.createdon = userjdata.createdon;
                 this.expirateon = userjdata.expirateon;
+                this.language = userjdata.language;
+                this.timezone = userjdata.timezone;
             }
             
 
@@ -295,6 +302,8 @@ var UI;
                     this.clientid = userjdata.clientid;
                     this.createdon = userjdata.createdon;
                     this.expirateon = userjdata.expirateon;
+                    this.language = userjdata.language;
+                    this.timezone = userjdata.timezone;
                     userjdata.updatedon = new Date();
 
                     localStorage.setItem(this.sessionkey, JSON.stringify(userjdata));
@@ -328,6 +337,8 @@ var UI;
                     this.clientid = userjdata.clientid;
                     this.createdon = userjdata.createdon;
                     this.expirateon = userjdata.expirateon;
+                    this.language = userjdata.language;
+                    this.timezone = userjdata.timezone;
                     userjdata.updatedon = new Date();
 
                     localStorage.setItem(this.sessionkey, JSON.stringify(userjdata));
@@ -360,6 +371,8 @@ var UI;
                     this.username = "";
                     this.password = "";
                     this.token = "";
+                    this.language = "en";
+                    this.timezone = "";
                     this.islogin = false;
 
                     if(success){
@@ -378,6 +391,8 @@ var UI;
             this.password = "";
             this.token = "";
             this.islogin = false;
+            this.language = "en";
+            this.timezone = "";
             window.clearTimeout(this.tokenupdatetimer);
             window.location.href = this.loginurl;
         }
@@ -500,7 +515,10 @@ var UI;
         //  .some(script => (script.src.toLowerCase().indexOf(scriptSrc.toLowerCase()) !=-1 || scriptSrc.toLowerCase().indexOf(script.src.toLowerCase()) !=-1) );
     }
     UI.isScriptLoaded = isScriptLoaded;
-
+    function isStyleLoaded(styleSrc) {
+        return Array.from(document.getElementsByTagName('link'))
+            .some(link => link.href.toLowerCase().indexOf(styleSrc.toLowerCase()) !== -1);
+    }
     function safeName(name){
         return name.replace(/[^a-zA-Z0-9]/g, "_");
     }
@@ -517,8 +535,10 @@ var UI;
         return target.replace(new RegExp(search, "g"), replacement);
     }
     UI.replaceAll = replaceAll;
-
     function createFragment(html) {
+        return generateFragment(html);
+    }
+    function generateFragment(html) {
     //    UI.Log('createFragment:', html);
         if (html == null)
             html = "";
@@ -552,11 +572,233 @@ var UI;
         return fragment;
     }
     UI.createFragment = createFragment;
+    async function translate(division){
+        let fragment = division;
+        let elements = fragment.querySelectorAll("[lngcode]");
+        lngcodes= [];
+        texts = [];
 
+        for (let i = 0; i < elements.length; i++) {
+            let el = elements[i];
+            
+            let key = el.getAttribute("lngcode");
+            if(key != null && key != undefined && key != ""){
+                lngcodes.push(key);
+                texts.push(el.innerText);
+            }
+        }
+        let cachedata = UI.Languages.getItems(lngcodes);
+        let uncachedcodes = [];
+        let uncachedtexts = [];
+        for(var i=0;i<lngcodes.length;i++){
+            if(!cachedata.hasOwnProperty(lngcodes[i])){
+                uncachedcodes.push(lngcodes[i]);
+                uncachedtexts.push(texts[i]);
+            }
+        }
+
+   //     UI.Log("translation:", lngcodes, texts, cachedata, uncachedcodes, uncachedtexts)
+        if(uncachedcodes.length > 0){
+            let inputs = {
+                "lngcodes": uncachedcodes,
+                "texts": uncachedtexts,
+                "language": UI.userlogin.language
+            }
+        //    UI.Log("translation inputs:", inputs)
+            await UI.Post(UI.CONTROLLER_URL+"/language/translate", inputs, function(response){
+                let jdata = JSON.parse(response);
+                let data = jdata.data
+            //    UI.Log("translation response:", data)
+                let keyList = [], valueList = [];
+                for(var i=0;i<data.length;i++){
+                    keyList.push(data[i].lngcode);
+                    valueList.push(data[i].text);
+                }
+                UI.Languages.setItemsbyArray(keyList, valueList);
+
+                for (let i = 0; i < data.length; i++) {
+                 //   UI.Log("translation response:", data[i])
+                    let lngcode = data[i].lngcode;
+                    let text = data[i].text;
+                //    let short = data[i].short;
+                    let elements = fragment.querySelectorAll("[lngcode='"+lngcode+"']");
+                //    UI.Log("translation elements:", elements)
+                    for (let j = 0; j < elements.length; j++) {
+                        let el = elements[j];
+                        el.innerText = text;
+                        el.setAttribute("translated", "true");
+                    //    el.setAttribute("title", short);
+                    }
+                }
+            }, function(error){
+                UI.ShowError(error);
+            })
+        }
+        
+        for(key in cachedata){
+
+            let elements = fragment.querySelectorAll("[lngcode='"+key+"']");
+            for (let j = 0; j < elements.length; j++) {
+                let el = elements[j];
+                el.innerText = cachedata[key];
+                el.setAttribute("translated", "true");
+            }
+        }
+        
+        return fragment; 
+    }
+    UI.translate = translate;
+    async function translatebycodes(codes, success, fail){
+
+        let cachedata = UI.Languages.getItems(codes);
+        let uncached = [];
+        for(var i=0;i<codes.length;i++){
+            if(!cachedata.hasOwnProperty(codes[i])){
+                uncached.push(codes[i]);
+            }
+        }
+
+        let inputs = {
+            "lngcodes": uncached,
+            "texts": uncached,
+            "language": UI.userlogin.language
+        }
+    //    UI.Log("translation inputs:", inputs)
+        if(uncached.length > 0)
+            await UI.Post(UI.CONTROLLER_URL+"/language/translate", inputs, function(response){
+                let jdata = JSON.parse(response);
+                let data = jdata.data
+                let keyList = [], valueList = [];
+                for(var i=0;i<data.length;i++){
+                    keyList.push(data[i].lngcode);
+                    valueList.push(data[i].text);
+                }
+                UI.Languages.setItemsbyArray(keyList, valueList);
+                for(var i=0;i<data.length;i++){
+                    cachedata[data[i].lngcode] = data[i].text;
+                }
+                if(success)
+                    success(cachedata);
+                return cachedata;
+            }, function(error){
+                if(success)
+                    success(cachedata);
+                UI.ShowError(error);
+                if(fail)
+                    fail(error);
+            })
+        else{
+            if(success)
+                success(cachedata);
+            return cachedata;
+        }
+    }
+    UI.translatebycodes = translatebycodes
 })(UI || (UI = {}));
 
 (function (UI) {
-    
+    class UILocalStorage{
+        constructor(type){
+            this.type = type;
+            this.sessionkey= window.location.origin+"_"+ type;            
+            this.initialize();
+        }
+
+        initialize(){
+            localStorage.removeItem(this.sessionkey);
+            let jdata = {};
+            jdata.createdon = new Date();
+            jdata.data = {};
+            jdata.language = UI.userlogin.language;
+            localStorage.setItem(this.sessionkey, JSON.stringify(jdata));
+        }
+
+        validatelanguage(){
+            let localdata = localStorage.getItem(this.sessionkey);
+            if(localdata){
+                let jdata = JSON.parse(localdata);
+                if(jdata.hasOwnProperty("language") && jdata.language != UI.userlogin.language){
+                    this.initialize();
+                }
+            }else
+                this.initialize();
+        }
+
+        getData(){
+            let localdata = localStorage.getItem(this.sessionkey);
+            if(localdata){
+                let jdata = JSON.parse(localdata);
+                return jdata
+            }
+            else{
+                this.initialize(); 
+                return {
+                    createdon: new Date(),
+                    language: UI.userlogin.language,
+                    data: {}
+                };
+            }
+        }
+        getItems(keys){
+            let data = this.getData();
+            if(data){
+                let jdata = data.data
+                let result = {};
+                for(var i=0;i<keys.length;i++){
+                    if(jdata.hasOwnProperty(keys[i]))
+                        result[keys[i]] = jdata[keys[i]];
+                }
+                return result;
+            }
+            return {};
+        }
+        setItems(items){
+            let result = this.getData();
+            if(!result){
+                this.initialize();
+                result = this.getData();
+            }
+            let jdata = result.data;
+            for(var key in items){
+                    jdata[key] = items[key];
+            }
+            result.data = jdata;
+            localStorage.setItem(this.sessionkey, JSON.stringify(result));
+        }
+        getItem(key){
+            let jdata = this.getData();
+            if(jdata){
+                let result = {};               
+                if(jdata.hasOwnProperty(key))
+                    result[key] = jdata[key];
+                return result;
+            }
+            return {};
+        }
+        setItemsbyArray(keyList, valueList){            
+            let jdata = this.getData();
+            let data = jdata.data;
+            for(var i=0;i<keyList.length;i++){
+                data[keyList[i]] = valueList[i];
+            }
+            jdata.data = data;
+            localStorage.setItem(this.sessionkey, JSON.stringify(jdata));
+        }
+        setItem(key, value){
+            let jdata = this.getData();
+            let data = jdata.data;
+            if(data){                
+                data[key] = value;
+                jdata.data = data;
+                localStorage.setItem(this.sessionkey, JSON.stringify(jdata));
+            }
+        }
+    }
+    if(!UI.Languages)
+        UI.Languages = new UILocalStorage("lngcodes");
+    else 
+        UI.Languages.validatelanguage();
+
     class UIMessage{
         constructor(message, type="Error"){
             this.message = message;
@@ -1441,7 +1683,7 @@ function rAFThrottle(func) {
             }
             Session.viewResponsitory[UI.safeName(this.configuration.name)] = this.configuration;
 
-            this.id = 'view_'+UI.generateUUID();
+            this.id = UI.safeId('view_'+UI.generateUUID());
             this.view = document.createElement("div");
             this.name = UI.safeName(this.configuration.name);
             this.view.className = "ui-view";
@@ -1502,7 +1744,7 @@ function rAFThrottle(func) {
         async create(){
 
           //  // UI.Log(this, this.Panel.panelElement);
-            Session.views[UI.safeId(this.id)] = this;
+            Session.views[this.id] = this;
             //UI.Log(this.configuration)
 
      
@@ -1560,9 +1802,9 @@ function rAFThrottle(func) {
                     this.configuration.onloadedscript();
             }
 
-            if(this.promiseCount == 0)
+            if(this.promiseCount == 0){
                 this.fireOnLoaded();
-
+            }
             return this;
         }
         async loadviewconfiguration(configuration){
@@ -1750,7 +1992,7 @@ function rAFThrottle(func) {
             return outputscript;
         }
         createcommonfunctions(){
-          let s = 'object_'+UI.safeId(this.id) + ' = ' + `Session.views[`+this.id+`]` + ';';
+          let s = 'object_'+this.id + ' = ' + `Session.views[`+this.id+`]` + ';';
           // UI.Log(s)
           this.createScriptContent(s);
         }
@@ -1831,10 +2073,10 @@ function rAFThrottle(func) {
             return s;
         }        
         createcontext(content){
-            let newcontent = content.replaceAll("$Context", 'Session.views["'+UI.safeId(this.id)+'"]');            
-            newcontent = newcontent.replaceAll("$PageID", UI.safeId(this.id));
-            newcontent = newcontent.replaceAll("$ViewID", UI.safeId(this.id));
-            newcontent = newcontent.replaceAll("$View", 'Session.views["'+UI.safeId(this.id)+'"]');
+            let newcontent = content.replaceAll("$Context", 'Session.views["'+this.id+'"]');            
+            newcontent = newcontent.replaceAll("$PageID", this.id);
+            newcontent = newcontent.replaceAll("$ViewID", this.id);
+            newcontent = newcontent.replaceAll("$View", 'Session.views["'+this.id+'"]');
 
             let inputnames = Object.keys(this.inputs);
 
@@ -1949,15 +2191,47 @@ function rAFThrottle(func) {
                         // UI.Log(error);
                 }); */
         }
+        translateview(){
+            UI.translate(this.view).then(() => {
+                UI.Log("translated view by observer:", this.view);
+            })
+        }
+      /*  observercontentloaded() {
+            let that = this;
+             const config = { childList: false };
+            this.observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type == "childList") {
+                         UI.Log("A child node has been added or removed.", mutation);                      
+                        
+                        //observer.disconnect();
+                    }
+                }); 
+            });
+            observer.observe(that.view, config); 
+        } */
+        async exeonLoadedFunc(func){
+            if(func){
+                func()
+            }
+        }       
         onLoaded(func) {   
-            // UI.Log(func)        
-            this.addEventListener("loaded", func);
+            let that = this;       
+            this.addEventListener("loaded",function(){
+                UI.Log("onLoaded:",that.loaded, func)
+                that.exeonLoadedFunc(func).then(() => {
+                   that.translateview();
+                });  
+                
+            });
             this.loaded = true;
             let readyevent = new CustomEvent("Viewready");
             this.view.dispatchEvent(readyevent);
+            
         }
         fireOnLoaded() {
-            let that = this
+            let that = this;           
+
             if(that.loaded){
                 // UI.Log("fireOnLoaded",document.readyState)
                 this.fireEvent("loaded");
@@ -1965,12 +2239,14 @@ function rAFThrottle(func) {
             }
             else{
                 this.view.addEventListener("Viewready", function() {
-                    // UI.Log("fireOnLoaded with Viewready event")
+                    UI.Log("fireOnLoaded with Viewready event")
                     that.fireEvent("loaded");
                     that.clearListeners("loaded");
                     that.view.removeEventListener("Viewready",this);
-                });
-            }
+                    that.translateview();                     
+                }); 
+            }  
+
         }
         onUnloading(func) {
             this.addEventListener("unloading", func);
@@ -1979,12 +2255,13 @@ function rAFThrottle(func) {
             this.addEventListener("unloaded", func);
         }
         fireOnUnloading() {
+        //    this.observer.disconnect();
             this.isUnloading = true;
             this.fireEvent("unloading");
             this.clearListeners("unloading");
             this.node = null;
             this.fireEvent("unloaded");
-            this.clearListeners("unloaded");
+            this.clearListeners("unloaded");            
         }
     }
     UI.View = View;
@@ -2132,7 +2409,37 @@ function rAFThrottle(func) {
 
             this.create();
         }
-        async create(){  
+        async create(){
+            let that = this;
+            if(this.configuration.lngcode){
+                let data = await UI.translatebycodes([this.configuration.lngcode], function(data){
+                    UI.Log("translate page title:",data)
+                    
+                    if(data && data.hasOwnProperty(that.configuration.lngcode)){
+                        let title = data[that.configuration.lngcode];
+                        for(var key in Session.snapshoot.sessionData){
+                            //  UI.Log(key, this.configuration.title)
+                            title = title.replaceAll('{'+key+'}' , Session.snapshoot.sessionData[key])
+                        }
+
+                        that.configuration.title = title;
+                        that.PageTitle = title;
+                        document.title = title;
+                    }
+                },
+                function(error){
+                    UI.ShowError(error)
+                })               
+
+                /*
+                .then((data) => {
+                    UI.Log("translate page title:",data)
+                    if(data && data.length > 0){
+                        this.configuration.title = data[0].text;
+                        this.PageTitle = data[0].text;
+                    }
+                })  */
+            }
             this.configuration.title = this.configuration.title || this.configuration.name;     
   
             if(this.configuration.onLoad){

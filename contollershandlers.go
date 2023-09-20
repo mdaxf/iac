@@ -20,17 +20,20 @@ import (
 	"reflect"
 	"strings"
 
+	config "github.com/mdaxf/iac/config"
+
 	"github.com/gin-gonic/gin"
 	"github.com/mdaxf/iac/controllers/collectionop"
 	"github.com/mdaxf/iac/controllers/databaseop"
 	"github.com/mdaxf/iac/controllers/function"
+	"github.com/mdaxf/iac/controllers/lngcodes"
 	"github.com/mdaxf/iac/controllers/role"
 	"github.com/mdaxf/iac/controllers/trans"
 	"github.com/mdaxf/iac/controllers/user"
 	"github.com/mdaxf/iac/framework/auth"
 )
 
-func loadControllers(router *gin.Engine, controllers []Controller) {
+func loadControllers(router *gin.Engine, controllers []config.Controller) {
 
 	for _, controllerConfig := range controllers {
 		ilog.Info(fmt.Sprintf("loadControllers:%s", controllerConfig.Module))
@@ -68,12 +71,15 @@ func getModule(module string) reflect.Value {
 	case "FunctionController":
 		moduleInstance := &function.FunctionController{}
 		return reflect.ValueOf(moduleInstance)
+	case "LCController":
+		moduleInstance := &lngcodes.LCController{}
+		return reflect.ValueOf(moduleInstance)
 	}
 
 	return reflect.Value{}
 }
 
-func createEndpoints(router *gin.Engine, module string, modulepath string, endpoints []Endpoint) error {
+func createEndpoints(router *gin.Engine, module string, modulepath string, endpoints []config.Endpoint) error {
 
 	ilog.Info(fmt.Sprintf("Create the endpoints for the module:%s", module))
 

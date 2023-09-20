@@ -32,6 +32,8 @@ type User struct {
 	CreatedOn  string `json:"createdon"`
 	ExpirateOn string `json:"expirateon"`
 	Email      string `json:"email"`
+	Language   string `json:"language"`
+	TimeZone   string `json:"timezone"`
 }
 
 type ChangePwdData struct {

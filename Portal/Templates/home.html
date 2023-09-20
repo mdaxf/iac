@@ -1,7 +1,7 @@
 <div class="ui-page-menu_filter">
-  <label lngcode="Search">Search:
+  <label lngcode="Search">Search:</label>
     <input type="search" class="ui-page-menu_filter_input" placeholder="please input the words to search" aria-controls="ui-page-menu">
-  </label></div>
+</div>
 <div class="ui-page-menu">
 </div>
 
@@ -10,9 +10,19 @@
      //   console.log('home loaded')
         let parentId = $Context.inputs.menu_parentid;
 
-        if(parentId == undefined)
-            parentId = 0;
-        console.log(parentId)
+        if(parentId == undefined || parentId == null || parentId ==0 || parentId =="")
+        {   
+          parentId = 0;
+          
+          UI.translatebycodes(["IAC Home"], function(data){
+            if(data.length > 0){
+             	Session.CurrentPage.PageTitle = data[0]["IAC Home"]
+              	Session.CurrentPage.configuration.title= data[0]["IAC Home"]
+                document.title = data[0]["IAC Home"]
+            }
+          })
+        }
+        
 
         $('.ui-page-menu_filter_input').on('keyup', function () {
             var rex = new RegExp($(this).val(), 'i');
@@ -37,6 +47,7 @@
                 card.setAttribute("data-pagetype",jdata[i].PageType);
                 card.setAttribute("data-pagename",jdata[i].Name);
                 card.setAttribute("data-viewonly",jdata[i].ViewOnly);
+              //  card.setAttribute("lngcode",jdata[i].LngCode);
 
                 let favor = document.createElement("div");
                 favor.classList.add("remove-from-favs");
@@ -67,6 +78,7 @@
                 }
                 let header = document.createElement("div");
                 header.classList.add("page-title");
+                header.setAttribute("lngcode",jdata[i].LngCode);
                 header.innerText = jdata[i].Name;
                 card.appendChild(favor);
                 card.appendChild(icon);
@@ -84,11 +96,12 @@
                       let view ={}
                       view.name = "Portal Menu";
                       view.file ="templates/home.html";
-                   //   view.type = "document"
+                      view.type = "document"
                    //   view.config = "Portal Menu"
                       let inputs={}                      
                       inputs.menu_parentid = $(this).attr("data-pageid");
                       inputs.menu_viewonly = $(this).attr("data-viewonly");
+                      inputs.menu_title = $(this).find(".page-title").text()
                       for(var j=0;j<jdata.length;j++){
                         if(jdata[j].ID == inputs.menu_parentid){
                           let iparameters = jdata[j].Inputs;
@@ -138,6 +151,7 @@
                 })
             }
 
+            UI.translate(container);
         },function(){
           UI.ShowError("Failed to load menus");
           

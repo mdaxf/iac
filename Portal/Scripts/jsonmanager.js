@@ -1416,6 +1416,7 @@ var UI = UI || {};
                    }
                } 
         }
+        // display the field link and unlink icon to show the data list to select
         displaylinkeditem(wrapper, fieldid, schema, field){
          /*   let attrs = {
                 "name": "ui-json-detail-page-linked-item-section",
@@ -1481,16 +1482,18 @@ var UI = UI || {};
                 Session.snapshoot.sessionData.ui_dataschema = org_schema;
             }) 
         }
-        displayhyperlinkmaster(data){
+        displayhyperlinkmaster(wrapper,data){
             
-            data = Session.snapshoot.sessionData
-            UI.Log("displayhyperlinkmaster",data)
-            schema = data.ui_linkedjdata.masterschema;
+            //var data = Session.snapshoot.sessionData
+            UI.Log("displayhyperlinkmaster:",wrapper,data)
+            var schema = data.ui_linkedjdata.masterschema;
             let cfg = {
                 "file":"templates/datalist.html", 
                 "title": "Role"+ " Master list", 
+                "name": "Data List",
+                "type": "document",
                 "actions": {
-                    "SELECT":{"type": "script", "next": "","page":"","panels":[], "script": "selectitem"},
+                    "MSELECT":{"type": "script", "next": "","page":"","panels":[], "script": "selectitem"},
                     "CANCEL":{"type": "script", "next": "","page":"","panels":[], "script": "cancelitem"},
                 }
             }
@@ -1504,8 +1507,13 @@ var UI = UI || {};
             inputs.ui_dataschema = schema
         //    UI.Log(inputs)
             cfg.inputs = inputs;
-            cfg.actions.SELECT.script = function(data){
+            cfg.actions.MSELECT.script = function(data){
                 UI.Log("execute the action:", data)
+                
+                if(data.selectedRows.length == 0){
+                    UI.ShowError("Please select one record at least.")
+                    return;
+                }
 
                 let insertdata ={}
                 UI.Log(data.ui_linkedjdata)
@@ -1520,33 +1528,39 @@ var UI = UI || {};
                     } 
                 }
 
-                insertdata[data.ui_linkedjdata.masterdatafield] = data.selectedKey
-                let url = '/sqldata/insert'
-                insertdata.createdby = UI.userlogin.username
-                insertdata.createdon = (new Date()).toISOString().slice(0, 19).replace('T', ' ');
-                insertdata.updatedby = UI.userlogin.username
-                insertdata.updatedon = (new Date()).toISOString().slice(0, 19).replace('T', ' ');
+                let keyfield = data.ui_linkedjdata.keyfield;
+                if(keyfield == undefined || keyfield == "" || keyfield == null)
+                    keyfield = "ID";
 
-                let inputdata = {
-                    "tablename": data.ui_linkedjdata.tablename,
-                    "data": insertdata
-                }
+                for(var i=0;i<data.selectedRows.length;i++){
+                    insertdata[data.ui_linkedjdata.masterdatafield] = data.selectedRows[i][data.ui_linkedjdata.keyfield];
+                    let url = '/sqldata/insert'
+                    insertdata.createdby = UI.userlogin.username
+                    insertdata.createdon = (new Date()).toISOString().slice(0, 19).replace('T', ' ');
+                    insertdata.updatedby = UI.userlogin.username
+                    insertdata.updatedon = (new Date()).toISOString().slice(0, 19).replace('T', ' ');
 
-                UI.ajax.post(url,inputdata).then((response) => {
-                    data = JSON.parse(response);
-                    page.popupClose();
-                    //id = data.data.id
-                    page.Refresh();
-                    /*if(id != undefined)
-                        detail.jdata.ID = id */
-                }).catch((error) => {
-                    UI.Log(error);
-                    page.popupClose();
-                });
+                    let inputdata = {
+                        "tablename": data.ui_linkedjdata.tablename,
+                        "data": insertdata
+                    }
+                    UI.Log(url,inputdata)
+                    UI.ajax.post(url,inputdata).then((response) => {
+                        data = JSON.parse(response); 
+                        
+                        page.Refresh();
+                    }).catch((error) => {
+                        UI.ShowError(error);
+                    });
+                }              
                 Session.snapshoot.sessionData.entity = org_entity;
                 Session.snapshoot.sessionData.selectedKey = org_selectedKey;
                 Session.snapshoot.sessionData.ui_dataschema = org_schema;
-                
+
+                page.popupClose();
+                //id = data.data.id
+            //    page.Refresh();
+ 
                 
             }
             cfg.actions.CANCEL.script = function(data){
@@ -1558,8 +1572,11 @@ var UI = UI || {};
                 page.popupClose();
             }
             Session.snapshoot.sessionData.ui_dataschema = schema
-            //UI.Log(cfg)
-            //new UI.View(panel,cfg) 
+            cfg.onloadedscript = function(){
+                $('.iac-ui-popup .ui_actions_section button').hide();
+                $('.iac-ui-popup .ui_actions_section button[value="MultiSelect"]').show();
+                $('.iac-ui-popup .ui_actions_section button[value="Cancel"]').show();
+              }
             page.popupOpen(cfg);
             page.popup.onClose(function(){
                 Session.snapshoot.sessionData.entity = org_entity;
@@ -1567,6 +1584,7 @@ var UI = UI || {};
                 Session.snapshoot.sessionData.ui_dataschema = org_schema;
             })
         }
+        //display the link section item with the <a > link
         displayhyperlinks(wrapper,fieldvalue, field){
             let that = this;
             let configuration = {};

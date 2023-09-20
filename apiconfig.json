@@ -131,7 +131,21 @@
           "handler": "UpdateTranCodeToRespository"
         }
       ]
-    }  
+    },
+    {
+      "path": "language",
+      "module": "LCController",    
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/translate",
+          "handler": "GetLngCodes"
+        },{
+          "method": "POST",
+          "path": "/update",
+          "handler": "UpdateLngCode"
+        }
+      ]}  
   ],
   "portal":{
     "path":"/portal",

@@ -22,3 +22,14 @@ var (
 	SessionCache        cache.Cache
 	SessionCacheTimeout int64
 )
+
+var GlobalConfiguration *GlobalConfig
+
+type GlobalConfig struct {
+	LogConfig          map[string]interface{}   `json:"log"`
+	DocumentConfig     map[string]interface{}   `json:"documentdb"`
+	DatabaseConfig     map[string]interface{}   `json:"database"`
+	AltDatabasesConfig []map[string]interface{} `json:"altdatabases"`
+	CacheConfig        map[string]interface{}   `json:"cache"`
+	TranslationConfig  map[string]interface{}   `json:"translation"`
+}

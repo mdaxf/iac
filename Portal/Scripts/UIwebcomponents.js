@@ -152,8 +152,15 @@ customElements.define('ui-tabulator', class extends HTMLElement {
           this.Table = new Tabulator(this.uitabulator, {
               height: height + "px",
               layout:"fitColumns",
+              pagination:"local",
+              paginationSize:16,
+              paginationSizeSelector:[16, 30, 50, 100],
               resizableColumnFit:true,
               responsiveLayout:"hide",
+              movableColumns:true,
+              paginationCounter:"rows",
+              clipboard:true,
+              clipboardPasteAction:"replace",
           //    autoColumns:true,
           //    layout: "fitColumns",
               columns: Tabulator_Columns,
@@ -233,7 +240,18 @@ customElements.define('ui-tabulator', class extends HTMLElement {
         ajax.post(url,inputs,false).then((response) => {
             let data = JSON.parse(response)["data"];
         //    console.log(data)
-            this.Table = new Tabulator(this.uitabulator, {autoColumns:true, data:data});
+            this.Table = new Tabulator(this.uitabulator, {
+                layout:"fitColumns",
+                paginationSize:16,
+                paginationSizeSelector:[16, 30, 50, 100],
+                resizableColumnFit:true,
+                responsiveLayout:"hide",
+                movableColumns:true,
+                paginationCounter:"rows",
+                clipboard:true,
+                clipboardPasteAction:"replace",
+                autoColumns:true, 
+                data:data});
             //this.Table.setData(data);
         }).catch((error) => {
             UI.ShowError(error);

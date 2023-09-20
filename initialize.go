@@ -52,7 +52,7 @@ func initialize() {
 func initializeDatabase() {
 
 	ilog.Debug("initialize Database")
-	databaseconfig := GlobalConfiguration.DatabaseConfig
+	databaseconfig := config.GlobalConfiguration.DatabaseConfig
 
 	if databaseconfig["type"] == nil {
 		ilog.Error(fmt.Sprintf("initialize Database error: %s", "DatabaseType is missing"))
@@ -86,7 +86,7 @@ func initializecache() {
 		} */
 	ilog.Debug("initialize Chche")
 
-	cacheConfig := GlobalConfiguration.CacheConfig
+	cacheConfig := config.GlobalConfiguration.CacheConfig
 
 	ilog.Debug(fmt.Sprintf("initialize cache, %v", cacheConfig))
 
@@ -107,22 +107,22 @@ func initializecache() {
 }
 
 func initializeloger() {
-	if GlobalConfiguration.LogConfig == nil {
+	if config.GlobalConfiguration.LogConfig == nil {
 		fmt.Errorf("log configuration is missing")
 	}
-	fmt.Println(GlobalConfiguration.LogConfig)
-	logger.Init(GlobalConfiguration.LogConfig)
+	fmt.Println(config.GlobalConfiguration.LogConfig)
+	logger.Init(config.GlobalConfiguration.LogConfig)
 
 }
 
 func initializedDocuments() {
 
-	if GlobalConfiguration.DocumentConfig == nil {
+	if config.GlobalConfiguration.DocumentConfig == nil {
 		fmt.Errorf("documentdb configuration is missing")
 		return
 	}
 
-	documentsConfig := GlobalConfiguration.DocumentConfig
+	documentsConfig := config.GlobalConfiguration.DocumentConfig
 
 	ilog.Debug(fmt.Sprintf("initialize Documents, %v", documentsConfig))
 

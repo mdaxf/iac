@@ -40,10 +40,46 @@ func Generate_authentication_token(userID string, loginName string, ClientID str
 	log.Debug(fmt.Sprintf("Authorization Token:%s", token))
 	return token, createdt, string(expiredt.Format("2006-01-02 15:04:05")), nil
 }
+func GetUserInformation(authHeader string) (string, string, string, error) {
+	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "Authorization"}
+	//	log.Debug(fmt.Sprintf("Authorization validation function is called for tocken: %s ", tokenString))
 
+	bearerToken := strings.Split(authHeader, " ")
+	if len(bearerToken) != 2 || strings.ToLower(bearerToken[0]) != "bearer" {
+		log.Error(fmt.Sprintf("Invalid token format: %s", authHeader))
+		return "", "", "", nil
+	}
+	tokenString := bearerToken[1]
+
+	// Parse the token
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Provide the secret key used during token generation
+		secretKey := []byte(jwtsecretKey) // Replace with your actual secret key
+		return secretKey, nil
+	})
+	if err != nil {
+
+		log.Error(fmt.Sprintf("Failed to parse token:%s", err.Error()))
+		return "", "", "", err
+	}
+	if token.Valid {
+		// Check if the token has expired
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+
+			log.Error(fmt.Sprintf("Invalid token claims: %s", tokenString))
+			return "", "", "", err
+		}
+		UserID := claims["user_id"].(string)
+		LoginName := claims["login_name"].(string)
+		ClientID := claims["client_id"].(string)
+		return UserID, LoginName, ClientID, nil
+	}
+	return "", "", "", err
+}
 func ValidateToken(tokenString string) (bool, error) {
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "Authorization"}
-	log.Debug(fmt.Sprintf("Authorization validation function is called for tocken: %s ", tokenString))
+	//	log.Debug(fmt.Sprintf("Authorization validation function is called for tocken: %s ", tokenString))
 
 	// Parse the token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {

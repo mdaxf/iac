@@ -32,5 +32,9 @@
     "authorization":{
         "adapter": "memory",
         "timeout": 3600
+    },
+    "translation":{
+        "autopopulate": true,
+        "cache": true
     }
 }

@@ -28,24 +28,24 @@ import (
 
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
+	configuration "github.com/mdaxf/iac/config"
 	dbconn "github.com/mdaxf/iac/databases"
 	mongodb "github.com/mdaxf/iac/documents"
 )
 
 var wg sync.WaitGroup
 var router *gin.Engine
-var GlobalConfiguration *GlobalConfig
 
 func main() {
 	// Load configuration from the file
 
-	config, err := loadConfig()
+	config, err := configuration.LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 		//	ilog.Error("Failed to load configuration: %v", err)
 	}
 
-	GlobalConfiguration, err = loadGlobalConfig()
+	configuration.GlobalConfiguration, err = configuration.LoadGlobalConfig()
 
 	if err != nil {
 		log.Fatalf("Failed to load global configuration: %v", err)
