@@ -1,301 +1,736 @@
 <head>
-<link rel='stylesheet' href='styles/codemirror.css'>
-<script src='Scripts/codemirror5/lib/codemirror.js'></script>
-<script src='Scripts/codemirror5/mode/xml/xml.js'></script>
-<script src='Scripts/codemirror5/mode/css/css.js'></script>
-<script src='Scripts/codemirror5/mode/javascript/javascript.js'></script>
-<script src='Scripts/codemirror5/mode/htmlmixed/htmlmixed.js'></script>
-<!--script src='Scripts/codemirror5/addon/edit/closebracket.js'></script>
-<script src='Scripts/codemirror5/addon/edit/closetag.js'></script>
-<script src='Scripts/codemirror5/addon/edit/matchbrackets.js'></script>
-<script src='Scripts/codemirror5/addon/edit/matchtags.js'></script>
-<script src='Scripts/codemirror5/addon/edit/tailingspace.js'></script>
-<script src='Scripts/codemirror5/addon/edit/continuelist.js'></script>-->
-<script src='Scripts/codemirror5/addon/fold/foldcode.js'></script>
-<script src='Scripts/codemirror5/addon/fold/foldgutter.js'></script>
-<script src='Scripts/codemirror5/addon/fold/brace-fold.js'></script>
-<script src='Scripts/codemirror5/addon/fold/xml-fold.js'></script>
-<script src='Scripts/codemirror5/addon/fold/comment-fold.js'></script> 
-</head>
-<body translate="no" >
-<div class="container">
-    <div class="tab_menu">
-        <div class="tab_item" value="Menu" lngcode="Menu">Menu</div>
-        <div class="tab_item" value="Configuration" lngcode="Configuration">Configuration</div>
-        <div class="tab_item active" value="Editor" lngcode="Editor">Editor</div>
-        <div class="tab_item" value="Javascript" lngcode="Javascript">Javascript</div>
-        <div class="tab_item" value="Styles" lngcode="Styles">Styles</div>                
-        <div class="tab_item" value="Preview" lngcode="Preview">Preview</div>
-    </div>
-    <div class="view-configuration item_container" data-key="Configuration">
-        <div id="properties" class="properties" style="width: 100%; height: 100%; background-color: white; display: block;">
-            <div id="properties_content" style="overflow: auto; height: 100%; width: 100%; padding: 10px;">
-                <h2>Properties</h2><hr>
-                <label for="name">Name</label>
-                <input id="name" type="text" value="" placeholder="Name" style="width: 100%;"> 
-                <label for="revision">Revision</label>
-                <input id="revision" type="text" value="" placeholder="Revision" style="width: 100%;">    
-                <label for="isdefault">Is Default Revision?</label>
-                <input id="isdefault" type="checkbox" value="" placeholder="is default?" style="width: 100%;">                             
-                <label for="title">Title</label>
-                <input id="title" type="text" value="" placeholder="Title" style="width: 100%;">   
-                <label for="View_inputs">Inputs</label>
-                <textarea id="View_inputs" type="text" placeholder="inputs to render the view" style="width: 100%;"></textarea>
-                <label for="View_outputs">Outputs</label>
-                <textarea id="View_outputs" type="text" placeholder="Outputs that view generated" style="width: 100%;"></textarea>
-                <label for="View_actions">Actions</label>
-                <textarea id="View_actions" type="text" placeholder="Outputs that view generated" style="width: 100%;"></textarea>
-                <button class="btn btn_primary" value="Save" onclick="$ViewID_Save()">Save</button>
+    <link rel='stylesheet' href='styles/codemirror.css'>
+    <script src='Scripts/codemirror5/lib/codemirror.js'></script>
+    <script src='Scripts/codemirror5/mode/xml/xml.js'></script>
+    <script src='Scripts/codemirror5/mode/css/css.js'></script>
+    <script src='Scripts/codemirror5/mode/javascript/javascript.js'></script>
+    <script src='Scripts/codemirror5/mode/htmlmixed/htmlmixed.js'></script>
+    <!--script src='Scripts/codemirror5/addon/edit/closebracket.js'></script>
+    <script src='Scripts/codemirror5/addon/edit/closetag.js'></script>
+    <script src='Scripts/codemirror5/addon/edit/matchbrackets.js'></script>
+    <script src='Scripts/codemirror5/addon/edit/matchtags.js'></script>
+    <script src='Scripts/codemirror5/addon/edit/tailingspace.js'></script>
+    <script src='Scripts/codemirror5/addon/edit/continuelist.js'></script>-->
+    <script src='Scripts/codemirror5/addon/fold/foldcode.js'></script>
+    <script src='Scripts/codemirror5/addon/fold/foldgutter.js'></script>
+    <script src='Scripts/codemirror5/addon/fold/brace-fold.js'></script>
+    <script src='Scripts/codemirror5/addon/fold/xml-fold.js'></script>
+    <script src='Scripts/codemirror5/addon/fold/comment-fold.js'></script> 
+    </head>
+    <body translate="no" >
+    <div class="container">
+          <h3>{@ViewTitle}</h3>
+        <div class="iac_ui_tab_menu">
+            <!--div class="iac_ui_tab_item" value="Menu" lngcode="Menu">Menu</div -->
+            <div class="iac_ui_tab_item" value="Configuration" lngcode="Configuration">Configuration</div>
+            <div class="iac_ui_tab_item active" value="Editor" lngcode="HtmlEditor">Html</div>
+            <div class="iac_ui_tab_item" value="Javascript" lngcode="Javascript">Javascript</div>
+            <div class="iac_ui_tab_item" value="Styles" lngcode="Styles">Styles</div>                
+            <div class="iac_ui_tab_item" value="Preview" lngcode="Preview">Preview</div>
+        </div>
+        <div class="view-configuration item_container" data-key="Configuration" style="display:none;">
+            <div id="properties" class="properties" style="width: 100%; height: 100%; background-color: white; display: block;">
+                <div id="properties_content" style="overflow: auto; height: 100%; width: 100%; padding: 10px;">
+                    <h2>Properties</h2><hr>
+                      <button class="btn btn_primary btn-right" value="Save" onclick="$ViewID_Save()" lngcode="Save">Save</button>
+                    <button class="btn btn_primary btn-right" value="Export" onclick="$ViewID_Export()" lngcode="Export">Export</button>
+                      <br/>
+                    <label for="name" lngcode="Name">Name</label>
+                    <input id="name" type="text" value="" placeholder="Name" style="width: 100%;"> 
+                    <label for="revision" lngcode="Revision">Revision</label>
+                    <input id="revision" type="text" value="" placeholder="Revision" style="width: 100%;">     
+                      <label for="isdefault" lngcode="IsDefault">Is Default Revision?</label>
+                    <input id="isdefault" type="checkbox" value="" placeholder="is default?" style="width: 100%;">   
+                    <label for="viewtitle" lngcode="ViewTitle">Title</label>
+                    <input id="viewtitle" type="text" value="" placeholder="Title" style="width: 100%;"> <br/>
+                    <label for="viewtitlecode" lngcode="ViewTitle">Title</label>
+                    <input id="viewtitlecode" type="text" value="" placeholder="Title Code" style="width: 100%;"> <br/>              
+                      <label for="onloadcode" style="width: 100%;" lngcode="OnLoadingCode">onLoading Code</label><br/>
+                    <input id="onloadcode" type="text" value="" placeholder="onload Code" style="width: 75%;">
+                    <i class="fa fa-plus" onclick="Select_TranCode()"  style="width: 10%; margin-left:10px;"></i>
+                      <i class="fa fa-link" onclick="Open_TranCode()"  style="width: 10%; margin-left:10px;"></i><br/>
+                    <label for="onloadedscript" style="width: 100%;" lngcode="OnLoadedScript">onloaded Script</label><br/>
+                    <textarea id="onloadedscript" type="text" value="" placeholder="onloaded Script" style="width: 100%; height:50px;"></textarea>
+                    <div style="display:flex; flex-direction: row">
+                      <div style="width: 50%">
+                        <label for="View_inputs" lngcode="ViewInputs">Inputs</label>
+                        <button class="btn btn_primary btn-right" value="Add" onclick="$ViewID_tableRowAdd('inputs')" lngcode="Add">Add</button>
+                        <button class="btn btn_primary btn-right" value="Delete" onclick="$ViewID_tableRowDelete('inputs')" lngcode="Delete">Delete</button>
+                        <br/>
+                        <ui-tabulator id="view_editor_inputs_id" style="width:100%"></ui-tabulator>
+                      </div>
+                      <div style="width: 50%">
+                        <!--textarea id="View_inputs" type="text" placeholder="inputs to render the view" style="width: 100%;height:50px;"></textarea -->
+                        <label for="View_outputs" lngcode="ViewOutputs">Outputs</label>
+                        <button class="btn btn_primary btn-right" value="Add" onclick="$ViewID_tableRowAdd('outputs')" lngcode="Add">Add</button>
+                        <button class="btn btn_primary btn-right" value="Delete" onclick="$ViewID_tableRowDelete('outputs')" lngcode="Delete">Delete</button>
+                        <br/>
+                        <ui-tabulator id="view_editor_outputs_id" style="width:100%"></ui-tabulator>
+                      </div>
+                    </div>
+                    <!--textarea id="View_outputs" type="text" placeholder="Outputs that view generated" style="width: 100%;height:50px;"></textarea -->
+                    <label for="View_actions" lngcode="ViewActions">Actions</label>
+                    <textarea id="View_actions" type="text" placeholder="Actions" style="width: 100%;height:50px;"></textarea>
+                      <label lngcode="ViewLngCode">Language Codes</label>
+                      <button class="btn btn_primary btn-right" value="Add" onclick="$ViewID_tableRowAdd('lngcode')" lngcode="Add">Add</button>
+                    <button class="btn btn_primary btn-right" value="Delete" onclick="$ViewID_tableRowDelete('lngcode')" lngcode="Delete">Delete</button>
+                      <br/>
+                      <ui-tabulator id="view_editor_language_codes_id" style="width:100%"></ui-tabulator>
+                    
+                </div>
             </div>
         </div>
+        <div class="code-container item_container" data-key="Editor">
+            <textarea id="html-code"></textarea>
+        </div>
+        <div class="script-container item_container" data-key="Javascript"  style="display:none;">
+            <textarea id="script-code"></textarea>
+        </div>
+        <div class="styles-container item_container" data-key="Styles"  style="display:none;">
+            <textarea id="styles-code"></textarea>
+        </div>
+        <iframe id="code_result" class="item_container" data-key="Preview" width="100%" height="100%" style="border: 0.5px solid gray; display:none">
+        </iframe>
+    
     </div>
-    <div class="code-container item_container" data-key="Editor">
-        <textarea id="html-code"></textarea>
-    </div>
-    <div class="script-container item_container" data-key="Javascript">
-        <textarea id="script-code"></textarea>
-    </div>
-    <div class="styles-container item_container" data-key="Styles">
-        <textarea id="styles-code"></textarea>
-    </div>
-    <iframe id="code_result" class="item_container" data-key="Preview" width="100%" height="100%" style="border: 0.5px solid gray; display:none">
-    </iframe>
-
-</div>
 
 <script id="rendered-js" >
-    var html_value;
-    var html_editor;
-    var script_editor;
-    var styles_editor;
-    var viewdata={};
-    var viewID = $Context.inputs.selectedKey;
-    $Context.onLoaded(function(){
-        $('code_result').css('height', $(window).height() - 200);
-        $('#code_result').hide();
-        let width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-        let height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
-        height = height - $('.tab_menu').height()-70;
-        width = width - 80;
-        $('.item_container').css('height', height);
-        $('.item_container').css('width', width);
-        $('.item_container').hide();
+ var html_value;
+var html_editor;
+var script_editor;
+var styles_editor;
+var viewdata={};
+var viewID = Session.snapshoot.sessionData.selectedKey; //$Context.inputs.selectedKey;
+var data_changed = false;
 
-        $('.code-container').show();
+$Context.onLoaded(function(){
+   
+    console.log($Context.inputs.selectedKey,$Context.inputs.selectedViewName,viewID, Session.snapshoot.sessionData.selectedKey, Session.snapshoot.sessionData.selectedViewName)
+  
+    let width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+    let height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+    height = height - $('.iac_ui_tab_menu').height()-70;
+    width = width - 80;
+    $('.item_container').css('height', height);
+    $('.item_container').css('width', width);
+    $('.item_container').hide();
+    $('.code-container').show();
 
-        $('.tab_item').click(function(){
-            if($(this).attr('value') == 'Menu'){
-                let list = document.createElement("ul");               
-                let htmlstr = '<li><a onclick="$ViewID_Save()"><icon class="fa fa-save"><icon><span lngcode="Save">Save</span></a></li>';
-                htmlstr += '<li><a onclick="$ViewID_Export()"><icon class="fa fa-export"><icon><span lngcode="Export">Export</span></a></li>';
-                htmlstr += '<li><a onclick="$ViewID_Quit()"><icon class="fa fa-quit"><icon><span lngcode="Quit">Quit</span></a></li>';
-                list.innerHTML = htmlstr;
-                let popup = UI.ContextPopup.createPopup(list);
-                popup.attach(this);  
-            }                
-            if($(this).attr('value') == 'Preview'){
-                run_preview_code();
-            }
-            $('.tab_item').removeClass('active');
-            $(this).addClass('active');
-            console.log($(this).attr('value'));
-            $('.item_container').hide();
-            $('.item_container[data-key="'+$(this).attr('value')+'"]').show();
-        })
-       
-        html_editor = CodeMirror.fromTextArea(document.getElementById("html-code"), {
-            styleActiveLine: true,
-            lineNumbers: true,
-            matchBrackets: true,
-            autoCloseBrackets: true,
-            autoCloseTags: true,
-            matchTags: {bothTags: true},
-         //   extraKeys: {"Ctrl-J": "toMatchingTag"},
-            mode: "htmlmixed",
-            lineWrapping: true,
-            extraKeys: {"Ctrl-Q": function(cm){ cm.foldCode(cm.getCursor()); }},
-            foldGutter: true,
-            gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
-        });
-     //   html_editor.foldCode(CodeMirror.Pos(0, 0));
-     //   html_editor.foldCode(CodeMirror.Pos(34, 0));
-     //   console.log(html_editor)
-        if(html_editor)
-            html_editor.setSize(width, height);
-
-        script_editor = CodeMirror.fromTextArea(document.getElementById("script-code"), {
-            styleActiveLine: true,
-            lineNumbers: true,
-            matchBrackets: true,
-            autoCloseBrackets: true,
-            autoCloseTags: true,
-            matchTags: {bothTags: true},
-         //   extraKeys: {"Ctrl-J": "toMatchingTag"},
-            mode: "javascript",
-            lineWrapping: true,
-            extraKeys: {"Ctrl-Q": function(cm){ cm.foldCode(cm.getCursor()); }},
-            foldGutter: true,
-            gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
-        });
-        if(script_editor)
-            script_editor.setSize(width, height);
-
-        styles_editor = CodeMirror.fromTextArea(document.getElementById("styles-code"), {
-            styleActiveLine: true,
-            lineNumbers: true,
-            matchBrackets: true,
-            autoCloseBrackets: true,
-            autoCloseTags: true,
-            matchTags: {bothTags: true},
-         //   extraKeys: {"Ctrl-J": "toMatchingTag"},
-            mode: "css",
-            lineWrapping: true,
-            extraKeys: {"Ctrl-Q": function(cm){ cm.foldCode(cm.getCursor()); }},
-            foldGutter: true,
-            gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
-        });
-        if(styles_editor)
-            styles_editor.setSize(width, height);
-
-        if(viewID !=""){
-            let inputs={
-                collectionname:'UI_View',
-                data: {"_id": viewID},
-                operation: "detail"
-            }
-
-            UI.Post('/collection/id',inputs, 
-                function(response){
-                    UI.Log(response);
-                    let result = JSON.parse(response);
-                    viewdata = result.data;
-                   
-                    $('#name').val(viewdata.name);
-                    $('#title').val(viewdata.title);
-                    $('#revision').val(viewdata.revision);
-                    $('#isdefault').prop('checked', viewdata.isdefault);
-                    html_editor.setValue(viewdata.html);
-                    script_editor.setValue(viewdata.script);
-                    styles_editor.setValue(viewdata.styles);
-
-                    let inputs = Object.keys(viewdata.inputs);
-                    $('#View_inputs').val(inputs.join(';'));
-                    let outputs = Object.keys(viewdata.outputs);
-                    $('#View_outputs').val(outputs.join(';'));
-                    
-                    $('#View_actions').val(JSON.stringify(viewdata.actions));
-                }, 
-                function(error){
-                    UI.Log(error); 
-                    UI.ShowError(error);
-                    return;})
-
-        }        
-    })
-
-    function $ViewID_Save(){
-        let html = html_editor.getValue();
-        let script = script_editor.getValue();
-        let styles = styles_editor.getValue();
-        viewdata["_id"] = viewID;        
-        viewdata.name = $('#name').val();
-        viewdata.title = $('#title').val();
-        viewdata.revision = $('#revision').val();
-        viewdata.html = html;
-        viewdata.script = script;
-        viewdata.styles = styles;
-        viewdata.isdefault = $('#isdefault').prop('checked');
-        let parameterstr = $('#View_inputs').val()
-        let parameterlist = parameterstr.split(';')
-        let inputs={}
-        for(var i=0;i<parameterlist.length;i++){
-            parameterlist[i] = parameterlist[i].trim()
-           if(parameterlist[i]!="")
-                inputs[parameterlist[i]] = ""
-        }
-        viewdata.inputs =inputs;
-        parameterstr = $('#View_outputs').val()
-        parameterlist = parameterstr.split(';')
-        let outputs={}
-        for(var i=0;i<parameterlist.length;i++){
-            parameterlist[i] = parameterlist[i].trim()
-            if(parameterlist[i]!="")
-               outputs[parameterlist[i]] = ""
-        }
-        viewdata.outputs =outputs;
-        if (viewdata.name == '') {
-            UI.ShowError('Please input view name!');
-            return;
-        }
-        if(viewdata.revision ==""){
-            UI.ShowError('Please input view revision!');
-            return;
-        }
-        if (viewdata.title == '') {
-            UI.ShowError('Please input view title!');
-            return;
-        }
-        if(viewdata.uuid == undefined || viewdata.uuid == null || viewdata.uuid == ''){
-            viewdata.uuid = UI.generateUUID();
-        }
-        let actions = {};
-        try{
-            actions = JSON.parse($('#View_actions').val());
-        }
-        catch(e){
-            UI.Log(e);
-        }
-        viewdata.actions = actions;        
-        let callinputs = {
-            collectionname:  "UI_View",
-            data: viewdata,
-            keys: ["_id"],
-            operation: "update"
-        }
-        UI.Log(callinputs)
-
-        UI.Post('/collection/update',callinputs, function(response){
-            let result = JSON.parse(response);
-            UI.Log(result);
-            viewID = result.data.id;
-            UI.ShowMessage('View saved successfully','Success');
-        }, function(error){
-            UI.Log(error);
-        })
-
-    }
-    function run_preview_code() {
-        var doc = document.getElementById('code_result').contentWindow.document;
-        html_value = html_editor.getValue();
+    $('.iac_ui_tab_item').click(function(){
         
-        let script = script_editor.getValue();
-        let styles = styles_editor.getValue();
-        doc.open();
-        doc.write("<script>"+script + "<\/script>");
-        doc.write("<style>"+styles + "<\/style>");
-        doc.write(html_value);
-        doc.close();
-        let width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-        let height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
-        height = height - $('.tab_menu').height()-70;
-        width = width - 80;
-        document.getElementById('code_result').setAttribute('width', width+'px');
-        document.getElementById('code_result').setAttribute('height', height+'px');
+        $('.iac_ui_tab_item').removeClass('active');
+        $(this).addClass('active');
+          if($(this).attr('value') == 'Preview'){              	
+            run_preview_code();
+        }else if($(this).attr('value') == 'Configuration'){
+            let htmlcode = html_editor.getValue();
+            let scriptcode = script_editor.getValue();
+            checkcodes(htmlcode, "html");
+            checkcodes(scriptcode, "script");
+            loadConfiguration();  
+        }
+      //  console.log($(this).attr('value'));
+        $('.item_container').hide();
+        $('.item_container[data-key="'+$(this).attr('value')+'"]').show();
+      
+      
+    })
+   
+    html_editor = CodeMirror.fromTextArea(document.getElementById("html-code"), {
+        styleActiveLine: true,
+        lineNumbers: true,
+        matchBrackets: true,
+        autoCloseBrackets: true,
+        autoCloseTags: true,
+        matchTags: {bothTags: true},
+     //   extraKeys: {"Ctrl-J": "toMatchingTag"},
+        mode: "htmlmixed",
+        lineWrapping: true,
+        extraKeys: {"Ctrl-Q": function(cm){ cm.foldCode(cm.getCursor()); }},
+        foldGutter: true,
+        gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
+    });
+ //   html_editor.foldCode(CodeMirror.Pos(0, 0));
+ //   html_editor.foldCode(CodeMirror.Pos(34, 0));
+ //   console.log(html_editor)
+    if(html_editor)
+        html_editor.setSize(width, height);
+
+    script_editor = CodeMirror.fromTextArea(document.getElementById("script-code"), {
+        styleActiveLine: true,
+        lineNumbers: true,
+        matchBrackets: true,
+        autoCloseBrackets: true,
+        autoCloseTags: true,
+        matchTags: {bothTags: true},
+     //   extraKeys: {"Ctrl-J": "toMatchingTag"},
+        mode: "javascript",
+        lineWrapping: true,
+        extraKeys: {"Ctrl-Q": function(cm){ cm.foldCode(cm.getCursor()); }},
+        foldGutter: true,
+        gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
+    });
+    if(script_editor)
+        script_editor.setSize(width, height);
+
+    styles_editor = CodeMirror.fromTextArea(document.getElementById("styles-code"), {
+        styleActiveLine: true,
+        lineNumbers: true,
+        matchBrackets: true,
+        autoCloseBrackets: true,
+        autoCloseTags: true,
+        matchTags: {bothTags: true},
+     //   extraKeys: {"Ctrl-J": "toMatchingTag"},
+        mode: "css",
+        lineWrapping: true,
+        extraKeys: {"Ctrl-Q": function(cm){ cm.foldCode(cm.getCursor()); }},
+        foldGutter: true,
+        gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
+    });
+    if(styles_editor)
+        styles_editor.setSize(width, height);
+    
+    UI.Log("Load View data:", viewID, " by name:", $Context.inputs.selectedViewName)
+    if(viewID !=""){
+        let inputs={
+            collectionname:'UI_View',
+            data: {"_id": viewID},
+            operation: "detail"
+        }
+
+        UI.Post('/collection/id',inputs, 
+            function(response){
+                UI.Log(response);
+                let result = JSON.parse(response);
+                viewdata = result.data;
+            loadviewdata(viewdata)
+            }, 
+            function(error){
+                UI.Log(error); 
+                UI.ShowError(error);
+                return;})
+
+    }else if($Context.inputs.selectedViewName && $Context.inputs.selectedViewName != "" ){
+          let inputs={
+            collectionname:'UI_View',
+            data: {"name": $Context.inputs.selectedViewName},
+            operation: "detail"
+        }
+    //	UI.Log('/collection/name',inputs)
+        UI.Post('/collection/name',inputs, 
+            function(response){
+           //     UI.Log(response);
+                let result = JSON.parse(response);
+                viewdata = result.data;
+                loadviewdata(viewdata)
+                viewID = viewdata["_id"]
+            }, 
+            function(error){
+                UI.ShowError(error);
+                return;})
+      
+    }
+  
+  window.addEventListener('resize',resizewindows)
+  $('#ViewID input').on('change', element_changed)
+  $('#ViewID textarea').on('change', element_changed)
+  
+})
+
+$Context.onUnloading(function(){
+      if(data_changed)
+      if(confirm("The data does not save, do you want to save it before exist?"))
+        $ViewID_Save();
+  
+    window.removeEventListener('resize',resizewindows)
+       $('#ViewID input').off('change', element_changed)
+      $('#ViewID textarea').off('change', element_changed)
+})
+
+function element_changed(){
+    data_changed = true;
+}
+function loadviewdata(viewdata){
+                     
+  $('#name').val(viewdata.name);
+  $('#viewtitle').val(viewdata.title);
+  $('#viewtitlecode').val(viewdata.lngcode);
+  $('#revision').val(viewdata.revision);
+  $('#isdefault').prop('checked', viewdata.isdefault);
+  html_editor.setValue(viewdata.html);
+  script_editor.setValue(viewdata.script);
+  styles_editor.setValue(viewdata.styles);
+  $('#onloadcode').val(viewdata.onloadcode);
+  $('#onloadedscript').val(viewdata.onloadedscript);
+ /* let inputs = Object.keys(viewdata.inputs);
+  $('#View_inputs').val(inputs.join(';'));
+  let outputs = Object.keys(viewdata.outputs);
+  $('#View_outputs').val(outputs.join(';'));  */
+                
+  $('#View_actions').val(JSON.stringify(viewdata.actions));
+
+ //   UI.translate(document.getElementById('properties_content'))
+}
+
+function loadConfiguration(){
+    let table = document.getElementById('view_editor_language_codes_id');
+    let tabledata=[];
+    if(!viewdata.lngcodes)
+        viewdata.lngcodes = {}; 
+
+    let lparameters = Object.keys(viewdata.lngcodes);
+    for(var i=0;i<lparameters.length;i++){
+        tabledata.push({
+            lngcode: lparameters[i],
+            text: viewdata.lngcodes[lparameters[i]]
+        })
+    }
+  	console.log(viewdata, tabledata)
+
+  //  if(!table.Table){
+      if(!$Context.lngcodes)
+      $Context.lngcodes = {
+          lngcode: "Language Code",
+          defaulttext: "Default Text"
+      }; 
+
+      if(!$Context.lngcodes.hasOwnProperty('defaulttext'))
+          $Context.lngcodes.defaulttext = "Default Text";
+      if(!$Context.lngcodes.hasOwnProperty('lngcode'))
+          $Context.lngcodes.lngcode = "Language Code";
+      
+        let tablecolumns = [
+            {title:$Context.lngcodes.lngcode , field: "lngcode", editor: "input"},
+            {title:$Context.lngcodes.defaulttext , field: "text", editor: "input"}    
+        ]
+        table.Table = new Tabulator(table.uitabulator, {
+            layout:"fitColumns",     
+            selectable:true, 
+          	columns: tablecolumns,
+            data: tabledata
+        })  
+   // }else {
+   //     table.Table.setData(tabledata)
+   // }
+  table.Table.on("dataChanged", function(data){
+   	console.log(data)
+    if(!viewdata.lngcodes)
+      viewdata.lngcodes = {};
+    
+    for(var i=0;i<data.length;i++){
+    	if(data[i]["lngcode"] !="" && (data[i]["lngcode"] != undefined)){
+        	viewdata.lngcodes[data[i]["lngcode"]] = data[i]["text"]
+        }      
+    }
+  })
+  
+  // load inputs: 
+  let itable = document.getElementById('view_editor_inputs_id');
+  tabledata = [];
+  for(key in viewdata.inputs){
+    tabledata.push({input: key})
+  }
+  
+  itable.Table = new Tabulator(itable.uitabulator, {
+            layout:"fitColumns",     
+            selectable:true, 
+          	columns: [{title: "Input", field: "input", editor: "input"}],
+            data: tabledata
+  })
+  itable.Table.on("dataChanged", function(data){
+   	console.log(data)
+    if(!viewdata.inputs)
+      viewdata.inputs = {};
+    
+    for(var i=0;i<data.length;i++){
+    	if(data[i]["input"] !="" && (data[i]["input"] != undefined)){
+        	viewdata.inputs[data[i]["input"]] = {}
+        }      
+    }
+  })  
+     // load outputs: 
+    let otable = document.getElementById('view_editor_outputs_id');
+    tabledata = [];
+    for(key in viewdata.outputs){
+      tabledata.push({output: key})
     }
 
-    window.addEventListener('resize',function(){
-        let width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-        let height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
-        height = height - $('.tab_menu').height()-70;
-        width = width - 80;
-        $('.code-container').css('height', height);
-        $('.code-container').css('width', width);
-        html_editor.setSize(width, height);
-        document.getElementById('code_result').setAttribute('width', width+'px');
-        document.getElementById('code_result').setAttribute('height', height+'px');
+    otable.Table = new Tabulator(otable.uitabulator, {
+              layout:"fitColumns",     
+              selectable:true, 
+              columns: [{title: "Output", field: "output", editor: "input"}],
+              data: tabledata
+    })
+  
+    otable.Table.on("dataChanged", function(data){
+   	console.log(data)
+    if(!viewdata.outputs)
+      viewdata.outputs = {};
+    
+    for(var i=0;i<data.length;i++){
+    	if(data[i]["output"] !="" && (data[i]["output"] != undefined)){
+        	viewdata.outputs[data[i]["output"]] = {}
+        }      
+    }
+  })
+}
+                    
+function $ViewID_tableRowAdd(type){
+  var table
+  if(type == "lngcode")
+  	table = document.getElementById('view_editor_language_codes_id');
+  else if(type == "inputs")
+  	table = document.getElementById('view_editor_inputs_id');
+  else if(type == "outputs")
+  	table = document.getElementById('view_editor_outputs_id');
+  else
+    return;
+      
+  if(table.Table){
+  	table.Table.addRow({});
+  }
+}
 
+function $ViewID_tableRowDelete(type){
+  var table
+  if(type == "lngcode")
+  	table = document.getElementById('view_editor_language_codes_id');
+  else if(type == "inputs")
+  	table = document.getElementById('view_editor_inputs_id');
+  else if(type == "outputs")
+  	table = document.getElementById('view_editor_outputs_id');
+  else
+    return;
+  
+  if(!table.Table)
+    return;
+  
+  let rows = table.Table.getSelectedRows();
+  if(rows.length == 0)
+  {
+    UI.ShowError($Context.lngcodes.Error_No_Selected);
+    return;
+  }
+  
+  for(var i=0;i<rows.length;i++){
+    let row = rows[i].getData();
+    if(type == "lngcode"){
+    	if(row["lngcode"] !="" )
+  			delete viewdata.lngcodes[row["lngcode"]]
+    }else if(type == "inputs"){
+      if(row["input"] !="" )
+  			delete viewdata.inputs[row["input"]]
+    }else if(type == "outputs"){
+      if(row["output"] !="" )
+  			delete viewdata.outputs[row["output"]]
+    }
+    
+  }
+  
+  loadConfiguration();
+}
+
+
+function $ViewID_Save(){
+    let html = html_editor.getValue();
+    let script = script_editor.getValue();
+    let styles = styles_editor.getValue();
+    viewdata["_id"] = viewID;        
+    viewdata.name = $('#name').val();
+    viewdata.title = $('#viewtitle').val();
+    viewdata.revision = $('#revision').val();
+    viewdata.lngcode = $('#viewtitlecode').val();
+    viewdata.html = html;
+    viewdata.script = script;
+    viewdata.styles = styles;
+    viewdata.isdefault = $('#isdefault').prop('checked');
+    viewdata.onloadcode = $('#onloadcode').val();
+      viewdata.onloadedscript = $('#onloadedscript').val();
+ /*   let parameterstr = $('#View_inputs').val()
+    let parameterlist = parameterstr.split(';')
+    let inputs={}
+    for(var i=0;i<parameterlist.length;i++){
+        parameterlist[i] = parameterlist[i].trim()
+       if(parameterlist[i]!="")
+            inputs[parameterlist[i]] = ""
+    }
+    viewdata.inputs =inputs;
+    parameterstr = $('#View_outputs').val()
+    parameterlist = parameterstr.split(';')
+    let outputs={}
+    for(var i=0;i<parameterlist.length;i++){
+        parameterlist[i] = parameterlist[i].trim()
+        if(parameterlist[i]!="")
+           outputs[parameterlist[i]] = ""
+    }
+    viewdata.outputs =outputs; */
+  
+    //checkcodes(html, "html");
+    //checkcodes(script, "script");  
+  
+    if (viewdata.name == '') {
+        UI.ShowError('Please input view name!');
+        return;
+    }
+    if(viewdata.revision ==""){
+        UI.ShowError('Please input view revision!');
+        return;
+    }
+    if (viewdata.title == '') {
+        UI.ShowError('Please input view title!');
+        return;
+    }
+    if(viewdata.uuid == undefined || viewdata.uuid == null || viewdata.uuid == ''){
+        viewdata.uuid = UI.generateUUID();
+    }
+    let actions = {};
+    try{
+        actions = JSON.parse($('#View_actions').val());
+    }
+    catch(e){
+        UI.Log(e);
+    }
+    viewdata.actions = actions;        
+    let callinputs = {
+        collectionname:  "UI_View",
+        data: viewdata,
+        keys: ["name"],
+        operation: "update"
+    }
+    UI.Log(callinputs)
+
+    UI.Post('/collection/update',callinputs, function(response){
+        let result = JSON.parse(response);
+        UI.Log(result);
+        viewID = result.data.data.id;
+          data_changed = false;
+        UI.ShowMessage('View saved successfully','Success');
+    }, function(error){
+        UI.Log(error);
     })
 
+}
+function run_preview_code() {
+    var doc = document.getElementById('code_result').contentWindow.document;
+    html_value = html_editor.getValue();
+    
+    let script = script_editor.getValue();
+    let styles = styles_editor.getValue();
+    doc.open();
+    doc.write("<script>"+script + "<\/script>");
+    doc.write("<style>"+styles + "<\/style>");
+    doc.write(html_value);
+    doc.close();
+    let width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+    let height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+    height = height - $('.tab_menu').height()-70;
+    width = width - 80;
+    document.getElementById('code_result').setAttribute('width', width+'px');
+    document.getElementById('code_result').setAttribute('height', height+'px');
+}
+
+function resizewindows(){
+    let width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+    let height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+    height = height - $('.tab_menu').height()-70;
+    width = width - 80;
+      $('#properties_content').css('height', height);
+  $('#properties_content').css('width', width);
+    $('.code-container').css('height', height);
+    $('.code-container').css('width', width);
+    html_editor.setSize(width, height);
+      script_editor.setSize(width, height);
+      styles_editor.setSize(width, height);
+    if(document.getElementById('code_result').length > 0){
+      document.getElementById('code_result').setAttribute('width', width+'px');
+      document.getElementById('code_result').setAttribute('height', height+'px');
+    }
+}
+function Open_TranCode(){
+   let name = $('#onloadcode').val()
+  if(name == ""){
+    Select_TranCode()
+  }else{
+    $Context.outputs.action = "TRANCODE";
+    $Context.outputs.selectedName = name
+    $Context.submit();
+  }
+}
+function Select_TranCode(){
+  let cfg = {
+        "name": "Business Logic Maintenance", 
+        "type": "document", 
+        "actions": {
+            "SELECTNAME":{"type": "script", "next": "","page":"","panels":[], "script": "selectitem"},
+            "CANCEL":{"type": "script", "next": "","page":"","panels":[], "script": "cancelitem"},
+        }
+      }
+let page =Session.CurrentPage;
+//UI.Log(page)
+let org_schema = Session.snapshoot.sessionData.ui_dataschema
+let org_entity = Session.snapshoot.sessionData.entity
+let org_selectedKey = Session.snapshoot.sessionData.selectedKey
+
+let inputs = {}
+inputs.ui_dataschema = 'trancode'
+    //    UI.Log(inputs)
+cfg.inputs = inputs;
+ cfg.actions.SELECTNAME.script = function(data){      	     
+    UI.Log(data)
+      if(data["selectedNameList"] && data.selectedNameList.length == 1) {
+          $('#onloadcode').val(data.selectedNameList[0])
+    }else{
+        UI.ShowError("Select only one row!")          
+    } 
+    page.popupClose(); 
+    Session.snapshoot.sessionData.ui_dataschema = org_schema;
+    Session.snapshoot.sessionData.selectedKey = org_selectedKey; 
+                        
+}
+cfg.actions.CANCEL.script = function(data){
+        UI.Log("execute the action:", data)
+        Session.snapshoot.sessionData.selectedKey = org_selectedKey;
+        Session.snapshoot.sessionData.ui_dataschema = org_schema;
+        page.popupClose();
+}
+cfg.onloadedscript = function(){
+  $('.ui_actions_section button').hide();
+  $('.ui_actions_section button[value="Select"]').show();
+  $('.ui_actions_section button[value="Cancel"]').show();
+}
+
+  Session.snapshoot.sessionData.ui_dataschema = "trancode"          
+page.popupOpen(cfg);  	
+    page.popup.onClose(function(){
+     Session.snapshoot.sessionData.selectedKey = org_selectedKey;
+     Session.snapshoot.sessionData.ui_dataschema = org_schema;
+}) 
+}
+
+function checkcodes(content, type){
+    let lngregex = /{@(.*?)}/g;
+    let pararegex = /{(.*?)}/g;
+    let lngcodes = [];
+    let parameters = [];
+    let outputs = []
+    let match
+    if(type == "html"){
+
+      while ((match = lngregex.exec(content)) !== null) {
+      	lngcodes.push(match[1])
+      }
+      while ((match = pararegex.exec(content)) !== null) {
+      	if(!match[1].startsWith('@'))
+        	parameters.push(match[1])
+      }
+    }else if(type ==  "script"){
+      var regex =  /\$Context\.lngcodes\.([a-zA-Z_$][\w$]*)(?=\s*=?)/g;
+      var matches = new Set();
+      while ((match = regex.exec(content)) !== null) {
+        const propertyName = match[1]; // Get the captured property name
+        matches.add(propertyName);
+      }
+      var filteredMatches = [...matches].filter(propertyName => propertyName !== 'hasOwnProperty');
+      console.log(filteredMatches)
+	  lngcodes = lngcodes.concat(filteredMatches)
+      
+  /*    lngregex = /$Context.lngcodes[(.*?)]/g;
+      while ((match = lngregex.exec(content)) !== null) {
+      	lngcodes.push(match[1])
+      } */
+      regex =  /\$Context\.inputs\.([a-zA-Z_$][\w$]*)(?=\s*=?)/g;
+      var matches = new Set();
+      while ((match = regex.exec(content)) !== null) {
+        const propertyName = match[1]; // Get the captured property name
+        matches.add(propertyName);
+      }
+      filteredMatches = [...matches].filter(propertyName => propertyName !== 'hasOwnProperty');
+      console.log(filteredMatches)
+      parameters = parameters.concat(filteredMatches)
+   /*   pararegex = /$Context.inputs[(.*?)]/g;
+      while ((match = pararegex.exec(content)) !== null) {
+        parameters.push(match[1])
+      }   */
+      regex =  /\$Context\.outputs\.([a-zA-Z_$][\w$]*)(?=\s*=?)/g;
+      var matches = new Set();
+      while ((match = regex.exec(content)) !== null) {
+        const propertyName = match[1]; // Get the captured property name
+        matches.add(propertyName);
+      }
+      filteredMatches = [...matches].filter(propertyName => propertyName !== 'hasOwnProperty');
+      outputs = outputs.concat(filteredMatches)
+  /*    pararegex = /$Context.outputs[(.*?)]/g;
+      while ((match = pararegex.exec(content)) !== null) {
+      	outputs.push(match[1])
+      }  */     
+    }
+	console.log(lngcodes, parameters,outputs )
+    let uniqueSet = new Set(lngcodes);
+    lngcodes = Array.from(uniqueSet);
+
+    uniqueSet = new Set(parameters);
+    parameters = Array.from(uniqueSet);
+
+    uniqueSet = new Set(outputs);
+    outputs = Array.from(uniqueSet);
+
+    if(!viewdata.inputs)
+    	viewdata.inputs = {};
+
+    if(!viewdata.outputs)
+    	viewdata.outputs = {};
+
+
+    if(!viewdata.lngcodes)
+    	viewdata.lngcodes = {};
+	
+  	console.log(lngcodes, parameters,outputs,viewdata.lngcodes,viewdata.inputs,viewdata.outputs )
+  
+    let inparameters = Object.keys(viewdata.inputs);
+
+    for(var i=0;i<parameters.length;i++){
+    let found = false;
+        for(var j=0;j<inparameters.length;j++){
+            if( inparameters[j] ==parameters[i]){
+            found = true;
+            break;
+            }
+        }
+        if(!found){
+        viewdata.inputs[parameters[i]] = ""
+        }
+    }
+
+    let outparameters = Object.keys(viewdata.outputs);
+
+    for(var i=0;i<outputs.length;i++){
+    let found = false;
+        for(var j=0;j<outparameters.length;j++){
+            if( outparameters[j] ==outputs[i]){
+            found = true;
+            break;
+            }
+        }
+        if(!found){
+        viewdata.outputs[outputs[i]] = ""
+        }
+    } 
+
+    let lparameters = Object.keys(viewdata.lngcodes);
+    for(var i=0;i<lngcodes.length;i++){
+        let found = false;
+        for(var j=0;j<lparameters.length;j++){
+            if( lparameters[j] ==lngcodes[i]){
+            found = true;
+            break;
+            }
+        }
+        if(!found){
+        	viewdata.lngcodes[lngcodes[i]] = ""
+        }
+    } 
+  	console.log(lngcodes, parameters,outputs,viewdata.lngcodes,viewdata.inputs,viewdata.outputs )
+}
 </script>
 <style>
     *, *:after, *:before {

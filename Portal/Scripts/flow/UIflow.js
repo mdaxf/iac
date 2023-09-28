@@ -57,6 +57,7 @@ function _0x30f6(_0x180a7f,_0x5d5a98){var _0x42049c=_0x4204();return _0x30f6=fun
 	$.import_js(path + "jsonmanager.js")  
 	$.import_js(path + "jstree.js")  
 	$.import_js(path + "UIForm.js")  
+	$.import_js(path + "UIwebcomponents.js")  
 	$.import_js(path + "contextmenu/jquery.contextMenu.js")  
 
 })() 
@@ -985,9 +986,9 @@ var ProcessFlow = (function(){
 						// update output
 						for(var i=0;i<that.data.outputs.length;i++){
 							if(that.data.outputs[i].id == data.id){
-								console.log("original data:",that.data.outputs[i], data)
+								UI.Log("original data:",that.data.outputs[i], data)
 								that.data.outputs[i] = Object.assign(that.data.outputs[i],data);
-								console.log(that.data.outputs[i], data)
+								UI.Log(that.data.outputs[i], data)
 								
 								that.node.shape.remove();
 								that.build_block();
@@ -1090,7 +1091,7 @@ var ProcessFlow = (function(){
 			let that = this;
 			
 			this.node.shape.off('change:position', function(element, newPosition) {
-			//	console.log('change the position',element, newPosition)
+			//	UI.Log('change the position',element, newPosition)
 				let data = {
 					x: newPosition.x,
 					y: newPosition.y
@@ -1258,7 +1259,7 @@ var ProcessFlow = (function(){
 					}) 
 
 					let maxheight = Math.max(Math.max(this.data.inputs.length,this.data.outputs.length) * 20 + 35, this.data.height); 
-					console.log('maxheight:', maxheight)
+					UI.Log('maxheight:', maxheight)
 				//	headeredRectangle = new joint.shapes.ProcessFlow.StepBlock.Function()
 					headeredRectangle.position(this.data.x, this.data.y);
 					headeredRectangle.resize(this.data.width, maxheight);
@@ -1269,7 +1270,7 @@ var ProcessFlow = (function(){
 					headeredRectangle.attr('functionname/text', this.data.name);					
 					headeredRectangle.addTo(this.flow.Graph);
 				//	headeredRectangle.addPorts(ports);
-				//	console.log(headeredRectangle.getGroupPorts("input"))
+				//	UI.Log(headeredRectangle.getGroupPorts("input"))
 
 					this.node = {
 						id: this.data.id,
@@ -1303,7 +1304,7 @@ var ProcessFlow = (function(){
 			let that = this;
 			// update block self
 
-		//	console.log('before update',that.data, data);
+		//	UI.Log('before update',that.data, data);
 			if(subtype == ''){
 				that.data = Object.assign(that.data,data);
 				data = that.data;
@@ -1334,7 +1335,7 @@ var ProcessFlow = (function(){
 						if(data.name)
 							if(that.data.outputs[i].name != data.name){
 								that.flow.functionlinks.forEach(item => {
-								//	console.log('check function link:', item)
+								//	UI.Log('check function link:', item)
 									if(item.sourceoutputid == data.id && item.sourcefunctionid == that.data.id){
 										let targetfunctionid = item.targetfunctionid;
 										let targetinputid = item.targetinputid;
@@ -1343,7 +1344,7 @@ var ProcessFlow = (function(){
 										let value = that.flow.FlowJsonObj.getNode(path).value;
 				
 										let values = value.split('.');
-									//	console.log(path,values, data)
+									//	UI.Log(path,values, data)
 										if(values.length == 2)
 											if(values[0]  == that.data.name){
 												that.flow.FlowJsonObj.updateNodeValue(path,that.data.name + '.' + data.name);
@@ -1359,7 +1360,7 @@ var ProcessFlow = (function(){
 				}					
 			}
 
-		//	console.log("after update",that.data);
+		//	UI.Log("after update",that.data);
 			for(var i=0;i<that.flow.nodes.length;i++){
 				if(that.flow.nodes[i].id == that.data.id){
 					that.flow.nodes[i] = that.data;
@@ -1490,7 +1491,7 @@ var ProcessFlow = (function(){
 		}
 
 		build_link(sourcenode, sourceport,destnode,destport){
-		    console.log("build link:",sourcenode, sourceport,destnode,destport)
+		    UI.Log("build link:",sourcenode, sourceport,destnode,destport)
 
 			if(!sourcenode || !destnode || !sourceport || !destport){
 				
@@ -1542,7 +1543,7 @@ var ProcessFlow = (function(){
 						break;
 					}
 				}
-			//	console.log('update flowobj:', this.funcgroup,this.flowobj )
+			//	UI.Log('update flowobj:', this.funcgroup,this.flowobj )
 				let path = 'functiongroups/{"name":"'+this.flow.funcgroupname+'"}/functions/{"id":"'+targetfunctionid+'"}/inputs/{"id":"'+targetinputid+'"}'
 				let data = {
 					source: 0,
@@ -1586,7 +1587,7 @@ var ProcessFlow = (function(){
 			this._link.target({id: destnode.shape.id, port: destnode.shape.getPort('top').id});		
 		}
 		update_label(label){
-			console.log(this, label)
+			UI.Log(this, label)
 			let destfgname = this.flow.get_block(this.destnodeid.id).data.name;
 			if(destfgname =="")
 				return;
@@ -1603,11 +1604,11 @@ var ProcessFlow = (function(){
 
 			let path = 'functiongroups/{"id":"'+this.sourcenodeid.id+'"}/routerdef'
 			let routerdef = this.flow.FlowJsonObj.getNode(path).value;
-		//	console.log(path, routerdef)
+		//	UI.Log(path, routerdef)
 			if(routerdef){
 				let values = routerdef.values;
 				let nextfuncgroups = routerdef.nextfuncgroups;
-			//	console.log(values, nextfuncgroups, destfgname)
+			//	UI.Log(values, nextfuncgroups, destfgname)
 				if(nextfuncgroups && values){
 					for(var i=0;i<nextfuncgroups.length;i++){
 						if(nextfuncgroups[i] == destfgname){
@@ -1655,7 +1656,7 @@ var ProcessFlow = (function(){
 				else{			
 					
 					let tragetblock = this.flow.get_block(this.destnodeid.id);
-							//	console.log('update flowobj:', this.funcgroup,this.flowobj )
+							//	UI.Log('update flowobj:', this.funcgroup,this.flowobj )
 					for(var n=0;n<this.flow.flowobj.functiongroups.length;n++){
 						if(this.flow.flowobj.functiongroups[n].id == this.sourcenodeid.id){
 							let routerdef = this.flow.flowobj.functiongroups[n].routerdef;
@@ -1698,7 +1699,7 @@ var ProcessFlow = (function(){
 			this.flow = flow;
 			this.data = data;
 			
-			//console.log(this.data)
+			//UI.Log(this.data)
 			if(!mergepoint)
 				this.build_link(fromnode, tonode);
 			else
@@ -1862,10 +1863,10 @@ var ProcessFlow = (function(){
 			
 
 			$.on(this.toolbar, 'click', e => {
-			//	console.log(this,e)
+			//	UI.Log(this,e)
 				/*
 				if(that.flow.options.flowtype.toUpperCase() == 'PROCESS' && that.data.datakey.toUpperCase() == 'OPERATION'){
-						console.log(that.flow.options.flowtype, that.data.datakey )
+						UI.Log(that.flow.options.flowtype, that.data.datakey )
 						let block = new Block(that.flow,{
 							OprSequenceNo: '',
 							WorkCenter: '',
@@ -1879,7 +1880,7 @@ var ProcessFlow = (function(){
 							
 						},'OPERATION');
 						
-						console.log(block);
+						UI.Log(block);
 						
 						
 						return;			
@@ -1960,14 +1961,14 @@ var ProcessFlow = (function(){
 			this.onChange = onChange;
 			return new Proxy(this, {
 				get(target, property) {
-				//console.log(target)
+				//UI.Log(target)
 				  return target.data[property];
 				},
 				ischanged(){
 					return this.originalvalue != this.data;
 				},
 				set(target, property, value) {
-					console.log('json change')
+					UI.Log('json change')
 				  target.data[property] = value;
 				  target.onChange(property, value);
 				  return true;
@@ -2023,7 +2024,7 @@ var ProcessFlow = (function(){
 
 			if(this.options.flowtype == 'FUNCGROUP')
 			{
-			//	console.log(this.flowobj, funcgroup)
+			//	UI.Log(this.flowobj, funcgroup)
 				let fgobj ={};
 				if(funcgroup == "" || !funcgroup){
 					fgobj = this.FlowJsonObj.getNode('functiongroups/0').value
@@ -2038,7 +2039,7 @@ var ProcessFlow = (function(){
 					fgobj = this.FlowJsonObj.getNode('functiongroups/{"name":"'+funcgroup+'"}').value
 
 				}
-				//console.log(fgobj)
+				//UI.Log(fgobj)
 				obj = this.get_process_Object(fgobj)				
 			}
 			else
@@ -2123,13 +2124,13 @@ var ProcessFlow = (function(){
 			{
 				'class':'processflow_container',
 				'id':wrapper+'_flow_property_panel',
-				'style':'width:0px;height:100%;float:right;position:absolute;top:0px;right:0px;background-color:lightgrey;overflow:auto;' +
+				'style':'width:0px;height:100%;float:right;position:absolute;top:50px;right:0px;background-color:lightgrey;overflow:auto;' +
 								'border-left:2px solid #ccc;resize:horizontal;z-index:9'
 			},
 			{
 				'class':'processflow_items_panel',
 				'id':wrapper+'_flow_items_panel',
-				'style':'width:0px;height:100%;float:left;position:absolute;top:0px;left:0px;background-color:lightgrey;overflow:auto;' +
+				'style':'width:0px;height:100%;float:left;position:absolute;top:50px;left:0px;background-color:lightgrey;overflow:auto;' +
 								'border-left:2px solid #ccc;resize:horizontal;z-index:9'
 			}]
 			new UI.Builder(section, attrs)
@@ -2141,7 +2142,7 @@ var ProcessFlow = (function(){
 		}
 
 		get_process_Object(flowobj){
-			console.log('get_process_Object',flowobj)
+			UI.Log('get_process_Object',flowobj)
 			let nodes =[];
 			let links =[];
 			let mergegroups =[];
@@ -2205,7 +2206,7 @@ var ProcessFlow = (function(){
 								firstnodeid = nodeid;
 
 
-						//	console.log("position:",functiongroup.x,functiongroup.y)
+						//	UI.Log("position:",functiongroup.x,functiongroup.y)
 							let node = {
 								id: nodeid,
 								name: functiongroup.name,
@@ -2218,7 +2219,7 @@ var ProcessFlow = (function(){
 								routing:routing,
 								type: "FUNCGROUP"
 							};
-						//	console.log(node)
+						//	UI.Log(node)
 							nodes = nodes.concat(node);
 							index = index + 1;
 						});
@@ -2237,13 +2238,13 @@ var ProcessFlow = (function(){
 					if(flowobj.functiongroups){
 						flowobj.functiongroups.forEach(functiongroup => {
 							let routerdef = functiongroup.routerdef;
-						//	console.log(functiongroup, routerdef)
+						//	UI.Log(functiongroup, routerdef)
 							if(routerdef){
 								let variable = routerdef.variable
 								let values = routerdef.values;
 								let nextfuncgroups = routerdef.nextfuncgroups;
 								let defaultfuncgroup = routerdef.defaultfuncgroup;
-								console.log(values,nextfuncgroups,defaultfuncgroup)
+								UI.Log(values,nextfuncgroups,defaultfuncgroup)
 								if(Array.isArray(nextfuncgroups) && Array.isArray(values) && nextfuncgroups.length == values.length){
 									nextfuncgroups.forEach(nextfuncgroup => {
 										let link = {
@@ -2268,7 +2269,7 @@ var ProcessFlow = (function(){
 
 						});
 					}
-					console.log(links)
+					UI.Log(links)
 					break;
 
 				case 'FUNCGROUP':
@@ -2280,7 +2281,7 @@ var ProcessFlow = (function(){
 								break;
 							}
 						}						
-					console.log(flowfgobj)
+					UI.Log(flowfgobj)
 					if(!flowfgobj || !flowfgobj.hasOwnProperty('functions')){
 						return {
 							nodes: nodes,
@@ -2380,7 +2381,7 @@ var ProcessFlow = (function(){
 					mergegroups = flowobj.MergeGroups;
 					break;
 			}
-		//	console.log('get object:', nodes)
+		//	UI.Log('get object:', nodes)
 			return {
 				nodes: nodes,
 				links: links,
@@ -2594,9 +2595,9 @@ var ProcessFlow = (function(){
 			})
 
 			toolbars.push({
-				type: 'Alert',
-				datakey: 'Alert',
-				description: 'Alert / Notice',
+				type: 'UI.ShowError',
+				datakey: 'UI.ShowError',
+				description: 'UI.ShowError / Notice',
 				category: 'Operation,Step',
 				shows: 'Process,Operation,Step'
 			}) 
@@ -2735,7 +2736,7 @@ var ProcessFlow = (function(){
 		
 		setup_functionlinks(functionlinks){
 			let that = this;
-			console.log('setup_functionlinks',functionlinks)
+			UI.Log('setup_functionlinks',functionlinks)
 			this.functionlinks = functionlinks.map((functionlink,i) => {
 
 				return {
@@ -2751,9 +2752,9 @@ var ProcessFlow = (function(){
 		}
 
 		setup_nodes(nodes){		
-			//console.log("setup_nodes",nodes)
+			//UI.Log("setup_nodes",nodes)
 			let tempnodes = nodes.map((node,i) =>{
-			//	console.log(node,i)
+			//	UI.Log(node,i)
 				if(!node.x)
 					node.x = 100;
 				
@@ -2768,7 +2769,7 @@ var ProcessFlow = (function(){
 				
 				if(!node.type)
 					node.type = "OPERATION"
-			//	console.log(node)
+			//	UI.Log(node)
 				return node;		
 			})
 			
@@ -2802,7 +2803,7 @@ var ProcessFlow = (function(){
 
 				this.links =[];
 				this.links = _links.map((_link,i) => {
-				//	console.log(_link);
+				//	UI.Log(_link);
 					return _link;			
 				});	
 			}
@@ -2817,10 +2818,10 @@ var ProcessFlow = (function(){
 			
 		//	let flowarea = this.wrappercontainer ;// document.getElementById(this.wrapper)
 			//let rect = flowarea.getBoundingClientRect();
-			//console.log('window resize',flowarea,rect);
+			//UI.Log('window resize',flowarea,rect);
 			
 			
-		//	console.log(this.nodes, this.blocks)
+		//	UI.Log(this.nodes, this.blocks)
 			this.make_mergepoint();
 			
 			if(this.options.flowtype =='FUNCGROUP')
@@ -2893,7 +2894,7 @@ var ProcessFlow = (function(){
 						
 			let rect = this.Paper.viewport.getBoundingClientRect();
 			
-		//	console.log(rect, this.options)
+		//	UI.Log(rect, this.options)
 			
 			if(rect.width > this.options.width )
 				this.Paper.scaleContentToFit({ padding: 20 });
@@ -2906,7 +2907,7 @@ var ProcessFlow = (function(){
 		}
 		
 		zoom(){
-		//	console.log(this.wrapper,this.container,$(this.container))
+		//	UI.Log(this.wrapper,this.container,$(this.container))
 			this.svgZoom = svgPanZoom($(this.wrappercontainer).find('svg')[0], {
 			  center: true,
 			  zoomEnabled: true,
@@ -3072,21 +3073,21 @@ var ProcessFlow = (function(){
 			
 			this.mergegroups.push(data)
 			
-		//	console.log(this.mergepoints)
+		//	UI.Log(this.mergepoints)
 			
 			/*for(var i=0;i<this.linklines.length;i++){
 				
 				if(this.linklines[i] == _link){
-					console.log(this.linklines[i])
+					UI.Log(this.linklines[i])
 					
 					this.linklines[i].mergegroup = maxid;
-					console.log(this.linklines[i])
+					UI.Log(this.linklines[i])
 					
 				}				
 			} */
 			for(var i=0;i<this.links.length;i++){
 				if(this.links[i] == _link.data){
-					//console.log(this.links[i])
+					//UI.Log(this.links[i])
 					this.links[i].mergegroup = maxid;					
 					break;
 				}				
@@ -3110,7 +3111,7 @@ var ProcessFlow = (function(){
 				return;
 
 			this.functionlinks.forEach(function(_link){
-				//console.log(_link)
+				//UI.Log(_link)
 				let sourcenode = that.get_block(_link.sourcefunctionid).node;
 				let destnode = that.get_block(_link.targetfunctionid).node;
 
@@ -3129,7 +3130,7 @@ var ProcessFlow = (function(){
 				cell.interactive = false;
 			  });
 
-		//	console.log(sourceelement.el, $(sourceport).attr('port-group'), $(sourceport).attr('port'))
+		//	UI.Log(sourceelement.el, $(sourceport).attr('port-group'), $(sourceport).attr('port'))
 			if(this.options.flowtype !== 'FUNCGROUP')
 				return false;
 
@@ -3159,7 +3160,7 @@ var ProcessFlow = (function(){
 			//let destinputid = $(destport).attr('port')
 
 			 let bloop = !(this.validate_looplink(sourcenode, destnode))
-		    // console.log(sourcenode, destnode, bloop)
+		    // UI.Log(sourcenode, destnode, bloop)
 			return bloop;
 		}
 		validate_looplink(sourcenode, destnode){
@@ -3171,7 +3172,7 @@ var ProcessFlow = (function(){
 					let arr = aliasname.split('.');
 					if(arr.length == 2){
 						if(arr[0] == destnode.name){
-							console.log(sourcenode.name, sourcenode.inputs[i].aliasname, destnode.name)
+							UI.Log(sourcenode.name, sourcenode.inputs[i].aliasname, destnode.name)
 							return true;
 						}
 					}
@@ -3184,7 +3185,7 @@ var ProcessFlow = (function(){
 
 			if(this.options.flowtype !== 'FUNCGROUP')
 				return;
-		//	console.log('add function link',sourcefunction, sourceoutput, targetfunction, targetinput)
+		//	UI.Log('add function link',sourcefunction, sourceoutput, targetfunction, targetinput)
 
 			if(!sourcefunctionid || !sourceoutputid || !targetfunctionid || !targetinputid)
 				return;
@@ -3202,8 +3203,8 @@ var ProcessFlow = (function(){
 			let targetinput = this.get_itemnamebyid(targetfunction.inputs, targetinputid);
 			if(sourceoutput =="" || targetinput =="")
 				return;
-			console.log('add function link',sourcefunction, sourceoutput, targetfunction, targetinput)
-		//	console.log('add function link')
+			UI.Log('add function link',sourcefunction, sourceoutput, targetfunction, targetinput)
+		//	UI.Log('add function link')
 			this.functionlinks.push({
 				type: "FUNCTIONLINK",
 				sourcefunctionid: sourcefunctionid,
@@ -3212,7 +3213,7 @@ var ProcessFlow = (function(){
 				targetinputid: targetinputid
 			})
 			
-		//	console.log('update nodes:', )
+		//	UI.Log('update nodes:', )
 			for(var i=0;i<this.nodes.length;i++){
 				if(this.nodes[i].id == targetfunctionid){
 					for(var j=0;j<this.nodes[i].outputs.length;j++){
@@ -3225,19 +3226,19 @@ var ProcessFlow = (function(){
 					break;
 				}
 			}
-		//	console.log('update flowobj:', this.funcgroup,this.flowobj )
+		//	UI.Log('update flowobj:', this.funcgroup,this.flowobj )
 			let path = 'functiongroups/{"name":"'+this.funcgroupname+'"}/functions/{"id":"'+targetfunctionid+'"}/inputs/{"id":"'+targetinputid+'"}'
 			let value={"source":1, "aliasname": sourcefunction.name +'.'+ sourceoutput}
 			this.FlowJsonObj.updateNode(path, value);
 
 
-		//	console.log('complete update:', )
+		//	UI.Log('complete update:', )
 		}
 
 		remove_functionlink(sourcefunctionid, sourceoutputid, targetfunctionid, targetinputid){
 			let index = -1;
-		//	console.log('remove link:',sourcefunctionid, sourceoutputid, targetfunctionid, targetinputid)
-		//	console.log(this.functionlinks)
+		//	UI.Log('remove link:',sourcefunctionid, sourceoutputid, targetfunctionid, targetinputid)
+		//	UI.Log(this.functionlinks)
 
 			if(!sourcefunctionid || !sourceoutputid || !targetfunctionid || !targetinputid)
 				return;
@@ -3297,7 +3298,7 @@ var ProcessFlow = (function(){
 					break;
 				}
 			}
-		//	console.log('update flowobj:', this.funcgroup,this.flowobj )
+		//	UI.Log('update flowobj:', this.funcgroup,this.flowobj )
 			let path = 'functiongroups/{"name":"'+this.funcgroupname+'"}/functions/{"id":"'+targetfunctionid+'"}/inputs/{"id":"'+targetinputid+'"}'
 			let value={"source":0, "aliasname": ""}
 			this.FlowJsonObj.update_flowobj(path, value);
@@ -3316,7 +3317,7 @@ var ProcessFlow = (function(){
 		}
 
 		add_blocklink(sourceblockid, targetblockid){
-		//	console.log('add link:', sourceblockid, targetblockid)
+		//	UI.Log('add link:', sourceblockid, targetblockid)
 			let that = this
 			if(that.flowtype != "TRANCODE" )
 				return;
@@ -3346,7 +3347,7 @@ var ProcessFlow = (function(){
 		
 		remove_blocklink(sourceblockid, targetblockid){
 			let index = -1;
-			console.log('remove block link:',sourceblockid,  targetblockid)
+			UI.Log('remove block link:',sourceblockid,  targetblockid)
 				
 	
 				if(!sourceblockid || !targetblockid)
@@ -3360,7 +3361,7 @@ var ProcessFlow = (function(){
 				let targetblock = this.get_block_byelementid(targetblockid);
 				if(!targetblock)
 					return;
-				console.log(sourceblock,targetblock )
+				UI.Log(sourceblock,targetblock )
 				for(var i=0;i<this.blocklinks.length;i++){
 					if(this.blocklinks[i].fromnode == sourceblock.id &&
 						this.blocklinks[i].tonode == targetblock.id ){
@@ -3390,7 +3391,7 @@ var ProcessFlow = (function(){
 					this.flowobj.firstfuncgroup = '';
 				}
 
-				console.log('update flowobj:', sourceblock.id,targetblock.id,targetblock.data.name,sourceblock, targetblock)
+				UI.Log('update flowobj:', sourceblock.id,targetblock.id,targetblock.data.name,sourceblock, targetblock)
 				let path = 'functiongroups/{"id":"'+sourceblock.id+'"}/routerdef'
 				let routerdef = this.FlowJsonObj.getNode(path).value
 				if(routerdef){
@@ -3430,7 +3431,7 @@ var ProcessFlow = (function(){
 				cell.interactive = false;
 			  });
 
-				//console.log(sourceelement, $(sourceport).attr('port-group'), $(sourceport).attr('port'))
+				//UI.Log(sourceelement, $(sourceport).attr('port-group'), $(sourceport).attr('port'))
 				if(this.options.flowtype !== 'TRANCODE')
 					return false;
 	
@@ -3471,9 +3472,9 @@ var ProcessFlow = (function(){
 				else
 					 mergepoint = null;
 				
-			//	console.log(_link.fromnode,_link.tonode)
+			//	UI.Log(_link.fromnode,_link.tonode)
 				
-			//	console.log(fromnode,tonode)
+			//	UI.Log(fromnode,tonode)
 				
 				if(fromnode && tonode)
 					that.linklines.push(new Link(that, fromnode.node,tonode.node, _link,mergepoint));			
@@ -3498,7 +3499,7 @@ var ProcessFlow = (function(){
 
 			this.links.push(_link);
 			
-		//	console.log('add link',_link)
+		//	UI.Log('add link',_link)
 			
 			let mergepoint = null;
 				if(!_link.mergegroup)
@@ -3511,7 +3512,7 @@ var ProcessFlow = (function(){
 			let fromnode = this.get_block(_link.fromnode);
 			let tonode = this.get_block(_link.tonode);	
 			
-			console.log(fromnode, tonode)
+			UI.Log(fromnode, tonode)
 
 			if(fromnode && tonode){
 				let newlinkline = 	new Link(this, fromnode.node,tonode.node, _link, mergepoint);
@@ -3530,7 +3531,7 @@ var ProcessFlow = (function(){
 			_linkline.data.wipcontentclassid = wipcontentclassid;
 			_linkline.data.reasoncode = reasoncode; 
 			
-		//	console.log(_linkline.id, )
+		//	UI.Log(_linkline.id, )
 			
 			$('g[model-id="'+_linkline._link.id+'"]').find('text').find('tspan').html(description);
 			
@@ -3539,7 +3540,7 @@ var ProcessFlow = (function(){
 			_linkline.wipcontentclassid = wipcontentclassid;
 			_linkline.reasoncode = reasoncode; 
 			
-		//	console.log(_linkline.id, this.links)
+		//	UI.Log(_linkline.id, this.links)
 			
 		}
 		
@@ -3550,7 +3551,7 @@ var ProcessFlow = (function(){
 			$('.uiflow_process_flow_toolbar_container').html('');
 			
 			let that = this;
-		//	console.log(this.toolbars)
+		//	UI.Log(this.toolbars)
 			this.toolbars.forEach(function(toolbar){
 				if(toolbar.shows.toUpperCase().includes(that.options.flowtype.toUpperCase()))
 					return new Toolbar(that,toolbar);	
@@ -3577,9 +3578,9 @@ var ProcessFlow = (function(){
 				
 			this.Paper.on('link:mouseenter', function(linkView) {
 				that.svgZoom.disablePan();
-			//	console.log(that.linktoolsView)
+			//	UI.Log(that.linktoolsView)
 				linkView.addTools(that.linktoolsView);
-			//	console.log(linkView)
+			//	UI.Log(linkView)
 			});
 
 			this.Paper.on('link:mouseleave', function(linkView) {
@@ -3591,7 +3592,7 @@ var ProcessFlow = (function(){
 			this.Paper.on('link:remove', function(linkView) {
 				//linkView.removeTools();
 				let _link = that.get_link_bylinkview(linkView);
-			//	console.log('removelink', _link)								
+			//	UI.Log('removelink', _link)								
 				//that.svgZoom.enablePan();
 			});
 			
@@ -3603,7 +3604,7 @@ var ProcessFlow = (function(){
 
 		
 			this.Paper.on('element:pointerdown', function(elementView) {
-				console.log(elementView, elementView.model)
+				UI.Log(elementView, elementView.model)
 				if(that.selectedelement == elementView){
 					joint.dia.HighlighterView.remove(elementView);
 					that.selectedelement = null;
@@ -3638,7 +3639,7 @@ var ProcessFlow = (function(){
 			});
 
 			this.Paper.on('element:pointerup', function(elementView) {
-				console.log('element:pointerup', elementView)
+				UI.Log('element:pointerup', elementView)
 				that.selectedelement = null;
 				joint.dia.HighlighterView.remove(elementView);
 				that.Paper.model.getCells().forEach(function(cell) {
@@ -3656,10 +3657,10 @@ var ProcessFlow = (function(){
 			
 			//if(this.options.flowtype == 'FUNCGROUP' || this.options.flowtype == 'TRANCODE'){
 			/*	this.Paper.on('port:mouseenter', function(event, port) {
-					//console.log('port:mouseenter', event, port)
+					//UI.Log('port:mouseenter', event, port)
 				})
 				this.Paper.on('port:pointerclick', function(event, port) {
-					//console.log('port:pointerclick',event, port)
+					//UI.Log('port:pointerclick',event, port)
 				}) */
 				this.Paper.on('link:mouseenter', function(linkView) {
 					/*that.Paper.model.getCells().forEach(function(cell) {
@@ -3685,11 +3686,11 @@ var ProcessFlow = (function(){
 					  }); */
 
 					var element = elementView.model;
-				//	console.log('link:connect link:disconnect:', linkView, evt, elementView,element)
-				//	console.log(linkView.sourceView,$(linkView.sourceMagnet).attr('port'), linkView.targetView,$(linkView.targetMagnet).attr('port'))
+				//	UI.Log('link:connect link:disconnect:', linkView, evt, elementView,element)
+				//	UI.Log(linkView.sourceView,$(linkView.sourceMagnet).attr('port'), linkView.targetView,$(linkView.targetMagnet).attr('port'))
 					var sourcenodeid = linkView.sourceView.model.attr('nodeid')
 					var destnodeid = linkView.targetView.model.attr('nodeid')
-				//	console.log(sourcenodeid, $(linkView.sourceMagnet).attr('port'),destnodeid, $(linkView.targetMagnet).attr('port'))
+				//	UI.Log(sourcenodeid, $(linkView.sourceMagnet).attr('port'),destnodeid, $(linkView.targetMagnet).attr('port'))
 					if(that.options.flowtype == 'FUNCGROUP')
 						that.add_functionlink(sourcenodeid, $(linkView.sourceMagnet).attr('port'),destnodeid, $(linkView.targetMagnet).attr('port'))
 					else if(that.options.flowtype == 'TRANCODE')
@@ -3697,8 +3698,8 @@ var ProcessFlow = (function(){
 				});
 				
 				this.Graph.on('remove', function(cell, collection, opt) {
-				//	console.log('remove', cell, collection, opt,that.options.flowtype)
-				//	console.log( cell.isLink())
+				//	UI.Log('remove', cell, collection, opt,that.options.flowtype)
+				//	UI.Log( cell.isLink())
 					
 					if (!cell.isLink() || !opt.ui) return;
 					if(!cell.target().id || !cell.source().id) return;
@@ -3750,16 +3751,16 @@ var ProcessFlow = (function(){
 					let widthscale = width / originalwidth;
 					let heightscale = height / originalheight;
 						
-					console.log('resize', that.Paper, widthscale, heightscale)
+					UI.Log('resize', that.Paper, widthscale, heightscale)
 						
 					that.Paper.scale(widthscale,heightscale);
-					//console.log('resize', that.Paper)
+					//UI.Log('resize', that.Paper)
 					that.Paper.options.width = width;
 					that.Paper.options.height = height;
 					//	that.Paper.scaleContentToFit({ padding: 50 });
 					that.refresh();
 					/*	joint.util.debounce(function(){	
-							console.log('resize', that.Paper)				
+							UI.Log('resize', that.Paper)				
 							that.Paper.scaleContentToFit({ padding: 50 });
 							//that.zoom();
 					})  */
@@ -3778,7 +3779,7 @@ var ProcessFlow = (function(){
 				$(this).find('circle').on('drop', function(event) {
 					event.preventDefault();
 					event.stopPropagation();
-					console.log(event.currentTarget)
+					UI.Log(event.currentTarget)
 					let category = event.originalEvent.dataTransfer.getData("category");
 					if(category == "session"){
 						let type = event.originalEvent.dataTransfer.getData("type");					
@@ -3787,7 +3788,7 @@ var ProcessFlow = (function(){
 						let portgroup = $(event.currentTarget).attr('port-group');
 						let port = $(event.currentTarget).attr('port');
 						that.function_parameter_assignment(fucntionid, portgroup, port, category, type, variable);
-						//console.log($(event.currentTarget).attr('port-group'),$(event.currentTarget).attr('functionid'), category, type, variable)
+						//UI.Log($(event.currentTarget).attr('port-group'),$(event.currentTarget).attr('functionid'), category, type, variable)
 					}
 					
 
@@ -3796,7 +3797,7 @@ var ProcessFlow = (function(){
 				$(this).find('circle').on('dragover', function(event) {
 					event.preventDefault();
 					event.stopPropagation();
-				//	console.log('dragover', event)
+				//	UI.Log('dragover', event)
 				})
 
 			})
@@ -3806,11 +3807,12 @@ var ProcessFlow = (function(){
 		function_parameter_assignment(functionid, paramtype, parameterid,category,type, variable){
 			if(paramtype =='output' && category == 'session' && type=='system')
 			{
-				alert('System variable cannot be assigned to output parameter');
+				UI.ShowError('System variable cannot be assigned to output parameter');
+			//	UI.ShowError('System variable cannot be assigned to output parameter');
 				return;
 			}
 			let that = this;
-			console.log(functionid, paramtype, parameterid,category,type, variable)
+			UI.Log(functionid, paramtype, parameterid,category,type, variable)
 			let block = that.get_block_bydataid(functionid);
 			if(block){
 				if(paramtype == 'input'){
@@ -3845,7 +3847,8 @@ var ProcessFlow = (function(){
 						outputdest: outputdest.concat([1]),
 						aliasname: aliasname.concat([variable])
 					}
-					console.log(block,data)
+
+					UI.Log(block,data)
 					block.update(data, paramtype);
 				}
 				
@@ -3856,7 +3859,7 @@ var ProcessFlow = (function(){
 		}
 		update_node_Elements(id,Element){
 			let elementsstr = ''
-		//	console.log(id,Element)
+		//	UI.Log(id,Element)
 			for(var i=0;i< this.blocks.length;i++){
 				if(this.blocks[i].id == id){
 					elementsstr = this.blocks[i].data.Elements;	
@@ -3864,13 +3867,13 @@ var ProcessFlow = (function(){
 					
 					elementsstr = ((elementsstr ==undefined || !elementsstr) ? '': elementsstr);
 					
-				//	console.log(elementsstr,code,elementsstr.indexOf(code))
+				//	UI.Log(elementsstr,code,elementsstr.indexOf(code))
 									
 					
 					if(code !='' && elementsstr.indexOf(code) < 0){
 						this.blocks[i].data.Elements = elementsstr +  code;
 						
-					//	console.log(this.blocks[i].data.Elements);
+					//	UI.Log(this.blocks[i].data.Elements);
 						this.render();
 						
 						return;
@@ -3919,7 +3922,7 @@ var ProcessFlow = (function(){
 				case 'DATACOLLECT':
 					code = '\ue339';
 					break;
-				case 'ALERT':
+				case 'UI.ShowError':
 					code = '\uf003';
 					break;
 				case 'SIGNATURE':
@@ -3938,7 +3941,7 @@ var ProcessFlow = (function(){
 		}
 
 		get_itembyname(items,name){
-		//	console.log('get_itembyname',items,name)
+		//	UI.Log('get_itembyname',items,name)
 			return items.find(item => {
 				return item.name == name;
 			});			
@@ -3952,7 +3955,7 @@ var ProcessFlow = (function(){
 			return '';
 		}
 		get_itemidbyname(items,name){
-		//	console.log('get_itembyname',items,name)
+		//	UI.Log('get_itembyname',items,name)
 			let item = this.get_itembyname(items,name);
 
 			if(item	){
@@ -3966,21 +3969,21 @@ var ProcessFlow = (function(){
 			return this.get_itembyid(this.nodes,id);
 			/*
 			return  this.nodes.find(node => {
-			//	console.log(node, id)
+			//	UI.Log(node, id)
 				return node.id == id;
 			});		*/
 		}
 		
 		get_block(id){
 			return  this.blocks.find(block => {
-			//	console.log(block)
+			//	UI.Log(block)
 				return block.id == id;
 			});
 		}
 		
 		get_mergepoint(id){
 			return  this.mergepoints.find(mp => {
-			//	console.log(block)
+			//	UI.Log(block)
 				return mp.id == id;
 			});
 		} 
@@ -4014,7 +4017,7 @@ var ProcessFlow = (function(){
 							toblocks.push(this.links[i].tonode);					
 					}				
 			}
-		/*	console.log(this.links, {
+		/*	UI.Log(this.links, {
 				fromnodes: fromblocks,
 				tonodes:toblocks
 			})*/
@@ -4037,7 +4040,7 @@ var ProcessFlow = (function(){
 				let rect = ele.getBoundingClientRect(); 
 				
 				if(rect.x < x &&  x < rect.right && rect.y < y && y < rect.bottom){
-				//	console.log(ele,ele.getAttribute('model-id'),that.get_block_byelementid(ele.getAttribute('model-id')))
+				//	UI.Log(ele,ele.getAttribute('model-id'),that.get_block_byelementid(ele.getAttribute('model-id')))
 					return that.get_block_byelementid(ele.getAttribute('model-id')); 				
 				}
 			}		
@@ -4101,7 +4104,7 @@ var ProcessFlow = (function(){
 		get_link_bylinkview(linkview){
 			for(var i=0;i<this.linklines.length;i++){
 				let linkline = this.linklines[i];
-			//	console.log(linkline)
+			//	UI.Log(linkline)
 				if(linkline._link == linkview.model)
 					return linkline;				
 			}
@@ -4116,7 +4119,7 @@ var ProcessFlow = (function(){
 		get_linkview_byopr(source,target){
 			
 			for(var i=0;i< this.linklines.length;i++){
-			//	console.log(this.linklines[i], source, target)
+			//	UI.Log(this.linklines[i], source, target)
 				if(this.linklines[i].data.fromnode == source && this.linklines[i].data.tonode == target)
 					return this.linklines[i];
 				
@@ -4125,7 +4128,7 @@ var ProcessFlow = (function(){
 		}
 		
 		attach_contextmenu(){
-		//	console.log(this.options.flowtype.toUpperCase())
+		//	UI.Log(this.options.flowtype.toUpperCase())
 			switch(this.options.flowtype.toUpperCase()){
 				case 'PROCESS':
 				//	this.attach_process_contextmenu();
@@ -4156,14 +4159,14 @@ var ProcessFlow = (function(){
 					that.disable_paperevents();
 					return{
 						callback: function(key, options,e){
-							console.log(key, options,e)
+							UI.Log(key, options,e)
 							switch(key){
 
 								case 'Properties':
 									that.build_trancode_properties();
 									break;
 								case 'AddFuncGroup':
-									console.log("add func group")
+									UI.Log("add func group")
 									that.add_functiongroup();
 									break;
 								case 'AutoLayout':
@@ -4186,14 +4189,14 @@ var ProcessFlow = (function(){
 										return
 									}
 									let fgdata = {...that.FlowJsonObj.getNode('functiongroups/{"id":"' +copieddata.nodeid+'"}').value}
-									console.log(fgdata)
+									UI.Log(fgdata)
 									let newfuncgroupname = prompt('Please input the new function group name',fgdata.name);
 									
 									if(/[^A-Za-z0-9]_-/.test(newfuncgroupname)){
-										alert('The fucntion group name can only contain letters and numbers')
+										UI.ShowError('The fucntion group name can only contain letters and numbers')
 										return;
 									}
-									console.log(newfuncgroupname)
+									UI.Log(newfuncgroupname)
 									if(newfuncgroupname && newfuncgroupname != fgdata.name && !that.validate_funcgroupname(newfuncgroupname)){
 										fgdata.id = UIFlow.generateUUID();
 										fgdata.x = fgdata.x + 250
@@ -4209,7 +4212,7 @@ var ProcessFlow = (function(){
 												fgdata.functions[i].outputs[j].id = UIFlow.generateUUID()
 										}
 
-										console.log(newfuncgroupname)
+										UI.Log(newfuncgroupname)
 										that.FlowJsonObj.addNode("functiongroups",fgdata)
 										that.render();									
 									}								
@@ -4275,11 +4278,11 @@ var ProcessFlow = (function(){
 				selector: '.joint-type-block-link[data-type="Block.Link"]', 
 				build:function($triggerElement,e){
 					that.disable_paperevents();
-					console.log('build the contextmenu:',$triggerElement,e,$triggerElement[0].getAttribute('model-id'))
+					UI.Log('build the contextmenu:',$triggerElement,e,$triggerElement[0].getAttribute('model-id'))
 					let modelid = $triggerElement[0].getAttribute('model-id');
 					return{
 						callback: function(key, options,e){
-							console.log(key, options,e)
+							UI.Log(key, options,e)
 							switch(key){
 
 								case 'Properties':
@@ -4324,17 +4327,17 @@ var ProcessFlow = (function(){
 				selector: 'g[data-type="ProcessFlow.StepBlock"]', 
 				build:function($triggerElement,e){
 					that.disable_paperevents();
-					console.log('build the contextmenu:',$triggerElement,e,$triggerElement[0].getAttribute('model-id'))
+					UI.Log('build the contextmenu:',$triggerElement,e,$triggerElement[0].getAttribute('model-id'))
 					let block = that.get_block_byelementid($triggerElement[0].getAttribute('model-id'));
 
 					if(!block)
 						return{};
-					console.log("selected bock:",block.data)
+					UI.Log("selected bock:",block.data)
 					let functiongroupname =block.data.functiongroupname;
 					let nodeid = block.data.id;
 					return{
 						callback: function(key, options,e){
-							console.log(key, options,e)
+							UI.Log(key, options,e)
 							switch(key){
 
 								case 'Properties':
@@ -4344,10 +4347,10 @@ var ProcessFlow = (function(){
 									let newfuncgroupname = prompt('Please input the new function group name',functiongroupname);
 									
 									if(/[^A-Za-z0-9]_-/.test(newfuncgroupname)){
-										alert('The fucntion group name can only contain letters and numbers')
+										UI.ShowError('The fucntion group name can only contain letters and numbers')
 										return;
 									}
-									console.log(newfuncgroupname)
+									UI.Log(newfuncgroupname)
 									if(newfuncgroupname && newfuncgroupname != functiongroupname && !that.validate_funcgroupname(newfuncgroupname)){
 										if(that.update_funcgroupname(nodeid,functiongroupname,newfuncgroupname)){											
 											$triggerElement.find('text[joint-selector="headerText"]').find('tspan').html(newfuncgroupname);
@@ -4357,7 +4360,7 @@ var ProcessFlow = (function(){
 									break;
 								case 'Functions':
 									let newoptions = that.options
-								//	console.log(newoptions, that.options)
+								//	UI.Log(newoptions, that.options)
 									newoptions.flowtype = 'FUNCGROUP'
 									that.options = newoptions;
 									that.funcgroupname = functiongroupname;
@@ -4431,7 +4434,7 @@ var ProcessFlow = (function(){
 
 		}
 		build_fg_properties(functiongroup){
-		//	console.log(functiongroup)
+		//	UI.Log(functiongroup)
 			let that = this;
 			let funcgroupobj = null;
 			let path = 'functiongroups/{"name":"'+functiongroup+'"}';
@@ -4455,22 +4458,22 @@ var ProcessFlow = (function(){
 				tag: 'div',
 				attrs: control_attrs,
 				children:[
-					{tag: 'h3', attrs:{innerHTML: 'Function Group Properties'}},
+					{tag: 'h3', attrs:{innerHTML: 'Function Group Properties', lngcode: 'lbl_functiongroup_properties'}},
 					{tag: 'hr', attrs:{style: 'border-top: 1px solid #ccc;'}},
 					{tag: 'div', attrs:{class: 'row'},
-						children:[{tag: 'label', attrs:{innerHTML: "Function Group Name", for: 'name'}}]				
+						children:[{tag: 'label', attrs:{innerHTML: "Function Group Name", for: 'name', lngcode: 'lbl_functiongroup_name'}}]				
 					},
 					{tag: 'div', attrs:{class: 'row'},
 						children:[{tag: 'input', attrs:{type: 'text', id: 'name', value: functiongroup, style:"width:100%"}}]
 					},
 					{tag: 'div', attrs:{class: 'row'},
-						children:[{tag: 'label', attrs:{innerHTML: "Function Group Description", for: 'description'}}]
+						children:[{tag: 'label', attrs:{innerHTML: "Function Group Description", lngcode:"Description",for: 'description'}}]
 					},
 					{tag: 'div', attrs:{class: 'row'}, 
 						children:[{tag: 'textarea', attrs:{id: 'description', rows: '4', cols: '50', value: funcgroupobj.description}}]
 					},
 					{tag: 'div', attrs:{class: 'row'},
-						children:[{tag: 'label', attrs:{innerHTML: "Routing Variable", for: 'routingvariable'}}]
+						children:[{tag: 'label', attrs:{innerHTML: "Routing Variable",lngcode:"lbl_routingvariable", for: 'routingvariable'}}]
 					},
 					{
 						tag: 'selection', attrs:{class: 'row', id: 'routingvariable'},
@@ -4478,7 +4481,7 @@ var ProcessFlow = (function(){
 						options: funcgroupoutputs
 					},
 					{tag: 'div', attrs:{class: 'row'},
-						children:[{tag: 'label', attrs:{innerHTML: "Execution Sequence:", for: 'functions_sequence_list'}}]
+						children:[{tag: 'label', attrs:{innerHTML: "Execution Sequence:",lngcode:"lbl_executionSequence", for: 'functions_sequence_list'}}]
 					},
 					{tag:'div', attrs:{class: 'row', id:"functions_sequence_list"}},
 					{tag: 'div', attrs:{class: 'row'},
@@ -4490,7 +4493,7 @@ var ProcessFlow = (function(){
 							let oldfuncgroupname = functiongroup;							
 							
 							if(newfuncgroupname != oldfuncgroupname && that.validate_funcgroupname(newfuncgroupname)){
-								alert('The function group name is already used')
+								UI.ShowError('The function group name is already used')
 								return;
 							}
 							if(that.flowobj.firstfuncgroup == oldfuncgroupname && newfuncgroupname != oldfuncgroupname)
@@ -4504,10 +4507,10 @@ var ProcessFlow = (function(){
 							that.update_functions_sequence(newfuncgroupname);
 							that.property_panel.style.width = "0px";
 							that.property_panel.style.display = "none";
-							console.log('updated func group object:',funcgroupobj)
+							UI.Log('updated func group object:',funcgroupobj)
 							that.reload();
 						}}},
-						{tag: 'button', attrs:{id: 'cancel', class: 'btn btn-cancel fa-close', style: 'margin-left: 10px;', innerHTML: 'Cancel'},
+						{tag: 'button', attrs:{id: 'cancel', class: 'btn btn-cancel fa-close', lngcode:"Cancel", style: 'margin-left: 10px;', innerHTML: 'Cancel'},
 						events:{click: function(){
 							that.property_panel.style.width = "0px";
 							that.property_panel.style.display = "none";
@@ -4515,7 +4518,7 @@ var ProcessFlow = (function(){
 						]
 					}]
 			}]
-			console.log(this.property_panel, p_container)
+			UI.Log(this.property_panel, p_container)
 			new UI.Builder(this.property_panel, p_container);
 
 			let functions = this.get_functions_sequence(functiongroup);
@@ -4543,12 +4546,13 @@ var ProcessFlow = (function(){
 					// Callback function when an item is dropped
 					// You can perform actions here after an item is rearranged
 					// For example, update the order of elements in your data model
-					console.log('List order changed');
+					UI.Log('List order changed');
 				} */
 			});
 
 			that.property_panel.style.width = "350px";
 			that.property_panel.style.display = "flex";
+			UI.translate(that.property_panel);
 		}
 		update_functions_sequence(functiongroup){
 			let that = this;
@@ -4607,7 +4611,7 @@ var ProcessFlow = (function(){
 						break;
 					}
 			}
-		//	console.log(outputs)
+		//	UI.Log(outputs)
 			outputs.push({value:"", innerHTML:"No Routing"})
 			return outputs;
 
@@ -4615,7 +4619,7 @@ var ProcessFlow = (function(){
 
 		blockline_properties(modelid){
 			let blocklinkline = this.get_blocklinkbymodelid(modelid);
-			console.log(blocklinkline)
+			UI.Log(blocklinkline)
 			if(!blocklinkline)
 				return		
 			
@@ -4626,7 +4630,7 @@ var ProcessFlow = (function(){
 			
 			let fromnodeid = blocklinkline.data.fromnode;
 			let fromnode = this.get_block_bydataid(fromnodeid);
-			console.log(fromnode)
+			UI.Log(fromnode)
 			if(!fromnode.data.routerdef.variable || fromnode.data.routerdef.variable == ''){
 				UI.ShowError("There is no routing variable defined in the function group!");
 				return;
@@ -4639,7 +4643,7 @@ var ProcessFlow = (function(){
 				
 				if(blocklinkline){
 					if(!this.validate_blocklinklabel(blocklinkline, newvalue))
-						alert("there are duplicated routing definition, please change the value");
+						UI.ShowError("there are duplicated routing definition, please change the value");
 					else{
 						el.html(newvalue);
 						blocklinkline.data.Label = newvalue;
@@ -4651,7 +4655,7 @@ var ProcessFlow = (function(){
 		}
 
 		validate_blocklinklabel(blocklinkline, value){
-			console.log(this)
+			UI.Log(this)
 			for(var i=0; i< this.flowobj.functiongroups.length;i++){
 				if(this.flowobj.functiongroups[i].id == blocklinkline.sourcenodeid.id){
 					let routerdef = this.flowobj.functiongroups[i].routerdef;
@@ -4670,9 +4674,9 @@ var ProcessFlow = (function(){
 			return true;
 		}
 		delete_blockline(modelid){
-			console.log(modelid)
+			UI.Log(modelid)
 			let blocklinkline = this.get_blocklinkbymodelid(modelid);
-			console.log('delete:', blocklinkline)
+			UI.Log('delete:', blocklinkline)
 			if(!blocklinkline)
 				return
 			
@@ -4697,6 +4701,7 @@ var ProcessFlow = (function(){
 
 			control_attrs ={
 				innerHTML: 'Trancode Properties',
+				lngcode: 'lbl_trancode_properties',
 			}
 			new UI.FormControl(property_container,'h2',control_attrs);
 			new UI.FormControl(property_container,'br',{});
@@ -4704,7 +4709,8 @@ var ProcessFlow = (function(){
 			control_attrs ={
 				for: 'trancodename',
 				innerHTML: 'Trancode Name',
-				style:"width:100%"
+				style:"width:100%",
+				lngcode: 'lbl_trancode_name'
 			}
 			new UI.FormControl(property_container,'label',control_attrs);
 
@@ -4722,7 +4728,8 @@ var ProcessFlow = (function(){
 			control_attrs ={
 				for: 'trancodeversion',
 				innerHTML: 'Trancode Version',
-				style:"width:100%"
+				style:"width:100%",
+				lngcode: 'lbl_trancode_version'
 			}
 			new UI.FormControl(property_container,'label',control_attrs);
 			new UI.FormControl(property_container,'br',{});
@@ -4740,7 +4747,8 @@ var ProcessFlow = (function(){
 			control_attrs ={
 				for: 'trancodeisdefault',
 				innerHTML: 'Is Default',
-				style:"width:100%"
+				style:"width:100%",
+				lngcode: 'lbl_trancode_isdefault'
 			}
 			new UI.FormControl(property_container,'label',control_attrs);
 			new UI.FormControl(property_container,'br',{});
@@ -4759,7 +4767,8 @@ var ProcessFlow = (function(){
 			control_attrs ={
 				for: 'trancode_status',
 				innerHTML: 'Status',
-				style:"width:100%"
+				style:"width:100%",
+				lngcode: 'lbl_trancode_status'
 			}
 			new UI.FormControl(property_container,'label',control_attrs);
 			new UI.FormControl(property_container,'br',{});
@@ -4776,7 +4785,8 @@ var ProcessFlow = (function(){
 			control_attrs ={
 				for: 'description',
 				innerHTML: 'Description',
-				style:"width:100%"
+				style:"width:100%",
+				lngcode: 'description'
 			}
 			new UI.FormControl(property_container,'label',control_attrs);
 			new UI.FormControl(property_container,'br',{});
@@ -4796,7 +4806,8 @@ var ProcessFlow = (function(){
 			control_attrs ={
 				class: 'btn btn-primary fa-save',
 				id: 'savefunction',
-				innerHTML: 'Update'
+				innerHTML: 'Update',
+				lngcode: 'Update'
 			}
 			let save_function =function(){
 				let trancodename = document.getElementById('trancodename').value;
@@ -4819,7 +4830,8 @@ var ProcessFlow = (function(){
 			control_attrs ={
 				class: 'btn btn-danger fa-close',
 				id: 'cancelfunction',
-				innerHTML: 'Cancel'
+				innerHTML: 'Cancel',
+				lngcode: 'Cancel'
 			}
 			events={
 				click: function(){
@@ -4831,7 +4843,8 @@ var ProcessFlow = (function(){
 			new UI.FormControl(property_container,'button',control_attrs,events);
 
 			that.property_panel.style.width = "350px";
-			that.property_panel.style.display = "flex";			
+			that.property_panel.style.display = "flex";	
+			UI.translate(that.property_panel);		
 
 		}
 		build_trancode_parameters(){
@@ -4888,6 +4901,7 @@ var ProcessFlow = (function(){
 
 			that.property_panel.style.width = "350px";
 			that.property_panel.style.display = "flex";		
+			UI.translate(that.property_panel);
 		}
 		build_parameters(items,property_container, type){
 			let that = this;
@@ -4901,7 +4915,8 @@ var ProcessFlow = (function(){
 			let attrs ={
 				class: 'btn btn-primary fa-plus-circle',
 				id: 'addfunction_'+type,
-				innerHTML: 'Add'
+				innerHTML: 'Add',
+				lngcode: 'Add'
 			}
 			let events={
 				click: function(){
@@ -4913,7 +4928,8 @@ var ProcessFlow = (function(){
 			attrs ={
 				class: 'btn btn-primary fa-minus-circle',
 				id: 'removefunction_'+type,
-				innerHTML: 'Remove'
+				innerHTML: 'Remove',
+				lngcode: 'Remove'
 			}
 			events={
 				click: function(){
@@ -4937,7 +4953,7 @@ var ProcessFlow = (function(){
 			let rows = [];
 			
 			items.forEach(function(item){
-			//	console.log(item)
+			//	UI.Log(item)
 				let row=[];
 				row.push({data:{},attrs:{parameter_id: item.id}})
 				row.push(
@@ -4958,13 +4974,16 @@ var ProcessFlow = (function(){
 					style: 'width:20px'					
 				},{
 					innerHTML: "Name",
-					style: 'width:220px'
+					style: 'width:220px',
+					lngcode:'Name'
 				},{
 					innerHTML: "Type",
-					style: 'width:80px'
+					style: 'width:80px',
+					lngcode:'Type'
 				},{
 					innerHTML: "List",
-					style: 'width:20px'
+					style: 'width:20px',
+					lngcode:'List'
 				}],
 				columns: [{
 					control: "input",
@@ -4999,7 +5018,7 @@ var ProcessFlow = (function(){
 				}],
 				rows:rows
 			}
-		//	console.log(table_data)
+		//	UI.Log(table_data)
 			new UI.HtmlTable(property_container,table_data);
 			
 			$('#removefunction_'+type).attr('disabled','disabled');
@@ -5008,18 +5027,20 @@ var ProcessFlow = (function(){
 				that.update_trancodeparameter(e,that);
 			})
 
+			UI.translate(property_container);
+
 		}
 		add_trancodeparameter(type){
 			let newparameter = prompt("please input the parameter name:", "parameter");
 			if(/[^A-Za-z0-9_-]/.test(newparameter)){
-				alert('The parameter name can only contain letters and numbers')
+				UI.ShowError('The parameter name can only contain letters and numbers')
 				return;
 			}
 			if(type =="input"){
 				for(var i=0;i<this.flowobj.inputs.length;i++){
 
 					if(this.flowobj.inputs[i].name == newparameter ){
-						alert("the new parameter name cannot be same as existing name!")
+						UI.ShowError("the new parameter name cannot be same as existing name!")
 						return;
 					}
 				} 
@@ -5027,7 +5048,7 @@ var ProcessFlow = (function(){
 				for(var i=0;i<this.flowobj.outputs.length;i++){
 
 					if(this.flowobj.outputs[i].name == newparameter ){
-						alert("the new parameter name cannot be same as existing name!")
+						UI.ShowError("the new parameter name cannot be same as existing name!")
 						return;
 					}
 				}  
@@ -5047,29 +5068,29 @@ var ProcessFlow = (function(){
 			}
 			
 			this.build_trancode_parameters();
-			console.log(this.flowobj)
+			UI.Log(this.flowobj)
 		}
 		update_trancodeparameter(e, that){
-			//console.log(e.target)
+			//UI.Log(e.target)
 			//let that = this
 			let ele = $(e.target);
 			let parameter_id = ele.closest('tr').find('.parameter-selector').attr('parameter_id');
 			let parameter_type = ele.closest('tr').find('.parameter-selector').attr('parameter_type');
 			let newvalue = ele.val();
 			let data_type = ele.attr('data_type');
-		//	console.log(this,that.flowobj,parameter_id,newvalue,data_type)
+		//	UI.Log(this,that.flowobj,parameter_id,newvalue,data_type)
 
 			switch(data_type){
 				case "name":
 					if(/[^A-Za-z0-9_-]/.test(newvalue)){
-						alert('The parameter name can only contain letters and numbers')
+						UI.ShowError('The parameter name can only contain letters and numbers')
 						return;
 					}
 					if(parameter_type == "input"){
 						for(var i=0;i<this.flowobj.inputs.length;i++){
 							
 							if(this.flowobj.inputs[i].name == newvalue ){
-								alert("the new parameter name cannot be same as existing name!")
+								UI.ShowError("the new parameter name cannot be same as existing name!")
 								return;
 							}
 						}  
@@ -5083,7 +5104,7 @@ var ProcessFlow = (function(){
 						for(var i=0;i<this.flowobj.outputs.length;i++){
 
 							if(this.flowobj.outputs[i].name == newvalue ){
-								alert("the new parameter name cannot be same as existing name!")
+								UI.ShowError("the new parameter name cannot be same as existing name!")
 								return;
 							}
 						}
@@ -5104,7 +5125,7 @@ var ProcessFlow = (function(){
 						}
 					}	
 					if(datatype == -1){
-						alert("The data type is not correct!")
+						UI.ShowError("The data type is not correct!")
 						return;
 					}
 					if(parameter_type == "input"){
@@ -5163,21 +5184,21 @@ var ProcessFlow = (function(){
 			let table = $('#trancodeparametertable_'+type);
 			let selectors = table.find('.parameter-selector');
 			//let selectedcout = 0;
-		//	console.log(table, selectors)
+		//	UI.Log(table, selectors)
 			let selectedparameters = [];
 			/*selectors.each(function(item){
-				console.log(item)
+				UI.Log(item)
 				if($(item).is(':checked')){
-					console.log($(item))
+					UI.Log($(item))
 					selectedparameters.push($(item).attr("parameter-id"))
 					//selectedcout++;
 				}
 			}) */
 			for(var i=0;i<selectors.length;i++){
-				//console.log(i,$(selectors[i]),$(selectors[i]).attr("parameter_id") )
+				//UI.Log(i,$(selectors[i]),$(selectors[i]).attr("parameter_id") )
 				let item = selectors[i];
 				if($(item).is(':checked')){
-				//	console.log($(item))
+				//	UI.Log($(item))
 					selectedparameters.push($(item).attr("parameter_id"))
 					//selectedcout++;
 				}
@@ -5186,10 +5207,10 @@ var ProcessFlow = (function(){
 
 
 			if(selectedparameters.length == 0){
-				alert("Please select the parameter to be deleted!")
+				UI.ShowError("Please select the parameter to be deleted!")
 				return;
 			}
-		//	console.log(that.flowobj,selectedparameters)
+		//	UI.Log(that.flowobj,selectedparameters)
 			if(confirm("Are you sure to delete the selected parameters?")){
 				if(type == 'input'){
 					let index = -1;
@@ -5223,10 +5244,10 @@ var ProcessFlow = (function(){
 		}
 		add_functiongroup(){
 			let that = this;
-			console.log("add function group")
+			UI.Log("add function group")
 			let newfgname = that.get_funcgroupname();
 			let nodeid = UIFlow.generateUUID();
-		//	console.log(newfgname,nodeid)
+		//	UI.Log(newfgname,nodeid)
 			let node = {
 				id: nodeid,
 				name: newfgname,
@@ -5341,7 +5362,7 @@ var ProcessFlow = (function(){
 
 
 		add_funcgrouplinktoflowobject(fromnode, tonode){
-			console.log(fromnode, tonode)
+			UI.Log(fromnode, tonode)
 			let sourceblock = this.get_block_bydataid(fromnode.id);
 			let targetblock = this.get_block_bydataid(tonode.id);
 
@@ -5374,7 +5395,7 @@ var ProcessFlow = (function(){
 				that.FlowJsonObj.updateNode(path+'/defaultfuncgroup',targetblock.data.name);
 			}
 			
-		//	console.log(that.flowobj)
+		//	UI.Log(that.flowobj)
 		}
 
 		attach_funcgroup_contextmenu(){
@@ -5389,7 +5410,7 @@ var ProcessFlow = (function(){
 					
 					return{
 						callback: function(key, options,e){
-							console.log(key, options,e)
+							UI.Log(key, options,e)
 							switch(key){
 
 								case 'Properties':
@@ -5412,7 +5433,7 @@ var ProcessFlow = (function(){
 									let attrs={class:"container-fluid", style:"width:90%;height:95%;margin-left:10px;margin-right:10px;"}
 									let container = (new UI.FormControl(that.property_panel, 'div', {})).control;
 
-									new UI.FormControl(container, 'h3', {innerHTML: 'Select the function type to add a new Function'});
+									new UI.FormControl(container, 'h3', {innerHTML: 'Select the function type to add a new Function', lngcode:'Select_the_function_type_to_add_a_new_Function'});
 
 									let events ={
 										click: function(){                    
@@ -5429,24 +5450,24 @@ var ProcessFlow = (function(){
 
 									that.property_panel.style.display = 'block';
 									that.property_panel.style.width = '300px';
-								//	console.log(property_container.getElementsByClassName('function_type'))
+								//	UI.Log(property_container.getElementsByClassName('function_type'))
 									for(var i=0;i<property_container.getElementsByClassName('function_type').length;i++){
 										let ele = property_container.getElementsByClassName('function_type')[i];
 										ele.addEventListener('click',	function(e){
-											//console.log('Select the function type:',e.target.value)
+											//UI.Log('Select the function type:',e.target.value)
 											that.property_panel.style.display = 'none';
 											that.property_panel.innerHTML  = "" 
 											that.add_function(e.target.value)
 										})
 									}							
-									
+									UI.translate(that.property_panel);
 									break;
 								case 'AutoLayout':
 									that.auto_layout();
 									break;
 								case 'TransCodeFlow':
 									let newoptions = that.options
-								//	console.log(newoptions, that.options)
+								//	UI.Log(newoptions, that.options)
 								//	that.destry();
 									newoptions.flowtype = 'TRANCODE'
 									that.options = newoptions;
@@ -5468,14 +5489,14 @@ var ProcessFlow = (function(){
 											return
 										}
 									let functiondata = {...that.FlowJsonObj.getNode('functiongroups/{"name":"' +that.funcgroupname+'"}/functions/{"id": "'+copieddata.nodeid+'"}').value}
-									console.log(functiondata)
+									UI.Log(functiondata)
 									let newfunctioname = prompt('Please input the new function name',functiondata.name);
 									
 									if(/[^A-Za-z0-9]_-/.test(newfunctioname)){
-										alert('The fucntion name can only contain letters and numbers')
+										UI.ShowError('The fucntion name can only contain letters and numbers')
 										return;
 									}
-									console.log(newfunctioname)
+									UI.Log(newfunctioname)
 									if(newfunctioname !="" && that.validate_functionname(newfunctioname)){
 										functiondata.id = UIFlow.generateUUID();
 										functiondata.x = functiondata.x + 250
@@ -5488,7 +5509,7 @@ var ProcessFlow = (function(){
 										for(var j=0;j<functiondata.outputs.length;j++)
 											functiondata.outputs[j].id = UIFlow.generateUUID()
 											
-										console.log(newfunctioname)
+										UI.Log(newfunctioname)
 										that.FlowJsonObj.addNode('functiongroups/{"name":"' +that.funcgroupname+'"}/functions',functiondata)
 										that.reload();									
 									}
@@ -5555,14 +5576,14 @@ var ProcessFlow = (function(){
 			$.contextMenu({
 				selector: 'g[data-type="ProcessFlow.StepBlock.Function"]', 
 				build:function($triggerElement,e){
-					console.log('build the contextmenu:',$triggerElement,e)
+					UI.Log('build the contextmenu:',$triggerElement,e)
 					let block = that.get_block_byelementid($triggerElement[0].getAttribute('model-id'));
-					console.log("selected bock:",block)
+					UI.Log("selected bock:",block)
 					let functionname =block.data.name;
 					let nodeid = block.data.id;
 					return{
 						callback: function(key, options,e){
-							console.log(key, options,e)
+							UI.Log(key, options,e)
 							switch(key){
 
 								case 'Properties':
@@ -5572,10 +5593,10 @@ var ProcessFlow = (function(){
 																		
 									let newfunctionname = prompt('Please input the new function name',functionname);
 									if(/[^A-Za-z0-9_-]/.test(newfunctionname)){
-										alert('The newfunction name can only contain letters and numbers')
+										UI.ShowError('The newfunction name can only contain letters and numbers')
 										return;
 									}
-									console.log(newfunctionname)
+									UI.Log(newfunctionname)
 									if(newfunctionname && newfunctionname != functionname){
 										if(that.update_functionname(nodeid, functionname,newfunctionname)){
 										//	$triggerElement.find('tspan').html(newfunctionname) ;
@@ -5589,7 +5610,7 @@ var ProcessFlow = (function(){
 									let number = $triggerElement.find('circle[port-group="input"]').length;
 									let inputname = prompt('Please input the input name','input'+number);
 									if(/[^A-Za-z0-9_]/.test(inputname)){
-										alert('The input name can only contain letters and numbers')
+										UI.ShowError('The input name can only contain letters and numbers')
 										
 									}else
 										that.add_functionInput(block, inputname,number, $triggerElement);
@@ -5598,7 +5619,7 @@ var ProcessFlow = (function(){
 										let outnumber = $triggerElement.find('circle[port-group="output"]').length;
 										let outputname = prompt('Please input the output name','output'+outnumber);
 										if(/[^A-Za-z0-9_]/.test(outputname)){
-											alert('The output name can only contain letters and numbers')
+											UI.ShowError('The output name can only contain letters and numbers')
 											
 										}else{
 											that.add_functionOutput(block, outputname,outnumber, $triggerElement);
@@ -5634,14 +5655,14 @@ var ProcessFlow = (function(){
 											return
 										}
 									var functioniodata = {...that.FlowJsonObj.getNode('functiongroups/{"name":"' +that.funcgroupname+'"}/functions/{"id": "'+copieddata.functionid+'"}/inputs/{"id":"'+copieddata.id+'"}').value}
-									console.log(functioniodata)
+									UI.Log(functioniodata)
 									var newioname = prompt('Please input the new input name',functioniodata.name);
 									
 									if(/[^A-Za-z0-9]_-/.test(newioname)){
-										alert('The fucntion io name can only contain letters and numbers')
+										UI.ShowError('The fucntion io name can only contain letters and numbers')
 										return;
 									}
-									console.log(newioname)
+									UI.Log(newioname)
 									if(newioname !="" && that.validate_functionparametername(block,newioname, "input")){
 										functioniodata.id = UIFlow.generateUUID();
 										functioniodata.name = newioname										
@@ -5664,14 +5685,14 @@ var ProcessFlow = (function(){
 											return
 										}
 									var functioniodata = {...that.FlowJsonObj.getNode('functiongroups/{"name":"' +that.funcgroupname+'"}/functions/{"id": "'+nodeid+'"}/outputs/{"id":"'+copieddata.id+'"}').value}
-									console.log(functioniodata)
+									UI.Log(functioniodata)
 									var newioname = prompt('Please input the new output name',functioniodata.name);
 									
 									if(/[^A-Za-z0-9]_-/.test(newioname)){
-										alert('The fucntion io name can only contain letters and numbers')
+										UI.ShowError('The fucntion io name can only contain letters and numbers')
 										return;
 									}
-									console.log(newioname)
+									UI.Log(newioname)
 									if(newioname!="" && that.validate_functionparametername(block, newioname, "output")){
 										functioniodata.id = UIFlow.generateUUID();
 										functioniodata.name = newioname										
@@ -5763,19 +5784,19 @@ var ProcessFlow = (function(){
 			$.contextMenu({
 				selector: 'circle[joint-selector="portBody"]', 
 				build:function($triggerElement,e){
-					console.log('build the contextmenu:',$triggerElement,e)
+					UI.Log('build the contextmenu:',$triggerElement,e)
 					let node = $triggerElement.attr('functionid');
 				//	let port = $triggerElement.attr('port')
 					let portid = $triggerElement.attr('port')
 					let type = $triggerElement.attr('port-group');
-					console.log(node, portid,type)
+					UI.Log(node, portid,type)
 					return{
 						callback: function(key, options,e){
-							console.log(key, options,e)
+							UI.Log(key, options,e)
 							switch(key){
 								case 'ChangeName':
 									let block = that.get_block_bydataid(node);
-									console.log(block)
+									UI.Log(block)
 									if(!block)
 										return;
 									let port ="";
@@ -5801,10 +5822,10 @@ var ProcessFlow = (function(){
 									let newportname = prompt('Please input the new port name',port);
 									
 									if(/[^A-Za-z0-9]_-/.test(newportname)){
-										alert('The input/output name can only contain letters and numbers')
+										UI.ShowError('The input/output name can only contain letters and numbers')
 										return;
 									}
-									//console.log(newportname)
+									//UI.Log(newportname)
 									if(newportname && newportname != port){
 										if(that.update_functioninputoutput(node,portid,newportname,type)){
 											$triggerElement.attr('port',newportname) ;
@@ -5968,7 +5989,7 @@ var ProcessFlow = (function(){
 				this.FlowJsonObj.updateNode(path,value);
 
 				this.functionlinks.forEach(item => {
-					console.log('check function link:', item)
+					UI.Log('check function link:', item)
 					if(item.sourcefunctionid == nodeid){
 						let targetfunctionid = item.targetfunctionid;
 						let targetinputid = item.targetinputid;
@@ -5977,7 +5998,7 @@ var ProcessFlow = (function(){
 						let value = this.FlowJsonObj.getNode(path).value;
 
 						let values = value.split('.');
-						console.log(path,values)
+						UI.Log(path,values)
 						if(values.length > 0)
 							if(values[0]  == oldname)
 								this.FlowJsonObj.updateNode(path,newname + '.' + values[1]);
@@ -5996,11 +6017,11 @@ var ProcessFlow = (function(){
 		}
 		validate_functionname(name){
 			for(var i=0;i<this.nodes.length;i++){	
-				console.log(name, this.nodes[i].name)			
+				UI.Log(name, this.nodes[i].name)			
 				if(this.nodes[i].name == name)
 					return false			
 			}
-			console.log("validate function name:", name)
+			UI.Log("validate function name:", name)
 			return true;
 		}
 		add_function(functype){
@@ -6013,7 +6034,7 @@ var ProcessFlow = (function(){
 				UI.ShowError("Please select the function type to add a new Function");
 				return;
 			}
-			console.log(Function_Type_Obj, FunctionTypeName, Function_Type_Obj.hasOwnProperty(FunctionTypeName))
+			UI.Log(Function_Type_Obj, FunctionTypeName, Function_Type_Obj.hasOwnProperty(FunctionTypeName))
 			if(Function_Type_Obj.hasOwnProperty(FunctionTypeName))
 			{
 				let functionobj = Function_Type_Obj[FunctionTypeName];
@@ -6058,7 +6079,7 @@ var ProcessFlow = (function(){
 				width: this.options.nodewidth,
 				height: this.options.nodeheight
 			};
-		//	console.log(node)
+		//	UI.Log(node)
 			this.add_functiontoflowobj(node)
 			this.reload();
 		}
@@ -6095,7 +6116,7 @@ var ProcessFlow = (function(){
 			}
 			
 			let path = 'functiongroups/{"name":"'+that.funcgroupname+'"}/functions';
-		//	console.log(path,functionobj )
+		//	UI.Log(path,functionobj )
 			if(!(this.FlowJsonObj.getdata(path))){
 				let value={
 					functions:[]
@@ -6128,12 +6149,13 @@ var ProcessFlow = (function(){
 			}
 			let property_container = (new UI.FormControl(this.property_panel, 'div', attrs)).control;
 
-			attrs={innerHTML: 'Function Properties'}
+			attrs={innerHTML: 'Function Properties',lngcode: 'Function_Properties', style: 'width: 100%; text-align: center;'}
 			new UI.FormControl(property_container, 'h2', attrs);
 			new UI.FormControl(property_container, 'br', {});
 
 			attrs={
 				innerHTML: 'Function Name',
+				lngcode: 'Function_Name',
 				for: 'functionname'
 			}
 			new UI.FormControl(property_container, 'label', attrs);
@@ -6151,6 +6173,7 @@ var ProcessFlow = (function(){
 
 			attrs={
 				innerHTML: 'Function Description',
+				lngcode: 'Function_Description',
 				for: 'functiondescription'
 			}
 			new UI.FormControl(property_container, 'label', attrs);
@@ -6168,6 +6191,7 @@ var ProcessFlow = (function(){
 
 			attrs={
 				innerHTML: 'Function type',
+				lngcode: 'Function_Type',
 				for: 'functiontype'
 			}
 			new UI.FormControl(property_container, 'label', attrs);
@@ -6188,13 +6212,14 @@ var ProcessFlow = (function(){
 			if(functionobj.functype == "0"){
 				attrs={
 					innerHTML: 'Function inputs and outputs mapping',
+					lngcode: 'Function_Inputs_Outputs_Mapping',
 					for: 'functioncontent'
 				}
 				new UI.FormControl(property_container, 'label', attrs);
 				new UI.FormControl(property_container, 'br', {});
 
 				let options = [];
-				console.log('inputs:', functionobj.inputs)
+				UI.Log('inputs:', functionobj.inputs)
 				for(var i=0;i<functionobj.inputs.length;i++){
 					options.push({value: functionobj.inputs[i].name, innerHTML: functionobj.inputs[i].name})
 				}
@@ -6222,7 +6247,7 @@ var ProcessFlow = (function(){
 				}
 
 				attrs={
-					headers: [{innerHTML:'Input', style:'width:150px;'},{innerHTML:'Output', style:'width:150px;'}],
+					headers: [{innerHTML:'Input',lngcode:"Input", style:'width:150px;'},{innerHTML:'Output', lngcode:"Output",style:'width:150px;'}],
 					style: 'width: 100%;',
 					id: 'functioncontent',
 					columns: [{control:'', }, 
@@ -6251,7 +6276,7 @@ var ProcessFlow = (function(){
 
 					let events ={
 						click: function(){
-							console.log('open popup panle')
+							UI.Log('open popup panle')
 							//document.getElementById('popup').remove();
 							let page = Session.CurrentPage
 							let popup = new UI.Popup(page.container);
@@ -6280,7 +6305,7 @@ var ProcessFlow = (function(){
 														
 														let output_path = path +'/outputs';
 														let outputobj = that.FlowJsonObj.getNode(output_path + '/{"name":"'+columnfield+'"}');
-														console.log('outputobj:', outputobj, columnfield)
+														UI.Log('outputobj:', outputobj, columnfield)
 														if(!outputobj || outputobj == null){
 															let output = {
 																id: UIFlow.generateUUID(),
@@ -6303,38 +6328,46 @@ var ProcessFlow = (function(){
 											}}},
 											{tag: "button", attrs:{id:"test-script", innerHTML:"Test", class:"btn btn-primary", lngcode:"Test"},events:{click: function(){			
 												//document.getElementById('script-editor-additional-section');
-												if(functionobj.functype == 3){
+												if(functionobj.functype == 3){  // sql
 													let inputs = [];
 													let querystr = script_editor.getValue();
-													$('.script_inputs').each(function(){
-														let inputvalue = $(this).val();
-														let inputname = $(this).attr('inputname');
-														
+
+													let inputtable = document.getElementById('script-editor-inputs');
+													inputtable.Table.getData().forEach(row => {
+														let inputname = row.name;
+														let inputvalue = row.value;
+														inputs[inputname] = inputvalue;
 														querystr = UI.replaceAll(querystr,'@'+inputname, "'"+inputvalue+"'");
-														
 													})
 
 													let table = document.getElementById('script-editor-additional-section-tab-content-output-table');
 													table.loaddatabyQuery(querystr)
+													
 													let key = "outputs";
 													$('.ui-json-detail-page-tab').removeClass('ui-json-detail-page-tab-active');
 													$("#script-editor-additional-section-tab-header-output").addClass('ui-json-detail-page-tab-active');
 													$('.ui-json-detail-page-tab-content').hide();
 													$('#script-editor-additional-section-tab-content-'+key).show();
-												}else if(functionobj.functype == 2 || functionobj.functype == 1){
+
+
+												}else if(functionobj.functype == 2 || functionobj.functype == 1){  // javascript, c#
 													let inputs = {};
 													let outputs = [];
 													let scriptcontent = script_editor.getValue();
-													$('.script_inputs').each(function(){
-														let inputvalue = $(this).val();
-														let inputname = $(this).attr('inputname');														
-														inputs[inputname] = inputvalue;														
+
+													let inputtable = document.getElementById('script-editor-inputs');
+													inputtable.Table.getData().forEach(row => {
+														let inputname = row.name;
+														let inputvalue = row.value;
+														inputs[inputname] = inputvalue;
 													})
-													$('.script_outputs').each(function(){
-														
-														let outputname = $(this).attr('outputname');
+													let outputtable = document.getElementById('script-editor-outputs');
+
+													outputtable.Table.getData().forEach(row => {
+														let outputname = row.name;
 														outputs.push(outputname)
 													})
+
 													let data={
 														content: scriptcontent,
 														inputs:inputs,
@@ -6342,18 +6375,25 @@ var ProcessFlow = (function(){
 														type: functionobj.functype
 													}
 
-													UI.Post("/function/test",data, function(response){console.log(response)
+													UI.Post("/function/test",data, function(response){UI.Log(response)
 														if(response == null || response == "")
 															return;
 
 														let data = JSON.parse(response).data;	
-														$('.script_outputs').each(function(){
-															let outputname = $(this).attr('outputname');
+														let outputtable = document.getElementById('script-editor-outputs');
+														let tabledata = [];
+														outputs.forEach(outputname => {
 															if(data.hasOwnProperty(outputname))
-																$(this).html(data[outputname])
+																tabledata.push({name:outputname, value:data[outputname]})
+															else
+																tabledata.push({name:outputname, value:''})
 														})
+														outputtable.Table.setData(tabledata);
 
-													}, function(error){console.log(error)})
+													}, function(error){
+														UI.Log(error);
+
+													})
 																								}
 											}}},
 											{tag: "button", attrs:{id:"cancel-script", innerHTML:"Cancel", class:"btn btn-secondary",lngcode:"Cancel"}, events:{click: function(){popup.close();}}},
@@ -6384,7 +6424,7 @@ var ProcessFlow = (function(){
 							script_editor.setSize(width, height);
 
 							let additional_section = document.getElementById('script-editor-additional-section');
-							if(functionobj.functype == 1 || functionobj.functype == 2){
+							if(functionobj.functype == 1 || functionobj.functype == 2){  // C#, Javascript
 								additional_section.style.display = 'flex';
 								additional_section.style.flexDirection = 'row';
 								additional_section.style.alignItems = 'flex-start';
@@ -6393,69 +6433,64 @@ var ProcessFlow = (function(){
 								let additional_section_input = (new UI.FormControl(additional_section, 'div', {id:'script-editor-additional-section-input', style:'width:48%;height:100%;border: inset;overflow:auto;'})).control;
 
 								let inputs = functionobj.inputs;
-								let tabledata ={};
-								let headers = [{innerHTML: 'Input Name', style:'width:49%;'}, {innerHTML: 'Input Value', style:'width:49%;'}];
-								let columns = [{control:'', }, {control:'input', type:'text', style:'width:100%;'}];
-								let rows = [];
+								
+								new UI.FormControl(additional_section_input, 'h3', {innerHTML:'Inputs', lngcode:'Inputs'});
+								let inputtable = (new UI.FormControl(additional_section_input, 'ui-tabulator', {id: "script-editor-inputs"})).control;
+
+								let tabledata =[];
+								let tablecolumns = [{field:'name', title:'Input Name', width:'45%'}, {field:'value', title:'Input Value', width:'45%', editor: 'input'}];
 								for(var i=0;i<inputs.length;i++){
 									let input = inputs[i];
-									rows.push([{data:{innerHTML: input.name, style:'width:49%;'}}, {data:{value: input.value, style:'width:49%;', inputname:input.name, class: "script_inputs"   }}]);									
+									tabledata.push({name:input.name, value:input.value})
 								}
-								tabledata.attrs = {
-									class:'ui-flow-parameters-table',
-									style: 'width:100%; border-style: solid;border-collapse: collapse;'
-								}
-								tabledata.headers = headers;
-								tabledata.columns = columns;
-								tabledata.rows = rows;
-								new UI.HtmlTable(additional_section_input, tabledata);
+								inputtable.Table = new Tabulator(inputtable.uitabulator, {
+									height:180,
+									data:tabledata,
+									columns:tablecolumns,
+									layout:"fitColumns",
+								});
 
 								let additional_section_output = (new UI.FormControl(additional_section, 'div', {id:'script-editor-additional-section-output', style:'width:48%;height:100%; border: inset;overflow:auto;'})).control;
+								new UI.FormControl(additional_section_output, 'h3', {innerHTML:'Outputs', lngcode:'Outputs'});
+								let outputtable = (new UI.FormControl(additional_section_output, 'ui-tabulator',  {id: "script-editor-outputs"})).control;
+								tabledata =[];
+								tablecolumns = [{field:'name', title:'Input Name', width:'50%'}, {field:'value', title:'Input Value', width:'50%'}];
+								for(var i=0;i<inputs.length;i++){
+									let input = inputs[i];
+									tabledata.push({name:input.name, value:input.value})
+								}
+								outputtable.Table = new Tabulator(outputtable.uitabulator, {
+									height:180,
+									data:tabledata,
+									columns:tablecolumns,
+									layout:"fitColumns",
+								});
 
-								tabledata ={};
-								headers = [{innerHTML: 'Output Name', style:'width:49%;'}, {innerHTML: 'Output Value', style:'width:49%;'}];
-								columns = [{control:'', }, {control:''}];
-								rows = [];
-								let outputs = functionobj.outputs;
-								for(var i=0;i<outputs.length;i++){
-									let output = outputs[i];
-									rows.push([{data:{innerHTML: output.name, style:'width:49%;'}}, {data:{innerHTML: output.value, style:'width:49%;',outputname:output.name, class: "script_outputs"   }}]);
-								}
-								tabledata.attrs = {
-									class:'ui-flow-parameters-table',
-									style: 'width:100%; border-style: solid;border-collapse: collapse;'
-								}
-								tabledata.headers = headers;
-								tabledata.columns = columns;
-								tabledata.rows = rows;
-								new UI.HtmlTable(additional_section_output, tabledata);							
-							}else if(functionobj.functype == 3){
+							}else if(functionobj.functype == 3){  // sql
 								let tab = (new UI.FormControl(additional_section, 'div', {id:'script-editor-additional-section-tab', style:'width:100%;height:100%;'})).control;
 								let tab_header = (new UI.FormControl(tab, 'ul', {id:'script-editor-additional-section-tab-header', class:'ui-json-detail-page-tabs', style:'width:100%;height:30px;'})).control;
 								let tab_content = (new UI.FormControl(tab, 'div', {id:'script-editor-additional-section-tab-content', class:'tab-content', style:'width:100%;height:calc(100% - 30px);'})).control;
 								let tab_header_input = (new UI.FormControl(tab_header, 'li', {id:'script-editor-additional-section-tab-header-input', data_key:"inputs",class:'ui-json-detail-page-tab ui-json-detail-page-tab-active', innerHtml:"Inputs"})).control;
 								let tab_header_output = (new UI.FormControl(tab_header, 'li', {id:'script-editor-additional-section-tab-header-output', data_key:"outputs", class:'ui-json-detail-page-tab', innerHtml:"Outputs"})).control;
-								let tab_header_error = (new UI.FormControl(tab_header, 'li', {id:'script-editor-additional-section-tab-header-output', data_key:"error", class:'ui-json-detail-page-tab', innerHtml:"Errors"})).control;
+								let tab_header_error = (new UI.FormControl(tab_header, 'li', {id:'script-editor-additional-section-tab-header-error', data_key:"error", class:'ui-json-detail-page-tab', innerHtml:"Errors"})).control;
 
 								let tab_content_input = (new UI.FormControl(tab_content, 'div', {id:'script-editor-additional-section-tab-content-inputs', data_key:"inputs", class:'ui-json-detail-page-tab-content', style:'width:100%;height:100%;'})).control;
 								let inputs = functionobj.inputs;
-								let tabledata ={};
-								let headers = [{innerHTML: 'Input Name', style:'width:49%;'}, {innerHTML: 'Input Value', style:'width:49%;'}];
-								let columns = [{control:'', }, {control:'input', type:'text', style:'width:100%;'}];
-								let rows = [];
+								let inputtable = (new UI.FormControl(tab_content_input, 'ui-tabulator', {id: "script-editor-inputs"})).control;
+
+								let tabledata =[];
+								let tablecolumns = [{field:'name', title:'Input Name', width:'45%', minWidth:"200px"}, {field:'value', title:'Input Value', width:'45%', minWidth:"200px",editor: 'input'}];
 								for(var i=0;i<inputs.length;i++){
 									let input = inputs[i];
-									rows.push([{data:{innerHTML: input.name, style:'width:49%;'}}, {data:{value: input.value, style:'width:49%;', inputname:input.name, class: "script_inputs"   }}]);									
+									tabledata.push({name:input.name, value:input.value})
 								}
-								tabledata.attrs = {
-									class:'ui-flow-parameters-table',
-									style: 'width:100%; height:100%; overflow:auto;border-style: ridge;border-collapse: collapse;'
-								}
-								tabledata.headers = headers;
-								tabledata.columns = columns;
-								tabledata.rows = rows;
-								new UI.HtmlTable(tab_content_input, tabledata);
-
+								inputtable.Table = new Tabulator(inputtable.uitabulator, {
+									height:155,									
+									layout:"fitColumns",									
+									columns:tablecolumns,
+									data:tabledata,
+								});
+								
 								let tab_content_output = (new UI.FormControl(tab_content, 'div', {id:'script-editor-additional-section-tab-content-outputs', data_key:"outputs", class:'ui-json-detail-page-tab-content', style:'width:100%;height:100%; display:none'})).control;
 								let tab_content_error = (new UI.FormControl(tab_content, 'div', {id:'script-editor-additional-section-tab-content-errors', data_key:"error", class:'ui-json-detail-page-tab-content', style:'width:100%;height:100%; display:none'})).control;
 								
@@ -6470,11 +6505,12 @@ var ProcessFlow = (function(){
 								})
 
 							}
+							UI.translate(popup.popup);
 						}
 					}
-					new UI.FormControl(property_container, 'button', {id:"openpopup", style:"width:100%;", innerHTML:"Script Editor"}, events);		
+					new UI.FormControl(property_container, 'button', {id:"openpopup", style:"width:100%;", innerHTML:"Script Editor", lngcode:"Script_Editor"}, events);		
 					
-					//console.log(functionobj.content,functionobj.content.hasOwnProperty('value')? functionobj.content.value: JSON.stringify(functionobj.content))
+					//UI.Log(functionobj.content,functionobj.content.hasOwnProperty('value')? functionobj.content.value: JSON.stringify(functionobj.content))
 					attrs={
 						id: 'functioncontent',
 						type: 'text',
@@ -6499,11 +6535,11 @@ var ProcessFlow = (function(){
 			var savefuntion = function(){
 				let oldfunctionname = functionobj.name;
 				let functionname = $('#functionname').val();
-				//console.log(oldfunctionname,functionname)
+				//UI.Log(oldfunctionname,functionname)
 				
 				if(oldfunctionname != functionname){
 					if(!that.update_functionname(functionobj.id,oldfunctionname,functionname)){	
-						alert('function name already exists')				
+						UI.ShowError('function name already exists')				
 						return;
 					}
 				//	let block = that.get_block_bydataid(functionobj.id);
@@ -6569,14 +6605,14 @@ var ProcessFlow = (function(){
 						}
 					}
 				}
-			//	console.log(functioncontent)
+			//	UI.Log(functioncontent)
 				let value={
 					"functype": parseInt(functiontype),
 					"content": functioncontent,
 					"mapdata": functionmapdata,
 					"description": functiondescription
 				}
-			//	console.log(path, value)
+			//	UI.Log(path, value)
 				that.FlowJsonObj.updateNode(path,value);
 				that.reload();
 
@@ -6605,6 +6641,8 @@ var ProcessFlow = (function(){
 			
 			that.property_panel.style.width = "350px";
 			that.property_panel.style.display = "flex";
+
+			UI.translate(property_container);
 		}
 
 		build_functionparameter_panel(type,functionid,parameterid){
@@ -6638,11 +6676,11 @@ var ProcessFlow = (function(){
 			}
 			let property_container = (new UI.FormControl(this.property_panel, 'div', attrs)).control;
 			
-			attrs={innerHTML: 'Function '+type+' Properties'}
+			attrs={innerHTML: 'Function '+type+' Properties', lngcode: 'Function_'+type+'_Properties', style: 'width: 100%; text-align: center;'}
 			new UI.FormControl(property_container, 'h2', attrs);
 			new UI.FormControl(property_container, 'br', {});
 
-			attrs={ for: 'parametername', innerHTML: 'Parameter Name'}
+			attrs={ for: 'parametername', innerHTML: 'Parameter Name', lngcode: 'Parameter_Name'}
 			new UI.FormControl(property_container, 'label', attrs);
 			new UI.FormControl(property_container, 'br', {});
 
@@ -6650,7 +6688,7 @@ var ProcessFlow = (function(){
 			new UI.FormControl(property_container, 'input', attrs);
 			new UI.FormControl(property_container, 'br', {});
 
-			attrs={ for: 'parameterdescription', innerHTML: 'Parameter Description'}
+			attrs={ for: 'parameterdescription', innerHTML: 'Parameter Description', lngcode: 'Parameter_Description'}
 			new UI.FormControl(property_container, 'label', attrs);
 			new UI.FormControl(property_container, 'br', {});
 
@@ -6658,7 +6696,7 @@ var ProcessFlow = (function(){
 			new UI.FormControl(property_container, 'textarea', attrs);
 			new UI.FormControl(property_container, 'br', {});
 
-			attrs={ for: 'parameterdatatype', innerHTML: 'Parameter Data Type'}
+			attrs={ for: 'parameterdatatype', innerHTML: 'Parameter Data Type', lngcode: 'Parameter_Data_Type'}
 			new UI.FormControl(property_container, 'label', attrs);
 			new UI.FormControl(property_container, 'br', {});
 			attrs={class: 'form-control', placeholder: 'Parameter Data Type', id: 'parameterdatatype', style: 'width: 100%;'}
@@ -6669,7 +6707,7 @@ var ProcessFlow = (function(){
 			}
 			new UI.Selection(property_container, se_data);
 
-			attrs={ for: 'parameterlist', innerHTML: 'List'}
+			attrs={ for: 'parameterlist', innerHTML: 'List', lngcode: 'List'}
 			new UI.FormControl(property_container, 'label', attrs);
 			new UI.FormControl(property_container, 'br', {});
 			
@@ -6678,7 +6716,7 @@ var ProcessFlow = (function(){
 			new UI.FormControl(property_container, 'br', {});
 
 			if(type == 'input'){
-				attrs={ for: 'parameterlistrepeat', innerHTML: 'Repeat'}
+				attrs={ for: 'parameterlistrepeat', innerHTML: 'Repeat', lngcode: 'Repeat'}
 				new UI.FormControl(property_container, 'label', attrs);
 				new UI.FormControl(property_container, 'br', {});
 				
@@ -6687,8 +6725,8 @@ var ProcessFlow = (function(){
 				new UI.FormControl(property_container, 'br', {});
 			}
 
-
-			attrs ={for: 'parameterdefaultvalue', innerHTML: 'Parameter Default Value'}
+			
+			attrs ={for: 'parameterdefaultvalue', innerHTML: 'Parameter Default Value', lngcode: 'Parameter_Default_Value'}
 			new UI.FormControl(property_container, 'label', attrs);
 			new UI.FormControl(property_container, 'br', {});
 
@@ -6697,16 +6735,16 @@ var ProcessFlow = (function(){
 			new UI.FormControl(property_container, 'br', {});
 						
 			if(type == 'input'){
-
-				attrs={ for: 'parameterdefaultvalue', innerHTML: 'Parameter Default Value'}
+				
+				attrs={ for: 'parametervalue', innerHTML: 'Parameter Value', lngcode: 'Parameter_Value'}
 				new UI.FormControl(property_container, 'label', attrs);
-				new UI.FormControl(property_container, 'br', {});
+				new UI.FormControl(property_container, 'br', {}); 
 
 				attrs={class: 'form-control', placeholder: 'Parameter Value', id: 'parametertvalue', value: parameterobj.value==undefined?'':parameterobj.value, style: 'width: 100%;'}
 				new UI.FormControl(property_container, 'input', attrs);
 				new UI.FormControl(property_container, 'br', {});
-
-				attrs={ for: 'parametersource', innerHTML: 'Parameter Source'}
+				
+				attrs={ for: 'parametersource', innerHTML: 'Parameter Source', lngcode: 'Parameter_Source'}
 				new UI.FormControl(property_container, 'label', attrs);
 				new UI.FormControl(property_container, 'br', {});
 				attrs={
@@ -6718,12 +6756,12 @@ var ProcessFlow = (function(){
 				let parametersource_element = (new UI.Selection(property_container, attrs)).control;
 				parametersource_element.addEventListener('change', function(){
 					let sourcetype = document.getElementById('parametersource').value;
-					console.log("source clicked,", sourcetype)
+					UI.Log("source clicked,", sourcetype)
 					that.build_parameteraliasname_section(functionid, sourcetype, parameterobj.aliasname==undefined?'':parameterobj.aliasname)
 				});
 				new UI.FormControl(property_container, 'br', {});
 
-				attrs={ for: 'parameteraliasname', innerHTML: 'Parameter Alias Name'}
+				attrs={ for: 'parameteraliasname', innerHTML: 'Parameter Alias Name', lngcode: 'Parameter_Alias_Name'}
 				new UI.FormControl(property_container, 'label', attrs);
 				new UI.FormControl(property_container, 'br', {});
 				attrs = {style:"width:100%", id: 'parameteraliasname_section'}
@@ -6739,13 +6777,13 @@ var ProcessFlow = (function(){
 			}else{
 				new UI.FormControl(property_container, 'br', {});
 				
-				attrs={ for: 'parameterdest', innerHTML: 'Parameter Destination'}
+				attrs={ for: 'parameterdest', innerHTML: 'Parameter Destination', lngcode: 'Parameter_Destination'}
 				new UI.FormControl(property_container, 'label', attrs);
 				new UI.FormControl(property_container, 'br', {});
 
 				let divsection = new UI.FormControl(property_container, 'div', {style:'width: 100%; display: flex;justify-content: flex-end;', class:"ui-page-actionbar"}).control;
 
-				attrs={class: 'btn btn-primary fa-plus-circle', id: 'addbtn', innerHTML:' Add',style: 'font-family:FontAwesome'}
+				attrs={class: 'btn btn-primary fa-plus-circle', id: 'addbtn', innerHTML:' Add',lngcode:"Add", style: 'font-family:FontAwesome'}
 				let events={click: function(){
 					let cells=[];
 					let cell={}
@@ -6753,13 +6791,13 @@ var ProcessFlow = (function(){
 					cells.push({data:{selected:0}})
 					cell={data:{value: ""}}
 					cells.push(cell)
-					//console.log(table)
+					//UI.Log(table)
 					table.AddRow(cells,table.tbody.control)
 					}
 				}
 				new UI.FormControl(divsection, 'button', attrs, events);
 				
-				attrs={class: 'btn btn-primary fa-minus-circle', id: 'removebtn', innerHTML:'  Remove',style: 'font-family:FontAwesome'};
+				attrs={class: 'btn btn-primary fa-minus-circle', id: 'removebtn', innerHTML:'Remove',lngcode:"Remove", style: 'font-family:FontAwesome'};
 				events={click: function(){
 					$('.parameter_dest_row_selector').each(function(){					
 						if($(this).prop('checked')){
@@ -6785,7 +6823,7 @@ var ProcessFlow = (function(){
 
 				let table_data={
 					attrs:{id:'parameterdesttable', class:'table table-bordered table-hover', style:'width: 100%;'},
-					headers:[{innerHTML:'Selector', style:'width:30px;'},{innerHTML:'Destination',style:'width:150px;' },{innerHTML:'Alias Name',style:'width:150px;' }],
+					headers:[{innerHTML:'Selector',lngcode:"Selector", style:'width:30px;'},{innerHTML:'Destination',lngcode:"Destination",style:'width:150px;' },{innerHTML:'Alias Name',lngcode:"Alias_Name",style:'width:150px;' }],
 					columns:[{control:'checkbox',attrs:{class:'parameter_dest_row_selector'}},
 						{control:'select', attrs:{class:'form-control parameterdest_selector', placeholder:'Parameter Destination', style:'width: 100%;'}, 
 							options:Function_Dest_List},
@@ -6801,7 +6839,7 @@ var ProcessFlow = (function(){
 			let actionsection = new UI.FormControl(property_container, 'div', {style:'width: 100%; display: inline-block;', class:"ui-page-actionbar"}).control;
 
 
-			attrs={class: 'btn btn-primary fa-save', id: 'savebutton', innerHTML:'  Update',style: 'font-family:FontAwesome'}
+			attrs={class: 'btn btn-primary fa-save', id: 'savebutton', innerHTML:'Update',lngcode:"Update",style: 'font-family:FontAwesome'}
 			let events={click: function(){
 				let block = that.get_block_bydataid(functionid);
 
@@ -6861,11 +6899,12 @@ var ProcessFlow = (function(){
 				that.property_panel.innerHTML  = "" 
 				that.property_panel.style.width = "0px";
 				that.property_panel.style.display = "none";
+				
 			}}
 			new UI.FormControl(actionsection, 'button', attrs, events);
 			//new UI.FormControl(property_container, 'br', {});
 
-			attrs={class: 'btn btn-primary fa-close', id: 'cancelbutton', innerHTML:'Cancel',style: 'font-family:FontAwesome'}
+			attrs={class: 'btn btn-primary fa-close', id: 'cancelbutton', lngcode:"Cancel", innerHTML:'Cancel',style: 'font-family:FontAwesome'}
 			events={click: function(){
 				that.property_panel.innerHTML  = ""
 				that.property_panel.style.width = "0px";
@@ -6876,6 +6915,7 @@ var ProcessFlow = (function(){
 			//property_container.appendChild(cancelbutton);
 			that.property_panel.style.width = "350px";
 			that.property_panel.style.display = "flex";
+			UI.translate(that.property_panel);
 		}
 
 		build_parameteraliasname_section(functionid,sourcetype, selectedvalue){
@@ -6943,7 +6983,7 @@ var ProcessFlow = (function(){
 		Calculate_PreviousFunctionOutputs(functionid){
 			let outputs =[];
 			let functions = this.FlowJsonObj.getNode('functiongroups/{"name":"'+this.funcgroupname+'"}/functions').value;
-			console.log(functions)
+			UI.Log(functions)
 			for(var i=0;i<functions.length;i++){
 				if(functions[i].id != functionid){
 					for(var j=0;j<functions[i].outputs.length;j++)
@@ -6957,7 +6997,7 @@ var ProcessFlow = (function(){
 		}
 		menu_click(menudata) {
 			let that = this;
-			console.log(menudata, this)
+			UI.Log(menudata, this)
 			switch(menudata.type){
 				case "Tree":
 					this.show_flowtree();
@@ -7083,6 +7123,7 @@ var ProcessFlow = (function(){
 			popup.appendChild(popupContent)
 			let title = document.createElement('h2')
 			title.innerHTML = 'Please select file to import'
+			title.lngcode="Select_File_To_Import"
 			popupContent.appendChild(title)
 
 			let fileInput = document.createElement('input');
@@ -7097,6 +7138,7 @@ var ProcessFlow = (function(){
 			let closePopupButton = document.createElement('button');
 			closePopupButton.setAttribute('id','closePopupButton')
 			closePopupButton.innerHTML = 'Close'
+			closePopupButton.lngcode="Close"
 			closePopupButton.addEventListener('click', () => {
 				popup.style.display = 'none';
 				$('#popupContainer').remove();
@@ -7104,6 +7146,7 @@ var ProcessFlow = (function(){
 			popupContent.appendChild(closePopupButton)
 			document.body.appendChild(popup)
 			popup.style.display = 'block';
+			UI.translate(popupContent);
 		}
 		read_to_import_File(file){
 			
@@ -7114,7 +7157,7 @@ var ProcessFlow = (function(){
 				try {
 					const jsonData = JSON.parse(fileContents);
 				// Handle the JSON data
-					console.log(jsonData);
+					UI.Log(jsonData);
 					that.flowobj = jsonData;
 					that.FlowJsonObj = new UI.JSONManager(jsonData, {allowChanges: true});
 					let newoptions = that.options					
@@ -7136,7 +7179,7 @@ var ProcessFlow = (function(){
 			let that = this;
 			let flowjson = this.flowobj;
 			let blob = new Blob([JSON.stringify(flowjson)], {type: "text/plain;charset=utf-8"});
-		//	console.log(blob)
+		//	UI.Log(blob)
 			
 			let file = new File([blob], this.flowobj.trancodename+'_'+this.flowobj.version+".json", {type: "text/plain;charset=utf-8"});
 			
@@ -7161,13 +7204,13 @@ var ProcessFlow = (function(){
 				that.item_panel.innerHTML  = "" }};
 			new UI.FormControl(container_fluid, 'button', attrs, events);
 
-			new UI.FormControl(container_fluid, 'h2', {innerHTML:'TranCode Inputs/Outputs Management'});
+			new UI.FormControl(container_fluid, 'h2', {innerHTML:'TranCode Inputs/Outputs Management', lngcode:'TransCodeInputsOutputsManagement'});
 			new UI.FormControl(container_fluid, 'br', {});
 
-			new UI.FormControl(container_fluid, 'h3', {innerHTML:'TranCode Input Parameters'});
+			new UI.FormControl(container_fluid, 'h3', {innerHTML:'TranCode Input Parameters', lngcode:'TransCodeInputParameters'});
 			new UI.FormControl(container_fluid, 'br', {});
 			
-			attrs={class:'btn btn-primary',id:'addinput',innerHTML:'Add Input',style:'margin-bottom:10px;'}
+			attrs={class:'btn btn-primary',id:'addinput',innerHTML:'Add Input',lngcode:"Add_Input",style:'margin-bottom:10px;'}
 			events={click: function(){
 				let cells=[];
 				cells.push({});
@@ -7178,7 +7221,7 @@ var ProcessFlow = (function(){
 				input_table.AddRow(cells);
 			}}
 			new UI.FormControl(container_fluid, 'button', attrs, events);
-			attrs={class:'btn btn-danger',id:'removeinput',innerHTML:'Remove Input',style:'margin-bottom:10px;'}
+			attrs={class:'btn btn-danger',id:'removeinput',innerHTML:'Remove_Input',style:'margin-bottom:10px;'}
 			events={click: function(){
 				$('#parameter_input_table').find('.parameter_input_line_selector').each(function(){
 					if($(this).prop('checked')){
@@ -7290,14 +7333,14 @@ var ProcessFlow = (function(){
 					let inputs = [];
 					let outputs = [];
 					$('#parameter_input_table').find('tr').each(function(){
-					//	console.log($(this))
+					//	UI.Log($(this))
 						let input = {
 							name: $(this).find('.parameter_name').val(),
 							datatype: $(this).find('.parameter_datatype').val(),
 							list: $(this).find('.parameter_list').is(':checked'),
 							default: $(this).find('.parameter_default').val()
 						}
-					//	console.log(input)
+					//	UI.Log(input)
 						inputs.push(input);
 					})
 					$('#parameter_output_table').find('tr').each(function(){
@@ -7307,10 +7350,10 @@ var ProcessFlow = (function(){
 							list: $(this).find('.parameter_list').is(':checked'),
 							default: $(this).find('.parameter_default').val()
 						}
-					//	console.log(output)
+					//	UI.Log(output)
 						outputs.push(output);
 					})
-					console.log($('#parameter_input_table'),inputs,$('#parameter_output_table'),outputs)
+					UI.Log($('#parameter_input_table'),inputs,$('#parameter_output_table'),outputs)
 					that.flowobj.inputs = inputs;
 					that.flowobj.outputs = outputs;
 	
@@ -7331,6 +7374,8 @@ var ProcessFlow = (function(){
 			
 			that.item_panel.style.width = "500px";
 			that.item_panel.style.display = "block";
+
+			UI.translate(that.item_panel);
 		}
 		show_Sessions(){
 			//this.item_panel
@@ -7349,10 +7394,10 @@ var ProcessFlow = (function(){
 				that.item_panel.style.display = "none";
 				that.item_panel.innerHTML  = "" }};
 			new UI.FormControl(container_fluid, 'button', attrs, events);
-			new UI.FormControl(container_fluid, 'h2', {innerHTML:'Sessions Management'});
+			new UI.FormControl(container_fluid, 'h2', {innerHTML:'Sessions Management', lngcode:"Sessions Management"});
 			new UI.FormControl(container_fluid, 'br', {});
 			
-			new UI.FormControl(container_fluid, 'h3', {innerHTML:'System Sessions'});
+			new UI.FormControl(container_fluid, 'h3', {innerHTML:'System Sessions', lngcode: "System Sessions"});
 			new UI.FormControl(container_fluid, 'br', {});
 			
 			let rows=[];
@@ -7363,7 +7408,7 @@ var ProcessFlow = (function(){
 			})
 			let table_data={
 				attrs:{class: 'table table-bordered', id: 'systemsessiontable', style: 'width: 100%;'},
-				headers:[{innerHTML:'Session Name',style:"width:100%;"}],
+				headers:[{innerHTML:'Session Name',lngcode:"Session Name", style:"width:100%;"}],
 				columns:[{control:'', attrs:{} }],
 				tr:{
 					attrs:{dragable: true,dragstart:"session_dragStart(event, 'system')"},
@@ -7374,7 +7419,7 @@ var ProcessFlow = (function(){
 			new UI.HtmlTable(container_fluid, table_data);
 			new UI.FormControl(container_fluid, 'br', {});
 
-			new UI.FormControl(container_fluid, 'h3', {innerHTML:'User Sessions'});
+			new UI.FormControl(container_fluid, 'h3', {innerHTML:'User Sessions', lngcode: "User Sessions"});
 			new UI.FormControl(container_fluid, 'br', {});
 
 			rows=[];
@@ -7385,7 +7430,7 @@ var ProcessFlow = (function(){
 			})
 			table_data={
 				attrs:{class: 'table table-bordered', id: 'usersessiontable', style: 'width: 100%;'},
-				headers:[{innerHTML:'Session Name',style:"width:100%;"}],
+				headers:[{innerHTML:'Session Name',lngcode:"Session Name",style:"width:100%;"}],
 				columns:[{control:'', attrs:{} }],
 				tr:{
 					attrs:{dragable: true,dragstart:"session_dragStart(event, 'user')"},
@@ -7397,7 +7442,8 @@ var ProcessFlow = (function(){
 			
 			that.item_panel.style.width = "300px";
 			that.item_panel.style.display = "block";
-			
+
+			UI.translate(that.item_panel);	
 		}
 		
 		Calculate_UserSessions(){
@@ -7422,13 +7468,13 @@ var ProcessFlow = (function(){
 
 					obj1.outputs.forEach(function(obj2,index2){
 						if(Array.isArray(obj2.outputdest)){
-							console.log(obj2.outputdest)
+							UI.Log(obj2.outputdest)
 
 							if(!obj2.hasOwnProperty('outputdest'))
 								obj2.outputdest = [];
 
 							obj2.outputdest.forEach(function(obj3,index3){
-								console.log(obj3)
+								UI.Log(obj3)
 								if(obj3 == '1' && obj2.aliasname[index3] != '')
 									UserSessions[obj2.aliasname[index3]] = obj2.aliasname[index3];
 							})														
@@ -7464,7 +7510,7 @@ function session_dragStart(event, type) {
 }
 function parameter_dragStart(event, type, el){
 
-	console.log(event, type, el)
+	UI.Log(event, type, el)
 }
 
 const UIFlowlibraryLoadedEvent = new CustomEvent('UIFlow_libraryLoaded');

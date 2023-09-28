@@ -123,11 +123,20 @@ func (w *fileLogWriter) SetFormatter(f LogFormatter) {
 //	    "perm":"0600"
 //	}
 func (w *fileLogWriter) Init(config string) error {
+
+	//	fmt.Println("fileLogWriter.Init, %s", config)
+
 	err := json.Unmarshal([]byte(config), w)
+	//	fmt.Println("fileLogWriter.Init unmarshall, %s", w, err)
+	//	fmt.Println("fileLogWriter.Init unmarshall, %s", w, err)
 	if err != nil {
+		fmt.Println("fileLogWriter.Init Error, %s", err)
+		fmt.Errorf("fileLogWriter.Init: %s", err)
 		return err
 	}
+	//	fmt.Println("fileLogWriter.Init unmarshall, %s", w)
 	if w.Filename == "" {
+		fmt.Println("jsonconfig must have filename")
 		return errors.New("jsonconfig must have filename")
 	}
 	w.suffix = filepath.Ext(w.Filename)
@@ -135,20 +144,26 @@ func (w *fileLogWriter) Init(config string) error {
 	if w.suffix == "" {
 		w.suffix = ".log"
 	}
-
+	//	fmt.Println("fileLogWriter.Init get filename, %s", w)
 	if len(w.Formatter) > 0 {
 		fmtr, ok := GetFormatter(w.Formatter)
 		if !ok {
+			fmt.Println("the formatter with name: %s not found", w.Formatter)
 			return fmt.Errorf("the formatter with name: %s not found", w.Formatter)
 		}
 		w.logFormatter = fmtr
 	}
 	err = w.startLogger()
+	if err != nil {
+		fmt.Println("fileLogWriter.Init startLogger error, %s", err)
+		fmt.Errorf("fileLogWriter.Init: %s", err)
+	}
 	return err
 }
 
 // start file logger. create log file and set to locker-inside file writer.
 func (w *fileLogWriter) startLogger() error {
+	//	fmt.Println("fileLogWriter.startLogger, %s", w.Filename)
 	file, err := w.createLogFile()
 	if err != nil {
 		return err
@@ -174,6 +189,8 @@ func (w *fileLogWriter) needRotateHourly(hour int) bool {
 
 // WriteMsg writes logger message into file.
 func (w *fileLogWriter) WriteMsg(lm *LogMsg) error {
+	//	fmt.Println("fileLogWriter.WriteMsg, %s", lm)
+
 	if lm.Level > w.Level {
 		return nil
 	}
@@ -218,6 +235,7 @@ func (w *fileLogWriter) WriteMsg(lm *LogMsg) error {
 
 func (w *fileLogWriter) createLogFile() (*os.File, error) {
 	// Open the log file
+	//	fmt.Println("fileLogWriter.createLogFile, %s", w.Filename)
 	perm, err := strconv.ParseInt(w.Perm, 8, 64)
 	if err != nil {
 		return nil, err

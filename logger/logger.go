@@ -3,6 +3,7 @@ package logger
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/mdaxf/iac/framework/logs"
@@ -79,21 +80,54 @@ func Init(config map[string]interface{}) {
 }
 
 func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype string) {
-	logertype := config["type"]
+	logertype := config["adapter"]
 	if logertype == nil {
 		logertype = "console"
 	}
-	levellist := config["level"].(string)
-	if levellist == "" {
-		levellist = "emergency,alert,critical,error,warning"
+	level := 3
+	levelstr := config["level"]
+	if levelstr == nil {
+		levelstr = "debug"
 	}
-	levels := strings.Split(levellist, ",")
+	switch levelstr {
+	case "emergency":
+		level = 0
+	case "alert":
+		level = 1
+	case "critical":
+		level = 2
+	case "error":
+		level = 3
+	case "warning":
+		level = 4
+	case "notice":
+		level = 5
+	case "info":
+		level = 6
+	case "debug":
+		level = 7
+	default:
+		level = 3
+	}
 
-	level := logs.LevelDebug
-
-	filename := config["filename"]
+	filename := config["file"]
 	if filename == nil {
-		filename = "c:\\temp\\iac.log"
+		filename = "iac.log"
+	}
+	suffix := filepath.Ext(filename.(string))
+	fileNameOnly := strings.TrimSuffix(filename.(string), suffix)
+
+	folder := config["folder"]
+	if folder == nil {
+		folder = "c:\\\\temp"
+	}
+
+	fullfilename := ""
+
+	if suffix == "" {
+		fullfilename = fmt.Sprintf("%s\\\\%s_%s.log", folder, logtype, fileNameOnly)
+	} else {
+		fullfilename = fmt.Sprintf("%s\\\\%s_%s%s", folder, logtype, fileNameOnly, suffix)
 	}
 	maxlines := config["maxlines"] //maxlines := config["maxlines"].(int)
 	if maxlines == nil {
@@ -103,22 +137,23 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 	if maxsize == nil {
 		maxsize = 1024 * 1024 * 1024
 	}
-
+	//	fmt.Println(fmt.Sprintf(`{"level":%d,"filename":"%s","maxlines":%d,"maxsize":%d}, %d`, level, fullfilename, maxlines, maxsize, logertype))
 	switch logertype {
 	case "console":
-		loger.SetLogger(logs.AdapterConsole)
+		loger.SetLogger(logs.AdapterConsole, fmt.Sprintf(`{"level":%d}`, level))
 	case "file":
-		loger.SetLogger(logs.AdapterFile, fmt.Sprintf(`{"level":%d,"filename":"%s","maxlines":%d,"maxsize":%d, "separate":%s}`, level, filename, maxlines, maxsize, levels))
+		//	logs.SetLogger(logs.AdapterFile, `{"filename":"test.log"}`)
+		loger.SetLogger(logs.AdapterFile, fmt.Sprintf(`{"level":%d,"filename":"%s"}`, level, fullfilename))
 	case "multifile":
-		loger.SetLogger(logs.AdapterMultiFile, fmt.Sprintf(`{"filename":"%s","maxlines":%d,"maxsize":%d, "separate":%s}`, filename, maxlines, maxsize, levels))
+		loger.SetLogger(logs.AdapterMultiFile, fmt.Sprintf(`{"filename":"%s","level":%s}`, fullfilename, level))
 	case "smtp":
 		loger.SetLogger(logs.AdapterMail, fmt.Sprintf(`{"username":"%s","password":"%s","host":"%s","subject":"%s","sendTos":"%s","level":%d}`, config["username"], config["password"], config["host"], config["subject"], config["sendTos"], level))
 	case "conn":
 		loger.SetLogger(logs.AdapterConn, fmt.Sprintf(`{"net":"%s","addr":"%s","level":%d}`, config["net"], config["addr"], level))
 	default:
-		loger.SetLogger(logs.AdapterConsole)
+		loger.SetLogger(logs.AdapterConsole, fmt.Sprintf(`{"level":%d}`, level))
 	}
-
+	//loger.SetLogger(logs.AdapterFile, `{"filename":"test.log","level":7}`)
 }
 
 func customFormatter(lm *logs.LogMsg) string {

@@ -1,5 +1,7 @@
 {
 	"name": "IAC Home",
+	"title": "IAC Home",
+	"lngcode": "IAC Home",
 	"version": "1.0.0",
 	"isdefault": true,
 	"orientation": 0,
@@ -23,9 +25,6 @@
 					"action": ""
 				},
 				"actions":{
-					"BusinessLogic": {"type": "page", "next": "","page":"pages/bl.json"},
-                    "ViewEditor": {"type": "page", "next": "","page":"pages/vieweditor.json"},
-					"LayoutEditor": {"type": "page", "next": "","page":"pages/pagelist.json"}
 				},
 				"initcode": ""				
 			},

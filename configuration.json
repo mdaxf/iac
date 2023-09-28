@@ -19,15 +19,39 @@
         "port": 8080
     },
     "log":{
-        "adapter": "console",  
-        "level": "debug,info,warn,error",
-        "file": "c:\\temp\\iac.log",
+        "adapter": "file", 
+        "folder": "c:\\\\temp\\\\iac_loger", 
+        "level": "debug",
+        "file": "iac.log",
         "maxlines":10000,
         "maxsize": 1024
     },
     "cache":{
-        "adapter": "memory",
-        "interval": 3600
+        "adapter": "documentdb",
+        "memory":{
+            "interval": 3600
+        },
+        "redis":{
+            "key": "collectionname",
+            "conn": 6379,
+            "password": "",
+            "dbNum": 0,
+            "thePassWord": 3600
+        },
+        "memcache":{
+            "conn": "127.0.0.1:11211"
+        },
+        "file":{
+            "CachePath": "./cache",
+            "FileSuffix": ".cache",
+            "DirectoryLevel": 2,
+            "EmbedExpiry": 120
+        },
+        "documentdb":{
+            "conn": "mongodb://localhost:27017",
+            "db": "IAC_CACHE",
+            "collection": "cache"
+        }
     },
     "authorization":{
         "adapter": "memory",

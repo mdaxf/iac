@@ -426,24 +426,31 @@ var UI;
             this.sessionmenuprefix= window.location.origin+"_"+ "menu_";
         }
         loadMenus(parentID,Success, Fail){
-
-            let menudata = localStorage.getItem(this.sessionmenuprefix+ "_"+parentID);
-
+            let userdata = localStorage.getItem(UI.userlogin.sessionkey);
+        //    UI.Log("load the menu for the user:",userdata)
+            let userID = 0;
+            if(userdata){
+                
+                let userjdata = JSON.parse(userdata);
+                userID = userjdata.id;
+            }
+            let devicetype = this.isMobile()? "1":"0";
+            let menudata = localStorage.getItem(this.sessionmenuprefix+userID+ "_"+devicetype+"_"+parentID);
+        //    UI.Log("load the menu for the user from cache:",menudata, this.sessionmenuprefix+userID+ "_"+devicetype+"_"+parentID)
             if(menudata){
                 let menus = JSON.parse(menudata)["menus"];
+            //    UI.Log("load the menu for the user from cache success:",menus)
                 if(Success)
                     Success(menus);
                 return;
             }
 
-            let userdata = localStorage.getItem(UI.userlogin.sessionkey);
-            UI.Log("load the menu for the user:",userdata)
-            if(userdata){
-                
-                let userjdata = JSON.parse(userdata);
-                let userID = userjdata.id;
+        
+            
+            if(userdata){                
+               
                 let isMobile = this.isMobile()? "1":"0";
-                localStorage.removeItem(this.sessionmenuprefix+userID+ "_"+parentID)
+                localStorage.removeItem(this.sessionmenuprefix+userID+ "_"+devicetype+"_"+parentID)
                 let ajax = new UI.Ajax("");
                 ajax.get(UI.CONTROLLER_URL+"/user/menus?userid="+userID +"&mobile="+isMobile + "&parentid="+parentID).then((response) => {
                     let menus = JSON.parse(response);
@@ -451,7 +458,7 @@ var UI;
                         menus:menus,
                         createdon: new Date()
                     }
-                    localStorage.setItem(this.sessionmenuprefix+userID+ "_"+parentID, JSON.stringify(data));
+                    localStorage.setItem(this.sessionmenuprefix+userID+ "_"+devicetype+"_"+parentID, JSON.stringify(data));
                     if(Success)
                         Success(menus);
                 }).catch((error) => {
@@ -584,7 +591,14 @@ var UI;
             let key = el.getAttribute("lngcode");
             if(key != null && key != undefined && key != ""){
                 lngcodes.push(key);
-                texts.push(el.innerText);
+                if(el.innerText != null && el.innerText != undefined && el.innerText != "")
+                    texts.push(el.innerText);
+                else if(el.getAttribute("placeholder") !="" && el.getAttribute("placeholder") != null && el.getAttribute("placeholder") != undefined)
+                    texts.push(el.getAttribute("placeholder"));
+                else if(el.getAttribute("title") !="" && el.getAttribute("title") != null && el.getAttribute("title") != undefined)
+                    texts.push(el.getAttribute("title"));
+                else
+                    texts.push("");
             }
         }
         let cachedata = UI.Languages.getItems(lngcodes);
@@ -625,7 +639,14 @@ var UI;
                 //    UI.Log("translation elements:", elements)
                     for (let j = 0; j < elements.length; j++) {
                         let el = elements[j];
-                        el.innerText = text;
+                        
+                        if(el.getAttribute("placeholder") !="" && el.getAttribute("placeholder") != null && el.getAttribute("placeholder") != undefined)
+                            el.setAttribute("placeholder", text);
+                        else if(el.getAttribute("title") !="" && el.getAttribute("title") != null && el.getAttribute("title") != undefined)
+                            el.setAttribute("title", text);
+                        else
+                            el.innerText = text;
+
                         el.setAttribute("translated", "true");
                     //    el.setAttribute("title", short);
                     }
@@ -1236,9 +1257,9 @@ function rAFThrottle(func) {
             div.appendChild(this.body);
             this.popup = div;
         }
-        close() {
-            this.fireEvent("close");
+        close() {            
             if (this.modal) {
+                this.fireEvent("close");
                 if(this.overlay)
                     this.overlay.remove();
                 this.overlay = null;
@@ -1247,10 +1268,16 @@ function rAFThrottle(func) {
             else {
                // this.container.removeChild(this.popup);
                this.popup.remove();
+               if(this.overlay)
+                    this.overlay.remove();
+               this.overlay = null;
             }
         }
         onClose(func) {
-            this.addEventListener("close", func);
+            this.addEventListener("close", function(){
+                func();
+                offClose(func)
+            });            
         }
         offClose(func) {
             this.removeEventListener("close", func);
@@ -1389,7 +1416,7 @@ function rAFThrottle(func) {
         static getCurrent(cont = document.body) {
             const ch = cont.children;
             for (var idx = ch.length - 1; idx > -1; --idx) {
-                if (ch[idx].classList.contains("apr-overlay"))
+                if (ch[idx].classList.contains("iac-ui-overlay"))
                     return ch[idx].aprOverlay;
             }
             return null;
@@ -1595,7 +1622,8 @@ function rAFThrottle(func) {
             //this.view.clear();
             this.clear();            
             this.configuration.view = {
-                "config": view
+                "name": view,
+                "type": "document"
             };
             this.displayview();
         }
@@ -1634,14 +1662,16 @@ function rAFThrottle(func) {
             this.initialize(Panel,configuration);
         }
         async initialize(Panel,configuration){            
-            
+            UI.Log("initialize view",configuration)
             this.Panel = Panel;
             if(configuration.name){
-                if(configuration.name in Session.viewResponsitory){
-                    this.configuration = Session.viewResponsitory[configuration.name];
-                    this.configuration = Object.assign({},this.configuration, configuration);
-                    this.builview();
-                    return; 
+                if(UI.safeName(configuration.name) in Session.viewResponsitory){
+                    let cachedView = Session.viewResponsitory[UI.safeName(configuration.name)]
+                    if(configuration.name == cachedView.name){                        
+                        this.configuration = Object.assign({},cachedView, configuration);
+                        this.builview();
+                        return; 
+                    }
                 }
             }
             if(configuration.type =="document"){
@@ -1716,10 +1746,13 @@ function rAFThrottle(func) {
         }
         async preloaddata(){
             let that = this
+
             if(this.configuration.inputs)        
                 this.createinputs(this.configuration.inputs);
-
-            if(this.configuration.onloadcode && this.configuration.onloadcode != ""){
+            if(this.configuration.lngcodes)
+                this.createlanguagecodes(this.configuration.lngcodes);
+            
+            if(this.configuration.onloadcode && this.configuration.onloadcode.trim() != ""){
                 /*
                 let data={};
                 data.code = this.configuration.onloadcode;
@@ -1991,6 +2024,23 @@ function rAFThrottle(func) {
             this.outputs = outputs;
             return outputscript;
         }
+        async createlanguagecodes(languagecodes){
+            let that = this
+            let lngcodes = []
+            let defaulttexts = [];
+            Object.keys(languagecodes).reduce((acc, key) => {  
+                lngcodes.push(key);
+                defaulttexts.push(languagecodes[key]); 
+                return acc;  
+            }, {})
+            this.lngcodes = languagecodes;
+            await UI.translatebycodes(lngcodes, function(data){
+                that.lngcodes = Object.assign({},that.lngcodes, data);
+            }, function(){
+                UI.ShowError("Load the language codes wrong")
+            });
+        }            
+        
         createcommonfunctions(){
           let s = 'object_'+this.id + ' = ' + `Session.views[`+this.id+`]` + ';';
           // UI.Log(s)
@@ -2084,6 +2134,13 @@ function rAFThrottle(func) {
                 newcontent = newcontent.replaceAll("{"+inputnames[i] +"}", this.inputs[inputnames[i]]);
             }
 
+            if(this.lngcodes){
+                let lngcodes = Object.keys(this.lngcodes);
+                for(var i=0;i<lngcodes.length;i++){
+                    newcontent = newcontent.replaceAll("{@"+lngcodes[i] +"}", this.lngcodes[lngcodes[i]]);
+                }
+            }
+
             return newcontent;
         }
         submit(){
@@ -2109,9 +2166,12 @@ function rAFThrottle(func) {
                         }
                         else if(action.type == "Home"){
                             this.Panel.page.clear();
+                            Session.panels = {};
+                        //    Session.views = {};
+                        //    Session.pages = {};
                             Session.clearstack();
                             // clear the crumbs
-                            let page = new Page({"file":"page/home.json"});
+                            let page = new Page({"name":"Portal Menu"});
                         }
                         else if(action.type == "Back"){
                             if(Sesion.stack.length > 0){
@@ -2122,15 +2182,19 @@ function rAFThrottle(func) {
                             }
                         }
                         else if(action.type == "view"){
-                            if(action.panels){
-                                // UI.Log("actions:",action.panels)
-                                for (var i=0; i<action.panels.length; i++){
-                                    let viewpanel = action.panels[i].panel;
+                            if(action.view){
+                                UI.Log("actions:",action.view)
+
+                                for(const key in action.view){
+                                    let view = action.view[key];
+                                    let viewpanel = key;
                                     let panel = Session.panels[UI.safeId(viewpanel)];
-                                    if(panel && action.panels[i].view){
-                                        panel.changeview(action.panels[i].view);
+                                    UI.Log("actions:",viewpanel,panel, view)
+                                    if(panel){
+                                        panel.changeview(view);
                                     }
                                 }
+
                             }
                         }                    
                         else if(action.type == "page"){
@@ -2139,10 +2203,14 @@ function rAFThrottle(func) {
                                 UI.Log("there is no page to load");
                                 return;
                             }
+                            Session.panels = {};
+
                             this.Panel.page.clear();
                             if(action.page.toLowerCase().indexOf("home.json") !=-1){
                                 Session.clearstack();
                             }
+                        //    Session.views = {};
+                        //    Session.pages = {};
                             if(action.page.endsWith(".json"))
                                 new Page({"file":action.page});
                             else
@@ -2300,6 +2368,9 @@ function rAFThrottle(func) {
             this.configuration = configuration;
             this.page={};
             this.panels = [];
+            
+            Session.views = {};
+            Session.panels = {};
 
             const elements = document.getElementsByClassName('ui-page');
             for (let i = 0; i < elements.length; i++) {
@@ -2359,6 +2430,7 @@ function rAFThrottle(func) {
                 let result = JSON.parse(response);
                 that.configuration = Object.assign({},that.configuration,result.data,configuration);
                 UI.Log("loadconfig:",that.configuration,configuration, result.data);
+                Session.pageResponsitory[configuration.name] = that.configuration;
                 that.init();
             }, function(error){
                 UI.ShowError("Load the data wrong:",error);
@@ -2399,14 +2471,14 @@ function rAFThrottle(func) {
         async init(){
             let id = 'page_'+UI.generateUUID();
             this.id = id;
-
+            
             if(this.configuration.onInitialize){
 
                 await this.executeTransaction(this.configuration.onInitialize,Session.snapshoot.sessionData , this.updatesession, function(error){
                     UI.ShowError(error)
                 });   
             }
-
+            
             this.create();
         }
         async create(){
@@ -2440,7 +2512,7 @@ function rAFThrottle(func) {
                     }
                 })  */
             }
-            this.configuration.title = this.configuration.title || this.configuration.name;     
+            this.configuration.title = this.configuration.title || this.configuration.name || '';     
   
             if(this.configuration.onLoad){
 
@@ -2521,6 +2593,7 @@ function rAFThrottle(func) {
               this.PageTitle = this.PageTitle.replaceAll('{'+key+'}' , Session.snapshoot.sessionData[key])
             }
             document.title = this.PageTitle ;
+
 
             Session.pages[this.id] = this;
             Session.CurrentPage = this;
@@ -2621,7 +2694,10 @@ function rAFThrottle(func) {
                 return;
             this.clear();
             Session.clearstack();
-            new Page({"file":"pages/home.json"});
+            Session.pages = {};
+            Session.panels ={};
+            Session.views = {};
+            new Page({"config":"Portal Menu"});
         }
         clear(){
             /*this.page.innerHTML = ""; */       

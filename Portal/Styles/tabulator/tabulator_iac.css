@@ -1,6 +1,6 @@
 .tabulator {
   position: relative;
-  border: 1px solid #ce7706;
+  border: 1px solid #575502d3;
   background-color: #fff;
   font-size: 14px;
   text-align: left;
@@ -29,7 +29,7 @@
   box-sizing: border-box;
   width: 100%;
   border-bottom: 1px solid #3FB449;
-  background-color: #ce7706;
+  background-color: #575502d3;
   color: #fff;
   font-weight: bold;
   white-space: nowrap;
@@ -60,7 +60,7 @@
   flex-direction: column;
   justify-content: flex-start;
   border-right: 1px solid #aaa;
-  background: #ce7706;
+  background: #575502d3;
   text-align: left;
   vertical-align: bottom;
   overflow: hidden;
@@ -346,8 +346,8 @@
 
 .tabulator .tabulator-footer {
   border-top: 1px solid #3FB449;
-  background-color: #ce7706;
-  color: #ce7706;
+  background-color: #575502d3;
+  color: #ccc;
   font-weight: bold;
   white-space: nowrap;
   user-select: none;
@@ -404,7 +404,7 @@
 .tabulator .tabulator-footer .tabulator-paginator {
   flex: 1;
   text-align: right;
-  color: #ce7706;
+  color: #575502d3;
   font-family: inherit;
   font-weight: inherit;
   font-size: inherit;
@@ -1206,7 +1206,7 @@ body.tabulator-print-fullscreen-hide > *:not(.tabulator-print-fullscreen) {
 
 .tabulator {
   border: none;
-  border-bottom: 5px solid #ce7706;
+  border-bottom: 5px solid #575502d3;
 }
 
 .tabulator[tabulator-layout="fitColumns"] .tabulator-row .tabulator-cell:last-of-type {
@@ -1218,7 +1218,7 @@ body.tabulator-print-fullscreen-hide > *:not(.tabulator-print-fullscreen) {
 }
 
 .tabulator .tabulator-header .tabulator-col {
-  background-color: #ce7706;
+  background-color: #575502d3;
 }
 
 .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
@@ -1281,7 +1281,7 @@ body.tabulator-print-fullscreen-hide > *:not(.tabulator-print-fullscreen) {
 
 .tabulator .tabulator-footer .tabulator-page {
   background-color: #fff;
-  color: #ce7706;
+  color: #575502d3;
   font-family: inherit;
   font-weight: inherit;
   font-size: inherit;
@@ -1319,7 +1319,7 @@ body.tabulator-print-fullscreen-hide > *:not(.tabulator-print-fullscreen) {
 
 .tabulator-print-table .tabulator-print-table-group {
   border-bottom: 2px solid #3FB449;
-  background: #ce7706;
+  background: #575502d3;
   color: #fff;
 }
 

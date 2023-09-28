@@ -1,6 +1,7 @@
-//the package is import from
-//"github.com/beego/beego/v2/client/cache/memcache"
-
+// The package is migrated from beego, you can get from following link:
+// import(
+//   "github.com/beego/beego/v2/client/cache"
+// )
 // Copyright 2023. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,9 +22,15 @@
 //
 // go install github.com/bradfitz/gomemcache/memcache
 //
-
+// Usage:
+// import(
 //
-
+//	_ "github.com/beego/beego/v2/client/cache/memcache"
+//	"github.com/beego/beego/v2/client/cache"
+//
+// )
+//
+//	bm, err := cache.NewCache("memcache", `{"conn":"127.0.0.1:11211"}`)
 package memcache
 
 import (

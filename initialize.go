@@ -98,12 +98,113 @@ func initializecache() {
 		ilog.Error(fmt.Sprintf("initialize cache error: %s", "CacheTTL is missing"))
 		cacheConfig["interval"] = 60
 	}
+	ilog.Debug(fmt.Sprintf("initialize cache with the configuration, %v", cacheConfig))
 
-	config.SessionCache, err = cache.NewCache(cacheConfig["adapter"].(string), fmt.Sprintf(`{"interval":%v}`, int(cacheConfig["interval"].(float64))))
-	//config.SessionCache, err = cache.NewCache("memory", `{"interval":60}`)
-	if err != nil {
-		ilog.Error(fmt.Sprintf("initialize cache error: %s", err.Error()))
+	switch cacheConfig["adapter"] {
+	case "memcache":
+		conn := "127.0.0.1:11211"
+		if cacheConfig["memcache"] != nil {
+			memcachecfg := cacheConfig["memcache"].(map[string]interface{})
+			if memcachecfg["conn"] != nil {
+				conn = memcachecfg["conn"].(string)
+			}
+		}
+		config.SessionCache, err = cache.NewCache(cacheConfig["adapter"].(string), fmt.Sprintf(`{"conn":"%s"}`, conn))
+		if err != nil {
+			ilog.Error(fmt.Sprintf("initialize cache error: %s", err.Error()))
+		}
+	case "redis":
+		key := "IAC_Cache"
+		conn := "6379"
+		dbNum := 0
+		password := ""
+		if cacheConfig["redis"] != nil {
+			rediscfg := cacheConfig["redis"].(map[string]interface{})
+			if rediscfg["key"] != nil {
+				key = rediscfg["key"].(string)
+			}
+			if rediscfg["conn"] != nil {
+				conn = rediscfg["conn"].(string)
+			}
+			if rediscfg["dbNum"] != nil {
+				dbNum = int(rediscfg["dbNum"].(float64))
+			}
+			if rediscfg["password"] != nil {
+				password = rediscfg["password"].(string)
+			}
+		}
+		config.SessionCache, err = cache.NewCache(cacheConfig["adapter"].(string), fmt.Sprintf(`{"key":"%s","conn":"%s","dbNum":%d,"password":"%s"}`, key, conn, dbNum, password))
+		if err != nil {
+			ilog.Error(fmt.Sprintf("initialize cache error: %s", err.Error()))
+		}
+	case "file":
+		CachePath := ""
+		DirectoryLevel := 2
+		FileSuffix := ".cache"
+		EmbedExpiry := 0
+		if cacheConfig["file"] != nil {
+			filecfg := cacheConfig["file"].(map[string]interface{})
+
+			if filecfg["CachePath"] != nil {
+				CachePath = filecfg["CachePath"].(string)
+			}
+
+			if filecfg["DirectoryLevel"] != nil {
+				DirectoryLevel = int(filecfg["DirectoryLevel"].(float64))
+			}
+
+			if filecfg["FileSuffix"] != nil {
+				FileSuffix = filecfg["FileSuffix"].(string)
+			}
+
+			if filecfg["EmbedExpiry"] != nil {
+				EmbedExpiry = int(filecfg["EmbedExpiry"].(float64))
+			}
+		}
+
+		config.SessionCache, err = cache.NewCache(cacheConfig["adapter"].(string), fmt.Sprintf(`{"CachePath":"%s","FileSuffix":"%s","DirectoryLevel":"%d","EmbedExpiry":"%d"}`, CachePath, FileSuffix, DirectoryLevel, EmbedExpiry))
+		ilog.Debug(fmt.Sprintf("initialize cache with the configuration, %v", cacheConfig))
+
+		if err != nil {
+			ilog.Error(fmt.Sprintf("initialize cache error: %s", err.Error()))
+		}
+	case "documentdb":
+		conn := "mongodb://localhost:27017"
+		db := "IAC_Cache"
+		collection := "cache"
+		if cacheConfig["documentdb"] != nil {
+			documentdbcfg := cacheConfig["documentdb"].(map[string]interface{})
+			if documentdbcfg["conn"] != nil {
+				conn = documentdbcfg["conn"].(string)
+			}
+			if documentdbcfg["db"] != nil {
+				db = documentdbcfg["db"].(string)
+			}
+			if documentdbcfg["collection"] != nil {
+				collection = documentdbcfg["collection"].(string)
+			}
+		}
+		//cachedb.Initalize()
+		config.SessionCache, err = cache.NewCache(cacheConfig["adapter"].(string), fmt.Sprintf(`{"conn":"%s","db":"%s","collection":"%s"}`, conn, db, collection))
+		if err != nil {
+			ilog.Error(fmt.Sprintf("initialize cache error: %s", err.Error()))
+		}
+
+	default:
+		interval := 120
+		if cacheConfig["memory"] != nil {
+			memorycfg := cacheConfig["memory"].(map[string]interface{})
+			if memorycfg["interval"] != nil {
+				interval = int(memorycfg["interval"].(float64))
+			}
+		}
+		config.SessionCache, err = cache.NewCache(cacheConfig["adapter"].(string), fmt.Sprintf(`{"interval":%d}`, interval))
+		//config.SessionCache, err = cache.NewCache("memory", `{"interval":60}`)
+		if err != nil {
+			ilog.Error(fmt.Sprintf("initialize cache error: %s", err.Error()))
+		}
 	}
+
 }
 
 func initializeloger() {

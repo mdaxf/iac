@@ -57,6 +57,9 @@ func main() {
 	defer dbconn.DB.Close()
 	defer mongodb.DocDBCon.MongoDBClient.Disconnect(context.Background())
 	// Initialize the Gin router
+
+	//defer config.SessionCache.MongoDBClient.Disconnect(context.Background())
+
 	router = gin.Default()
 
 	// Load controllers dynamically based on the configuration file

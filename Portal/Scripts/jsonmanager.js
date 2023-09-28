@@ -1204,6 +1204,8 @@ var UI = UI || {};
                 let value = $(this).val();
                 that.simpleUpdateNode(key, value);
             })
+
+            UI.translate(wrapper);
         }
 
         getdetailsavedata(){

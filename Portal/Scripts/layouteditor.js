@@ -689,7 +689,7 @@ var LayoutEditor = {
           container.style.display = 'block';
           container.style.position = 'absolute';
           container.style.right = '0px';
-          container.style.top = '0px';
+          container.style.top = '45px';
           container.style.width = '300px';
           container.style.height = '100%';
           container.style.backgroundColor = 'white';
@@ -899,7 +899,8 @@ var LayoutEditor = {
 
             attrs={
                 for: 'style',
-                innerHTML: 'inline Style'
+                innerHTML: 'inline Style',
+                lngcode: 'inline Style'
             }
             new UI.FormControl(container, 'label',attrs);
             attrs={
@@ -1002,45 +1003,125 @@ var LayoutEditor = {
             id: 'file',          type: 'text',         value: view.file || '',       placeholder: 'file to show the content',       style: 'width: 100%;'
           }
           new UI.FormControl(container, 'input',attrs);
-          attrs ={for: "View_inputs", innerHTML: "Inputs"}
-          new UI.FormControl(container, 'label',attrs);
-          let parameterstr = "";
-          if(view.hasOwnProperty("inputs")){
-            UI.Log(view.inputs)
-            for(key in view.inputs){
-              UI.Log(parameterstr, key)
-              parameterstr = parameterstr + key + ";"
-            }
-          }  
-          attrs={
-            id: 'View_inputs',
-            type: 'text',
-            innerHTML: parameterstr || '',
-            placeholder: 'inputs to render the view',
-            style: 'width: 100%;'
-          }
-          new UI.FormControl(container, 'textarea',attrs);
-          attrs ={for: "View_outputs", innerHTML: "Outputs"}
-          new UI.FormControl(container, 'label',attrs);
-          parameterstr = "";
-          if(view.hasOwnProperty("outputs")){
-            for(key in view.outputs)
-                parameterstr = parameterstr + key + ";"
-          }          
-          attrs={
-            id: 'View_outputs',
-            type: 'text',
-            innerHTML: parameterstr || '',
-            placeholder: 'Outputs that view generated',
-            style: 'width: 100%;'
-          }
-          new UI.FormControl(container, 'textarea',attrs);
+          var divsection = (new UI.FormControl(container, 'div',{style: "display: row; height:40px; margin-top:5px"})).control;
 
+          attrs ={for: "View_inputs", innerHTML: "Inputs", lngcode: "Inputs", style: "height: 40px;"}
+          new UI.FormControl(divsection, 'label',attrs);
+  
+          let tableheight = (LayoutEditor.FullHeight - 400) /2;
+          var events = {"click": function(){
+            let table = document.getElementById('View_inputs');
+            table.Table.addRow({});
+          }}
+          new UI.FormControl(divsection, 'button',{lngcode:"Add", innerHTML:"Add", class: "btn btn_primary btn-right"},events);
+          events = {"click": function(){
+            let table = document.getElementById('View_inputs');
+            let rows = table.Table.getSelectedRows();
+            for(var i=0;i<rows.length;i++){
+              let data = rows[i].getData();
+              UI.Log(data)
+              delete view.inputs[data.name];
+            }
+            table.Table.deleteRow(rows);
+          }}
+          new UI.FormControl(divsection, 'button',{lngcode:"Delete", innerHTML:"Delete",  class: "btn btn_secondary btn-right"},events);
+                  
+          let parameters = [];
+          if(view.hasOwnProperty("inputs")){
+            for(key in view.inputs){
+              parameters.push({name: key});
+            } 
+          }
+
+          attrs={
+            id: 'View_inputs',            
+            style: 'width: 100%;'
+          }
+          new UI.FormControl(container, 'ui-tabulator',attrs);
+          let table = document.getElementById('View_inputs');
+          table.Table = new Tabulator(table.uitabulator, {
+            height: tableheight,
+            layout:"fitColumns",
+            selectable: true,
+            columns:[
+              {title:"Name", field:"name", editor:"input"}
+            ],
+            data: parameters
+          });
+          table.Table.on("dataChanged", function(data){
+            UI.Log(data)
+            if(!view.inputs)
+              view.inputs = {};
+            for(var i=0;i<data.length;i++){
+              let key = data[i].name;
+              if(key != "" && !view.inputs.hasOwnProperty(key)){
+                view.inputs[key] = "";
+              }
+            }
+
+          });
+
+  
+          divsection = (new UI.FormControl(container, 'div',{style: "display: row; height:40px; margin-top:5px"})).control;
+          attrs ={for: "View_outputs", innerHTML: "Outputs", lngcode: "Outputs"}
+          new UI.FormControl(divsection, 'label',attrs);
+          events = {"click": function(){
+            let table = document.getElementById('View_outputs');
+            table.Table.addRow({});
+          }}
+          new UI.FormControl(divsection, 'button',{lngcode:"Add", innerHTML:"Add", class: "btn btn_primary btn-right"},events);
+          events = {"click": function(){
+            let table = document.getElementById('View_outputs');
+            let rows = table.Table.getSelectedRows();
+            for(var i=0;i<rows.length;i++){
+              let data = rows[i].getData();
+              UI.Log(data)
+              delete view.inputs[data.name];
+            }
+            table.Table.deleteRow(rows);
+          }}
+          new UI.FormControl(divsection, 'button',{lngcode:"Delete", innerHTML:"Delete" , class: "btn btn_secondary btn-right"},events);
+
+          parameters = [];
+          if(view.hasOwnProperty("outputs")){
+            for(key in view.outputs){
+              parameters.push({name: key});
+            } 
+          }
+          attrs={
+            id: 'View_outputs',            
+            style: 'width: 100%;'
+          }
+          new UI.FormControl(container, 'ui-tabulator',attrs);
+
+          table = document.getElementById('View_outputs');
+          table.Table = new Tabulator(table.uitabulator, {
+            height: tableheight,
+            layout:"fitColumns",
+            selectable: true,
+            columns:[
+              {title:"Name", field:"name", editor:"input"}
+            ],
+            data: parameters
+          });
+          table.Table.on("dataChanged", function(data){
+            UI.Log(data)
+            if(!view.outputs)
+              view.outputs = {};
+            for(var i=0;i<data.length;i++){
+              let key = data[i].name;
+              if(key != "" && !view.outputs.hasOwnProperty(key)){
+                view.outputs[key] = "";
+              }
+            }
+
+          });
+ 
           attrs={
             innerHTML: 'Update', lngcode: 'Update',
             class: 'btn btn-primary'
           }
-          let events={
+          events={
             "click": function(){
               UI.Log('click', view)
               let name = $('#name').val();
@@ -1048,24 +1129,28 @@ var LayoutEditor = {
               view.name = name;
               view.config = config;
               view.file = $('#file').val();
-              let parameterstr = $('#View_inputs').val()
-              let parameterlist = parameterstr.split(';')
-              let inputs={}
-              for(var i=0;i<parameterlist.length;i++){
-                parameterlist[i] = parameterlist[i].trim()
-                if(parameterlist[i]!="")
-                  inputs[parameterlist[i]] = ""
+              let table = document.getElementById('View_inputs');
+              let rows = table.Table.getData();
+              view.inputs = {};
+              for(var i=0;i<rows.length;i++){
+                let data = rows[i];
+                UI.Log(data)
+                if(data.name != "" && data.name !=undefined && !view.inputs.hasOwnProperty(data.name)){
+                  view.inputs[data.name] = "";
+                }
               }
-              view.inputs =inputs;
-              parameterstr = $('#View_outputs').val()
-               parameterlist = parameterstr.split(';')
-              let outputs={}
-              for(var i=0;i<parameterlist.length;i++){
-                parameterlist[i] = parameterlist[i].trim()
-                if(parameterlist[i]!="")
-                  outputs[parameterlist[i]] = ""
+              table = document.getElementById('View_outputs');
+              rows = table.Table.getData();
+              view.outputs = {};  
+              for(var i=0;i<rows.length;i++){
+                let data = rows[i];
+                UI.Log(data)
+                if(data.name != "" && data.name !=undefined && !view.outputs.hasOwnProperty(data.name)){
+                  view.outputs[data.name] = "";
+                }
               }
-              view.outputs =outputs;
+
+
               UI.Log(path, view)
               LayoutEditor.JsonObj.updateNodeValue(path,view)
               LayoutEditor.generateLayout();
@@ -1188,21 +1273,31 @@ var LayoutEditor = {
           let events = {
             "change": function(){
               let type = $('#type').val();
+              UI.Log(this, type)
+
                 $('#trancode_section input').prop("disabled", true);
                 $('#actionpage_section input').prop("disabled", true);
                 $('#script').prop("disabled", true);
-                $('#view').prop("disabled", true);
-              if(type == 'Transaction')
+              //  $('#view').prop("disabled", true);
+                $('#trancode_section .fa-plus').prop("disabled", true);
+
+              if(type == 'Transaction'){
                 $('#trancode_section input').prop("disabled", false);
-              else if( type == 'page')
+                $('#trancode_section .fa-plus').prop("disabled", false);
+              }
+              else if( type == 'page'){
                 $('#actionpage_section input').prop("disabled", false);
+                $('#actionpage_section .fa-plus').prop("disabled", false);
+              }
               else if( type == 'script')
                 $('#script').prop("disabled", false);
               else if( type == 'view')
-                $('#view').prop("disabled", false);
+                showactionviewcfg();
             }
           }
-          new UI.Selection(container,attrs,events);
+          attrs.events = events;
+          attrs.selected = action.type || '';
+          new UI.Selection(container,attrs);
 
           attrs={for: 'trancode',innerHTML: 'TranCode',lngcode: 'TranCode'}
           new UI.FormControl(container, 'label',attrs);
@@ -1240,10 +1335,14 @@ var LayoutEditor = {
           attrs={     id: 'script',            type: 'text',          value: action.script || '',            placeholder: 'Script',            style: 'width: 100%;'          }
           new UI.FormControl(container, 'textArea',attrs);
 
+          row = (new UI.FormControl(container, 'div',{id:'actionview_section',style:"display:row; width:100%" })).control;
           attrs={   for: 'view',      innerHTML: 'View'    }
-          new UI.FormControl(container, 'label',attrs);
-          attrs={      id: 'view',  type: 'text',  value: action.view || '',  placeholder: 'View',       style: 'width: 100%;' }
-          new UI.FormControl(container, 'textArea',attrs);
+          new UI.FormControl(row, 'label',attrs);
+          
+          attrs={id:"action_view_table", style:"width: 100%;"}
+          new UI.FormControl(row, 'ui-tabulator',attrs);
+         /* attrs={      id: 'view',  type: 'text',  value: action.view || '',  placeholder: 'View',       style: 'width: 100%;' }
+          new UI.FormControl(container, 'textArea',attrs); */
 
           attrs={for: 'next',innerHTML: 'Next'}
           new UI.FormControl(container, 'label',attrs);
@@ -1269,7 +1368,17 @@ var LayoutEditor = {
               action.next = next;
               action.page = page;
               action.script = script;
-              action.view = view;
+              if(type == 'view'){
+                let table = document.getElementById("action_view_table");
+                let data = table.Table.getData();
+                action.view = {};
+                for(var i=0;i<data.length;i++){
+                  let row = data[i];
+                  if(row.panel != "" && row.view != "")
+                    action.view[row.panel] = row.view;
+                }
+              }              
+              
               action.code = trancode;
               let paths = path.split('/');
               let actionpath =[];
@@ -1300,6 +1409,34 @@ var LayoutEditor = {
             }
           }
           new UI.FormControl(container, 'button',attrs, events);
+
+          let showactionviewcfg = function(){
+
+            let table = document.getElementById("action_view_table");
+            let viewdata = [];
+            let columns =[
+                {title:"Panel", field:"panel"},
+                {title:"View", field:"view", editor:"input"}
+              ]
+            action.view = action.view || {};
+            
+            let viewPanels = LayoutEditor.getviewPanels(LayoutEditor.JsonObj.data);
+            for(var i=0;i<viewPanels.length;i++){
+              let panel = viewPanels[i];
+              let view = action.view[panel.name] || "";
+              viewdata.push({panel: panel.name, view: view});
+            }
+            UI.Log(viewdata, columns, table.uitabulator)
+            table.Table = new Tabulator(table.uitabulator, {
+              height: 300,
+              layout:"fitColumns",
+              selectable: true,
+              columns:columns,
+              data: viewdata
+            });
+            
+          }
+          
           let type = $('#type').val();
           $('#trancode_section input').prop("disabled", true);
           $('#actionpage_section input').prop("disabled", true);
@@ -1312,9 +1449,27 @@ var LayoutEditor = {
           else if( type == 'script')
             $('#script').prop("disabled", false);
           else if( type == 'view')
-            $('#view').prop("disabled", false);
+            showactionviewcfg();
+
+          
+
 
           UI.translate(document.getElementById('properties'));
+        },
+        getviewPanels(data){
+          let panels = [];                    
+          if(data.hasOwnProperty('panels')){
+            for(var i=0;i<data.panels.length;i++){
+              let panel = data.panels[i];
+              if(panel != undefined && panel.hasOwnProperty('iscontainer') && panel.iscontainer == true){
+                let childpanels = LayoutEditor.getviewPanels(panel);
+                panels = panels.concat(childpanels);
+              }else{
+                panels.push(panel);
+              }
+            }
+          }
+          return panels;
         },
         SelectEntity: function(entity){
           let collectionname = "";
@@ -1478,7 +1633,9 @@ var LayoutEditor = {
               let element = (gridNode).el
               let nodekey = $triggerElement.attr('data-key').replace(/'/g, '"');;
               UI.Log(element,node,panelid,nodekey)
-              UI.translate(document.getElementsByClassName("context-menu-root"));
+              
+              //UI.translate(document.getElementsByClassName("context-menu-root"));
+
               return{
                 callback: function(key, options,e){
                   UI.Log(key, options,e)
@@ -1539,12 +1696,18 @@ var LayoutEditor = {
                 }, 
                 items:{
                   'Properties':{
-                    name: '{@Properties}',
+                    name: 'Properties',
+                    dataAttr: {
+                      lngcode: "Properties"            
+                    } ,
                     icon: 'fa-cog',
                     disabled: false
                   },
                   'Add Subpanel':{
-                    name: '<span lngcode="Add Subpanel">Add Subpanel</span>',
+                    name: 'Add Subpanel',
+                    dataAttr: {
+                      lngcode: "Add Subpanel"            
+                    } ,
                     icon: 'fa-plus',
                     disabled:function(){
                       let nodedata = (LayoutEditor.JsonObj.getNode(nodekey)).value;
@@ -1556,7 +1719,7 @@ var LayoutEditor = {
                     }
                   }, 
                   'Link View':{
-                    name: '<span lngcode="Link View">Link View</span>',
+                    name: 'Link View',
                     icon: 'fa-plus',
                     disabled:function(){
                      
@@ -1569,7 +1732,7 @@ var LayoutEditor = {
                     }
                   },  
                   'Add Panel View':{
-                    name: '<span lngcode="Add Panel View">Add Panel View</span>',
+                    name: 'Add Panel View',
                     icon: 'fa-plus',
                     disabled:function(){
                       let nodedata = (LayoutEditor.JsonObj.getNode(nodekey)).value;
@@ -1582,7 +1745,7 @@ var LayoutEditor = {
 
                   }, 
                   'Remove':{
-                    name: '<span lngcode="Remove">Remove</span>',
+                    name: 'Remove',
                     icon: 'fa-minus',
                     disabled: function(){
                       let nodedata = (LayoutEditor.JsonObj.getNode(nodekey)).value;
@@ -1594,7 +1757,7 @@ var LayoutEditor = {
                   },
                   "sep1":'------------',
                   'Quit':{
-                    name: '<span lngcode="Quit">Quit</span>',
+                    name: 'Quit',
                     icon: function(){ return 'context-menu-icon context-menu-icon-quit'; },
                   }
                 }

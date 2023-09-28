@@ -1,5 +1,5 @@
 {
-	"name": "View Editor",
+	"name": "Old View Editor",
 	"version": "1.0.0",
 	"isdefault": true,
 	"orientation": 0,
@@ -13,7 +13,7 @@
 			"name": "content",
 			"orientation": 1,
 			"view": {
-				"name": "vieweditor",
+				"name": "old vieweditor",
 				"type": "view-type",
 				"file": "templates/vieweditor.html",
 				"inlinestyle": "height: 100%;",
