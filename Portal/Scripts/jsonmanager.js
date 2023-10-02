@@ -1549,8 +1549,7 @@ var UI = UI || {};
                     UI.Log(url,inputdata)
                     UI.ajax.post(url,inputdata).then((response) => {
                         data = JSON.parse(response); 
-                        
-                        page.Refresh();
+                        Session.CurrentPage.panels[0].view.fireOnLoaded();
                     }).catch((error) => {
                         UI.ShowError(error);
                     });
@@ -1561,7 +1560,7 @@ var UI = UI || {};
 
                 page.popupClose();
                 //id = data.data.id
-            //    page.Refresh();
+                page.Refresh();
  
                 
             }
@@ -1579,7 +1578,9 @@ var UI = UI || {};
                 $('.iac-ui-popup .ui_actions_section button[value="MultiSelect"]').show();
                 $('.iac-ui-popup .ui_actions_section button[value="Cancel"]').show();
               }
+            
             page.popupOpen(cfg);
+            cfg.onloadedscript();
             page.popup.onClose(function(){
                 Session.snapshoot.sessionData.entity = org_entity;
                 Session.snapshoot.sessionData.selectedKey = org_selectedKey;

@@ -61,12 +61,14 @@
                         ],
                         "keyfield": "ID",
                         "tablename": "menu_roles",
+                        "tablekeyfield": "id",
+                        "schemakeyfield": "menuroleid",
                         "schema":"menuroles",
                         "masterschema":"roles",
                         "masterdatafield":"roleid",
                         "data":{
                             "menu_roles":{
-                                "fields": ["ViewOnly"],
+                                "fields": ["ViewOnly", "id as menuroleid"],
                                 "subtables": {
                                     "roles":{
                                         "fields": ["Name", "Description"],

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mdaxf/iac/config"
 	"github.com/mdaxf/iac/logger"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -25,9 +26,9 @@ func Generate_authentication_token(userID string, loginName string, ClientID str
 	atClaims["user_id"] = userID
 	atClaims["login_name"] = loginName
 	atClaims["client_id"] = ClientID
-
+	fmt.Println(config.SessionCacheTimeout, time.Duration(config.SessionCacheTimeout)*time.Second)
 	createdt := time.Now().Format("2006-01-02 15:04:05")
-	expiredt := time.Now().Add(time.Minute * 15)
+	expiredt := time.Now().Add(time.Duration(config.SessionCacheTimeout) * time.Second)
 	expires := expiredt.Unix()
 	atClaims["exp"] = expires
 
@@ -149,7 +150,7 @@ func Extendexptime(tokenString string) (string, string, string, error) {
 	now := time.Now()
 
 	// Calculate the new expiration time (e.g., extend it by 1 hour from the current time)
-	expirationTime := now.Add(time.Hour)
+	expirationTime := now.Add(time.Duration(config.SessionCacheTimeout) * time.Second)
 
 	// Update the "exp" (expiration) claim in the token with the new expiration time
 	claims := token.Claims.(jwt.MapClaims)

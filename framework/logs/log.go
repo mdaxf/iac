@@ -61,14 +61,15 @@ const levelLoggerImpl = -1
 
 // Name for adapter with iac official support
 const (
-	AdapterConsole   = "console"
-	AdapterFile      = "file"
-	AdapterMultiFile = "multifile"
-	AdapterMail      = "smtp"
-	AdapterConn      = "conn"
-	AdapterEs        = "es"
-	AdapterSlack     = "slack"
-	AdapterAliLS     = "alils"
+	AdapterConsole    = "console"
+	AdapterFile       = "file"
+	AdapterMultiFile  = "multifile"
+	AdapterMail       = "smtp"
+	AdapterConn       = "conn"
+	AdapterEs         = "es"
+	AdapterSlack      = "slack"
+	AdapterAliLS      = "alils"
+	AdapterDocumentDB = "documentdb"
 )
 
 // Legacy log level constants to ensure backwards compatibility.
@@ -209,20 +210,23 @@ func (bl *IACLogger) AsyncNonBlockWrite() *IACLogger {
 // config must in in JSON format like {"interval":360}}
 func (bl *IACLogger) setLogger(adapterName string, configs ...string) error {
 	config := append(configs, "{}")[0]
+	fmt.Println("log config:", config)
 	for _, l := range bl.outputs {
 		if l.name == adapterName {
 			return fmt.Errorf("logs: duplicate adaptername %q (you have set this logger before)", adapterName)
 		}
 	}
-
+	fmt.Println("adapterName:", adapterName)
 	logAdapter, ok := adapters[adapterName]
+	fmt.Println("logAdapter:", logAdapter)
 	if !ok {
 		return fmt.Errorf("logs: unknown adaptername %q (forgotten Register?)", adapterName)
 	}
 
 	lg := logAdapter()
-
+	fmt.Println("lg:", lg)
 	err := lg.Init(config)
+	fmt.Println("err:", err)
 	if err != nil {
 		return err
 	}

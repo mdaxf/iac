@@ -31,6 +31,8 @@ import (
 	configuration "github.com/mdaxf/iac/config"
 	dbconn "github.com/mdaxf/iac/databases"
 	mongodb "github.com/mdaxf/iac/documents"
+
+	"github.com/mdaxf/iac/com"
 )
 
 var wg sync.WaitGroup
@@ -58,7 +60,9 @@ func main() {
 	defer mongodb.DocDBCon.MongoDBClient.Disconnect(context.Background())
 	// Initialize the Gin router
 
-	//defer config.SessionCache.MongoDBClient.Disconnect(context.Background())
+	for _, dbclient := range com.MongoDBClients {
+		defer dbclient.Disconnect(context.Background())
+	}
 
 	router = gin.Default()
 

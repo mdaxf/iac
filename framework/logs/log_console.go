@@ -94,12 +94,16 @@ func (c *consoleWriter) Init(config string) error {
 	}
 
 	res := json.Unmarshal([]byte(config), c)
+
 	if res == nil && len(c.Formatter) > 0 {
 		fmtr, ok := GetFormatter(c.Formatter)
 		if !ok {
 			return errors.New(fmt.Sprintf("the formatter with name: %s not found", c.Formatter))
 		}
 		c.formatter = fmtr
+	} else {
+		c.Level = LevelDebug
+		c.Colorful = true
 	}
 	return res
 }

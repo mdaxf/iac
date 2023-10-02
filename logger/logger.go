@@ -80,9 +80,9 @@ func Init(config map[string]interface{}) {
 }
 
 func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype string) {
-	logertype := config["adapter"]
-	if logertype == nil {
-		logertype = "console"
+	logadapter := config["adapter"]
+	if logadapter == nil {
+		logadapter = "console"
 	}
 	level := 3
 	levelstr := config["level"]
@@ -109,49 +109,84 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 	default:
 		level = 3
 	}
-
-	filename := config["file"]
-	if filename == nil {
-		filename = "iac.log"
-	}
-	suffix := filepath.Ext(filename.(string))
-	fileNameOnly := strings.TrimSuffix(filename.(string), suffix)
-
-	folder := config["folder"]
-	if folder == nil {
-		folder = "c:\\\\temp"
-	}
-
 	fullfilename := ""
+	maxlines := 1000000
+	maxsize := 1024 * 1024 * 1024
+	if logadapter == "file" || logadapter == "multifile" {
+		adapterconfig := make(map[string]interface{})
+		if config["adapterconfig"] != nil {
+			adapterconfig = config["adapterconfig"].(map[string]interface{})
+		} else {
+			adapterconfig = config
+		}
 
-	if suffix == "" {
-		fullfilename = fmt.Sprintf("%s\\\\%s_%s.log", folder, logtype, fileNameOnly)
-	} else {
-		fullfilename = fmt.Sprintf("%s\\\\%s_%s%s", folder, logtype, fileNameOnly, suffix)
+		filename := adapterconfig["file"]
+		if filename == nil {
+			filename = "iac.log"
+		}
+		suffix := filepath.Ext(filename.(string))
+		fileNameOnly := strings.TrimSuffix(filename.(string), suffix)
+
+		folder := adapterconfig["folder"]
+		if folder == nil {
+			folder = "c:\\\\temp"
+		}
+
+		if suffix == "" {
+			fullfilename = fmt.Sprintf("%s\\\\%s_%s.log", folder, logtype, fileNameOnly)
+		} else {
+			fullfilename = fmt.Sprintf("%s\\\\%s_%s%s", folder, logtype, fileNameOnly, suffix)
+		}
+		if adapterconfig["maxlines"] != nil {
+			maxlines = adapterconfig["maxlines"].(int) //maxlines := config["maxlines"].(int)
+		}
+
+		if adapterconfig["maxsize"] != nil {
+			maxsize = adapterconfig["maxsize"].(int)
+		}
+	} else if logadapter == "documentdb" {
+		conn := "mongodb://localhost:27017"
+		db := "IAC_Cache"
+		collection := "cache"
+		adapterconfig := make(map[string]interface{})
+		if config["adapterconfig"] != nil {
+			adapterconfig = config["adapterconfig"].(map[string]interface{})
+		} else {
+			adapterconfig = config
+		}
+
+		if adapterconfig["documentdb"] != nil {
+			documentdbcfg := adapterconfig["documentdb"].(map[string]interface{})
+			if documentdbcfg["conn"] != nil {
+				conn = documentdbcfg["conn"].(string)
+			}
+			if documentdbcfg["db"] != nil {
+				db = documentdbcfg["db"].(string)
+			}
+			if documentdbcfg["collection"] != nil {
+				collection = documentdbcfg["collection"].(string)
+			}
+		}
+		loger.SetLogger(logs.AdapterDocumentDB, fmt.Sprintf(`{"level":"%d", "conn":"%s", "db":"%s", "collection":"%s"}`, level, conn, db, collection))
+		return
 	}
-	maxlines := config["maxlines"] //maxlines := config["maxlines"].(int)
-	if maxlines == nil {
-		maxlines = 1000000
-	}
-	maxsize := config["maxsize"]
-	if maxsize == nil {
-		maxsize = 1024 * 1024 * 1024
-	}
-	//	fmt.Println(fmt.Sprintf(`{"level":%d,"filename":"%s","maxlines":%d,"maxsize":%d}, %d`, level, fullfilename, maxlines, maxsize, logertype))
-	switch logertype {
+	fmt.Println(fmt.Sprintf(`{"level":%d}, %d`, level, logadapter))
+	switch logadapter {
 	case "console":
 		loger.SetLogger(logs.AdapterConsole, fmt.Sprintf(`{"level":%d}`, level))
 	case "file":
 		//	logs.SetLogger(logs.AdapterFile, `{"filename":"test.log"}`)
-		loger.SetLogger(logs.AdapterFile, fmt.Sprintf(`{"level":%d,"filename":"%s"}`, level, fullfilename))
+		loger.SetLogger(logs.AdapterFile, fmt.Sprintf(`{"level":"%d","filename":"%s","maxlines":"%d","maxsize":"%d"}`, level, fullfilename, maxlines, maxsize))
 	case "multifile":
-		loger.SetLogger(logs.AdapterMultiFile, fmt.Sprintf(`{"filename":"%s","level":%s}`, fullfilename, level))
+		loger.SetLogger(logs.AdapterMultiFile, fmt.Sprintf(`{"filename":"%s","level":"%s", }`, fullfilename, level))
 	case "smtp":
-		loger.SetLogger(logs.AdapterMail, fmt.Sprintf(`{"username":"%s","password":"%s","host":"%s","subject":"%s","sendTos":"%s","level":%d}`, config["username"], config["password"], config["host"], config["subject"], config["sendTos"], level))
+		loger.SetLogger(logs.AdapterMail, fmt.Sprintf(`{"username":"%s","password":"%s","host":"%s","subject":"%s","sendTos":"%s","level":"%d"}`, config["username"], config["password"], config["host"], config["subject"], config["sendTos"], level))
 	case "conn":
-		loger.SetLogger(logs.AdapterConn, fmt.Sprintf(`{"net":"%s","addr":"%s","level":%d}`, config["net"], config["addr"], level))
+		loger.SetLogger(logs.AdapterConn, fmt.Sprintf(`{"net":"%s","addr":"%s","level":"%d"}`, config["net"], config["addr"], level))
+	case "documentdb":
+		loger.SetLogger(logs.AdapterDocumentDB, fmt.Sprintf(`{"level":"%d"}`, level))
 	default:
-		loger.SetLogger(logs.AdapterConsole, fmt.Sprintf(`{"level":%d}`, level))
+		loger.SetLogger(logs.AdapterConsole)
 	}
 	//loger.SetLogger(logs.AdapterFile, `{"filename":"test.log","level":7}`)
 }

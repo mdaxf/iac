@@ -25,12 +25,15 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/mdaxf/iac/framework/berror"
 
 	"github.com/mdaxf/iac/logger"
+
+	"github.com/mdaxf/iac/com"
 )
 
 // Cache DocumentDB Cache adapter.
@@ -47,20 +50,33 @@ type Item struct {
 	Key        string      `bson:"key"`
 	Value      interface{} `bson:"value"`
 	Expiration int32       `bson:"expiration"`
+	CreatedOn  time.Time   `bson:"createdon"`
+	ExpirateOn time.Time   `bson:"expirateon"`
 }
 
-// NewMemCache creates a new memcache adapter.
+// NewMemCache creates a new documentdbcache adapter.
 func NewDocumentDBCache() Cache {
 	return &DocumentDBCache{}
 }
 
-// Get get value from memcache.
+// Get get value from documentdbcache.
 func (doc *DocumentDBCache) Get(ctx context.Context, key string) (interface{}, error) {
 	var item Item
-
+	doc.RemoveExpired(ctx)
 	err := doc.MongoDBDatabase.Collection(doc.CollectionName).FindOne(ctx, bson.M{"key": key}).Decode(&item)
 	if err == nil {
-		return item.Value, nil
+		jdata := make(map[string]interface{})
+		//	fmt.Println("item", item.Value)
+		if data, ok := item.Value.(primitive.D); ok {
+			for _, element := range data {
+				jdata[element.Key] = element.Value
+			}
+			//		fmt.Println("jdata", jdata)
+			return jdata, nil
+		} else {
+			return item.Value, nil
+		}
+
 	} else {
 		return nil, berror.Wrapf(err, MemCacheCurdFailed,
 			"could not read data from memcache, please check your key, network and connection. Root cause: %s",
@@ -68,9 +84,19 @@ func (doc *DocumentDBCache) Get(ctx context.Context, key string) (interface{}, e
 	}
 }
 
-// GetMulti gets a value from a key in memcache.
+func (doc *DocumentDBCache) RemoveExpired(ctx context.Context) error {
+	_, err := doc.MongoDBDatabase.Collection(doc.CollectionName).DeleteMany(ctx, bson.M{"expirateon": bson.M{"$lt": time.Now()}})
+	if err != nil {
+		return berror.Wrapf(err, MemCacheCurdFailed,
+			"could not delete expired key-value from mongodb, key: %s", err.Error())
+	}
+	return nil
+}
+
+// GetMulti gets a value from a key in documentdbcache.
 func (doc *DocumentDBCache) GetMulti(ctx context.Context, keys []string) ([]interface{}, error) {
 	rv := make([]interface{}, len(keys))
+	doc.RemoveExpired(ctx)
 	var item Item
 	filter := bson.M{"key": bson.M{"$in": keys}}
 	cur, err := doc.MongoDBDatabase.Collection(doc.CollectionName).Find(ctx, filter)
@@ -100,9 +126,15 @@ func (doc *DocumentDBCache) GetMulti(ctx context.Context, keys []string) ([]inte
 	return rv, nil
 }
 
-// Put puts a value into memcache.
+// Put puts a value into documentdbcache.
 func (doc *DocumentDBCache) Put(ctx context.Context, key string, val interface{}, timeout time.Duration) error {
-	item := Item{Key: key, Expiration: int32(timeout / time.Second), Value: val}
+	doc.RemoveExpired(ctx)
+	item := Item{Key: key,
+		Expiration: int32(timeout / time.Second),
+		Value:      val,
+		CreatedOn:  time.Now(),
+		ExpirateOn: time.Now().Add(timeout),
+	}
 	_, err := doc.MongoDBDatabase.Collection(doc.CollectionName).InsertOne(ctx, item)
 	if err != nil {
 		return berror.Wrapf(err, MemCacheCurdFailed,
@@ -111,7 +143,7 @@ func (doc *DocumentDBCache) Put(ctx context.Context, key string, val interface{}
 	return nil
 }
 
-// Delete deletes a value in memcache.
+// Delete deletes a value in documentdbcache.
 func (doc *DocumentDBCache) Delete(ctx context.Context, key string) error {
 	_, err := doc.MongoDBDatabase.Collection(doc.CollectionName).DeleteOne(ctx, bson.M{"key": key})
 	if err != nil {
@@ -131,7 +163,7 @@ func (doc *DocumentDBCache) Decr(ctx context.Context, key string) error {
 	return nil
 }
 
-// IsExist checks if a value exists in memcache.
+// IsExist checks if a value exists in documentdbcache.
 func (doc *DocumentDBCache) IsExist(ctx context.Context, key string) (bool, error) {
 	var item Item
 	err := doc.MongoDBDatabase.Collection(doc.CollectionName).FindOne(ctx, bson.M{"key": key}).Decode(&item)
@@ -145,13 +177,13 @@ func (doc *DocumentDBCache) IsExist(ctx context.Context, key string) (bool, erro
 
 }
 
-// ClearAll clears all cache in memcache.
+// ClearAll clears all cache in documentdbcache.
 func (doc *DocumentDBCache) ClearAll(context.Context) error {
 	doc.MongoDBDatabase.Collection(doc.CollectionName).Drop(context.Background())
 	return nil
 }
 
-// StartAndGC starts the memcache adapter.
+// StartAndGC starts the documentdbcache adapter.
 // config: must be in the format {"conn":"connection info"}.
 // If an error occurs during connecting, an error is returned
 func (doc *DocumentDBCache) StartAndGC(config string) error {
@@ -170,9 +202,17 @@ func (doc *DocumentDBCache) StartAndGC(config string) error {
 	}
 
 	doc.MongoDBClient, err = mongo.NewClient(options.Client().ApplyURI(cf["conn"]))
+
 	if err != nil {
 		doc.iLog.Critical(fmt.Sprintf("failed to connect mongodb with error: %s", err))
 	}
+
+	if com.MongoDBClients == nil {
+		com.MongoDBClients = make([]*mongo.Client, 0)
+	}
+
+	com.MongoDBClients = append(com.MongoDBClients, doc.MongoDBClient)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 	defer cancel()
@@ -192,6 +232,7 @@ func (doc *DocumentDBCache) StartAndGC(config string) error {
 	}
 
 	doc.CollectionName = cf["collection"]
+	doc.RemoveExpired(ctx)
 	return nil
 }
 

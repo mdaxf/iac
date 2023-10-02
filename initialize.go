@@ -96,8 +96,17 @@ func initializecache() {
 	}
 	if cacheConfig["interval"] == nil {
 		ilog.Error(fmt.Sprintf("initialize cache error: %s", "CacheTTL is missing"))
-		cacheConfig["interval"] = 60
+		cacheConfig["interval"] = 3600
 	}
+
+	if v, ok := cacheConfig["interval"].(float64); ok {
+
+		config.SessionCacheTimeout = v
+	} else {
+		config.SessionCacheTimeout = 3600
+	}
+
+	//	fmt.Printf("CacheType: %s, CacheTTL: %d", cacheConfig["adapter"], config.SessionCacheTimeout)
 	ilog.Debug(fmt.Sprintf("initialize cache with the configuration, %v", cacheConfig))
 
 	switch cacheConfig["adapter"] {
@@ -163,7 +172,7 @@ func initializecache() {
 		}
 
 		config.SessionCache, err = cache.NewCache(cacheConfig["adapter"].(string), fmt.Sprintf(`{"CachePath":"%s","FileSuffix":"%s","DirectoryLevel":"%d","EmbedExpiry":"%d"}`, CachePath, FileSuffix, DirectoryLevel, EmbedExpiry))
-		ilog.Debug(fmt.Sprintf("initialize cache with the configuration, %v", cacheConfig))
+		//	ilog.Debug(fmt.Sprintf("initialize cache with the configuration, %v", cacheConfig))
 
 		if err != nil {
 			ilog.Error(fmt.Sprintf("initialize cache error: %s", err.Error()))
@@ -191,14 +200,15 @@ func initializecache() {
 		}
 
 	default:
-		interval := 120
-		if cacheConfig["memory"] != nil {
-			memorycfg := cacheConfig["memory"].(map[string]interface{})
-			if memorycfg["interval"] != nil {
-				interval = int(memorycfg["interval"].(float64))
-			}
-		}
-		config.SessionCache, err = cache.NewCache(cacheConfig["adapter"].(string), fmt.Sprintf(`{"interval":%d}`, interval))
+		interval := config.SessionCacheTimeout
+		/*
+			if cacheConfig["memory"] != nil {
+				memorycfg := cacheConfig["memory"].(map[string]interface{})
+				if memorycfg["interval"] != nil {
+					interval = int(memorycfg["interval"].(float64))
+				}
+			}  */
+		config.SessionCache, err = cache.NewCache(cacheConfig["adapter"].(string), fmt.Sprintf(`{"interval":"%d"}`, interval))
 		//config.SessionCache, err = cache.NewCache("memory", `{"interval":60}`)
 		if err != nil {
 			ilog.Error(fmt.Sprintf("initialize cache error: %s", err.Error()))

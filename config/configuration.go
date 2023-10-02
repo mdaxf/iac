@@ -18,6 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+
+	"github.com/mdaxf/iac/com"
 )
 
 type Controller struct {
@@ -81,5 +83,10 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 		return nil, fmt.Errorf("failed to parse configuration file: %v", err)
 	}
 	//	fmt.Println(jsonFile, jsonData)
+
+	com.Instance = jsonData.Instance
+	com.InstanceType = jsonData.InstanceType
+	com.InstanceName = jsonData.InstanceName
+
 	return &jsonData, nil
 }

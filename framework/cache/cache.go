@@ -102,40 +102,14 @@ func Register(name string, adapter Instance) {
 func NewCache(adapterName, config string) (adapter Cache, err error) {
 	instanceFunc, ok := adapters[adapterName]
 	if !ok {
-		/*		switch adapterName {
-				case "redis":
-					adapter := NewRedisCache()
-					Register(adapterName, adapter)
-				case "memcache":
-					adapter := NewMemCache()
-					Register(adapterName, adapter)
-				case "documentdb":
-					adapter := NewDocumentDBCache()
-					Register(adapterName, adapter)
-				case "file":
-					adapter := NewFileCache()
-					Register(adapterName, adapter)
-				case "memory":
-					adapter := NewMemoryCache()
-					Register(adapterName, adapter)
-				case "ssdb":
-					adapter := NewSSDBCache()
-					Register(adapterName, adapter)
-				case "ssdbcluster":
-					adapter := NewSSDBClusterCache()
-					Register(adapterName, adapter)
-				}
-				instanceFunc, ok = adapters[adapterName]
-			if !ok {  */
+
 		fmt.Println("err:", err)
 		err = berror.Errorf(UnknownAdapter, "cache: unknown adapter name %s (forgot to import?)", adapterName)
 		panic(err.Error())
 		//}
 
 	}
-	fmt.Println("adapterName:", adapterName)
-	fmt.Println("config:", config)
-	fmt.Println("instanceFunc:", instanceFunc)
+
 	adapter = instanceFunc()
 	fmt.Println("adapter:", adapter)
 	err = adapter.StartAndGC(config)

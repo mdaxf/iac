@@ -1,4 +1,6 @@
 {
+    "instance":"IAC_Instance",
+    "name":"IAC",
     "database":{
         "type":"mysql",
         "connection": "user:iacf12345678@tcp(localhost:3306)/iac"
@@ -19,18 +21,30 @@
         "port": 8080
     },
     "log":{
-        "adapter": "file", 
-        "folder": "c:\\\\temp\\\\iac_loger", 
+        "adapter": "console", 
         "level": "debug",
-        "file": "iac.log",
-        "maxlines":10000,
-        "maxsize": 1024
+        "file":{
+            "folder": "c:\\\\temp\\\\iac_loger", 
+            "file": "iac.log",
+            "maxlines":10000,
+            "maxsize": 1024},
+        "console":{},
+        "multiplefile":{
+            "folder": "c:\\\\temp\\\\iac_loger", 
+            "file": "iac.log",
+            "maxlines":10000,
+            "maxsize": 1024,
+            "maxfiles": 10
+        },
+        "documentdb":{
+            "conn": "mongodb://localhost:27017",
+            "db": "IAC_CACHE",
+            "collection": "logger"
+        }
     },
     "cache":{
         "adapter": "documentdb",
-        "memory":{
-            "interval": 3600
-        },
+        "interval": 7200,        
         "redis":{
             "key": "collectionname",
             "conn": 6379,

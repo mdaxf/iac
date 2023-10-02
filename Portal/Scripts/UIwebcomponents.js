@@ -371,6 +371,10 @@ customElements.define('ui-tabulator', class extends HTMLElement {
             this.loaddatabyschema();
         else
             this.createemptytable();
+
+        const UITabulatorLoadedEvent = new CustomEvent('uitabulator_loaded');
+
+        this.dispatchEvent(UITabulatorLoadedEvent);
     }
 
     loaddatabyQuery(query){

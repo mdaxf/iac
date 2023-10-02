@@ -192,7 +192,7 @@ var UI;
             this.clientid = "";
             this.createdon = "";
             this.expirateon = "";
-            this.tokenchecktime = 1000*60*5;
+            this.tokenchecktime = 1000*60*1;
             this.language = "en";
             this.timezone = "";
             this.logonpage = "Logon page";
@@ -1827,17 +1827,23 @@ function rAFThrottle(func) {
             Session.views[UI.safeId(this.id)] = this;
 
             // UI.Log(this,this.onLoaded)
-            
-            if(this.configuration.onloadedscript){
-                if(typeof this.configuration.onloadedscript == "string")
-                    this.createScriptContent(this.configuration.onloadedscript);
-                else
-                    this.configuration.onloadedscript();
-            }
+
 
             if(this.promiseCount == 0){
                 this.fireOnLoaded();
             }
+                      
+
+            if(this.configuration.onloadedscript){
+                UI.Log("onloadedscript:",this.configuration.onloadedscript, typeof this.configuration.onloadedscript)
+                if (typeof this.configuration.onloadedscript == "function"){
+                    this.configuration.onloadedscript();
+                    UI.Log("executed onloadedscript:",this.configuration.onloadedscript, typeof this.configuration.onloadedscript)
+                }
+                else if(typeof this.configuration.onloadedscript == "string")
+                    this.createScriptContent(this.configuration.onloadedscript);
+            }
+
             return this;
         }
         async loadviewconfiguration(configuration){
@@ -2166,7 +2172,7 @@ function rAFThrottle(func) {
                         }
                         else if(action.type == "Home"){
                             this.Panel.page.clear();
-                            Session.panels = {};
+                        //    Session.panels = {};
                         //    Session.views = {};
                         //    Session.pages = {};
                             Session.clearstack();
@@ -2282,7 +2288,8 @@ function rAFThrottle(func) {
             if(func){
                 func()
             }
-        }       
+        }
+        
         onLoaded(func) {   
             let that = this;       
             this.addEventListener("loaded",function(){
@@ -2368,7 +2375,7 @@ function rAFThrottle(func) {
             this.configuration = configuration;
             this.page={};
             this.panels = [];
-            
+            this.refresh = false;
             Session.views = {};
             Session.panels = {};
 
@@ -2376,9 +2383,12 @@ function rAFThrottle(func) {
             for (let i = 0; i < elements.length; i++) {
                 elements[i].remove();
             }
-            UI.tokencheck();
-                        
+        //    UI.tokencheck();
+            if(configuration !="" && pageID != null && pageID != undefined){
+                this.refresh = true;
+            }          
             if(pageID != null && pageID in Session.pages && pageID != undefined){
+                
                 // UI.Log("pageID:",pageID)
                 this.configuration = Session.pages[pageID].configuration;
                 this.configuration = Object.assign({},this.configuration,configuration);
@@ -2479,7 +2489,7 @@ function rAFThrottle(func) {
                 });   
             }
             
-            this.create();
+            let page = await this.create();
         }
         async create(){
             let that = this;
@@ -2597,22 +2607,23 @@ function rAFThrottle(func) {
 
             Session.pages[this.id] = this;
             Session.CurrentPage = this;
-
+            /*
             if(this.configuration.name == "IAC Home" && (Session.snapshoot.sessionData.menu_parentid == "" 
                 || Session.snapshoot.sessionData.menu_parentid == undefined || Session.snapshoot.sessionData.menu_parentid == null 
                 || Session.snapshoot.sessionData.menu_parentid == "0" )){
                
                 Session.clearstack();
+            } */
+            
+            if(!this.refresh){
+
+                let stackitem = Session.createStackItem(this);               
+                UI.Log("push to stack:",stackitem)    
+                Session.pushToStack(stackitem);                                
             }
-
-            let stackitem = Session.createStackItem(this);   
             
-            UI.Log("push to stack:",stackitem)
-
-            Session.pushToStack(stackitem);
-
             new Pageheader(page)
-            
+
             this.setevents();
 
             return page;
@@ -2631,20 +2642,11 @@ function rAFThrottle(func) {
         }
         async executeTransaction(Code, inputs, func, fail){
             UI.CallTranCode(Code, "", inputs, func, fail);
-            /*
-            UI.ajax.post(url, inputs).then((response) => {
-                   if(typeof(func) == 'function')
-                        func(response); 
-    
-                }).catch((error) => {
-                    if(typeof(fail) == 'function')
-                        fail(error);
-                    // UI.Log(error);
-                }); */
+
         }
         Refresh(){
            this.clear();
-           this.create(); 
+           new Page(this.configuration,this.id);
         }
         popupOpen(view) {
             if (!this.popup) {
@@ -2677,10 +2679,12 @@ function rAFThrottle(func) {
             this.popup = null;
         }
         back(){
-            if(Session.stack.length > 0){
+            if(Session.stack.length > 1){
                 let stackitem = Session.popFromStack();
-                // UI.Log("page back action:", stackitem)
+                stackitem = Session.popFromStack();                
 
+                UI.Log("page back action:", stackitem)
+            
                 if(!stackitem)
                     return;
                 
@@ -2693,11 +2697,14 @@ function rAFThrottle(func) {
             if(this.configuration.name == "IAC Home")
                 return;
             this.clear();
+            Session.snapshoot.sessionData={};
+            Session.snapshoot.sessionData.menu_title = "IAC Home";
+            Session.snapshoot.sessionData.menu_parentid = "0";
             Session.clearstack();
             Session.pages = {};
             Session.panels ={};
             Session.views = {};
-            new Page({"config":"Portal Menu"});
+            new Page({"name":"Portal Menu"});
         }
         clear(){
             /*this.page.innerHTML = ""; */       
@@ -2976,18 +2983,20 @@ function rAFThrottle(func) {
                 if(that.root.getElementsByClassName("ui-page-header-icon-back").length ==0 ){
                     let element = that.createElAndAppend(this.headerMenuicon, "span","ui-page-header-icon-back");
                     element.classList.add("ui-page-header-icon-back");
-                    element.addEventListener("click",  Session.CurrentPage.back)
+                    element.addEventListener("click", function(){ Session.CurrentPage.back()})
                 }
             }else if(that.root.getElementsByClassName("ui-page-header-icon-back").length > 0 ){
                 let element = that.root.getElementsByClassName("ui-page-header-icon-back")[0];
-                element.removeEventListener("click",  Session.CurrentPage.back)
+                element.removeEventListener("click",   function(){ Session.CurrentPage.back()})
                 element.remove();
             }
 
             if(Session.CurrentPage.configuration.name== "IAC Home"){
                 if(that.root.getElementsByClassName("ui-page-header-icon-home").length >0 ){
                     let element2 = that.root.getElementsByClassName("ui-page-header-icon-home")[0];
-                    element2.removeEventListener("click", Session.CurrentPage.home)
+                    element2.removeEventListener("click", function(){
+                        // UI.Log("home clicked")
+                        Session.CurrentPage.home();})
                     element2.remove();
                 }
             } else{

@@ -36,7 +36,7 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
 	log.Debug("Login execution function is called.")
 	log.Debug(fmt.Sprintf("login parameters:%s  %s  token: %s  renew:%s", username, password, clienttoken, Renew))
-
+	fmt.Println("Session Timeout:", config.SessionCacheTimeout)
 	if Renew {
 
 		user, err := config.SessionCache.Get(ctx, clienttoken)
@@ -48,27 +48,52 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 		} else {
 			log.Debug(fmt.Sprintf("SessionCache user:%v for token:%s", user, clienttoken))
 			if user != nil {
-				if user.(User).Token == clienttoken {
+				var tokenuser User
+				if val, ok := user.(User); ok {
+					tokenuser = val
+				} else {
+					//	log.Debug(fmt.Sprintf("SessionCache error for token:%s", clienttoken))
+					for key, value := range user.(map[string]interface{}) {
+						log.Debug(fmt.Sprintf("key:%s value:%v", key, value))
+						if key == "token" {
+							tokenuser.Token = value.(string)
+						} else if key == "expirateon" {
+							tokenuser.ExpirateOn = value.(string)
+						} else if key == "id" {
+							tokenuser.ID = int(value.(int32))
+						} else if key == "username" {
+							tokenuser.Username = value.(string)
+						} else if key == "language" {
+							tokenuser.Language = value.(string)
+						} else if key == "timezone" {
+							tokenuser.TimeZone = value.(string)
+						} else if key == "clientid" {
+							tokenuser.ClientID = value.(string)
+						}
+					}
+				}
+
+				if tokenuser.Token == clienttoken {
 					layout := "2006-01-02 15:04:05"
-					parsedTime, err := time.Parse(layout, user.(User).ExpirateOn)
-					log.Debug(fmt.Sprintf("token %s expirate on:%s expired? %s", user.(User).Token, parsedTime, parsedTime.Before(time.Now())))
+					parsedTime, err := time.Parse(layout, tokenuser.ExpirateOn)
+					log.Debug(fmt.Sprintf("token %s expirate on:%s expired? %s", tokenuser.Token, parsedTime, parsedTime.Before(time.Now())))
 					if err != nil {
 						log.Error(fmt.Sprintf("SessionCache error:%s for token:%s", err.Error(), clienttoken))
 					} else if parsedTime.Before(time.Now()) {
-						log.Debug(fmt.Sprintf("renew the session for user:%s, token: %s", username, user.(User).Token))
+						log.Debug(fmt.Sprintf("renew the session for user:%s, token: %s", username, tokenuser.Token))
 
-						token, createdt, expdt, err := auth.Extendexptime(user.(User).Token)
+						token, createdt, expdt, err := auth.Extendexptime(tokenuser.Token)
 						if err != nil {
 							log.Error(fmt.Sprintf("SessionCache error:%s for token:%s", err.Error(), clienttoken))
 						} else {
-							ID := user.(User).ID
-							Username := user.(User).Username
+							ID := tokenuser.ID
+							Username := tokenuser.Username
 							//	hasedPassword := user.(User).Password
-							language := user.(User).Language
-							timezone := user.(User).TimeZone
+							language := tokenuser.Language
+							timezone := tokenuser.TimeZone
 							user = User{ID: ID, Username: Username, Language: language, TimeZone: timezone, ClientID: ClientID, CreatedOn: createdt, ExpirateOn: expdt, Token: token}
 							config.SessionCache.Delete(ctx, clienttoken)
-							config.SessionCache.Put(ctx, token, user, 15*time.Minute)
+							config.SessionCache.Put(ctx, token, user, time.Duration(config.SessionCacheTimeout)*time.Second)
 							ctx.JSON(http.StatusOK, user)
 							return
 						}
@@ -188,7 +213,7 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 
 		log.Debug(fmt.Sprintf("user:%v", user))
 
-		config.SessionCache.Put(ctx, sessionid, user, 15*time.Minute)
+		config.SessionCache.Put(ctx, sessionid, user, time.Duration(config.SessionCacheTimeout)*time.Second)
 		log.Debug(fmt.Sprintf("User:%s login successful!", user))
 
 		ctx.JSON(http.StatusOK, user)

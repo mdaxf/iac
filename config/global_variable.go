@@ -20,12 +20,15 @@ import (
 
 var (
 	SessionCache        cache.Cache
-	SessionCacheTimeout int64
+	SessionCacheTimeout float64
 )
 
 var GlobalConfiguration *GlobalConfig
 
 type GlobalConfig struct {
+	Instance           string                   `json:"instance"`
+	InstanceType       string                   `json:"type"`
+	InstanceName       string                   `json:"name"`
 	LogConfig          map[string]interface{}   `json:"log"`
 	DocumentConfig     map[string]interface{}   `json:"documentdb"`
 	DatabaseConfig     map[string]interface{}   `json:"database"`
