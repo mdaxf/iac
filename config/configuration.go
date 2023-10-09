@@ -82,11 +82,12 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 
 		return nil, fmt.Errorf("failed to parse configuration file: %v", err)
 	}
-	//	fmt.Println(jsonFile, jsonData)
+	fmt.Println(jsonFile, jsonData)
 
 	com.Instance = jsonData.Instance
 	com.InstanceType = jsonData.InstanceType
 	com.InstanceName = jsonData.InstanceName
-
+	com.SingalRConfig = jsonData.SingalRConfig
+	fmt.Println(com.SingalRConfig, com.Instance)
 	return &jsonData, nil
 }

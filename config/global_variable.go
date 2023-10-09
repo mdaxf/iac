@@ -29,6 +29,7 @@ type GlobalConfig struct {
 	Instance           string                   `json:"instance"`
 	InstanceType       string                   `json:"type"`
 	InstanceName       string                   `json:"name"`
+	SingalRConfig      map[string]interface{}   `json:"singalrconfig"`
 	LogConfig          map[string]interface{}   `json:"log"`
 	DocumentConfig     map[string]interface{}   `json:"documentdb"`
 	DatabaseConfig     map[string]interface{}   `json:"database"`

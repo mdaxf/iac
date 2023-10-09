@@ -1,6 +1,13 @@
 {
     "instance":"IAC_Instance",
     "name":"IAC",
+    "version":"1.0.0",
+    "description":"IAC is a framework for building web applications with Go.",
+    "author":"IAC",
+    "singalrconfig":{
+        "server": "http://127.0.0.1:8222",
+        "hub": "/iacmessagebus"
+    },
     "database":{
         "type":"mysql",
         "connection": "user:iacf12345678@tcp(localhost:3306)/iac"

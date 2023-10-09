@@ -1,11 +1,12 @@
 package funcs
 
 import (
-	"context"
+	//	"context"
 	"encoding/json"
 	"fmt"
 
-	dapr "github.com/dapr/go-sdk/client"
+	//	dapr "github.com/dapr/go-sdk/client"
+	"github.com/mdaxf/iac/com"
 )
 
 type SendMessageFuncs struct {
@@ -43,7 +44,8 @@ func (cf *SendMessageFuncs) Execute(f *Funcs) {
 	f.iLog.Debug(fmt.Sprintf("SendMessageFuncs Execute: %v", jsonString))
 	//iacmb.IACMB.Channel.Write(jsonString)
 
-	client, err := dapr.NewClient()
+	com.IACMessageBusClient.Send(Topic, jsonString)
+	/*client, err := dapr.NewClient()
 
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Error creating Dapr client for client '%s': %v\n", "clientID", err))
@@ -59,6 +61,7 @@ func (cf *SendMessageFuncs) Execute(f *Funcs) {
 		f.iLog.Error(fmt.Sprintf("Error publishing message to client '%s': %v\n", "IACF-DAPR-clientID", err))
 		return
 	}
+	*/
 
 }
 

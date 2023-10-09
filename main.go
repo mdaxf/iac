@@ -32,7 +32,10 @@ import (
 	dbconn "github.com/mdaxf/iac/databases"
 	mongodb "github.com/mdaxf/iac/documents"
 
+	//	kitlog "github.com/go-kit/log"
 	"github.com/mdaxf/iac/com"
+	//	msgbus "github.com/mdaxf/integration/signalr"
+	//	"github.com/philippseith/signalr"
 )
 
 var wg sync.WaitGroup
@@ -112,39 +115,41 @@ func main() {
 
 	ilog.Info(fmt.Sprintf("Starting portal on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
 
+	clientconfig := make(map[string]interface{})
+	clientconfig["signalrconfig"] = com.SingalRConfig
+	clientconfig["instance"] = com.Instance
+	clientconfig["instanceType"] = com.InstanceType
+	clientconfig["instanceName"] = com.InstanceName
+
+	router.GET("/config", func(c *gin.Context) {
+		c.JSON(http.StatusOK, clientconfig)
+	})
+
 	router.Use(static.Serve("/portal", static.LocalFile("./portal", true)))
 	router.Use(static.Serve("/portal/scripts", static.LocalFile("./portal/scripts", true)))
 	router.LoadHTMLGlob("portal/Scripts/UIForm.js")
 	router.LoadHTMLGlob("portal/Scripts/UIFramework.js")
 
-	/*router.Static("/portal", "./portal")
-	router.LoadHTMLGlob("portal/*.html")
-	router.LoadHTMLGlob("portal/Scripts/UIFramework.js") */
-	/*
-		corsconfig := cors.DefaultConfig()
-		corsconfig.AllowAllOrigins = true
-		//corsconfig.AllowOrigins = []string{"http://localhost:8888"} // Replace with your origin
-		corsconfig.AllowedMethods = []string{"GET", "POST", "PUT"}
-		corsconfig.AllowedHeaders = []string{"Content-Type", "Authorization"}
-		corsconfig.AllowCredentials = true
-		router.Use(cors.New(corsconfig))  */
-	/*
-		router.Use(func(c *gin.Context) {
-			c.Writer.Header().Set("Access-Control-Allow-Origin", "127.0.0.1:8888") // Replace "*" with the specific origin you want to allow
-			c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-			c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-			if c.Request.Method == "OPTIONS" {
-				c.AbortWithStatus(200)
-				return
-			}
-			c.Next()
-		}) */
-
 	router.GET(portal.Path, func(c *gin.Context) {
 		c.HTML(http.StatusOK, portal.Home, gin.H{})
 	})
 	//		router.Run(fmt.Sprintf(":%d", portal.Port))
+	/*
+			var IACMessageBusName = "/iacmessagebus"
 
+			hub := &msgbus.IACMessageBus{}
+
+			server, _ := signalr.NewServer(context.TODO(), signalr.SimpleHubFactory(hub),
+					signalr.Logger(kitlog.NewLogfmtLogger(os.Stdout), false),
+					signalr.KeepAliveInterval(2*time.Second))
+
+			// Add the Gin route that will handle SignalR connections
+		    router.GET(IACMessageBusName, func(c *gin.Context) {
+		       // server.HandleRequest(c.Writer, c.Request)
+
+				server.HubClients()//.MapHTTP(signalr.WithHTTPServeMux(router), IACMessageBusName)
+		    })
+	*/
 	// Start the server
 	router.Run(fmt.Sprintf(":%d", config.Port))
 

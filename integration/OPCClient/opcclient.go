@@ -64,7 +64,7 @@ func Initialize(configurations OPCClient) {
 
 	defer cancel()
 	defer opcclient.Disconnect()
-	defer opcclient.Client.CloseWithContext(context.Background())
+	//	defer opcclient.Client.CloseWithContext(context.Background())
 
 	go func() {
 
@@ -90,8 +90,8 @@ func (c *OPCClient) CreateClient() context.CancelFunc {
 		endpoint = flag.String("endpoint", c.Endpoint, "OPC UA Endpoint URL")
 		policy   = flag.String("policy", "", "Security policy: None, Basic128Rsa15, Basic256, Basic256Sha256. Default: auto")
 		mode     = flag.String("mode", "", "Security mode: None, Sign, SignAndEncrypt. Default: auto")
-		certFile = flag.String("cert", "", "Path to cert.pem. Required for security mode/policy != None")
-		keyFile  = flag.String("key", "", "Path to private key.pem. Required for security mode/policy != None")
+	//	certFile = flag.String("cert", "", "Path to cert.pem. Required for security mode/policy != None")
+	//	keyFile  = flag.String("key", "", "Path to private key.pem. Required for security mode/policy != None")
 	)
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -106,18 +106,18 @@ func (c *OPCClient) CreateClient() context.CancelFunc {
 	}
 	c.iLog.Debug(fmt.Sprintf("Using endpoint: %v", ep.EndpointURL))
 	c.iLog.Debug(fmt.Sprintf("%s,%s", ep.SecurityPolicyURI, ep.SecurityMode))
-	opts := []opcua.Option{
-		opcua.SecurityPolicy(*policy),
-		opcua.SecurityModeString(*mode),
-		opcua.CertificateFile(*certFile),
-		opcua.PrivateKeyFile(*keyFile),
-		opcua.AuthAnonymous(),
-		opcua.SecurityFromEndpoint(ep, ua.UserTokenTypeAnonymous),
-	}
+	/*	opts := []opcua.Option{
+			opcua.SecurityPolicy(*policy),
+			opcua.SecurityModeString(*mode),
+			opcua.CertificateFile(*certFile),
+			opcua.PrivateKeyFile(*keyFile),
+			opcua.AuthAnonymous(),
+			opcua.SecurityFromEndpoint(ep, ua.UserTokenTypeAnonymous),
+		}
 
-	opcclient := opcua.NewClient(ep.EndpointURL, opts...)
+		opcclient := opcua.Client{} //.NewClient(ep.EndpointURL, opts...)
 
-	c.Client = opcclient
+		c.Client = opcclient */
 
 	return cancel
 }

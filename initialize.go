@@ -23,10 +23,13 @@ import (
 	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/framework/cache"
-	iacmb "github.com/mdaxf/iac/framework/messagebus"
-	"github.com/mdaxf/iac/integration/messagebus/nats"
+
+	//	iacmb "github.com/mdaxf/iac/framework/messagebus"
+	"github.com/mdaxf/iac/com"
+	//	"github.com/mdaxf/iac/integration/messagebus/nats"
 	"github.com/mdaxf/iac/integration/mqttclient"
-	"github.com/mdaxf/iac/integration/opcclient"
+	//	"github.com/mdaxf/iac/integration/opcclient"
+	"github.com/mdaxf/iac/integration/signalr"
 	"github.com/mdaxf/iac/logger"
 )
 
@@ -41,12 +44,13 @@ func initialize() {
 	config.SessionCacheTimeout = 1800
 	initializecache()
 	initializeDatabase()
-	nats.MB_NATS_CONN, err = nats.ConnectNATSServer()
+	//	nats.MB_NATS_CONN, err = nats.ConnectNATSServer()
 
 	initializedDocuments()
 	initializeMqttClient()
 	//	initializeOPCClient()
 	//	initializeIACMessageBus()
+	com.IACMessageBusClient, err = signalr.Connect()
 }
 
 func initializeDatabase() {
@@ -289,6 +293,7 @@ func initializeMqttClient() {
 
 }
 
+/*
 func initializeOPCClient() {
 	wg.Add(1)
 	go func() {
@@ -313,7 +318,7 @@ func initializeOPCClient() {
 			opcclient.Initialize(opcuaclient)
 		}
 	}()
-}
+} */
 
 func initializeIACMessageBus() {
 	wg.Add(1)
@@ -321,7 +326,7 @@ func initializeIACMessageBus() {
 		ilog.Debug("initialize IAC Message Bus")
 		defer wg.Done()
 
-		iacmb.Initialize()
+		//	iacmb.Initialize()
 
 		/*	iacmb.Initialize(8888, "IAC")
 
