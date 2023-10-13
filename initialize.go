@@ -56,7 +56,7 @@ func initialize() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		com.IACMessageBusClient, err = signalr.Connect()
+		com.IACMessageBusClient, err = signalr.Connect(com.SingalRConfig)
 		if err != nil {
 			//	fmt.Errorf("Failed to connect to IAC Message Bus: %v", err)
 			ilog.Error(fmt.Sprintf("Failed to connect to IAC Message Bus: %v", err))

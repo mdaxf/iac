@@ -23,17 +23,17 @@ import (
 	"time"
 
 	kitlog "github.com/go-kit/log"
-	"github.com/mdaxf/iac/com"
+	//"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/signalrsrv/signalr"
 )
 
-func Connect() (signalr.Client, error) {
+func Connect(config map[string]interface{}) (signalr.Client, error) {
 	ilog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "SignalR Server connection"}
 
 	//fmt.Println("Connecting", com.SingalRConfig)
-	ilog.Info(fmt.Sprintf("Connecting with configuration: %v", com.SingalRConfig))
-	address := fmt.Sprintf("%s/%s", com.SingalRConfig["server"].(string), com.SingalRConfig["hub"].(string))
+	ilog.Info(fmt.Sprintf("Connecting with configuration: %v", config))
+	address := fmt.Sprintf("%s/%s", config["server"].(string), config["hub"].(string))
 
 	c, err := signalr.NewClient(context.Background(), nil,
 		signalr.WithReceiver(&IACMessageBus{}),
