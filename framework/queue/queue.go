@@ -68,6 +68,25 @@ func NewMessageQueue(Id string, Name string) *MessageQueue {
 
 	return mq
 }
+func NewMessageQueuebyExternal(Id string, Name string, DB *sql.DB, DocDBconn *documents.DocDB, SignalRClient signalr.Client) *MessageQueue {
+
+	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "MessageQueue"}
+
+	iLog.Debug(fmt.Sprintf(("Create MessageQueue %s %s"), Id, Name))
+
+	mq := &MessageQueue{
+		QueueID:       Id,
+		QueuName:      Name,
+		iLog:          iLog,
+		DocDBconn:     DocDBconn,
+		SignalRClient: SignalRClient,
+		DB:            DB,
+	}
+
+	go mq.execute()
+
+	return mq
+}
 func (mq *MessageQueue) Push(message Message) {
 	mq.lock.Lock()
 	defer mq.lock.Unlock()

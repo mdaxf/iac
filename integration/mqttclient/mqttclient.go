@@ -94,6 +94,34 @@ func NewMqttClient(configurations Mqtt) *MqttClient {
 	return mqttclient
 }
 
+func NewMqttClientbyExternal(configurations Mqtt, DB *sql.DB, DocDBconn *documents.DocDB, SignalRClient signalr.Client) *MqttClient {
+	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "MqttClient"}
+
+	iLog.Debug(fmt.Sprintf(("Create MqttClient with configuration : %s"), logger.ConvertJson(configurations)))
+
+	mqttclient := &MqttClient{
+		mqttBrokertype: configurations.Type, // tcp, ws, wss
+		mqttBroker:     configurations.Broker,
+		mqttPort:       configurations.Port,
+		certFile:       configurations.CertFile,
+		keyFile:        configurations.KeyFile,
+		caCertFile:     configurations.CaCertFile,
+		mqttClientID:   (uuid.New()).String(),
+		mqttTopics:     configurations.Topics,
+		iLog:           iLog,
+		DocDBconn:      DocDBconn,
+		DB:             DB,
+		SignalRClient:  SignalRClient,
+	}
+	iLog.Debug(fmt.Sprintf(("Create MqttClient: %s"), logger.ConvertJson(mqttclient)))
+	uuid := uuid.New().String()
+
+	mqttclient.Queue = queue.NewMessageQueuebyExternal(uuid, "mqttclient", DB, DocDBconn, SignalRClient)
+
+	mqttclient.Initialize_mqttClient()
+	return mqttclient
+}
+
 func (mqttClient *MqttClient) Initialize_mqttClient() {
 	// Create an MQTT client options
 	opts := mqtt.NewClientOptions()
