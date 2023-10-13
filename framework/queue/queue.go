@@ -216,6 +216,11 @@ func (mq *MessageQueue) processMessage(message Message) error {
 			mq.DB = dbconn.DB
 		}
 
+		if mq.DB == nil {
+			mq.iLog.Error(fmt.Sprintf("Failed to get database connection"))
+			return err
+		}
+
 		tx, err := mq.DB.BeginTx(context.TODO(), &sql.TxOptions{})
 		if err != nil {
 			mq.iLog.Error(fmt.Sprintf("Failed to begin transaction: %v", err))
