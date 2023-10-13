@@ -26,7 +26,6 @@ import (
 	"plugin"
 	"reflect"
 
-	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	configuration "github.com/mdaxf/iac/config"
 	dbconn "github.com/mdaxf/iac/databases"
@@ -59,16 +58,79 @@ func main() {
 
 	initialize()
 
-	defer dbconn.DB.Close()
-	defer mongodb.DocDBCon.MongoDBClient.Disconnect(context.Background())
+	if dbconn.DB != nil {
+		defer dbconn.DB.Close()
+	} else {
+		//log.Fatalf("Failed to connect to database")
+		ilog.Error("Failed to connect to database")
+	}
+
+	if mongodb.DocDBCon.MongoDBClient != nil {
+		defer mongodb.DocDBCon.MongoDBClient.Disconnect(context.Background())
+	} else {
+		//log.Fatalf("Failed to connect to database")
+		ilog.Error("Failed to connect to document database")
+	}
 	// Initialize the Gin router
 
 	for _, dbclient := range com.MongoDBClients {
-		defer dbclient.Disconnect(context.Background())
+		if dbclient != nil {
+			defer dbclient.Disconnect(context.Background())
+		} else {
+			//log.Fatalf("Failed to connect to database")
+			ilog.Error("Failed to connect to the configured document database")
+		}
+
 	}
+
+	if com.IACMessageBusClient != nil {
+		defer com.IACMessageBusClient.Stop()
+	} else {
+		//log.Fatalf("Failed to connect to database")
+		ilog.Error("Failed to connect to the configured message bus")
+	}
+	portal := config.Portal
 
 	router = gin.Default()
 
+	//router.StaticFile("/portal", "./portal")
+	//router.Static("/portal", "./portal")
+	//	router.LoadHTMLGlob("portal/*.html")
+	//	router.LoadHTMLGlob("portal/*.ico")
+
+	// Serve static files from the "/public" URL path without authentication
+	router.GET(portal.Path+"/*filepath", func(c *gin.Context) {
+		ilog.Debug(fmt.Sprintf("Portal path: %s, %s", portal.Path, portal.Home))
+		http.StripPrefix(portal.Path, http.FileServer(http.Dir("./portal"))).ServeHTTP(c.Writer, c.Request)
+	})
+
+	router.GET(portal.Path, func(c *gin.Context) {
+		ilog.Debug(fmt.Sprintf("Portal path: %s, %s", portal.Path, portal.Home))
+		c.HTML(http.StatusOK, portal.Home, nil)
+	})
+
+	if configuration.GlobalConfiguration.WebServerConfig != nil {
+		webserverconfig := configuration.GlobalConfiguration.WebServerConfig
+		ilog.Debug(fmt.Sprintf("Webserver cross region config: %v", webserverconfig))
+		headers := webserverconfig["headers"].(map[string]interface{})
+		router.Use(GinMiddleware(headers))
+	}
+
+	router.GET("/debug", func(c *gin.Context) {
+		headers := c.Request.Header
+		useragent := c.Request.Header.Get("User-Agent")
+		ilog.Debug(fmt.Sprintf("User-Agent: %s, headers: %v", useragent, headers))
+		debugInfo := map[string]interface{}{
+			"Route":          c.FullPath(),
+			"requestheader":  headers,
+			"User-Agent":     useragent,
+			"requestbody":    c.Request.Body,
+			"responseheader": c.Writer.Header(),
+			"Method":         c.Request.Method,
+		}
+
+		c.JSON(http.StatusOK, debugInfo)
+	})
 	// Load controllers dynamically based on the configuration file
 	plugincontrollers := make(map[string]interface{})
 	for _, controllerConfig := range config.PluginControllers {
@@ -111,8 +173,6 @@ func main() {
 	}
 	fmt.Println(string(jsonString))
 
-	portal := config.Portal
-
 	ilog.Info(fmt.Sprintf("Starting portal on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
 
 	clientconfig := make(map[string]interface{})
@@ -124,32 +184,12 @@ func main() {
 	router.GET("/config", func(c *gin.Context) {
 		c.JSON(http.StatusOK, clientconfig)
 	})
-
-	router.Use(static.Serve("/portal", static.LocalFile("./portal", true)))
-	router.Use(static.Serve("/portal/scripts", static.LocalFile("./portal/scripts", true)))
-	router.LoadHTMLGlob("portal/Scripts/UIForm.js")
-	router.LoadHTMLGlob("portal/Scripts/UIFramework.js")
-
-	router.GET(portal.Path, func(c *gin.Context) {
-		c.HTML(http.StatusOK, portal.Home, gin.H{})
-	})
-	//		router.Run(fmt.Sprintf(":%d", portal.Port))
 	/*
-			var IACMessageBusName = "/iacmessagebus"
+		router.Use(static.Serve("/portal", static.LocalFile("./portal", true)))
+		router.Use(static.Serve("/portal/scripts", static.LocalFile("./portal/scripts", true)))*/
+	/*
 
-			hub := &msgbus.IACMessageBus{}
-
-			server, _ := signalr.NewServer(context.TODO(), signalr.SimpleHubFactory(hub),
-					signalr.Logger(kitlog.NewLogfmtLogger(os.Stdout), false),
-					signalr.KeepAliveInterval(2*time.Second))
-
-			// Add the Gin route that will handle SignalR connections
-		    router.GET(IACMessageBusName, func(c *gin.Context) {
-		       // server.HandleRequest(c.Writer, c.Request)
-
-				server.HubClients()//.MapHTTP(signalr.WithHTTPServeMux(router), IACMessageBusName)
-		    })
-	*/
+	 */
 	// Start the server
 	router.Run(fmt.Sprintf(":%d", config.Port))
 
@@ -202,21 +242,43 @@ func getpluginHandlerFunc(module reflect.Value, name string) gin.HandlerFunc {
 		c.Status(http.StatusOK)
 	}
 }
-
-func GinMiddleware(allowOrigin string) gin.HandlerFunc {
+func CORSMiddleware(allowOrigin string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", allowOrigin)
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+		c.Header("Access-Control-Allow-Origin", allowOrigin)
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		//  c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, Origin")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, Content-Length, X-CSRF-Token, Token, session, Origin, Host, Connection, Accept-Encoding, Accept-Language, X-Requested-With")
 
+		ilog.Debug(fmt.Sprintf("CORSMiddleware: %s", allowOrigin))
+		ilog.Debug(fmt.Sprintf("CORSMiddleware header: %s", c.Request.Header))
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func GinMiddleware(headers map[string]interface{}) gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		ilog.Debug(fmt.Sprintf("GinMiddleware: %v", headers))
+		ilog.Debug(fmt.Sprintf("GinMiddleware header: %s", c.Request.Header))
+
+		for key, value := range headers {
+			c.Header(key, value.(string))
+			//	c.Writer.Header().Set(key, value.(string))
+		}
+		/*		c.Writer.Header().Set("Access-Control-Allow-Origin", allowOrigin)
+				c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+				c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+				c.Writer.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, Content-Length, X-CSRF-Token, Token, session, Origin, Host, Connection, Accept-Encoding, Accept-Language, X-Requested-With")
+		*/
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
-
-		c.Request.Header.Del("Origin")
-
 		c.Next()
 	}
 }

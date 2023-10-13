@@ -112,6 +112,7 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 	fullfilename := ""
 	maxlines := 1000000
 	maxsize := 1024 * 1024 * 1024
+	//	fmt.Println(fmt.Sprintf(`{"level":%d}, %d`, level, logadapter))
 	if logadapter == "file" || logadapter == "multifile" {
 		adapterconfig := make(map[string]interface{})
 		if config["adapterconfig"] != nil {
@@ -170,7 +171,7 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 		loger.SetLogger(logs.AdapterDocumentDB, fmt.Sprintf(`{"level":"%d", "conn":"%s", "db":"%s", "collection":"%s"}`, level, conn, db, collection))
 		return
 	}
-	fmt.Println(fmt.Sprintf(`{"level":%d}, %d`, level, logadapter))
+
 	switch logadapter {
 	case "console":
 		loger.SetLogger(logs.AdapterConsole, fmt.Sprintf(`{"level":%d}`, level))

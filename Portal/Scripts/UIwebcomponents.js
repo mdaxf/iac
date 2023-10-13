@@ -174,7 +174,7 @@ customElements.define('ui-tabulator', class extends HTMLElement {
           }
           else if(type == "table" && datasource !=''){
                 
-              inputs["tablename"] = datasource;                 
+              inputs["tablename"] = datasource.toLowerCase();                 
               inputs["operation"] = "list";
               data ={}                    
               data[datasource] = {
@@ -549,8 +549,8 @@ customElements.define('ui-machine-state-chart', class extends HTMLElement {
 
         let url = "/sqldata/query"
         let query = "SELECT MS.Machine As Machine, MS.State As State, MS.StartTime As StartTime, IFNULL(MS.EndTime, Now()) As EndTime, IFNuLL(RC.BGColor,'light') As BGColor, IFNULL(RC.Color, 'black') As Color "
-            query += " FROM Machine_States As MS "
-            query += " LEFT JOIN Reason_Codes As RC ON MS.State = RC.Name "
+            query += " FROM machine_states As MS "
+            query += " LEFT JOIN reason_codes As RC ON MS.State = RC.Name "
             query += " WHERE MS.Machine IN ('" + this.MachineList.join("','") + "') "
        //     query += " AND MS.StartTime >= '" + this.StartTime + "' "
        //     query += " AND ((MS.EndTime <= '" + this.EndTime + "') OR (MS.EndTime IS NULL)) "

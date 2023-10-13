@@ -148,8 +148,9 @@
       ]}  
   ],
   "portal":{
+    "port": 8080,
     "path":"/portal",
-    "home":"/portal/UIPage.html",
-    "logon":"/portal/UIPage.html?page=logon"
+    "home":"/portal/uipage.html",
+    "logon":"/portal/login.html"
   }
 }

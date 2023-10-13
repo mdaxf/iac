@@ -17,16 +17,22 @@ package signalr
 import (
 	"context"
 	"fmt"
+	"os"
 
 	//	"strings"
 	"time"
 
+	kitlog "github.com/go-kit/log"
 	"github.com/mdaxf/iac/com"
+	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/signalrsrv/signalr"
 )
 
 func Connect() (signalr.Client, error) {
-	fmt.Println("Connecting", com.SingalRConfig)
+	ilog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "SignalR Server connection"}
+
+	//fmt.Println("Connecting", com.SingalRConfig)
+	ilog.Info(fmt.Sprintf("Connecting with configuration: %v", com.SingalRConfig))
 	address := fmt.Sprintf("%s/%s", com.SingalRConfig["server"].(string), com.SingalRConfig["hub"].(string))
 
 	c, err := signalr.NewClient(context.Background(), nil,
@@ -34,13 +40,14 @@ func Connect() (signalr.Client, error) {
 		signalr.WithConnector(func() (signalr.Connection, error) {
 			creationCtx, _ := context.WithTimeout(context.Background(), 2*time.Second)
 			return signalr.NewHTTPConnection(creationCtx, address)
-		}))
+		}),
+		signalr.Logger(kitlog.NewLogfmtLogger(os.Stdout), false))
 	if err != nil {
 		return nil, err
 	}
 	c.Start()
-	fmt.Println("Connected")
-
+	//fmt.Println("Connected")
+	ilog.Info("Connected to the signalR server!")
 	return c, nil
 }
 
@@ -51,7 +58,9 @@ type IACMessageBus struct {
 var groupname = "IAC_Internal_MessageBus"
 
 func (c *IACMessageBus) Receive(message string) {
-	fmt.Printf("Receive message: %s \n", message)
+	ilog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "SignalR Client Receive message"}
+	//	fmt.Printf("Receive message: %s \n", message)
+	ilog.Info(fmt.Sprintf("Receive message: %s \n", message))
 }
 
 /*

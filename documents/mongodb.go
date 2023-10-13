@@ -48,7 +48,7 @@ func (doc *DocDB) ConnectMongoDB() (*DocDB, error) {
 
 	var err error
 
-	doc.MongoDBClient, err = mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	doc.MongoDBClient, err = mongo.NewClient(options.Client().ApplyURI(doc.DatabaseConnection))
 	if err != nil {
 		doc.iLog.Critical(fmt.Sprintf("failed to connect mongodb with error: %s", err))
 	}

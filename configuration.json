@@ -5,6 +5,7 @@
     "description":"IAC is a framework for building web applications with Go.",
     "author":"IAC",
     "singalrconfig":{
+        "serverwc": "http://127.0.0.1:8222",
         "server": "http://127.0.0.1:8222",
         "hub": "/iacmessagebus"
     },
@@ -25,7 +26,15 @@
         "database": "IAC_CFG"
     },
     "webserver":{
-        "port": 8080
+        "port": 8080,
+        "headers":{
+            "Access-Control-Allow-Origin": "http://127.0.0.1:8080,https://127.0.0.1:8080",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "POST, OPTIONS, GET, PUT, DELETE",
+            "Access-Control-Allow-Headers": "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization",
+            "Access-Control-Expose-Headers": "Content-Length",
+            "Content-Type": "application/json; charset=utf-8"            
+        }
     },
     "log":{
         "adapter": "console", 

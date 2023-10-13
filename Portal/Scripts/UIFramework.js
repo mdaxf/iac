@@ -26,7 +26,8 @@ HTMLElement.prototype.clearChilds = function () {
 };
 
 
-var IACMessageClient = function (server){
+var IACMessageClient = function (server = ""){
+
 	const HubPath = "/iacmessagebus";
 	const HubName = "IACMessageBusHub";
 	if (IACMessageBus && IACMessageBus.connection && IACMessageBus.connection._connectionState === "Connected")
@@ -35,6 +36,7 @@ var IACMessageClient = function (server){
 	var _client = this;
 	IACMessageBus = _client
 	
+   
 	this.subscribers ={};
 	this.CallbackMap = {};
 	this.initialized = false;
@@ -44,14 +46,11 @@ var IACMessageClient = function (server){
 	this.disconnectHandlerMap = [];
 	this.connectionID = "";
 	
-	if (!server || server =="")
-		server = window.location
-	
-	var serverUrl = server + HubPath
+
 
 	this.Connect = function(){
 		_client.connection = new signalR.HubConnectionBuilder()
-			.withUrl(serverUrl, {
+			.withUrl(_client.serverUrl, {
 				withCredentials: false
 			})
 			.build();
@@ -183,10 +182,40 @@ var IACMessageClient = function (server){
 	}
 	
 	window.addEventListener('beforeunload', _client.Disconnect);
-	this.Connect()
+
+    if (server !=""){
+        _client.Server  = server;
+        _client.serverUrl = _client.Server  + HubPath
+        _client.Connect();
+    } else{
+
+        UI.ajax.get(UI.CONTROLLER_URL+"/config").then((response) => {
+            localStorage.setItem(window.location.origin+"_"+"clientconfig", response);
+            var data = JSON.parse(response);
+            var server = data.signalrconfig.serverwc;
+            _client.Server  = server;
+            UI.Log("signalr server:", _client.Server)    
+            _client.serverUrl = _client.Server  + HubPath
+
+            _client.Connect();
+        }).catch((error) => {
+            if (!_client.Server  || _client.Server  =="")
+            {
+                let input = window.location.origin;
+                input = input.endsWith('/') ? input.slice(0, -1) :input;
+                _client.Server  = input;
+
+            }
+
+            _client.serverUrl = _client.Server  + HubPath
+            _client.Connect();
+        })
+
+    }
+
 }
 var IACMessageBus;
-var IACMessageBusClient;
+var IACMessageBusClient = null;
 
 var UI;
 (function (UI) {
@@ -435,7 +464,7 @@ var UI;
             }
             return ;
         }
-        login(username, password, success, fail){
+        async login(username, password, success, fail){
             
             let userdata = sessionStorage.getItem(this.sessionkey);
        //     // UI.Log(userdata)
@@ -453,14 +482,17 @@ var UI;
                 this.language = userjdata.language;
                 this.timezone = userjdata.timezone;
             }
-            let clientconfig = getclientconfig();            
-            if(clientconfig){
-                if(!clientconfig.signalrconfig){
-                    let signalrserver  = clientconfig.signalrconfig.server;
-                    if(signalrserver)
-                        IACMessageBusClient = new IACMessageClient(signalrserver);
-                }
-            }
+
+            UI.ajax.get(UI.CONTROLLER_URL+"/config").then((response) => {
+                localStorage.setItem(window.location.origin+"_"+"clientconfig", response);
+                var data = JSON.parse(response);
+                var server = data.signalrconfig.serverwc;
+                    IACMessageBusClient = new IACMessageClient(server);
+            }).catch((error) => {
+                UI.ShowError(error);
+                return null;
+            })
+
             if(this.username == username && this.islogin){
 
                 UI.ajax.post(UI.CONTROLLER_URL+"/user/login", {"username":username, "password":password, "token":this.token, "clientid": this.clientid, "renew": true}).then((response) => {
@@ -589,12 +621,12 @@ var UI;
 
     UI.tokencheck = tokencheck;
     
-    function getclientconfig(){
+    async function getclientconfig(){
         let clientconfig = localStorage.getItem(window.location.origin+"_"+"clientconfig");
         if(clientconfig){
             return JSON.parse(clientconfig);
         }else{
-            ajax("GET", UI.CONTROLLER_URL+"/config").then((response) => {
+            await UI.ajax.get(UI.CONTROLLER_URL+"/config").then((response) => {
                 localStorage.setItem(window.location.origin+"_"+"clientconfig", response);
                 return JSON.parse(response);
             }).catch((error) => {
@@ -604,7 +636,7 @@ var UI;
         }
         return null;
     }
-
+    UI.getclientconfig = getclientconfig;
 })(UI || (UI = {}));
 
 (function (UI) {
@@ -2250,7 +2282,7 @@ function rAFThrottle(func) {
         }
         createScript(path) {
             let that = this;
-
+            path = path.toLowerCase();
             if(UI.isScriptLoaded(path))
                 return;
 
@@ -2301,7 +2333,7 @@ function rAFThrottle(func) {
         }
         createStyle(link) {
             var s = document.createElement("link");
-            s.href = link;
+            s.href = link.toLowerCase();
             s.rel = "stylesheet";
         //    s.setAttribute("viewid", this.id);
             document.head.appendChild(s);

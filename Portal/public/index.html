@@ -130,13 +130,18 @@
     <script>
 		var iacmsgclient = new IACMessageClient("http://127.0.0.1:8222")
 				
+		iacmsgclient.Subscribe("MachineStateUpdating", function(message){
+			console.log("receive:", message)
+			var li = document.createElement('li');
+                li.innerText = 'receive topic MachineStateUpdating message:' + message;
+                document.getElementById('messages').appendChild(li);
+		})
 		iacmsgclient.Subscribe("test", function(message){
 			console.log("receive:", message)
 			var li = document.createElement('li');
                 li.innerText = 'receive topic Test message:' + message;
                 document.getElementById('messages').appendChild(li);
 		})
-		
 		document.getElementById('sendmsg').addEventListener('click', () => {
                 iacmsgclient.Publish("test", "this is a message")
             });

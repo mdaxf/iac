@@ -2,9 +2,12 @@
   <head>
     <meta charset="UTF-8">
     <title lngcode="LoginPage_Title">Login Page</title>
-    <link href="Styles/logon.css" rel="stylesheet"></link> 
-    <script src="Scripts/jquery.min.js" type="text/javascript" ></script>
-    <script src="Scripts/UIFramework.js" type="text/javascript" ></script>
+    <link href="styles/logon.css" rel="stylesheet"></link> 
+    <script src="scripts/jquery.min.js" type="text/javascript" ></script>
+    <script src="scripts/signalr.js" type="text/javascript" ></script>
+    <script src="scripts/uiform.js" type="text/javascript" ></script>
+    <script src="scripts/jquery.min.js" type="text/javascript" ></script>
+    <script src="scripts/uiframework.js" type="text/javascript" ></script>
   </head>
   <body>
     <div id="header" class="ui-header client">
@@ -48,7 +51,7 @@
           console.log("Logon page loaded")
           
           UI.userlogin.checkiflogin(function(){
-            window.location.href = 'UIPage.html';
+            window.location.href = 'uipage.html';
           }, function(){
             localStorage.clear();
             console.log("not logged")

@@ -25,11 +25,14 @@ import (
 	"github.com/mdaxf/iac/framework/cache"
 
 	//	iacmb "github.com/mdaxf/iac/framework/messagebus"
-	"github.com/mdaxf/iac/com"
+
 	//	"github.com/mdaxf/iac/integration/messagebus/nats"
 	"github.com/mdaxf/iac/integration/mqttclient"
+
 	//	"github.com/mdaxf/iac/integration/opcclient"
+	"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/integration/signalr"
+
 	"github.com/mdaxf/iac/logger"
 )
 
@@ -50,7 +53,17 @@ func initialize() {
 	initializeMqttClient()
 	//	initializeOPCClient()
 	//	initializeIACMessageBus()
-	com.IACMessageBusClient, err = signalr.Connect()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		com.IACMessageBusClient, err = signalr.Connect()
+		if err != nil {
+			//	fmt.Errorf("Failed to connect to IAC Message Bus: %v", err)
+			ilog.Error(fmt.Sprintf("Failed to connect to IAC Message Bus: %v", err))
+		}
+		fmt.Println("IAC Message Bus: ", com.IACMessageBusClient)
+		ilog.Debug(fmt.Sprintf("IAC Message Bus: %v", com.IACMessageBusClient))
+	}()
 }
 
 func initializeDatabase() {
@@ -225,7 +238,7 @@ func initializeloger() {
 	if config.GlobalConfiguration.LogConfig == nil {
 		fmt.Errorf("log configuration is missing")
 	}
-	fmt.Println(config.GlobalConfiguration.LogConfig)
+	fmt.Println("log configuration", config.GlobalConfiguration.LogConfig)
 	logger.Init(config.GlobalConfiguration.LogConfig)
 
 }

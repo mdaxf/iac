@@ -220,7 +220,10 @@ func (mq *MessageQueue) processMessage(message Message) error {
 			"outputs":      outputs,
 		}
 
-		_, err = documents.DocDBCon.InsertCollection("Job_History", msghis)
+		if documents.DocDBCon != nil {
+
+			_, err = documents.DocDBCon.InsertCollection("Job_History", msghis)
+		}
 
 		if status != "Success" && message.Execute < message.Retry {
 			message.Retry++

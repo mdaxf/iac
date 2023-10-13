@@ -36,4 +36,5 @@ type GlobalConfig struct {
 	AltDatabasesConfig []map[string]interface{} `json:"altdatabases"`
 	CacheConfig        map[string]interface{}   `json:"cache"`
 	TranslationConfig  map[string]interface{}   `json:"translation"`
+	WebServerConfig    map[string]interface{}   `json:"webserver"`
 }

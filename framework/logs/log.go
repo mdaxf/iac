@@ -210,23 +210,23 @@ func (bl *IACLogger) AsyncNonBlockWrite() *IACLogger {
 // config must in in JSON format like {"interval":360}}
 func (bl *IACLogger) setLogger(adapterName string, configs ...string) error {
 	config := append(configs, "{}")[0]
-	fmt.Println("log config:", config)
+	//	fmt.Println("log config:", config)
 	for _, l := range bl.outputs {
 		if l.name == adapterName {
 			return fmt.Errorf("logs: duplicate adaptername %q (you have set this logger before)", adapterName)
 		}
 	}
-	fmt.Println("adapterName:", adapterName)
+	//	fmt.Println("adapterName:", adapterName)
 	logAdapter, ok := adapters[adapterName]
-	fmt.Println("logAdapter:", logAdapter)
+	//	fmt.Println("logAdapter:", logAdapter)
 	if !ok {
 		return fmt.Errorf("logs: unknown adaptername %q (forgotten Register?)", adapterName)
 	}
 
 	lg := logAdapter()
-	fmt.Println("lg:", lg)
+	//	fmt.Println("lg:", lg)
 	err := lg.Init(config)
-	fmt.Println("err:", err)
+	//	fmt.Println("err:", err)
 	if err != nil {
 		return err
 	}

@@ -64,7 +64,7 @@ func LoadConfig() (*Config, error) {
 	if err := json.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse configuration file: %v", err)
 	}
-
+	fmt.Println("loaded portal and api configuration:", config)
 	return &config, nil
 }
 
@@ -82,12 +82,14 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 
 		return nil, fmt.Errorf("failed to parse configuration file: %v", err)
 	}
-	fmt.Println(jsonFile, jsonData)
+	//fmt.Println(jsonFile, jsonData)
 
 	com.Instance = jsonData.Instance
 	com.InstanceType = jsonData.InstanceType
 	com.InstanceName = jsonData.InstanceName
 	com.SingalRConfig = jsonData.SingalRConfig
-	fmt.Println(com.SingalRConfig, com.Instance)
+	//fmt.Println(com.SingalRConfig, com.Instance)
+
+	fmt.Println("loaded global configuration:", jsonData)
 	return &jsonData, nil
 }

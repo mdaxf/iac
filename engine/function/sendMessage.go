@@ -4,6 +4,7 @@ import (
 	//	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	//	dapr "github.com/dapr/go-sdk/client"
 	"github.com/mdaxf/iac/com"
@@ -41,10 +42,12 @@ func (cf *SendMessageFuncs) Execute(f *Funcs) {
 	// Convert JSON byte array to string
 	jsonString := string(jsonData)
 
-	f.iLog.Debug(fmt.Sprintf("SendMessageFuncs Execute: %v", jsonString))
+	f.iLog.Debug(fmt.Sprintf("SendMessageFuncs Execute: topic, %s, message: %v", Topic, jsonString))
 	//iacmb.IACMB.Channel.Write(jsonString)
 
-	com.IACMessageBusClient.Send(Topic, jsonString)
+	//c.Invoke("send", "Test", "this is a message from the GO client", "")
+	com.IACMessageBusClient.Invoke("send", Topic, jsonString, "")
+	<-time.After(time.Microsecond * 100)
 	/*client, err := dapr.NewClient()
 
 	if err != nil {
@@ -62,7 +65,8 @@ func (cf *SendMessageFuncs) Execute(f *Funcs) {
 		return
 	}
 	*/
-
+	outputs := make(map[string][]interface{})
+	f.SetOutputs(f.convertMap(outputs))
 }
 
 func (cf *SendMessageFuncs) Validate(f *Funcs) (bool, error) {

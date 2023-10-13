@@ -23,7 +23,7 @@ import (
 	"reflect"
 	"time"
 
-	logs "github.com/mdaxf/iac/framework/log"
+	logs "github.com/mdaxf/iac/framework/logs"
 	"github.com/mdaxf/iac/framework/utils"
 )
 

@@ -66,7 +66,7 @@ import (
 
 	"github.com/mdaxf/iac/databases/orm/clauses"
 	"github.com/mdaxf/iac/databases/orm/hints"
-	logs "github.com/mdaxf/iac/framework/log"
+	logs "github.com/mdaxf/iac/framework/logs"
 	"github.com/mdaxf/iac/framework/utils"
 )
 
