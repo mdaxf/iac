@@ -15,7 +15,9 @@ import (
 	"github.com/mdaxf/iac/logger"
 	"go.mongodb.org/mongo-driver/bson"
 
+	"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/engine/callback"
+	"github.com/mdaxf/signalrsrv/signalr"
 )
 
 type TranFlow struct {
@@ -27,6 +29,25 @@ type TranFlow struct {
 	externaloutputs map[string]interface{} // {sessionanme: value}
 	SystemSession   map[string]interface{}
 	ilog            logger.Log
+	DocDBCon        *documents.DocDB
+	SignalRClient   signalr.Client
+}
+
+func ExecutebyExternal(trancode string, data map[string]interface{}, DBTx *sql.Tx, DBCon *documents.DocDB, sc signalr.Client) (map[string]interface{}, error) {
+	tranobj, err := getTranCodeData(trancode, DBCon)
+	if err != nil {
+		return nil, err
+	}
+	tf := NewTranFlow(tranobj, data, map[string]interface{}{}, nil, nil, DBTx)
+	tf.DocDBCon = DBCon
+	tf.SignalRClient = sc
+
+	outputs, err := tf.Execute()
+
+	if err != nil {
+		return nil, err
+	}
+	return outputs, nil
 }
 
 func NewTranFlow(tcode types.TranCode, externalinputs, systemSession map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc, dbTx ...*sql.Tx) *TranFlow {
@@ -53,6 +74,8 @@ func NewTranFlow(tcode types.TranCode, externalinputs, systemSession map[string]
 		Externalinputs:  externalinputs,
 		externaloutputs: map[string]interface{}{},
 		SystemSession:   systemSession,
+		DocDBCon:        documents.DocDBCon,
+		SignalRClient:   com.IACMessageBusClient,
 	}
 }
 
@@ -91,7 +114,7 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 	t.ilog.Debug(fmt.Sprintf("start first function group:", logger.ConvertJson(fgroup)))
 
 	for code == 1 {
-		fg := funcgroup.NewFGroup(t.DBTx, fgroup, "", systemSession, userSession, externalinputs, externaloutputs, t.Ctx, t.CtxCancel)
+		fg := funcgroup.NewFGroup(t.DocDBCon, t.SignalRClient, t.DBTx, fgroup, "", systemSession, userSession, externalinputs, externaloutputs, t.Ctx, t.CtxCancel)
 		fg.Execute()
 		externalinputs = fg.Externalinputs
 		externaloutputs = fg.Externaloutputs
@@ -189,6 +212,49 @@ func (t *TranFlowstr) Execute(tcode string, inputs map[string]interface{}, ctx c
 }
 
 func GetTranCodeData(Code string) (types.TranCode, error) {
+	/*	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
+		iLog.Info(fmt.Sprintf("Get the trancode code for %s ", Code))
+
+		iLog.Info(fmt.Sprintf("Start process transaction code %s's %s ", Code, "Execute"))
+
+		filter := bson.M{"trancodename": Code, "isdefault": true}
+
+		tcode, err := documents.DocDBCon.QueryCollection("Transaction_Code", filter, nil)
+
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Get transaction code %s's error", Code))
+
+			return types.TranCode{}, err
+		}
+		iLog.Debug(fmt.Sprintf("transaction code %s's data: %s", Code, tcode))
+		jsonString, err := json.Marshal(tcode[0])
+		if err != nil {
+
+			iLog.Error(fmt.Sprintf("Error marshaling json:", err.Error()))
+			return types.TranCode{}, err
+		}
+
+		trancodeobj, err := Configtoobj(string(jsonString))
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error unmarshaling json:", err.Error()))
+			return types.TranCode{}, err
+		}
+
+		iLog.Debug(fmt.Sprintf("transaction code %s's json: %s", trancodeobj, string(jsonString)))
+
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error unmarshaling json:", err.Error()))
+			return types.TranCode{}, err
+		}
+	*/
+	trancodeobj, err := getTranCodeData(Code, documents.DocDBCon)
+	if err != nil {
+		return types.TranCode{}, err
+	}
+	return trancodeobj, nil
+}
+
+func getTranCodeData(Code string, DBConn *documents.DocDB) (types.TranCode, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
 	iLog.Info(fmt.Sprintf("Get the trancode code for %s ", Code))
 
@@ -196,7 +262,7 @@ func GetTranCodeData(Code string) (types.TranCode, error) {
 
 	filter := bson.M{"trancodename": Code, "isdefault": true}
 
-	tcode, err := documents.DocDBCon.QueryCollection("Transaction_Code", filter, nil)
+	tcode, err := DBConn.QueryCollection("Transaction_Code", filter, nil)
 
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Get transaction code %s's error", Code))

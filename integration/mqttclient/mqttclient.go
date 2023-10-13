@@ -3,6 +3,7 @@ package mqttclient
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -13,9 +14,12 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
+	"github.com/mdaxf/iac/com"
+	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/framework/queue"
 	"github.com/mdaxf/iac/logger"
+	"github.com/mdaxf/signalrsrv/signalr"
 )
 
 type MqttConfig struct {
@@ -55,6 +59,8 @@ type MqttClient struct {
 	client         mqtt.Client
 	Queue          *queue.MessageQueue
 	DBconn         *documents.DocDB
+	DBTx           *sql.Tx
+	SignalRClient  signalr.Client
 }
 
 func NewMqttClient(configurations Mqtt) *MqttClient {
@@ -79,7 +85,9 @@ func NewMqttClient(configurations Mqtt) *MqttClient {
 	mqttclient.DBconn = documents.DocDBCon
 
 	mqttclient.Queue = queue.NewMessageQueue(uuid, "mqttclient")
-	mqttclient.Queue.DBconn = documents.DocDBCon
+	mqttclient.Queue.DocDBconn = documents.DocDBCon
+	mqttclient.Queue.DB = dbconn.DB
+	mqttclient.Queue.SignalRClient = com.IACMessageBusClient
 
 	mqttclient.Initialize_mqttClient()
 	return mqttclient

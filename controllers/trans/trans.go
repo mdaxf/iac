@@ -34,12 +34,7 @@ func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 
 	//var tcdata TranCodeData
 	tcdata, err := getDataFromRequest(ctx)
-	/*if err := ctx.BindJSON(&tcdata); err != nil {
-		iLog.Error(fmt.Sprintf("Error binding json:", err.Error()))
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	} */
-	//log.Print(tcdata.TranCode)
+
 	iLog.Info(fmt.Sprintf("Start process transaction code %s's %s: %s", tcdata.TranCode, "Execute", tcdata.Inputs))
 
 	//tcode, err := e.getTransCode(tcdata.TranCode)

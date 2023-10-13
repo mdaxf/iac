@@ -8,9 +8,11 @@ import (
 
 	"database/sql"
 
+	"github.com/mdaxf/iac/documents"
 	funcs "github.com/mdaxf/iac/engine/function"
 	"github.com/mdaxf/iac/engine/types"
 	"github.com/mdaxf/iac/logger"
+	"github.com/mdaxf/signalrsrv/signalr"
 )
 
 type FGroup struct {
@@ -25,9 +27,11 @@ type FGroup struct {
 	Externaloutputs     map[string]interface{} // {sessionanme: value}
 	funcCachedVariables map[string]interface{}
 	iLog                logger.Log
+	DocDBCon            *documents.DocDB
+	SignalRClient       signalr.Client
 }
 
-func NewFGroup(dbTx *sql.Tx, fgobj types.FuncGroup, nextfuncgroup string, systemSession, userSession, externalinputs, externaloutputs map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc) *FGroup {
+func NewFGroup(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sql.Tx, fgobj types.FuncGroup, nextfuncgroup string, systemSession, userSession, externalinputs, externaloutputs map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc) *FGroup {
 	log := logger.Log{}
 	log.ModuleName = logger.TranCode
 	log.ControllerName = "Function Group"
@@ -49,6 +53,8 @@ func NewFGroup(dbTx *sql.Tx, fgobj types.FuncGroup, nextfuncgroup string, system
 		Externaloutputs:     externaloutputs,
 		funcCachedVariables: map[string]interface{}{},
 		iLog:                log,
+		DocDBCon:            DocDBCon,
+		SignalRClient:       SignalRClient,
 	}
 
 }

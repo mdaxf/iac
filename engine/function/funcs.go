@@ -11,8 +11,10 @@ import (
 
 	"database/sql"
 
+	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/engine/types"
 	"github.com/mdaxf/iac/logger"
+	"github.com/mdaxf/signalrsrv/signalr"
 )
 
 type Funcs struct {
@@ -31,9 +33,11 @@ type Funcs struct {
 	ExecutionNumber      int
 	ExecutionCount       int
 	FunctionMappedInputs map[string]interface{}
+	DocDBCon             *documents.DocDB
+	SignalRClient        signalr.Client
 }
 
-func NewFuncs(dbTx *sql.Tx, fobj types.Function, systemSession, userSession, externalinputs, externaloutputs, funcCachedVariables map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc) *Funcs {
+func NewFuncs(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sql.Tx, fobj types.Function, systemSession, userSession, externalinputs, externaloutputs, funcCachedVariables map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc) *Funcs {
 	log := logger.Log{}
 	log.ModuleName = logger.TranCode
 	log.ControllerName = "Function"
@@ -59,6 +63,8 @@ func NewFuncs(dbTx *sql.Tx, fobj types.Function, systemSession, userSession, ext
 		FunctionOutputs:     newdata,
 		ExecutionNumber:     1,
 		ExecutionCount:      0,
+		DocDBCon:            DocDBCon,
+		SignalRClient:       SignalRClient,
 	}
 }
 

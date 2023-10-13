@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,18 +10,24 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mdaxf/iac/controllers/trans"
+	//	"github.com/mdaxf/iac/controllers/trans"
+	"github.com/mdaxf/iac/com"
+	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/documents"
+	"github.com/mdaxf/iac/engine/trancode"
 	"github.com/mdaxf/iac/logger"
+	"github.com/mdaxf/signalrsrv/signalr"
 )
 
 type MessageQueue struct {
-	QueueID  string
-	QueuName string
-	messages []Message
-	lock     sync.Mutex
-	iLog     logger.Log
-	DBconn   *documents.DocDB
+	QueueID       string
+	QueuName      string
+	messages      []Message
+	lock          sync.Mutex
+	iLog          logger.Log
+	DocDBconn     *documents.DocDB
+	DB            *sql.DB
+	SignalRClient signalr.Client
 }
 
 type Message struct {
@@ -53,8 +60,9 @@ func NewMessageQueue(Id string, Name string) *MessageQueue {
 		iLog:     iLog,
 	}
 
-	mq.DBconn = documents.DocDBCon
-
+	mq.DocDBconn = documents.DocDBCon
+	mq.SignalRClient = com.IACMessageBusClient
+	mq.DB = dbconn.DB
 	go mq.execute()
 
 	return mq
@@ -201,8 +209,28 @@ func (mq *MessageQueue) processMessage(message Message) error {
 			mq.iLog.Error(fmt.Sprintf("Failed to unmarshal data: %v", err))
 			return err
 		}
-		tr := &trans.TranCodeController{}
-		outputs, err := tr.Execute(message.Handler, data)
+		/*tr := &trans.TranCodeController{}
+		outputs, err := tr.Execute(message.Handler, data) */
+
+		tx, err := mq.DB.Begin()
+		if err != nil {
+			mq.iLog.Error(fmt.Sprintf("Failed to begin transaction: %v", err))
+			return err
+		}
+		defer tx.Rollback()
+
+		outputs, err := trancode.ExecutebyExternal(message.Handler, data, tx, mq.DocDBconn, mq.SignalRClient)
+		if err != nil {
+			mq.iLog.Error(fmt.Sprintf("Failed to execute transaction: %v", err))
+			return err
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			mq.iLog.Error(fmt.Sprintf("Failed to commit transaction: %v", err))
+			return err
+		}
+
 		status := "Success"
 		errormessage := ""
 		if err != nil {
@@ -223,9 +251,9 @@ func (mq *MessageQueue) processMessage(message Message) error {
 			"outputs":      outputs,
 		}
 
-		if mq.DBconn != nil {
+		if mq.DocDBconn != nil {
 
-			_, err = mq.DBconn.InsertCollection("Job_History", msghis)
+			_, err = mq.DocDBconn.InsertCollection("Job_History", msghis)
 		}
 
 		if status != "Success" && message.Execute < message.Retry {

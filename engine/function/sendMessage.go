@@ -46,8 +46,12 @@ func (cf *SendMessageFuncs) Execute(f *Funcs) {
 	//iacmb.IACMB.Channel.Write(jsonString)
 
 	//c.Invoke("send", "Test", "this is a message from the GO client", "")
-	com.IACMessageBusClient.Invoke("send", Topic, jsonString, "")
-	<-time.After(time.Microsecond * 100)
+	if f.SignalRClient != nil {
+		f.SignalRClient.Invoke("send", Topic, jsonString, "")
+	} else {
+		com.IACMessageBusClient.Invoke("send", Topic, jsonString, "")
+		<-time.After(time.Microsecond * 100)
+	}
 	/*client, err := dapr.NewClient()
 
 	if err != nil {
