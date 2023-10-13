@@ -213,7 +213,7 @@ func (mq *MessageQueue) processMessage(message Message) error {
 		/*tr := &trans.TranCodeController{}
 		outputs, err := tr.Execute(message.Handler, data) */
 
-		tx, err := mq.DB.BeginTx(context.TODO())
+		tx, err := mq.DB.BeginTx(context.TODO(), &sql.TxOptions{})
 		if err != nil {
 			mq.iLog.Error(fmt.Sprintf("Failed to begin transaction: %v", err))
 			return err
