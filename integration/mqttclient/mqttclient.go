@@ -58,8 +58,8 @@ type MqttClient struct {
 	iLog           logger.Log
 	client         mqtt.Client
 	Queue          *queue.MessageQueue
-	DBconn         *documents.DocDB
-	DBTx           *sql.Tx
+	DocDBconn      *documents.DocDB
+	DB             *sql.DB
 	SignalRClient  signalr.Client
 }
 
@@ -82,8 +82,9 @@ func NewMqttClient(configurations Mqtt) *MqttClient {
 	iLog.Debug(fmt.Sprintf(("Create MqttClient: %s"), logger.ConvertJson(mqttclient)))
 	uuid := uuid.New().String()
 
-	mqttclient.DBconn = documents.DocDBCon
-
+	mqttclient.DocDBconn = documents.DocDBCon
+	mqttclient.DB = dbconn.DB
+	mqttclient.SignalRClient = com.IACMessageBusClient
 	mqttclient.Queue = queue.NewMessageQueue(uuid, "mqttclient")
 	mqttclient.Queue.DocDBconn = documents.DocDBCon
 	mqttclient.Queue.DB = dbconn.DB
