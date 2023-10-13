@@ -20,6 +20,7 @@ type MessageQueue struct {
 	messages []Message
 	lock     sync.Mutex
 	iLog     logger.Log
+	DBconn   *documents.DocDB
 }
 
 type Message struct {
@@ -51,6 +52,8 @@ func NewMessageQueue(Id string, Name string) *MessageQueue {
 		QueuName: Name,
 		iLog:     iLog,
 	}
+
+	mq.DBconn = documents.DocDBCon
 
 	go mq.execute()
 
@@ -220,9 +223,9 @@ func (mq *MessageQueue) processMessage(message Message) error {
 			"outputs":      outputs,
 		}
 
-		if documents.DocDBCon != nil {
+		if mq.DBconn != nil {
 
-			_, err = documents.DocDBCon.InsertCollection("Job_History", msghis)
+			_, err = mq.DBconn.InsertCollection("Job_History", msghis)
 		}
 
 		if status != "Success" && message.Execute < message.Retry {

@@ -13,6 +13,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
+	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/framework/queue"
 	"github.com/mdaxf/iac/logger"
 )
@@ -52,7 +53,8 @@ type MqttClient struct {
 	mqttTopics     []MqttTopic
 	iLog           logger.Log
 	client         mqtt.Client
-	queue          *queue.MessageQueue
+	Queue          *queue.MessageQueue
+	DBconn         *documents.DocDB
 }
 
 func NewMqttClient(configurations Mqtt) *MqttClient {
@@ -74,7 +76,10 @@ func NewMqttClient(configurations Mqtt) *MqttClient {
 	iLog.Debug(fmt.Sprintf(("Create MqttClient: %s"), logger.ConvertJson(mqttclient)))
 	uuid := uuid.New().String()
 
-	mqttclient.queue = queue.NewMessageQueue(uuid, "mqttclient")
+	mqttclient.DBconn = documents.DocDBCon
+
+	mqttclient.Queue = queue.NewMessageQueue(uuid, "mqttclient")
+	mqttclient.Queue.DBconn = documents.DocDBCon
 
 	mqttclient.Initialize_mqttClient()
 	return mqttclient
@@ -176,8 +181,8 @@ func (mqttClient *MqttClient) Initialize_mqttClient() {
 					Handler:   handler,
 					CreatedOn: time.Now(),
 				}
-				mqttClient.iLog.Debug(fmt.Sprintf("Push message %s to queue: %s", message, mqttClient.queue.QueueID))
-				mqttClient.queue.Push(message)
+				mqttClient.iLog.Debug(fmt.Sprintf("Push message %s to queue: %s", message, mqttClient.Queue.QueueID))
+				mqttClient.Queue.Push(message)
 
 			}
 		}
