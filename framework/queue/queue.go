@@ -212,6 +212,9 @@ func (mq *MessageQueue) processMessage(message Message) error {
 		}
 		/*tr := &trans.TranCodeController{}
 		outputs, err := tr.Execute(message.Handler, data) */
+		if mq.DB == nil {
+			mq.DB = dbconn.DB
+		}
 
 		tx, err := mq.DB.BeginTx(context.TODO(), &sql.TxOptions{})
 		if err != nil {
