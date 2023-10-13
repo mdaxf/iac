@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -212,7 +213,7 @@ func (mq *MessageQueue) processMessage(message Message) error {
 		/*tr := &trans.TranCodeController{}
 		outputs, err := tr.Execute(message.Handler, data) */
 
-		tx, err := mq.DB.Begin()
+		tx, err := mq.DB.BeginTx(context.TODO())
 		if err != nil {
 			mq.iLog.Error(fmt.Sprintf("Failed to begin transaction: %v", err))
 			return err
