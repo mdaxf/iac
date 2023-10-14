@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/logger"
+	"github.com/mdaxf/signalrsrv/signalr"
 )
 
 var callBackMap map[string]interface{}
@@ -23,7 +25,7 @@ func RegisterCallBack(key string, callBack interface{}) {
 	log.Debug(fmt.Sprintf("callBackMap: %s", callBackMap))
 }
 
-func ExecuteTranCode(key string, tcode string, inputs map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc, dbTx *sql.Tx) []interface{} {
+func ExecuteTranCode(key string, tcode string, inputs map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc, dbTx *sql.Tx, DBCon *documents.DocDB, sc signalr.Client) []interface{} {
 	log := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "CallbackExecution"}
 	log.Debug(fmt.Sprintf("CallBackFunc: %s with %s %s %s %s %s", key, tcode, inputs, ctx, ctxcancel, dbTx))
 	log.Debug(fmt.Sprintf("callBackMap: %s", callBackMap))
@@ -50,6 +52,10 @@ func ExecuteTranCode(key string, tcode string, inputs map[string]interface{}, ct
 		in[3] = reflect.ValueOf(ctxcancel)
 
 		in[4] = reflect.ValueOf(dbTx)
+
+		in[5] = reflect.ValueOf(DBCon)
+
+		in[6] = reflect.ValueOf(sc)
 
 		log.Debug(fmt.Sprintf("in: %s", in))
 
