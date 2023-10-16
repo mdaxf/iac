@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -90,8 +91,8 @@ func (c *OPCClient) CreateClient() context.CancelFunc {
 		endpoint = flag.String("endpoint", c.Endpoint, "OPC UA Endpoint URL")
 		policy   = flag.String("policy", "", "Security policy: None, Basic128Rsa15, Basic256, Basic256Sha256. Default: auto")
 		mode     = flag.String("mode", "", "Security mode: None, Sign, SignAndEncrypt. Default: auto")
-	//	certFile = flag.String("cert", "", "Path to cert.pem. Required for security mode/policy != None")
-	//	keyFile  = flag.String("key", "", "Path to private key.pem. Required for security mode/policy != None")
+		certFile = flag.String("cert", "", "Path to cert.pem. Required for security mode/policy != None")
+		keyFile  = flag.String("key", "", "Path to private key.pem. Required for security mode/policy != None")
 	)
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -106,18 +107,18 @@ func (c *OPCClient) CreateClient() context.CancelFunc {
 	}
 	c.iLog.Debug(fmt.Sprintf("Using endpoint: %v", ep.EndpointURL))
 	c.iLog.Debug(fmt.Sprintf("%s,%s", ep.SecurityPolicyURI, ep.SecurityMode))
-	/*	opts := []opcua.Option{
-			opcua.SecurityPolicy(*policy),
-			opcua.SecurityModeString(*mode),
-			opcua.CertificateFile(*certFile),
-			opcua.PrivateKeyFile(*keyFile),
-			opcua.AuthAnonymous(),
-			opcua.SecurityFromEndpoint(ep, ua.UserTokenTypeAnonymous),
-		}
+	opts := []opcua.Option{
+		opcua.SecurityPolicy(*policy),
+		opcua.SecurityModeString(*mode),
+		opcua.CertificateFile(*certFile),
+		opcua.PrivateKeyFile(*keyFile),
+		opcua.AuthAnonymous(),
+		opcua.SecurityFromEndpoint(ep, ua.UserTokenTypeAnonymous),
+	}
 
-		opcclient := opcua.Client{} //.NewClient(ep.EndpointURL, opts...)
+	opcclient := opcua.NewClient(ep.EndpointURL, opts...)
 
-		c.Client = opcclient */
+	c.Client = opcclient
 
 	return cancel
 }
@@ -448,102 +449,101 @@ func eventRequest(nodeID *ua.NodeID) (*ua.MonitoredItemCreateRequest, []string) 
 	return req, fieldNames
 }
 
-/*
 func (c *OPCClient) createSubscriptionGroup(triggerTags []string, callback func(string, *ua.DataValue)) (*opcua.Subscription, error) {
 
-		sub, err := client.Subscribe(1*time.Second, ua.CreateSubscriptionRequest{
-			RequestedPublishingInterval: 1000,
-			RequestedMaxKeepAliveCount:  10,
-			RequestedLifetimeCount:      100,
-			PublishingEnabled:           true,
+	sub, err := client.Subscribe(1*time.Second, ua.CreateSubscriptionRequest{
+		RequestedPublishingInterval: 1000,
+		RequestedMaxKeepAliveCount:  10,
+		RequestedLifetimeCount:      100,
+		PublishingEnabled:           true,
+	})
+	if err != nil {
+		c.iLog.Critical(fmt.Sprintf("Failed to create subscription: %s", err))
+	}
+
+	for _, tag := range triggerTags {
+		// Create a monitored item for the tag
+		nodeID := ua.NewStringNodeID(2, tag)
+
+		item, err := sub.MonitorValue(nodeID, ua.AttributeIDValue, func(v *ua.DataValue) {
+			// Trigger action for tag1
+			callback(tag, v)
+			c.iLog.Debug(fmt.Sprintf("Trigger action for tag1: %v", v.Value))
 		})
 		if err != nil {
-			c.iLog.Critical(fmt.Sprintf("Failed to create subscription: %s", err))
+			c.iLog.Error(fmt.Sprintf("Failed to create monitored item for tag1: %v", err))
 		}
 
-		for _,tag := range triggerTags{
-			// Create a monitored item for the tag
-			nodeID := ua.NewStringNodeID(2, tag)
-
-			item, err := sub.MonitorValue(nodeID, ua.AttributeIDValue, func(v *ua.DataValue) {
-				// Trigger action for tag1
-				callback(tag, v)
-				c.iLog.Debug(fmt.Sprintf("Trigger action for tag1: %v", v.Value))
-			})
-			if err != nil {
-				c.iLog.Error(fmt.Sprintf("Failed to create monitored item for tag1: %v", err))
-			}
-
-		}
-
-		return sub, nil
 	}
 
-	func (c *OPCClient)monitorSubscribeGroup(group []*opcua.Subscription) {
-		filter  := flag.String("filter", "timestamp", "DataFilter: status, value, timestamp.")
-		// Start the subscription
-		for _, sub := range group {
+	return sub, nil
+}
 
-			 need to change
+func (c *OPCClient) monitorSubscribeGroup(group []*opcua.Subscription) {
+	filter := flag.String("filter", "timestamp", "DataFilter: status, value, timestamp.")
+	// Start the subscription
+	for _, sub := range group {
 
-			triggerNodeID := flag.String("trigger", "", "node id to trigger with")
-			reportNodeID  := flag.String("report", "", "node id value to report on trigger")
-			triggeringNode, err := ua.ParseNodeID(*triggerNodeID)
-			if err != nil {
-				c.iLog.Critical(fmt.Sprintf("There are error:%v",err))
-			}
+		// need to change
 
-			triggeredNode, err := ua.ParseNodeID(*reportNodeID)
-			if err != nil {
-				c.iLog.Critical(fmt.Sprintf("There are error:%v",err))
-			}
+		triggerNodeID := flag.String("trigger", "", "node id to trigger with")
+		reportNodeID := flag.String("report", "", "node id value to report on trigger")
+		triggeringNode, err := ua.ParseNodeID(*triggerNodeID)
+		if err != nil {
+			c.iLog.Critical(fmt.Sprintf("There are error:%v", err))
+		}
 
-			miCreateRequests := []*ua.MonitoredItemCreateRequest{
-				opcua.NewMonitoredItemCreateRequestWithDefaults(triggeringNode, ua.AttributeIDValue, 42),
-				{
-					ItemToMonitor: &ua.ReadValueID{
-						NodeID:       triggeredNode,
-						AttributeID:  ua.AttributeIDValue,
-						DataEncoding: &ua.QualifiedName{},
-					},
-					MonitoringMode: ua.MonitoringModeSampling,
-					RequestedParameters: &ua.MonitoringParameters{
-						ClientHandle:     43,
-						DiscardOldest:    true,
-						Filter:           c.getFilter(*filter),
-						QueueSize:        10,
-						SamplingInterval: 0.0,
-					},
+		triggeredNode, err := ua.ParseNodeID(*reportNodeID)
+		if err != nil {
+			c.iLog.Critical(fmt.Sprintf("There are error:%v", err))
+		}
+
+		miCreateRequests := []*ua.MonitoredItemCreateRequest{
+			opcua.NewMonitoredItemCreateRequestWithDefaults(triggeringNode, ua.AttributeIDValue, 42),
+			{
+				ItemToMonitor: &ua.ReadValueID{
+					NodeID:       triggeredNode,
+					AttributeID:  ua.AttributeIDValue,
+					DataEncoding: &ua.QualifiedName{},
 				},
-			}
-
-			sub.Monitor(ua.TimestampsToReturnBoth, miCreateRequests...)
+				MonitoringMode: ua.MonitoringModeSampling,
+				RequestedParameters: &ua.MonitoringParameters{
+					ClientHandle:     43,
+					DiscardOldest:    true,
+					Filter:           c.getFilter(*filter),
+					QueueSize:        10,
+					SamplingInterval: 0.0,
+				},
+			},
 		}
+
+		sub.Monitor(ua.TimestampsToReturnBoth, miCreateRequests...)
 	}
+}
 
 func (c *OPCClient) getFilter(filterStr string) *ua.ExtensionObject {
 
-		var filter ua.DataChangeFilter
-		switch filterStr {
-		case "status":
-			filter = ua.DataChangeFilter{Trigger: ua.DataChangeTriggerStatus}
-		case "value":
-			filter = ua.DataChangeFilter{Trigger: ua.DataChangeTriggerStatusValue}
-		case "timestamp":
-			filter = ua.DataChangeFilter{Trigger: ua.DataChangeTriggerStatusValueTimestamp}
-		default:
-			log.Fatalf("Unable to match to a valid filter type: %v\nShould be status, value, or timestamp", filterStr)
-		}
-
-		return &ua.ExtensionObject{
-			EncodingMask: ua.ExtensionObjectBinary,
-			TypeID: &ua.ExpandedNodeID{
-				NodeID: ua.NewNumericNodeID(0, id.DataChangeFilter_Encoding_DefaultBinary),
-			},
-			Value: filter,
-		}
+	var filter ua.DataChangeFilter
+	switch filterStr {
+	case "status":
+		filter = ua.DataChangeFilter{Trigger: ua.DataChangeTriggerStatus}
+	case "value":
+		filter = ua.DataChangeFilter{Trigger: ua.DataChangeTriggerStatusValue}
+	case "timestamp":
+		filter = ua.DataChangeFilter{Trigger: ua.DataChangeTriggerStatusValueTimestamp}
+	default:
+		log.Fatalf("Unable to match to a valid filter type: %v\nShould be status, value, or timestamp", filterStr)
 	}
-*/
+
+	return &ua.ExtensionObject{
+		EncodingMask: ua.ExtensionObjectBinary,
+		TypeID: &ua.ExpandedNodeID{
+			NodeID: ua.NewNumericNodeID(0, id.DataChangeFilter_Encoding_DefaultBinary),
+		},
+		Value: filter,
+	}
+}
+
 func (c *OPCClient) Disconnect() {
 	// Disconnect from the OPC UA server
 	c.Client.Close()
