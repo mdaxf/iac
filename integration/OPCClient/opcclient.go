@@ -116,7 +116,11 @@ func (c *OPCClient) CreateClient() context.CancelFunc {
 		opcua.SecurityFromEndpoint(ep, ua.UserTokenTypeAnonymous),
 	}
 
-	opcclient := opcua.NewClient(ep.EndpointURL, opts...)
+	opcclient, err := opcua.NewClient(ep.EndpointURL, opts...)
+
+	if err != nil {
+		c.iLog.Critical(fmt.Sprintf("Failed to create client: %s", err))
+	}
 
 	c.Client = opcclient
 
@@ -126,7 +130,7 @@ func (c *OPCClient) CreateClient() context.CancelFunc {
 func (c *OPCClient) BrowseEndpoints() (*ua.GetEndpointsResponse, error) {
 	// Browse the endpoint by the server
 	c.iLog.Debug(fmt.Sprintf("Browsing endpoints from server"))
-	endpoints, err := c.Client.GetEndpoints()
+	endpoints, err := c.Client.GetEndpoints(context.Background())
 	if err != nil {
 		c.iLog.Critical(fmt.Sprintf("Failed to get endpoints: %s", err))
 		return nil, err
@@ -151,7 +155,7 @@ func (c *OPCClient) Connect() {
 func (c *OPCClient) browseTags(nodeID string) ([]Tag, error) {
 	// Browse the node
 	c.iLog.Debug(fmt.Sprintf("Browsing nodes (tags) from server"))
-	result, err := c.Client.Browse(&ua.BrowseRequest{
+	result, err := c.Client.Browse(context.Background(), &ua.BrowseRequest{
 		NodesToBrowse: []*ua.BrowseDescription{
 			&ua.BrowseDescription{
 				NodeID:          ua.MustParseNodeID(nodeID),
@@ -212,7 +216,7 @@ func (c *OPCClient) readTagValue(nodeID string) (interface{}, error) {
 	var resp *ua.ReadResponse
 
 	for {
-		resp, err = c.Client.ReadWithContext(context.Background(), req)
+		resp, err = c.Client.Read(context.Background(), req) //.ReadWithContext(context.Background(), req)
 		if err == nil {
 			break
 		}
@@ -288,7 +292,7 @@ func (c *OPCClient) writeTagValue(nodeID string, value string) (ua.StatusCode, e
 		},
 	}
 
-	resp, err := c.Client.WriteWithContext(context.Background(), req)
+	resp, err := c.Client.Write(context.Background(), req) //.WriteWithContext(context.Background(), req)
 	if err != nil {
 		c.iLog.Critical(fmt.Sprintf("Write failed: %s", err))
 		return ua.StatusBad, err
@@ -302,7 +306,7 @@ func (c *OPCClient) Subscribe(triggerTags []string, callback func(string, *ua.Da
 	notifyCh := make(chan *opcua.PublishNotificationData, 1000)
 	ctx := context.Background()
 	interval := flag.Duration("interval", opcua.DefaultSubscriptionInterval, "subscription interval")
-	sub, err := c.Client.SubscribeWithContext(ctx, &opcua.SubscriptionParameters{
+	sub, err := c.Client.Subscribe(ctx, &opcua.SubscriptionParameters{ //).SubscribeWithContext
 		Interval: *interval,
 	}, notifyCh)
 	if err != nil {
@@ -330,7 +334,7 @@ func (c *OPCClient) Subscribe(triggerTags []string, callback func(string, *ua.Da
 		} else {
 			miCreateRequest = valueRequest(id)
 		}
-		res, err := sub.Monitor(ua.TimestampsToReturnBoth, miCreateRequest)
+		res, err := sub.Monitor(context.Background(), ua.TimestampsToReturnBoth, miCreateRequest)
 		if err != nil || res.Results[0].StatusCode != ua.StatusOK {
 			c.iLog.Error(fmt.Sprintf("Failed to create monitored item for tag: %v", err))
 		}
@@ -451,31 +455,87 @@ func eventRequest(nodeID *ua.NodeID) (*ua.MonitoredItemCreateRequest, []string) 
 
 func (c *OPCClient) createSubscriptionGroup(triggerTags []string, callback func(string, *ua.DataValue)) (*opcua.Subscription, error) {
 
-	sub, err := client.Subscribe(1*time.Second, ua.CreateSubscriptionRequest{
-		RequestedPublishingInterval: 1000,
-		RequestedMaxKeepAliveCount:  10,
-		RequestedLifetimeCount:      100,
-		PublishingEnabled:           true,
-	})
+	notifyCh := make(chan *opcua.PublishNotificationData)
+
+	sub, err := c.Client.Subscribe(context.Background(), &opcua.SubscriptionParameters{
+		Interval: opcua.DefaultSubscriptionInterval,
+	}, notifyCh)
+
+	// 		RequestedPublishingInterval: 1000,
+	//RequestedMaxKeepAliveCount:  10,
+	//RequestedLifetimeCount:      100,
+	//PublishingEnabled:           true,
 	if err != nil {
 		c.iLog.Critical(fmt.Sprintf("Failed to create subscription: %s", err))
 	}
+	/*
+		for _, tag := range triggerTags {
+			// Create a monitored item for the tag
+			nodeID := ua.NewStringNodeID(2, tag)
 
-	for _, tag := range triggerTags {
-		// Create a monitored item for the tag
-		nodeID := ua.NewStringNodeID(2, tag)
+			item, err := sub.MonitorValue(nodeID, ua.AttributeIDValue, func(v *ua.DataValue) {
+				// Trigger action for tag1
+				callback(tag, v)
+				c.iLog.Debug(fmt.Sprintf("Trigger action for tag1: %v", v.Value))
+			})
+			if err != nil {
+				c.iLog.Error(fmt.Sprintf("Failed to create monitored item for tag1: %v", err))
+			}
 
-		item, err := sub.MonitorValue(nodeID, ua.AttributeIDValue, func(v *ua.DataValue) {
-			// Trigger action for tag1
-			callback(tag, v)
-			c.iLog.Debug(fmt.Sprintf("Trigger action for tag1: %v", v.Value))
-		})
-		if err != nil {
-			c.iLog.Error(fmt.Sprintf("Failed to create monitored item for tag1: %v", err))
 		}
+	*/
+	var nodeID = flag.String("node", "", "node id to subscribe to")
+	var event = flag.Bool("event", false, "subscribe to node event changes (Default: node value changes)")
 
+	id, err := ua.ParseNodeID(*nodeID)
+	if err != nil {
+		log.Fatal(err)
 	}
 
+	var miCreateRequest *ua.MonitoredItemCreateRequest
+	var eventFieldNames []string
+	if *event {
+		miCreateRequest, eventFieldNames = eventRequest(id)
+	} else {
+		miCreateRequest = valueRequest(id)
+	}
+	res, err := sub.Monitor(context.Background(), ua.TimestampsToReturnBoth, miCreateRequest)
+	if err != nil || res.Results[0].StatusCode != ua.StatusOK {
+		log.Fatal(err)
+	}
+
+	// read from subscription's notification channel until ctx is cancelled
+	for {
+		select {
+		case <-context.Background().Done():
+			return sub, nil
+		case res := <-notifyCh:
+			if res.Error != nil {
+				log.Print(res.Error)
+				continue
+			}
+
+			switch x := res.Value.(type) {
+			case *ua.DataChangeNotification:
+				for _, item := range x.MonitoredItems {
+					data := item.Value.Value.Value()
+					log.Printf("MonitoredItem with client handle %v = %v", item.ClientHandle, data)
+				}
+
+			case *ua.EventNotificationList:
+				for _, item := range x.Events {
+					log.Printf("Event for client handle: %v\n", item.ClientHandle)
+					for i, field := range item.EventFields {
+						log.Printf("%v: %v of Type: %T", eventFieldNames[i], field.Value(), field.Value())
+					}
+					log.Println()
+				}
+
+			default:
+				log.Printf("what's this publish result? %T", res.Value)
+			}
+		}
+	}
 	return sub, nil
 }
 
@@ -517,7 +577,7 @@ func (c *OPCClient) monitorSubscribeGroup(group []*opcua.Subscription) {
 			},
 		}
 
-		sub.Monitor(ua.TimestampsToReturnBoth, miCreateRequests...)
+		sub.Monitor(context.Background(), ua.TimestampsToReturnBoth, miCreateRequests...)
 	}
 }
 
@@ -546,7 +606,7 @@ func (c *OPCClient) getFilter(filterStr string) *ua.ExtensionObject {
 
 func (c *OPCClient) Disconnect() {
 	// Disconnect from the OPC UA server
-	c.Client.Close()
+	c.Client.Close(context.Background())
 	c.iLog.Debug(fmt.Sprintf("Disconnected from OPC Server: %s", c.Endpoint))
 }
 
