@@ -23,7 +23,7 @@ func TestCSharpFuncs_Execute(t *testing.T) {
 	}
 }
 
-func Testfunction(t *testing.T) {
+func Test_Testfunction(t *testing.T) {
 	type args struct {
 		content string
 		inputs  interface{}

@@ -1268,7 +1268,9 @@ var LayoutEditor = {
               {attrs:{value: 'Back', innerHTML: 'Back',lngcode: 'Back'}},
               {attrs:{value: 'page', innerHTML: 'Page',lngcode: 'Page'}},
               {attrs:{value: 'script', innerHTML: 'Script',lngcode: 'Script'}}, 
-              {attrs:{value: 'view', innerHTML: 'View',lngcode: 'View'}}],
+              {attrs:{value: 'view', innerHTML: 'View',lngcode: 'View'}},
+              {attrs:{value: 'popup', innerHTML: 'Popup',lngcode: 'Popup'}}
+            ],
           }
           let events = {
             "change": function(){
@@ -1293,6 +1295,10 @@ var LayoutEditor = {
                 $('#script').prop("disabled", false);
               else if( type == 'view')
                 showactionviewcfg();
+              else if( type == 'popup'){
+                $('#actionpopup_section input').prop("disabled", false);
+                $('#actionpopup_section .fa-plus').prop("disabled", false);    
+              }
             }
           }
           attrs.events = events;
@@ -1329,6 +1335,25 @@ var LayoutEditor = {
             LayoutEditor.OpenEntity("Page")
           }}
           new UI.FormControl(row, 'li', {class: "fa fa-link",style: 'width: 50%;'}, events)
+
+
+          new UI.FormControl(container, 'br');
+          attrs={for: 'actionpopup',innerHTML: 'Popup View'}
+          new UI.FormControl(container, 'label',attrs);
+
+          row = (new UI.FormControl(container, 'div',{id:'actionpopup_section',style:"display:row; width:100%" })).control;
+          attrs={id: 'actionpopup',    type: 'text',      value: action.popupview || '',   placeholder: 'Popup View',       style: 'width: 100%;'      }
+          new UI.FormControl(row, 'input',attrs);
+          events={"click": function(){
+            LayoutEditor.SelectEntity("View")
+          }}
+          new UI.FormControl(row, 'li', {class: "fa fa-plus",style: 'width: 50%;'}, events)
+          events={"click": function(){
+            LayoutEditor.OpenEntity("View")
+          }}
+          new UI.FormControl(row, 'li', {class: "fa fa-link",style: 'width: 50%;'}, events)
+
+          new UI.FormControl(container, 'br');
 
           attrs={      for: 'script',         innerHTML: 'Script'       }
           new UI.FormControl(container, 'label',attrs);
@@ -1368,6 +1393,7 @@ var LayoutEditor = {
               action.next = next;
               action.page = page;
               action.script = script;
+              action.popupview = $('#actionpopup').val();
               if(type == 'view'){
                 let table = document.getElementById("action_view_table");
                 let data = table.Table.getData();

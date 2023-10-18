@@ -2332,6 +2332,10 @@ function rAFThrottle(func) {
             return s;
         }
         createStyle(link) {
+            link = link.toLowerCase();
+            if(UI.isStyleLoaded(link))
+                return;
+            
             var s = document.createElement("link");
             s.href = link.toLowerCase();
             s.rel = "stylesheet";
