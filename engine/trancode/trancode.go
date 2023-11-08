@@ -195,7 +195,7 @@ type TranCodeData struct {
 type TranFlowstr struct {
 }
 
-func (t *TranFlowstr) Execute(tcode string, inputs map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc, dbTx ...*sql.Tx) (map[string]interface{}, error) {
+func (t *TranFlowstr) Execute(tcode string, inputs map[string]interface{}, sc signalr.Client, docdbconn *documents.DocDB, ctx context.Context, ctxcancel context.CancelFunc, dbTx ...*sql.Tx) (map[string]interface{}, error) {
 	tc, err := GetTranCodeData(tcode)
 
 	if err != nil {
@@ -207,6 +207,8 @@ func (t *TranFlowstr) Execute(tcode string, inputs map[string]interface{}, ctx c
 	idbTx := append(dbTx, nil)[0]
 
 	tf := NewTranFlow(tc, externalinputs, systemSession, ctx, ctxcancel, idbTx)
+	tf.SignalRClient = sc
+	tf.DocDBCon = docdbconn
 
 	return tf.Execute()
 }

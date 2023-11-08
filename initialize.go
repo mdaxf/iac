@@ -83,6 +83,26 @@ func initializeDatabase() {
 	dbconn.DatabaseType = databaseconfig["type"].(string)
 	dbconn.DatabaseConnection = databaseconfig["connection"].(string)
 
+	if databaseconfig["maxidleconns"] == nil {
+		dbconn.MaxIdleConns = 5
+	} else {
+		if v, ok := databaseconfig["maxidleconns"].(float64); ok {
+			dbconn.MaxIdleConns = int(v)
+		} else {
+			dbconn.MaxIdleConns = 5
+		}
+	}
+
+	if databaseconfig["maxopenconns"] == nil {
+		dbconn.MaxOpenConns = 10
+	} else {
+		if v, ok := databaseconfig["maxopenconns"].(float64); ok {
+			dbconn.MaxOpenConns = int(v)
+		} else {
+			dbconn.MaxOpenConns = 10
+		}
+	}
+
 	err := dbconn.ConnectDB()
 	if err != nil {
 		ilog.Error(fmt.Sprintf("initialize Database error: %s", err.Error()))
@@ -218,15 +238,7 @@ func initializecache() {
 
 	default:
 		interval := config.SessionCacheTimeout
-		/*
-			if cacheConfig["memory"] != nil {
-				memorycfg := cacheConfig["memory"].(map[string]interface{})
-				if memorycfg["interval"] != nil {
-					interval = int(memorycfg["interval"].(float64))
-				}
-			}  */
-		config.SessionCache, err = cache.NewCache(cacheConfig["adapter"].(string), fmt.Sprintf(`{"interval":"%d"}`, interval))
-		//config.SessionCache, err = cache.NewCache("memory", `{"interval":60}`)
+		config.SessionCache, err = cache.NewCache(cacheConfig["adapter"].(string), fmt.Sprintf(`{"interval":%v}`, interval))
 		if err != nil {
 			ilog.Error(fmt.Sprintf("initialize cache error: %s", err.Error()))
 		}

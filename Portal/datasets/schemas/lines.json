@@ -29,7 +29,7 @@
                     "Name",  "Code",
                     "Description", "dummy", 
                     {"Factory":{"link": "factories", "schema":"factories", "field": "Name"}}, "dummy", 
-                    {"PatentLine":{"link": "lines", "schema":"lines", "field": "Name"}}, "dummy", 
+                    {"ParentLine":{"link": "lines", "schema":"lines", "field": "Name"}}, "dummy", 
                     "Type", "Class",              
                     "active"
                 ]

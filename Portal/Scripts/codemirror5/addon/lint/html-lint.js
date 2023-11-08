@@ -43,6 +43,14 @@
       }
       return found;
     }
+
+    if(!HTMLHint.verify){
+      HTMLHint = require("htmlhint").HTMLHint; 
+    }
+
+    if(!HTMLHint.verify)
+      return [];
+    
     var messages = HTMLHint.verify(text, options && options.rules || defaultRules);
     for (var i = 0; i < messages.length; i++) {
       var message = messages[i];

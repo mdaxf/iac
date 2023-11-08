@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"reflect"
@@ -21,6 +22,20 @@ func GetRequestBody(ctx *gin.Context) ([]byte, error) {
 	}
 	iLog.Debug(fmt.Sprintf("GetRequestBody body: %s", body))
 	return body, nil
+}
+
+func GetRequestBodybyJson(ctx *gin.Context) (map[string]interface{}, error) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetRequestBodybyJson"}
+	iLog.Debug(fmt.Sprintf("GetRequestBodybyJson"))
+
+	var request map[string]interface{}
+	err := json.NewDecoder(ctx.Request.Body).Decode(&request)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to decode request body: %v", err))
+		return nil, err
+	}
+	iLog.Debug(fmt.Sprintf("GetRequestBodybyJson request: %s", request))
+	return request, nil
 }
 
 func mapToStruct(data map[string]interface{}, outStruct interface{}) error {

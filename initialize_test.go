@@ -34,7 +34,9 @@ func Test_initializeDatabase(t *testing.T) {
 	tests := []struct {
 		name string
 	}{
-		// TODO: Add test cases.
+		{
+			name: "Test Case 1",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -43,11 +45,13 @@ func Test_initializeDatabase(t *testing.T) {
 	}
 }
 
+/*
 func Test_initializecache(t *testing.T) {
 	tests := []struct {
 		name string
 	}{
 		// TODO: Add test cases.
+
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -93,4 +97,4 @@ func Test_initializeIACMessageBus(t *testing.T) {
 			initializeIACMessageBus()
 		})
 	}
-}
+} */

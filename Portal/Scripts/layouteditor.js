@@ -1369,7 +1369,30 @@ var LayoutEditor = {
          /* attrs={      id: 'view',  type: 'text',  value: action.view || '',  placeholder: 'View',       style: 'width: 100%;' }
           new UI.FormControl(container, 'textArea',attrs); */
 
-          attrs={for: 'next',innerHTML: 'Next'}
+          attrs={for: 'displaytype', innerHTML: 'Display Type', lngcode: 'DisplayType'}
+          new UI.FormControl(container, 'label',attrs);
+          attrs={
+            attrs:{id: 'displaytype',style: 'width: 100%;'}, selected: action.displaytype || '',
+            options: [
+              {attrs:{value: 'None', innerHTML: 'None', lngcode: 'None'}},
+              {attrs:{value: 'Button', innerHTML: 'Button', lngcode: 'Button'}},
+              {attrs:{value: 'Tab', innerHTML: 'Tab',lngcode: 'Tab'}}
+            ],
+          }
+          attrs.selected = action.displaytype || '';
+          new UI.Selection(container,attrs);
+
+          attrs= {for:'Sequence', innerHTML:'Sequence',lngcode:"Sequence"}
+          new UI.FormControl(container, 'label',attrs);
+          attrs={id:'sequence',type:'text',value: action.sequence || '', placeholder: 'Sequence',style: 'width: 100%;'}
+          new UI.FormControl(container, 'input',attrs);
+
+          attrs= {for:'defaultaction', innerHTML:'Default',lngcode:"Default"}
+          new UI.FormControl(container, 'label',attrs);
+          attrs={id:'defaultaction',type:'checkbox',value: action.defaultaction || false, placeholder: 'default action',style: 'width: 100%;'}
+          new UI.FormControl(container, 'input',attrs);
+
+          attrs={for: 'next',innerHTML: 'Next',lngcode:"Next"}
           new UI.FormControl(container, 'label',attrs);
           attrs={id: 'next', type: 'text', value: action.next || '', placeholder: 'Next',style: 'width: 100%;'}
           new UI.FormControl(container, 'input',attrs);
@@ -1392,6 +1415,9 @@ var LayoutEditor = {
               action.type = type;
               action.next = next;
               action.page = page;
+              action.sequence = $('#sequence').val();
+              action.displaytype = $('#displaytype').val();
+              action.defaultaction = $('#defaultaction').val();
               action.script = script;
               action.popupview = $('#actionpopup').val();
               if(type == 'view'){
@@ -1984,6 +2010,23 @@ var LayoutEditor = {
                       saveAs(file)
 
                     break;
+                    case 'Import':
+                      let input = document.createElement('input');
+                      input.type = 'file';
+                      input.onchange = e => {
+                        let file = e.target.files[0];
+                        let reader = new FileReader();
+                        reader.readAsText(file,'UTF-8');
+                        reader.onload = readerEvent => {
+                          let content = readerEvent.target.result;
+                          let pagejson = JSON.parse(content);
+                          LayoutEditor.JsonObj.data = pagejson;
+                          LayoutEditor.generateLayout();
+                          LayoutEditor.ShowPageStructure();
+                        }
+                      }
+                      input.click();
+                    break;
                     case 'Redlines':
                       LayoutEditor.JsonObj.showRedlines();
                       break;
@@ -2013,7 +2056,7 @@ var LayoutEditor = {
                   }, 
                   'Export':{
                     name: 'Export',
-                    icon: 'fa-export',
+                    icon: 'fa-file-export',
                     disabled:false
                   },  
                   'Redlines':{

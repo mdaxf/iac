@@ -29,6 +29,7 @@
                 },
                 "ViewOnly":{
                     "type": "boolean",
+                    "editable": true,
                     "lng":{
                         "code": "ViewOnly",
                         "default":"ViewOnly"

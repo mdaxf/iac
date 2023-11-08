@@ -11,7 +11,7 @@ customElements.define('ui-tabulator', class extends HTMLElement {
         link.setAttribute('rel', 'stylesheet');
         link.setAttribute('href', 'styles/uitabulator.css'); */
         this.shadow.appendChild(link);
-        console.log("ui-tabulator", this)
+      //  console.log("ui-tabulator", this)
         this.columns = [];
         this.data = [];
         this.lngcodes={};
@@ -110,7 +110,7 @@ customElements.define('ui-tabulator', class extends HTMLElement {
     }
     
     static get observedAttributes() {
-        return ["schema", "datakey_field", "datakey_value", "data_viewonly"];
+        return ["schema", "datakey_field", "datakey_value", "data_viewonly", "condition"];
     }
 
     loaddatabyschema(){
@@ -133,13 +133,16 @@ customElements.define('ui-tabulator', class extends HTMLElement {
           let type = ""; 
           let datasource = "";
           let listfields = [];
+          let querystr ="";
           if(schema.hasOwnProperty('datasourcetype'))
               type = schema.datasourcetype;
           if(schema.hasOwnProperty('datasource'))
               datasource = schema.datasource;
           if(schema.hasOwnProperty('listfields'))
               listfields = schema.listfields;
-             
+          if(schema.hasOwnProperty('query'))
+            querystr = schema.query;
+
           let data ={}
           for(var i=0;i<listfields.length;i++){
               data[listfields[i]] = 1;
@@ -173,7 +176,7 @@ customElements.define('ui-tabulator', class extends HTMLElement {
               url = '/collection/list'
           }
           else if(type == "table" && datasource !=''){
-                
+            if(querystr ==""){
               inputs["tablename"] = datasource.toLowerCase();                 
               inputs["operation"] = "list";
               data ={}                    
@@ -184,6 +187,12 @@ customElements.define('ui-tabulator', class extends HTMLElement {
               inputs["where"] = {};
                   
               url = '/sqldata/get'
+            }else{
+                url = "/sqldata/query"                
+                inputs["querystr"] = querystr;
+                inputs["operation"] = "query";
+            }
+
           }
           else {
               UI.ShowError('Data Source Not Found');
@@ -192,9 +201,14 @@ customElements.define('ui-tabulator', class extends HTMLElement {
           if(this.data_url != null)
               url = this.data_url;
   
+          if(this.condition){
+                let where={}
+                where[this.condition] = "";
+                inputs["where"] = where;
+          }
           this.url = url;
           this.inputs = inputs;
-  
+          
           let Tabulator_Columns = [];
           
           Tabulator_Columns.push(
@@ -361,6 +375,7 @@ customElements.define('ui-tabulator', class extends HTMLElement {
         this.data_viewonly = this.getAttribute("data_viewonly");
         this.data_url = this.getAttribute("data_url");
         this.data_method = this.getAttribute("data_method");
+        this.condition = this.getAttribute("condition");
 
         if(!this.data_method)
             this.data_method = "";

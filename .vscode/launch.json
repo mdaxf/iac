@@ -5,22 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch test function",
-            "type": "go",
-            "request": "launch",
-            "mode": "test",
-            "program": "${workspaceFolder}",
-            "args": [
-                "-test.run",
-                "MyTestFunction"
-            ]
-        },
-        {
-            "name": "Launch Package",
+            "name": "Launch without test",
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${fileDirname}"
+            "program": "${workspaceFolder}",
+            "env": {},
+            "args": [
+                "-exclude", ".*_test.go"
+            ]
         }
     ]
 }

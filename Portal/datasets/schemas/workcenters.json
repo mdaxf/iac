@@ -30,7 +30,7 @@
                     "Description", "dummy", 
                     {"Company":{"link": "companies", "schema":"companies", "field": "Name"}}, {"Department":{"link": "departments", "schema":"departments", "field": "Name"}},     
                     {"Factory":{"link": "factories", "schema":"factories", "field": "Name"}}, {"Line":{"link": "lines", "schema":"lines", "field": "Name"}}, 
-                    {"PatentWorkCenter":{"link": "workcenters", "schema":"workcenters", "field": "Name"}}, "dummy",  
+                    {"ParentWorkCenter":{"link": "workcenters", "schema":"workcenters", "field": "Name"}}, "dummy",  
                     "Type", "Class",                
                     "active"
                 ]

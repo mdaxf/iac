@@ -28,7 +28,7 @@
                 "fields": [
                     "Name",  "Code",
                     "Description", "dummy", 
-                    {"Company":{"link": "companies", "schema":"companies", "field": "Name"}}, "dummy",                    
+                    {"Company":{"link": "companies", "schema":"companies", "field": "Name"}}, {"Factory":{"link": "factories", "schema":"factories", "field": "Name"}},                    
                     "active"
                 ]
             }
@@ -74,6 +74,14 @@
                     "lng":{
                         "code": "Company",
                         "default":"Company"
+                    }                   
+                }, 
+                "Factory":{
+                    "type": "string",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "Factory",
+                        "default":"Factory"
                     }                   
                 },    
                 "active": {

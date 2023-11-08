@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
@@ -18,6 +19,8 @@ import (
 	"github.com/mdaxf/iac/logger"
 
 	"github.com/mdaxf/iac/documents"
+
+	"github.com/mdaxf/iac/controllers/common"
 )
 
 type TranCodeController struct {
@@ -344,6 +347,141 @@ func (e *TranCodeController) UpdateTranCodeToRespository(ctx *gin.Context) {
 
 }
 
+func (e *TranCodeController) TranCodeRevision(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCodeController"}
+	iLog.Debug(fmt.Sprintf("Revision transaction code to respository!"))
+
+	request, err := common.GetRequestBodybyJson(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get request body: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get request body"})
+		return
+	}
+
+	id, ok := request["_id"].(string)
+	if !ok {
+		iLog.Error(fmt.Sprintf("Failed to get _id from request"))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get _id from request"})
+		return
+	}
+	iLog.Debug(fmt.Sprintf("Revision transaction code to respository with _id: %s", id))
+
+	parsedObjectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to parse object id: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse object id"})
+		return
+	}
+	if err != nil {
+		iLog.Error(fmt.Sprintf("failed to parse object id: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	filter := bson.M{"_id": parsedObjectID}
+	iLog.Debug(fmt.Sprintf("Revision transaction code to respository with filter: %v", filter))
+
+	newvision := request["version"].(string)
+	iLog.Debug(fmt.Sprintf("Revision transaction code to respository with version: %s", newvision))
+	newname := request["trancodename"].(string)
+	iLog.Debug(fmt.Sprintf("Revision transaction code to respository with trancodename: %s", newname))
+	isdefault := request["isdefault"].(bool)
+	iLog.Debug(fmt.Sprintf("Revision transaction code to respository with isdefault: %s", isdefault))
+
+	vfilter := bson.M{"trancodename": newname, "version": newvision}
+
+	existedobj, err := ValidateIfObjectExist(vfilter)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to query transaction code: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if existedobj {
+		iLog.Error(fmt.Sprintf("The trancode: %s with version: %s already exist!", newname, newvision))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "the trancode alreay exist!"})
+		return
+	}
+
+	tcitems, err := documents.DocDBCon.QueryCollection("Transaction_Code", filter, nil)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to query transaction code: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(tcitems) == 0 {
+		iLog.Error(fmt.Sprintf("Failed to query transaction code: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Failed to query transaction code"})
+		return
+	}
+
+	tcitem := tcitems[0]
+	iLog.Debug(fmt.Sprintf("Revision transaction code to respository with tcitem: %v", tcitem))
+
+	trancodename := tcitem["trancodename"].(string)
+	iLog.Debug(fmt.Sprintf("Revision transaction code to respository with trancodename: %s", trancodename))
+
+	if isdefault {
+		iLog.Debug(fmt.Sprintf("Revision transaction code to in respository to set default to false: %s", trancodename))
+		filter := bson.M{"isdefault": true,
+			"trancodename": newname}
+		update := bson.M{"$set": bson.M{"isdefault": false, "system.updatedon": time.Now().UTC(), "system.updatedby": "system"}}
+
+		iLog.Debug(fmt.Sprintf("Revision transaction code to in respository with filter: %v", filter))
+		iLog.Debug(fmt.Sprintf("Revision transaction code to in respository with update: %v", update))
+		err := documents.DocDBCon.UpdateCollection("Transaction_Code", filter, update, nil)
+		if err != nil {
+			iLog.Error(fmt.Sprintf("failed to update transaction code: %v", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	utcTime := time.Now().UTC()
+	tcitem["system.updatedon"] = utcTime
+	tcitem["system.updatedby"] = "system"
+	tcitem["system.createdon"] = utcTime
+	tcitem["system.createdby"] = "system"
+	tcitem["trancodename"] = newname
+	tcitem["version"] = newvision
+	tcitem["isdefault"] = isdefault
+	tcitem["status"] = 1
+	tcitem["uuid"] = uuid.New().String()
+	tcitem["description"] = utcTime.String() + ": Revision transaction code " + trancodename + " to " + newname + " with version " + newvision + " \n " + tcitem["description"].(string)
+	delete(tcitem, "_id")
+
+	iLog.Debug(fmt.Sprintf("Revision transaction code to respository with tcitem: %v", tcitem))
+
+	insertResult, err := documents.DocDBCon.InsertCollection("Transaction_Code", tcitem)
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("failed to insert transaction code: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	id = insertResult.InsertedID.(primitive.ObjectID).Hex()
+
+	result := map[string]interface{}{
+		"id":     id,
+		"status": "Success",
+	}
+	ctx.JSON(http.StatusOK, gin.H{"Outputs": result})
+
+}
+func ValidateIfObjectExist(filter bson.M) (bool, error) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "ValidateIfObjectExist"}
+	iLog.Debug(fmt.Sprintf("Validate if object exist in collection"))
+
+	collectionitems, err := documents.DocDBCon.QueryCollection("Transaction_Code", filter, nil)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("failed to query collection: %v", err))
+		return false, err
+	}
+	if len(collectionitems) == 0 {
+		return false, nil
+	}
+	return true, nil
+}
 func getDataFromRequest(ctx *gin.Context) (TranCodeData, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromRequest"}
 	iLog.Debug(fmt.Sprintf("GetDataFromRequest"))

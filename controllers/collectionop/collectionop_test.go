@@ -164,3 +164,21 @@ func TestCollectionController_buildProjection(t *testing.T) {
 		})
 	}
 }
+
+func TestCollectionController_CollectionObjectRevision(t *testing.T) {
+	type args struct {
+		ctx *gin.Context
+	}
+	tests := []struct {
+		name string
+		c    *CollectionController
+		args args
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.c.CollectionObjectRevision(tt.args.ctx)
+		})
+	}
+}

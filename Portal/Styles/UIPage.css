@@ -275,6 +275,7 @@ i.icon.saveas:before{
 
 .ui-json-detail-page-tab-content > table {
     width: 95%;
+    height: fit-content;
     border-collapse: collapse;
     border-spacing: 0;
     
@@ -30759,11 +30760,10 @@ span.k-widget.iac-ui-ctdatetime > span.k-picker-wrap.iac-ui-groupsolid > *[disab
   .ui-page-menu {
     display: flex;
     flex-direction: column;
-    background: url(images/iacflogo.png) no-repeat center center;
-   
+    background: url(images/iacflogo.png) no-repeat center center;   
     width: 100%;
-    height: 95%;
     padding: 20px 20px 20px 20px;
+    flex-wrap: wrap;
   }
   .ui-page-menu-item {
     padding: 3px;
@@ -30829,11 +30829,10 @@ span.k-widget.iac-ui-ctdatetime > span.k-picker-wrap.iac-ui-groupsolid > *[disab
 @media only screen and (min-width: 960px){
   .ui-page-menu {
     display: flex;
-    background: url(images/iacflogo.png) no-repeat center center;
-   
+    background: url(images/iacflogo.png) no-repeat center center;   
     width: 100%;
-    height: 95%;
     padding: 20px 20px 20px 20px;
+    flex-wrap: wrap
   }
   .ui-page-menu-item {
     padding: 3px;

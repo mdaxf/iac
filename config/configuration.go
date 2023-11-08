@@ -90,6 +90,11 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 	com.SingalRConfig = jsonData.SingalRConfig
 	//fmt.Println(com.SingalRConfig, com.Instance)
 
+	Transaction := jsonData.Transaction
+
+	com.TransactionTimeout = com.ConverttoIntwithDefault(Transaction["timeout"], 15)
+	com.DBTransactionTimeout = com.ConverttoIntwithDefault(jsonData.DatabaseConfig["timeout"], 5)
+
 	fmt.Println("loaded global configuration:", jsonData)
 	return &jsonData, nil
 }

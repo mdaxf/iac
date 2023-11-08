@@ -3,7 +3,7 @@
     "$ref": "#/definitions/Factory",
     "datasourcetype": "table",
     "datasource": "factories",
-    "listfields":["Name","Description", "Code", "Company", "Department","CreatedBy", "CreatedOn", "UpdatedBy","UpdatedOn"],
+    "listfields":["Name","Description", "Code", "Company", "BusinessUnit","CreatedBy", "CreatedOn", "UpdatedBy","UpdatedOn"],
     "keyfield":"Name",
     "detailpage":{
         "tabs": {
@@ -29,7 +29,7 @@
                     "Name",  "Code",
                     "Description", "dummy", 
                     {"Company":{"link": "companies", "schema":"companies", "field": "Name"}}, "dummy", 
-                    {"Department":{"link": "departments", "schema":"departments", "field": "Name"}},"dummy",                   
+                    {"BusinessUnit":{"link": "businessunits", "schema":"businessunits", "field": "Name"}},"dummy",                   
                     "active"
                 ]
             }
@@ -77,12 +77,12 @@
                         "default":"Company"
                     }                   
                 },  
-                "Department":{
+                "BusinessUnit":{
                     "type": "string",
                     "nullvalue":"",
                     "lng":{
-                        "code": "Department",
-                        "default":"Department"
+                        "code": "BusinessUnit",
+                        "default":"Business Unit"
                     }                   
                 },    
                 "active": {

@@ -32,12 +32,30 @@ import (
 )
 
 func TestLoadConfig(t *testing.T) {
+	type Database struct {
+		Host string
+		Port int
+	}
+
+	type Config struct {
+		Database Database
+	}
+
 	tests := []struct {
 		name    string
 		want    *Config
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "Test Case 1",
+			want: &Config{
+				Database: Database{
+					Host: "localhost",
+					Port: 5432,
+				},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -60,6 +78,13 @@ func TestLoadGlobalConfig(t *testing.T) {
 		wantErr bool
 	}{
 		// TODO: Add test cases.
+		{
+			name: "Test Case 1",
+			want: &GlobalConfig{
+				InstanceName: "",
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -73,4 +98,5 @@ func TestLoadGlobalConfig(t *testing.T) {
 			}
 		})
 	}
+
 }

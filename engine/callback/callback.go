@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"time"
 
+	"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/signalrsrv/signalr"
@@ -33,7 +35,7 @@ func ExecuteTranCode(key string, tcode string, inputs map[string]interface{}, ct
 
 		log.Debug(fmt.Sprintf("callBack: %s", callBack))
 
-		in := make([]reflect.Value, 5)
+		in := make([]reflect.Value, 7)
 		in[0] = reflect.ValueOf(tcode)
 		if inputs == nil {
 			inputs = map[string]interface{}{}
@@ -41,21 +43,27 @@ func ExecuteTranCode(key string, tcode string, inputs map[string]interface{}, ct
 
 		in[1] = reflect.ValueOf(inputs)
 
-		if ctx == nil {
-			ctx = context.Background()
+		if sc == nil {
+			sc = com.IACMessageBusClient
 		}
-		in[2] = reflect.ValueOf(ctx)
+		in[2] = reflect.ValueOf(sc)
+
+		if DBCon == nil {
+			DBCon = documents.DocDBCon
+		}
+		in[3] = reflect.ValueOf(DBCon)
+
+		if ctx == nil {
+			ctx, ctxcancel = context.WithTimeout(context.Background(), time.Second*time.Duration(com.TransactionTimeout))
+		}
+		in[4] = reflect.ValueOf(ctx)
 
 		if ctxcancel == nil {
 			ctxcancel = func() {}
 		}
-		in[3] = reflect.ValueOf(ctxcancel)
+		in[5] = reflect.ValueOf(ctxcancel)
 
-		in[4] = reflect.ValueOf(dbTx)
-
-		in[5] = reflect.ValueOf(DBCon)
-
-		in[6] = reflect.ValueOf(sc)
+		in[6] = reflect.ValueOf(dbTx)
 
 		log.Debug(fmt.Sprintf("in: %s", in))
 

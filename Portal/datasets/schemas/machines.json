@@ -31,6 +31,7 @@
                     {"Company":{"link": "companies", "schema":"companies", "field": "Name"}},{"Department":{"link": "departments", "schema":"departments", "field": "Name"}},
                     {"Factory":{"link": "factories", "schema":"factories", "field": "Name"}}, {"LineNo":{"link": "lines", "schema":"lines", "field": "Name"}}, 
                     {"WorkCenter":{"link": "workcenters", "schema":"workcenters", "field": "Name"}}, "dummy", 
+                    {"ParentMachine":{"link": "machines", "schema":"machines", "field": "Name"}}, "dummy", 
                     "SetupDate", "dummy",
                     "LastMaintenanceDate", "NextMaintenanceDate",
                     "Type", "Class",              
@@ -111,6 +112,38 @@
                     "lng":{
                         "code": "WorkCenter",
                         "default":"Work Center"
+                    }                   
+                }, 
+                "ParentMachine":{
+                    "type": "string",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "ParentMachine",
+                        "default":"Parent Machine"
+                    }                   
+                },
+                "SetupDate":{
+                    "type": "datetime",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "SetupDate",
+                        "default":"Installation Date"
+                    }                   
+                }, 
+                "LastMaintenanceDate":{
+                    "type": "datetime",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "LastMaintenanceDate",
+                        "default":"Last Maintenance Date"
+                    }                   
+                }, 
+                "NextMaintenanceDate":{
+                    "type": "datetime",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "NextMaintenanceDate",
+                        "default":"Next Maintenance Date"
                     }                   
                 }, 
                 "Type":{

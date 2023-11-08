@@ -11,12 +11,15 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/mdaxf/iac/logger"
 
 	"github.com/mdaxf/iac/documents"
+
+	"github.com/mdaxf/iac/controllers/common"
 )
 
 type CollectionController struct {
@@ -384,6 +387,148 @@ func (c *CollectionController) DeleteCollectionDatabyID(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"data": result})
 }
 
+func (c *CollectionController) CollectionObjectRevision(ctx *gin.Context) {
+
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "CollectionObjectRevision"}
+	iLog.Debug(fmt.Sprintf("Revision collection to respository!"))
+
+	request, err := common.GetRequestBodybyJson(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get request body: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get request body"})
+		return
+	}
+
+	id, ok := request["_id"].(string)
+	if !ok {
+		iLog.Error(fmt.Sprintf("Failed to get _id from request"))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get _id from request"})
+		return
+	}
+	iLog.Debug(fmt.Sprintf("Revision collection object to respository with _id: %s", id))
+
+	parsedObjectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to parse object id: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse object id"})
+		return
+	}
+	if err != nil {
+		iLog.Error(fmt.Sprintf("failed to parse object id: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	filter := bson.M{"_id": parsedObjectID}
+	iLog.Debug(fmt.Sprintf("Revision collection object to respository with filter: %v", filter))
+
+	newvision := request["version"].(string)
+	iLog.Debug(fmt.Sprintf("Revision collection object to respository with version: %s", newvision))
+	newname := request["name"].(string)
+	iLog.Debug(fmt.Sprintf("Revision collection object to respository with new name: %s", newname))
+	isdefault := request["isdefault"].(bool)
+	iLog.Debug(fmt.Sprintf("Revision collection object to respository with isdefault: %s", isdefault))
+	collectionname := request["collectionname"].(string)
+	iLog.Debug(fmt.Sprintf("Revision collection object to respository with collectionname: %s", collectionname))
+	if collectionname == "" {
+		iLog.Error(fmt.Sprintf("Failed to get collection name from request"))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get collection name from request"})
+		return
+	}
+
+	vfilter := bson.M{"name": newname, "version": newvision}
+	iLog.Debug(fmt.Sprintf("Revision collection object to respository with vfilter: %v", vfilter))
+	ifexist, err := ValidateIfObjectExist(collectionname, vfilter)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to query collection object: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if ifexist {
+		iLog.Error(fmt.Sprintf("collection %s with name %s and version %s alrweady exists!", collectionname, newname, newvision))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Failed to query collection object"})
+		return
+	}
+
+	tcitems, err := documents.DocDBCon.QueryCollection(collectionname, filter, nil)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to query collection object: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(tcitems) == 0 {
+		iLog.Error(fmt.Sprintf("Failed to query collection object: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Failed to query collection object"})
+		return
+	}
+
+	tcitem := tcitems[0]
+	iLog.Debug(fmt.Sprintf("Revision collection object to respository with tcitem: %v", tcitem))
+
+	name := tcitem["name"].(string)
+	iLog.Debug(fmt.Sprintf("Revision collection object to respository with trancodename: %s", name))
+
+	if isdefault {
+		iLog.Debug(fmt.Sprintf("Revision collection object to in respository to set default to false: %s", name))
+		filter := bson.M{"isdefault": true,
+			"name": newname}
+		update := bson.M{"$set": bson.M{"isdefault": false, "system.updatedon": time.Now().UTC(), "system.updatedby": "system"}}
+
+		iLog.Debug(fmt.Sprintf("Revision collection object to in respository with filter: %v", filter))
+		iLog.Debug(fmt.Sprintf("Revision collection object to in respository with update: %v", update))
+		err := documents.DocDBCon.UpdateCollection(collectionname, filter, update, nil)
+		if err != nil {
+			iLog.Error(fmt.Sprintf("failed to update collection object: %v", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	utcTime := time.Now().UTC()
+	tcitem["system.updatedon"] = utcTime
+	tcitem["system.updatedby"] = "system"
+	tcitem["system.createdon"] = utcTime
+	tcitem["system.createdby"] = "system"
+	tcitem["name"] = newname
+	tcitem["version"] = newvision
+
+	tcitem["isdefault"] = isdefault
+
+	tcitem["status"] = 1
+
+	tcitem["uuid"] = uuid.New().String()
+
+	if tcitem["description"] == nil {
+		tcitem["description"] = ""
+	}
+
+	tcitem["description"] = utcTime.String() + ": Revision collection object " + name + " to " + newname + " with version " + newvision + " \n " + tcitem["description"].(string)
+
+	delete(tcitem, "_id")
+
+	iLog.Debug(fmt.Sprintf("Revision collection object to respository with tcitem: %v", tcitem))
+
+	insertResult, err := documents.DocDBCon.InsertCollection(collectionname, tcitem)
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("failed to insert collection object: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	id = insertResult.InsertedID.(primitive.ObjectID).Hex()
+
+	tcitem["_id"] = id
+	result := map[string]interface{}{
+		"id":     id,
+		"data":   tcitem,
+		"status": "Success",
+	}
+	ctx.JSON(http.StatusOK, gin.H{"data": result})
+
+}
+
 func (c *CollectionController) buildProjectionFromJSON(jsonData []byte, converttype string) (bson.M, error) {
 	// Parse JSON into a Go map
 	var jsonMap map[string]interface{}
@@ -425,4 +570,19 @@ func (c *CollectionController) buildProjection(jsonMap map[string]interface{}, p
 			}
 		}
 	}
+}
+
+func ValidateIfObjectExist(collectionname string, filter bson.M) (bool, error) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "ValidateIfObjectExist"}
+	iLog.Debug(fmt.Sprintf("Validate if object exist in collection"))
+
+	collectionitems, err := documents.DocDBCon.QueryCollection(collectionname, filter, nil)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("failed to query collection: %v", err))
+		return false, err
+	}
+	if len(collectionitems) == 0 {
+		return false, nil
+	}
+	return true, nil
 }

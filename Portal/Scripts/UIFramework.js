@@ -146,6 +146,9 @@ var IACMessageClient = function (server = ""){
 	}
 
 	this.Publish = function (topic,message) {
+        if(typeof message == "object")
+            message = JSON.stringify(message);
+
 		_client.connection.invoke("send", topic,message,_client.connectionID)
 		
 	}
@@ -422,6 +425,9 @@ var UI;
 
                 let parsedDate = new Date(this.expirateon);
 
+                if (!IACMessageBusClient)
+                    IACMessageBusClient = new IACMessageClient();
+
            //     // UI.Log(this.token, parsedDate, new Date(), (parsedDate > new Date()))
 
                 if(parsedDate > new Date()){
@@ -482,16 +488,7 @@ var UI;
                 this.language = userjdata.language;
                 this.timezone = userjdata.timezone;
             }
-
-            UI.ajax.get(UI.CONTROLLER_URL+"/config").then((response) => {
-                localStorage.setItem(window.location.origin+"_"+"clientconfig", response);
-                var data = JSON.parse(response);
-                var server = data.signalrconfig.serverwc;
-                    IACMessageBusClient = new IACMessageClient(server);
-            }).catch((error) => {
-                UI.ShowError(error);
-                return null;
-            })
+            
 
             if(this.username == username && this.islogin){
 
@@ -512,6 +509,9 @@ var UI;
                     localStorage.setItem(this.sessionkey, JSON.stringify(userjdata));
 
                     this.tokenupdatetimer = window.setTimeout(UI.tokencheck, this.tokenchecktime);
+
+                    if (!IACMessageBusClient)
+                        IACMessageBusClient = new IACMessageClient();
 
                     if(success){
                         success();
@@ -546,6 +546,9 @@ var UI;
 
                     localStorage.setItem(this.sessionkey, JSON.stringify(userjdata));
                     
+                    if (!IACMessageBusClient)
+                        IACMessageBusClient = new IACMessageClient();
+
                     if(success){
                         success();
                     }                
@@ -745,6 +748,7 @@ var UI;
         return Array.from(document.getElementsByTagName('link'))
             .some(link => link.href.toLowerCase().indexOf(styleSrc.toLowerCase()) !== -1);
     }
+    UI.isStyleLoaded = isStyleLoaded;
     function safeName(name){
         return name.replace(/[^a-zA-Z0-9]/g, "_");
     }
@@ -849,6 +853,8 @@ var UI;
                 }
                 UI.Languages.setItemsbyArray(keyList, valueList);
 
+
+                
                 for (let i = 0; i < data.length; i++) {
                  //   UI.Log("translation response:", data[i])
                     let lngcode = data[i].lngcode;
@@ -870,6 +876,17 @@ var UI;
                     //    el.setAttribute("title", short);
                     }
                 }
+
+                let itemsnotran = uncachedcodes.filter(item => !keyList.includes(item));
+                let defaultnotran =[];
+                for(var i=0;i<itemsnotran.length;i++){
+                    let index = uncachedcodes.indexOf(itemsnotran[i]);
+                    defaultnotran.push(uncachedtexts[index]);
+                }
+                if(defaultnotran.length > 0){
+                    UI.Languages.setItemsbyArrayifnotexist(itemsnotran, defaultnotran);
+                }   
+
             }, function(error){
                 UI.ShowError(error);
             })
@@ -897,6 +914,13 @@ var UI;
                 uncached.push(codes[i]);
             }
         }
+        let skipped = UI.skippedLngcodes.getItems(uncached);
+        for(var i=0;i<uncached.length;i++){
+            if(skipped.hasOwnProperty(uncached[i])){
+                uncached.splice(i, 1);
+                i--;
+            }
+        }
 
         let inputs = {
             "lngcodes": uncached,
@@ -917,8 +941,16 @@ var UI;
                 for(var i=0;i<data.length;i++){
                     cachedata[data[i].lngcode] = data[i].text;
                 }
+                
                 if(success)
                     success(cachedata);
+                
+                let itemsnotran = uncached.filter(item => !keyList.includes(item));                
+                
+                if(itemsnotran.length > 0){
+                    UI.skippedLngcodes.setItemsbyArrayifnotexist(itemsnotran, itemsnotran);
+                }  
+                
                 return cachedata;
             }, function(error){
                 if(success)
@@ -992,6 +1024,7 @@ var UI;
             }
             return {};
         }
+        
         setItems(items){
             let result = this.getData();
             if(!result){
@@ -1024,6 +1057,16 @@ var UI;
             jdata.data = data;
             localStorage.setItem(this.sessionkey, JSON.stringify(jdata));
         }
+        setItemsbyArrayifnotexist(keyList, valueList){
+            let jdata = this.getData();
+            let data = jdata.data;
+            for(var i=0;i<keyList.length;i++){
+                if(!data.hasOwnProperty(keyList[i]))
+                    data[keyList[i]] = valueList[i];
+            }
+            jdata.data = data;
+            localStorage.setItem(this.sessionkey, JSON.stringify(jdata));
+        }
         setItem(key, value){
             let jdata = this.getData();
             let data = jdata.data;
@@ -1038,6 +1081,11 @@ var UI;
         UI.Languages = new UILocalStorage("lngcodes");
     else 
         UI.Languages.validatelanguage();
+
+    if(!UI.skippedLngcodes)
+        UI.skippedLngcodes = new UILocalStorage("skippedlngcodes");
+    else
+        UI.skippedLngcodes.validatelanguage();
 
     class UIMessage{
         constructor(message, type="Error"){
@@ -1513,11 +1561,11 @@ function rAFThrottle(func) {
                 root.appendChild(this.overlayElement);
             this.overlayElement.aprOverlay = this;
             var thisOverlay = this;
-            this.overlayElement.addEventListener("DOMNodeRemoved", function (ev) {
+            /*this.overlayElement.addEventListener("DOMNodeRemoved", function (ev) {
                 if (ev.target === this && thisOverlay.visible) {
                     thisOverlay.fireEvent("close", this);
                 }
-            });
+            });*/
             this.overlayElement.addEventListener("DOMNodeInserted", function (ev) {
                 var newelem = ev.target;
                 if (newelem.nodeType === Node.ELEMENT_NODE) {
@@ -1997,7 +2045,7 @@ function rAFThrottle(func) {
 
           //  // UI.Log(this, this.Panel.panelElement);
             Session.views[this.id] = this;
-            //UI.Log(this.configuration)
+            UI.Log("create viewL",this.configuration)
 
      
             
@@ -2045,6 +2093,11 @@ function rAFThrottle(func) {
 
             Session.views[UI.safeId(this.id)] = this;
 
+            UI.Log(this.Panel.id, POPUP_PANEL_ID, this.configuration.title, this.configuration.lngcode, $('.iac-ui-popup-title'))
+            if(this.Panel.id == POPUP_PANEL_ID){
+                $('.iac-ui-popup-title').html(this.configuration.title);
+                $('.iac-ui-popup-title').attr("lngcode",this.configuration.lngcode);
+            }
             // UI.Log(this,this.onLoaded)
 
 
@@ -2117,7 +2170,7 @@ function rAFThrottle(func) {
         }
         async loadfile(file){
             let that = this
-            
+            UI.Log("Load the file:", file)
             if(file in Session.fileResponsitory){
 
                 this.buildviewwithresponse(Session.fileResponsitory[file]);
@@ -2140,7 +2193,7 @@ function rAFThrottle(func) {
                     that.fireOnLoaded();
 
             }).catch((error) => {
-                UI.ShowError("Load the file wrong:",error);
+                UI.ShowError("Load the file " +file+" wrong with error:",error);
             })
         }
         createwithCode(code){
@@ -2356,6 +2409,7 @@ function rAFThrottle(func) {
             newcontent = newcontent.replaceAll("$PageID", this.id);
             newcontent = newcontent.replaceAll("$ViewID", this.id);
             newcontent = newcontent.replaceAll("$View", 'Session.views["'+this.id+'"]');
+        //    newcontent = newcontent.replaceAll("$View", this.id+"_");
 
             let inputnames = Object.keys(this.inputs);
 
@@ -2381,8 +2435,9 @@ function rAFThrottle(func) {
             }
         }
         executeactionchain(){
+            UI.Log(this.configuration.actions[this.outputs.action])
             if(Session.snapshoot.sessionData.action){
-                //    // UI.Log(this.configuration.actions[this.outputs.action])
+                UI.Log(this.configuration.actions[this.outputs.action])
                     if(this.configuration.actions[this.outputs.action]){
                         var action = this.configuration.actions[this.outputs.action];
                         // UI.Log("selected action:",this.outputs.action,action)
@@ -2449,6 +2504,18 @@ function rAFThrottle(func) {
                             if(action.script){
                                 action.script(Session.snapshoot.sessionData);
                             }
+                        }else if(action.type == "popup"){
+                            if(action.popupview){
+                                this.Panel.page.popupOpen(action.popupview);
+                            }else {
+                                UI.ShowError("there is no popup view to load");
+                            }
+                        }else if(action.type == "close_popup" ){
+                            this.Panel.page.popupClose();
+                        }else if(action.type == "close_popup_refresh" ){
+
+                            this.Panel.page.popupClose();
+                            this.Panel.page.Refresh();
                         }
     
                     }
@@ -2799,12 +2866,15 @@ function rAFThrottle(func) {
             pagecontent.style.alignItems = "flex-start";
             switch (this.configuration.orientation) {                
                 case 0:
+                case "0":
                     pagecontent.style.flexDirection = "column";
                     break;
                 case 1:
+                case "1":
                     pagecontent.style.flexDirection = "row";
                     break;
                 case 3:
+                case "3":
                     pagecontent.style.flexDirection = "floating";
                 default:
                     pagecontent.style.flexDirection = "column";
@@ -2872,6 +2942,7 @@ function rAFThrottle(func) {
            new Page(this.configuration,this.id);
         }
         popupOpen(view) {
+            this.popupClose();
             if (!this.popup) {
                 this.popup = new UI.Popup(this.container);
                 this.initializePopup(view);
@@ -2879,15 +2950,35 @@ function rAFThrottle(func) {
                     this.clearPopup();
                 });
             }
-            this.popup.title = view.title;
+        //    this.popup.title = view.title;
             this.popup.open();
+            if($('.iac-ui-popup-title').html() ==""){
+            let safeId = UI.safeId(POPUP_PANEL_ID);
+                UI.Log("popup panel:",$('.iac-ui-popup-title'), safeId, Session.panels[safeId].view)
+                if(Session.panels.hasOwnProperty(safeId)){
+                    let popupview = Session.panels[safeId].view;
+                    UI.Log("popup panel:",popupview, safeId, Session.panels[safeId].view, popupview.configuration.title, popupview.configuration.lngcode)
+                    $('.iac-ui-popup-title').html(popupview.configuration.title);
+                    $('.iac-ui-popup-title').attr("lngcode",popupview.configuration.lngcode);
+                }  
+            }
         }
         popupClose() {
             if (this.popup)
                 this.popup.close();
             this.popup = null;
+
+            if(Session.panels.hasOwnProperty(POPUP_PANEL_ID)){
+                delete Session.panels[POPUP_PANEL_ID];
+            }
+            
         }
-        initializePopup(view) {         
+        initializePopup(view) { 
+            if(typeof view == "string"){
+                view = {
+                    "name":view,
+                    "type":"document"};
+            }
             if($('#'+ POPUP_PANEL_ID).length == 0){  
                 const panel = new Panel(this,{
                     "name": POPUP_PANEL_ID, 

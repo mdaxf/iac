@@ -3,7 +3,7 @@
     "$ref": "#/definitions/UIView",
     "datasourcetype": "collection",
     "datasource": "UI_View",
-    "listfields":["name","revision","isdefault","system.createdby", "system.createdon","_id"],
+    "listfields":["name","version","isdefault","system.createdby", "system.createdon","_id"],
     "keyfield":"_id",
     "definitions": {
         "UIView": {
@@ -31,11 +31,11 @@
                         "default":"Name"
                     } 
                 },
-                "revision": {
+                "version": {
                     "type": "string",
                     "lng":{
-                        "code": "Revision",
-                        "default":"Revision"
+                        "code": "Version",
+                        "default":"Version"
                     } 
                 },
                 "isdefault": {

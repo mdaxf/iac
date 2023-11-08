@@ -106,7 +106,12 @@
           "method": "POST",
           "path": "/delete",
           "handler": "DeleteCollectionDatabyID"
+        },{
+          "method": "POST",
+          "path": "/revision",
+          "handler": "CollectionObjectRevision"
         }
+
       ]},
     {
       "path": "trancode",
@@ -129,6 +134,11 @@
           "method": "POST",
           "path": "/update",
           "handler": "UpdateTranCodeToRespository"
+        },
+        {
+          "method": "POST",
+          "path": "/revision",
+          "handler": "TranCodeRevision"
         }
       ]
     },

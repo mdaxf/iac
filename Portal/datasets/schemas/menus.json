@@ -36,7 +36,7 @@
                     "name", "Description", "LngCode",
                     "PageType", {"ParentID":{"link": "menus", "schema":"menus", "field": "ID"}}, "dummy",
                     "Page","Icon", "dummy",
-                    "Inputs", "dummy", "dummy",
+                    "Inputs", "Position", "dummy",
                     "MenuShow",  "Mobile", "Desktop"
                 ]                  
                 
@@ -59,6 +59,38 @@
                         "linkfields": [
                             {"ID": "menu_roles.menuID"}
                         ],
+                        "fields":{
+                            "Name":{
+                                "type": "string",
+                                "lng": {
+                                    "code": "Name",
+                                    "default": "Name"
+                                }
+                            },
+                            "Description":{
+                                "type": "string",
+                                "lng": {
+                                    "code": "Description",
+                                    "default": "Description"
+                                }
+                            },
+                            "ViewOnly":{
+                                "type": "boolean",
+                                "editable": true,
+                                "lng": {
+                                    "code": "ViewOnly",
+                                    "default": "View Only"
+                                }
+                            },
+                            "menuroleid":{
+                                "type": "integer",
+                                "lng": {
+                                    "code": "ID",
+                                    "default": "ID"
+                                }
+                            }
+                        },
+                        "query_temp":"SELECT r.Name As Name, r.Description As Description, mr.ViewOnly As ViewObly, mr.id as menuroleid FROM menu_roles mr INNER JOIN roles r ON r.id = mr.roleid",
                         "keyfield": "ID",
                         "tablename": "menu_roles",
                         "tablekeyfield": "id",
@@ -66,6 +98,7 @@
                         "schema":"menuroles",
                         "masterschema":"roles",
                         "masterdatafield":"roleid",
+                        "editablefields": {"ViewOnly": "boolean"},
                         "data":{
                             "menu_roles":{
                                 "fields": ["ViewOnly", "id as menuroleid"],
@@ -205,6 +238,13 @@
                     "lng":{
                         "code": "Desktop",
                         "default":"Desktop"
+                    } 
+                },
+                "Position": {
+                    "type": "integer",
+                    "lng":{
+                        "code": "Position",
+                        "default":"Position"
                     } 
                 },
                 "createdby": {

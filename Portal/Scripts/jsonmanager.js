@@ -990,7 +990,8 @@ var UI = UI || {};
                 events={
                     "click": function(){
                         that.getdetailsavedata();
-                        that.trigger_event("save", [that.data]);
+                        UI.Log("save", that.data, that.nullvalues)
+                        that.trigger_event("save", [that.data, that.nullvalues]);
                     }}
                 new UI.FormControl(actionbar, 'button',attrs,events)
             }
@@ -1210,6 +1211,7 @@ var UI = UI || {};
 
         getdetailsavedata(){
             let that = this
+            that.nullvalues = {};
             $('.ui-json-detail-page-tab-content-container').find('input').each(function(){
                 let key = $(this).attr('data-key');
                 if(this.getAttribute('type') == 'checkbox'){
@@ -1218,14 +1220,21 @@ var UI = UI || {};
                     let value = $(this).val();
                     that.simpleUpdateNode(key, value);
                 }
+                if($(this).attr("nullvalue") != undefined){
+                    that.nullvalues[key] =   $(this).attr("nullvalue")   
+                }
             })
 
             $('.ui-json-detail-page-tab-content-container').find('select').each(function(){
                 let key = $(this).attr('data-key');
                 let value = $(this).val();
                 that.simpleUpdateNode(key, value);
+                if($(this).attr("nullvalue") != undefined){
+                    that.nullvalues[key] = $(this).attr("nullvalue")     
+                }
             })
-        
+            UI.Log(that.nullvalues)
+
         }
         createcellelement(tr, field,key, i,rows,cellnumber,wrapper,linkobj){
             let that = this;
@@ -1332,18 +1341,25 @@ var UI = UI || {};
                        let optionlngcodes  = schemaoptions['lngcode']  
                        let optiondefaults = schemaoptions['default']
                        let nodeeditablevalue ='';
+                       let nullstring = "";
+
+                       if(setnullvalue){
+                        nullstring = 'nullvalue="'+schemanullvalue+'"'
+                        
+                        }
                        if(Array.isArray(values)){
                            if(schemareadonly)
-                               nodeeditablevalue =  '<select class="node_input" disabled data-key="'+field+'" id="ui-json-detail-page-tab-content-'+key+'-table-'+i+'-row-'+rows+'-cell-'+cellnumber+'" >'
+                               nodeeditablevalue =  '<select class="node_input" '+nullstring+' disabled data-key="'+field+'" id="ui-json-detail-page-tab-content-'+key+'-table-'+i+'-row-'+rows+'-cell-'+cellnumber+'" >'
                            else
-                               nodeeditablevalue =  '<select class="node_input"  data-key="'+field+'" id="ui-json-detail-page-tab-content-'+key+'-table-'+i+'-row-'+rows+'-cell-'+cellnumber+'" >'
+                               nodeeditablevalue =  '<select class="node_input" '+nullstring+' data-key="'+field+'" id="ui-json-detail-page-tab-content-'+key+'-table-'+i+'-row-'+rows+'-cell-'+cellnumber+'" >'
                            for(var n=0;n<values.length;n++){
                             //   UI.Log(node[key],values[n],optionlngcodes[n], optiondefaults[n])
                                nodeeditablevalue += '<option value="'+values[n]+'" lngcode="'+optionlngcodes[n]+'" '+(value == values[n]? 'selected':'') +' >' + optiondefaults[n] + '</option>'
                            }
                            nodeeditablevalue += '</select>'
+                                                    
 
-                           td.innerHTML = nodeeditablevalue;
+                           td.innerHTML =td.innerHTML + nodeeditablevalue;
                        }
                        else{
                            attrs = {
@@ -1378,7 +1394,7 @@ var UI = UI || {};
                            control = (new UI.FormControl(div, 'input',attrs)).control;   
                    }
                    
-                   if(setnullvalue){
+                   if(setnullvalue && control != null){
                         control.setAttribute('nullvalue', schemanullvalue)
                    }
 
@@ -1491,7 +1507,7 @@ var UI = UI || {};
             var schema = data.ui_linkedjdata.masterschema;
             let cfg = {
                 "file":"templates/datalist.html", 
-                "title": "Role"+ " Master list", 
+                "title": ""+ " Master list", 
                 "name": "Data List",
                 "type": "document",
                 "actions": {

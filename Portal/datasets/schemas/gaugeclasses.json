@@ -1,0 +1,219 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "$ref": "#/definitions/GaugeClass",
+    "datasourcetype": "table",
+    "datasource": "gauge_classes",
+    "listfields":["Name","Code", "Description","CreatedBy", "CreatedOn", "UpdatedBy","UpdatedOn"],
+    "keyfield":"Name",
+    "detailpage":{
+        "tabs": {
+            "General": {
+                "lng":{
+                    "code": "General",
+                    "default":"General"
+                },
+                "index": 0 
+            },
+            "Links":{
+                "lng":{
+                    "code": "Links",
+                    "default":"Links"
+                },
+                "index": 1             
+            },
+            "System": {
+                "lng":{
+                    "code": "System",
+                    "default":"System"
+                },
+                "index": 4 
+            }
+        },
+        "General":{
+            "tables": [{
+                "cols": 2,         
+                "fields": [
+                    "Name",  "Code", 
+                    "Description", "dummy",                
+                    "active"
+                ]
+            }
+        ]
+        },
+        "Links":{
+            "tables": [{
+                "style":"display: flex;flex-direction: column;",
+                "cols": 1,
+                "fields": [                    
+                    {"Measurements":{
+                        "type": "link",
+                        "linkfields": [
+                            {"Name": "gauge_class_measurements.GaugeClassName"}
+                        ],
+                        "fields":{
+                            "Name":{
+                                "type": "string",
+                                "lng": {
+                                    "code": "Name",
+                                    "default": "Name"
+                                }
+                            },
+                            "Measurement":{
+                                "type": "string",
+                                "lng": {
+                                    "code": "Measurement",
+                                    "default": "Measurement"
+                                }
+                            },
+                            "Description":{
+                                "type": "string",
+                                "editable": false,
+                                "lng": {
+                                    "code": "Description",
+                                    "default": "Description"
+                                }
+                            },
+                            "UOM":{
+                                "type": "string",
+                                "lng": {
+                                    "code": "UOM",
+                                    "default": "UOM"
+                                }
+                            },
+                            "DataType":{
+                                "type": "integer",
+                                "lng": {
+                                    "code": "UOM",
+                                    "default": "UOM"
+                                },
+                                "options":{
+                                    "value": [0,1, 2,3,4,5,6],
+                                    "lngcode":["String","Int","Decimal","Boolean", "Date", "Json", "Blob"],
+                                    "default": ["String","Int","Decimal","Boolean", "Date", "Json", "Blob"]
+                                 }   
+                            },
+                            "Category":{
+                                "type": "string",
+                                "lng": {
+                                    "code": "Category",
+                                    "default": "Category"
+                                }
+                            },
+                            "Type":{
+                                "type": "string",
+                                "lng": {
+                                    "code": "Type",
+                                    "default": "Type"
+                                }
+                            }
+                        },
+                        "query":"SELECT gauge_class_measurements.ID as ID, gauge_class_measurements.GaugeClassName As Name, gauge_class_measurements.Measurement As Measurement, measurements.Description, measurements.UOM, measurements.DataType, measurements.Category, measurements.Type  FROM gauge_class_measurements  INNER JOIN measurements  ON gauge_class_measurements.Measurement = measurements.Name",
+                        "keyfield": "Name",
+                        "tablename": "gauge_class_measurements",
+                        "tablekeyfield": "id",
+                        "schemakeyfield": "ID",
+                        "schema":"gaugeclassmeasurements",
+                        "masterschema":"measurements",
+                        "masterdatafield":"Measurement",
+                        "editablefields": {},
+                        "data":{},                   
+                        "lng":{
+                            "code": "Measurements",
+                            "default":"Measurements"
+                        } ,
+                        "actions": ["Add","Delete", "Cancel"]                       
+                    }}
+                ]
+            }]
+        
+        },
+        "System":{
+            "tables": [{
+                "cols": 2,
+                "fields":["createdby", "createdon", "updatedby", "updatedon"]
+            }]
+        }
+    },    
+    "definitions": {
+        "GaugeClass": {
+            "type": "object",
+            "additionalProperties": false,            
+            "properties": {
+                "Name": {
+                    "type": "string",                   
+                    "lng":{
+                        "code": "Name",
+                        "default":"Name"
+                    } 
+                },
+                "Code": {
+                    "type": "string",                   
+                    "lng":{
+                        "code": "Code",
+                        "default":"Code"
+                    } 
+                },
+                "Description": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Description",
+                        "default":"Description"
+                    } 
+                },  
+                "active": {
+                    "type": "boolean",
+                    "readonly": true,
+                    "lng":{
+                        "code": "Active",
+                        "default":"Active"
+                    }
+                },               
+                "createdby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedBy",
+                        "default":"Created By"
+                    }
+                },
+                "createdon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedOn",
+                        "default":"Created On"
+                    }
+
+                },
+                "updatedby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedBy",
+                        "default":"Updated By"
+                    }
+                },
+                "updatedon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedOn",
+                        "default":"Updated On"
+                    }
+
+                }
+            },
+            "required": [
+                "Name",
+                "Code",
+                "Description"
+            ],
+            "unchangable": ["Name"],
+            "hidden": [],
+            
+            "title": "Gauge Class"
+        }
+    }
+}

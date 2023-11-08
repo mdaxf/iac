@@ -39,9 +39,10 @@ var (
 	*/
 	//DatabaseConnection = "server=xxx;user id=xx;password=xxx;database=xxx"  //sqlserver
 	DatabaseConnection = "user:iacf12345678@tcp(localhost:3306)/iac"
-
-	once sync.Once
-	err  error
+	MaxIdleConns       = 5
+	MaxOpenConns       = 10
+	once               sync.Once
+	err                error
 )
 
 func ConnectDB() error {
@@ -51,10 +52,11 @@ func ConnectDB() error {
 	once.Do(func() {
 		DB, err = sql.Open(DatabaseType, DatabaseConnection)
 		if err != nil {
-			panic(err.Error())
+			iLog.Error(fmt.Sprintf("Connect Database Error: %s", err.Error()))
+			return
 		}
-		DB.SetMaxIdleConns(1000)
-		DB.SetMaxOpenConns(10000)
+		DB.SetMaxIdleConns(MaxIdleConns)
+		DB.SetMaxOpenConns(MaxOpenConns)
 	})
 	/*DB, err = sql.Open(DatabaseType, DatabaseConnection)
 	if err != nil {

@@ -1,0 +1,228 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "$ref": "#/definitions/Gauge",
+    "datasourcetype": "table",
+    "datasource": "gauges",
+    "listfields":["Name","Description", "Entity", "EntityType", "Type","Class", "MeasurementClass", "CreatedBy", "CreatedOn", "UpdatedBy","UpdatedOn", "ID"],
+    "keyfield":"Name",
+    "detailpage":{
+        "tabs": {
+            "General": {
+                "lng":{
+                    "code": "General",
+                    "default":"General"
+                },
+                "index": 0 
+            },
+            "System": {
+                "lng":{
+                    "code": "System",
+                    "default":"System"
+                },
+                "index": 4 
+            }
+        },
+        "General":{
+            "tables": [{
+                "cols": 2,         
+                "fields": [
+                    "Name",  "dummy", 
+                    "Description", "dummy",
+                    "Entity", "EntityType",  
+                    "Type", {"Class":{"link": "gaugeclasses", "schema":"gaugeclasses", "field": "Name"}},
+                    "MeasurementClass", "dummy",
+                    "SetupDate", "SerialNumber",
+                    "LastMaintenanceDate", "NextMaintenanceDate",    
+                    "Manufacturer", "WarrantyDate",                   
+                    "active"
+                ]
+            }
+        ]
+        },
+        "System":{
+            "tables": [{
+                "cols": 2,
+                "fields":["createdby", "createdon", "updatedby", "updatedon"]
+            }]
+        }
+    },    
+    "definitions": {
+        "Gauge": {
+            "type": "object",
+            "additionalProperties": false,            
+            "properties": {
+                "ID": {
+                    "type": "string",                   
+                    "lng":{
+                        "code": "DBID",
+                        "default":"ID"
+                    } 
+                },
+                "Name": {
+                    "type": "string",                   
+                    "lng":{
+                        "code": "Name",
+                        "default":"Name"
+                    } 
+                },
+                "Description": {
+                    "type": "string",
+                    "lng":{
+                        "code": "Description",
+                        "default":"Description"
+                    } 
+                },  
+                "Entity":{
+                    "type": "string",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "Entity",
+                        "default":"Entity"
+                    }                   
+                }, 
+                "EntityType":{
+                    "type": "string",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "EntityType",
+                        "default":"EntityType"
+                    } ,
+                    "options":{
+                        "value": ["c","b","f","d", "l", "w", "m"],
+                        "lngcode":["Company","Business Unit","Factory","Department", "Line", "Workcenter", "Machine"],
+                        "default": ["Company","Business Unit","Factory","Department", "Line", "Workcenter", "Machine"]
+                     }                   
+                },                   
+                "Type":{
+                    "type": "string",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "Type",
+                        "default":"Type"
+                    }                   
+                },  
+                "Class":{
+                    "type": "string",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "Class",
+                        "default":"Class"
+                    }                   
+                }, 
+                "MeasurementClass":{
+                    "type": "string",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "MeasurementClass",
+                        "default":"Measurement Class"
+                    }                   
+                },  
+                "SetupDate":{
+                    "type": "datetime",
+                    "format":"datetime",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "SetupDate",
+                        "default":"Installation Date"
+                    }                   
+                }, 
+                "LastMaintenanceDate":{
+                    "type": "datetime",
+                    "format":"datetime",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "LastMaintenanceDate",
+                        "default":"Last Maintenance Date"
+                    }                   
+                }, 
+                "NextMaintenanceDate":{
+                    "type": "datetime",
+                    "format":"datetime",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "NextMaintenanceDate",
+                        "default":"Next Maintenance Date"
+                    }                   
+                },
+                "SerialNumber":{
+                    "type": "string",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "SerialNumber",
+                        "default":"Serial Number"
+                    }                   
+                }, 
+                "Manufacturer":{
+                    "type": "string",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "Manufacturer",
+                        "default":"Manufacturer"
+                    }                   
+                }, 
+                "WarrantyDate":{
+                    "type": "datetime",
+                    "format":"datetime",
+                    "nullvalue":"",
+                    "lng":{
+                        "code": "WarrantyDate",
+                        "default":"Warranty Date"
+                    }                   
+                },                                
+                "active": {
+                    "type": "boolean",
+                    "readonly": true,
+                    "lng":{
+                        "code": "Active",
+                        "default":"Active"
+                    }
+                },               
+                "createdby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedBy",
+                        "default":"Created By"
+                    }
+                },
+                "createdon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "CreatedOn",
+                        "default":"Created On"
+                    }
+
+                },
+                "updatedby": {
+                    "type": "string",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedBy",
+                        "default":"Updated By"
+                    }
+                },
+                "updatedon": {
+                    "type": "string",
+                    "format":"datetime",
+                    "readonly": true,
+                    "lng":{
+                        "code": "UpdatedOn",
+                        "default":"Updated On"
+                    }
+
+                }
+            },
+            "required": [
+                "Name",
+                "Code",
+                "Description"
+            ],
+            "unchangable": ["Name"],
+            "hidden": [],
+            
+            "title": "Measurement"
+        }
+    }
+}

@@ -46,7 +46,7 @@ function _0x30f6(_0x180a7f,_0x5d5a98){var _0x42049c=_0x4204();return _0x30f6=fun
 	var path = '/portal/scripts/'
 	$.import_js(path + "jquery-ui.js")
 //	$.import_js(path + "juery-ui.custom.min.js")
-	$.import_js(path + "D3.V5.0/d3.min.js")
+	$.import_js(path + "d3.v5.0/d3.min.js")
 	$.import_js(path + "Dagre/dagre.min.js")
 	$.import_js(path + "flow/lodash.js")
 	$.import_js(path + "flow/graphlib.js")
@@ -56,8 +56,8 @@ function _0x30f6(_0x180a7f,_0x5d5a98){var _0x42049c=_0x4204();return _0x30f6=fun
 	$.import_js(path + "filesave.js")  
 	$.import_js(path + "jsonmanager.js")  
 	$.import_js(path + "jstree.js")  
-	$.import_js(path + "UIForm.js")  
-	$.import_js(path + "UIwebcomponents.js")  
+	$.import_js(path + "uiform.js")  
+	$.import_js(path + "uiwebcomponents.js")  
 	$.import_js(path + "contextmenu/jquery.contextMenu.js")  
 
 })() 
@@ -892,7 +892,7 @@ var ProcessFlow = (function(){
 			this.id = this.type=='START'? 'START': this.data.id;
 			this.build_block();
 		//	this.set_events();
-			this.set_events();
+		//	this.set_events();
 		}
 
 		build_block(){
@@ -1258,8 +1258,9 @@ var ProcessFlow = (function(){
 						}
 					}) 
 
-					let maxheight = Math.max(Math.max(this.data.inputs.length,this.data.outputs.length) * 20 + 35, this.data.height); 
+					let maxheight = Math.max(Math.max(this.data.inputs.length,this.data.outputs.length) * 20 + 35, 200); 
 					UI.Log('maxheight:', maxheight)
+					this.data.height = maxheight
 				//	headeredRectangle = new joint.shapes.ProcessFlow.StepBlock.Function()
 					headeredRectangle.position(this.data.x, this.data.y);
 					headeredRectangle.resize(this.data.width, maxheight);
@@ -7340,8 +7341,9 @@ var ProcessFlow = (function(){
 							list: $(this).find('.parameter_list').is(':checked'),
 							default: $(this).find('.parameter_default').val()
 						}
-					//	UI.Log(input)
-						inputs.push(input);
+						UI.Log(input)
+						if(input.name != undefined && input.name != "")
+							inputs.push(input);
 					})
 					$('#parameter_output_table').find('tr').each(function(){
 						let output = {
@@ -7350,9 +7352,11 @@ var ProcessFlow = (function(){
 							list: $(this).find('.parameter_list').is(':checked'),
 							default: $(this).find('.parameter_default').val()
 						}
-					//	UI.Log(output)
-						outputs.push(output);
+						UI.Log(output)
+						if(output.name != undefined && output.name != "")
+							outputs.push(output);
 					})
+					
 					UI.Log($('#parameter_input_table'),inputs,$('#parameter_output_table'),outputs)
 					that.flowobj.inputs = inputs;
 					that.flowobj.outputs = outputs;

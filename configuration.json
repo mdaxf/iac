@@ -9,9 +9,15 @@
         "server": "http://127.0.0.1:8222",
         "hub": "/iacmessagebus"
     },
+    "transaction":{
+        "timeout": 30
+    },
     "database":{
-        "type":"mysql",
-        "connection": "user:iacf12345678@tcp(localhost:3306)/iac"
+        "type":"mysql",        
+        "connection": "user:iacf12345678@tcp(localhost:3306)/iac?timeout=5s",
+        "maxidleconns":5,
+        "maxopenconns":10,
+        "timeout": 5
     },
     "altdatabases":[
         {

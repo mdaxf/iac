@@ -33,66 +33,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Test_main(t *testing.T) {
-	tests := []struct {
-		name string
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			main()
-		})
-	}
-}
-
-func Test_loadpluginControllerModule(t *testing.T) {
-	type args struct {
-		controllerPath string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    interface{}
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := loadpluginControllerModule(tt.args.controllerPath)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("loadpluginControllerModule() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("loadpluginControllerModule() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_getpluginHandlerFunc(t *testing.T) {
-	type args struct {
-		module reflect.Value
-		name   string
-	}
-	tests := []struct {
-		name string
-		args args
-		want gin.HandlerFunc
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := getpluginHandlerFunc(tt.args.module, tt.args.name); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getpluginHandlerFunc() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestGinMiddleware(t *testing.T) {
 	type args struct {
 		headers map[string]interface{}
@@ -102,7 +42,13 @@ func TestGinMiddleware(t *testing.T) {
 		args args
 		want gin.HandlerFunc
 	}{
-		// TODO: Add test cases.
+		{
+			name: "Test Case 1",
+			args: args{
+				headers: map[string]interface{}{},
+			},
+			want: nil, // Set the expected output here,
+		}, // Add a comma here to fix the error
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -122,7 +68,13 @@ func TestCORSMiddleware(t *testing.T) {
 		args args
 		want gin.HandlerFunc
 	}{
-		// TODO: Add test cases.
+		{
+			name: "Test Case 1",
+			args: args{
+				allowOrigin: "",
+			},
+			want: nil, // Set the expected output here,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
