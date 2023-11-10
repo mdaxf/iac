@@ -721,9 +721,9 @@ func (f *Funcs) Execute() {
 			inputmapfuncs := InputMapFuncs{}
 			inputmapfuncs.Execute(f)
 
-		case types.Csharp:
-			csharpfuncs := CSharpFuncs{}
-			csharpfuncs.Execute(f)
+		case types.GoExpr:
+			goexprfuncs := GoExprFuncs{}
+			goexprfuncs.Execute(f)
 		case types.Javascript:
 			jsfuncs := JSFuncs{}
 			jsfuncs.Execute(f)

@@ -48,9 +48,9 @@ func (f *FunctionController) TestExecFunction(c *gin.Context) {
 
 	iLog.Debug(fmt.Sprintf("Test Exec Function funcdata: %s", funcdata))
 
-	if funcdata.Type == int(types.Csharp) {
-		csfuncs := funcs.CSharpFuncs{}
-		outputs, err := csfuncs.Testfunction(funcdata.Content, funcdata.Inputs, funcdata.Outputs)
+	if funcdata.Type == int(types.GoExpr) {
+		gofuncs := funcs.GoExprFuncs{}
+		outputs, err := gofuncs.Testfunction(funcdata.Content, funcdata.Inputs, funcdata.Outputs)
 
 		if err != nil {
 			iLog.Error(fmt.Sprintf("Test Exec Function error: %s", err.Error()))

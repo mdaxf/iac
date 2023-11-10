@@ -3,6 +3,7 @@ module github.com/mdaxf/iac
 go 1.21.1
 
 require (
+	github.com/antonmedv/expr v1.15.3
 	github.com/bits-and-blooms/bloom/v3 v3.5.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874

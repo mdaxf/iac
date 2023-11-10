@@ -99,7 +99,7 @@ type FunctionType int
 
 const (
 	InputMap FunctionType = iota
-	Csharp
+	GoExpr
 	Javascript
 	Query
 	StoreProcedure
