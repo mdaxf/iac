@@ -50,6 +50,12 @@ func NewDBOperation(User string, DBTx *sql.Tx, moduleName string) *DBOperation {
 }
 
 func (db *DBOperation) Query(querystr string, args ...interface{}) (*sql.Rows, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to query database with error: %s", err))
+			return
+		}
+	}()
 
 	db.iLog.Debug(fmt.Sprintf("Query: %s %s...", querystr, args))
 
@@ -92,6 +98,12 @@ func (db *DBOperation) Query(querystr string, args ...interface{}) (*sql.Rows, e
 }
 
 func (db *DBOperation) QuerybyList(querystr string, namelist []string, inputs map[string]interface{}, finputs []types.Input) (map[string][]interface{}, int, int, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to query database with error: %s", err))
+			return
+		}
+	}()
 
 	db.iLog.Debug(fmt.Sprintf("Query: %s {%s} {%s}", querystr, namelist, inputs))
 
@@ -158,6 +170,13 @@ func (db *DBOperation) QuerybyList(querystr string, namelist []string, inputs ma
 }
 
 func (db *DBOperation) Query_Json(querystr string, args ...interface{}) ([]map[string]interface{}, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to query database with error: %s", err))
+			return
+		}
+	}()
+
 	db.iLog.Debug(fmt.Sprintf("Query with json object result: %s %s...", querystr, args))
 
 	idbtx := db.DBTx
@@ -209,7 +228,12 @@ func (db *DBOperation) Query_Json(querystr string, args ...interface{}) ([]map[s
 }
 
 func (db *DBOperation) ExecSP(procedureName string, args ...interface{}) error {
-
+	defer func() {
+		if err := recover(); err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to execute store procedure %s in database with error: %s", procedureName, err))
+			return
+		}
+	}()
 	db.iLog.Debug(fmt.Sprintf("start execute the Store procedure: %s with parameters %s...", procedureName, args))
 
 	idbtx := db.DBTx
@@ -254,6 +278,13 @@ func (db *DBOperation) ExecSP(procedureName string, args ...interface{}) error {
 }
 
 func (db *DBOperation) ExeSPwithRow(procedureName string, args ...interface{}) (*sql.Rows, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to execute store procedure %s in database with error: %s", procedureName, err))
+			return
+		}
+	}()
+
 	// Construct the stored procedure call with placeholders for each parameter and the output parameter
 	db.iLog.Debug(fmt.Sprintf("start execute the Store procedure to return rows: %s with parameters %s...", procedureName, args))
 
@@ -304,6 +335,13 @@ func (db *DBOperation) ExeSPwithRow(procedureName string, args ...interface{}) (
 }
 
 func (db *DBOperation) ExecSP_Json(procedureName string, args ...interface{}) ([]map[string]interface{}, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to execute store procedure %s in database with error: %s", procedureName, err))
+			return
+		}
+	}()
+
 	db.iLog.Debug(fmt.Sprintf("start execute the Store procedure: %s with parameters %s...", procedureName, args))
 	rows, err := db.ExeSPwithRow(procedureName, args...)
 	defer rows.Close()
@@ -330,6 +368,13 @@ func (db *DBOperation) chechoutputparameter(str string) (bool, string) {
 }
 
 func (db *DBOperation) TableInsert(TableName string, Columns []string, Values []string) (int64, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to execute table %s insert data with error: %s", TableName, err))
+			return
+		}
+	}()
+
 	db.iLog.Debug(fmt.Sprintf("start to insert the table: %s with columns: %s and values: %s...", TableName, Columns, Values))
 
 	idbtx := db.DBTx
@@ -388,7 +433,12 @@ func (db *DBOperation) TableInsert(TableName string, Columns []string, Values []
 }
 
 func (db *DBOperation) TableUpdate(TableName string, Columns []string, Values []string, datatypes []int, Where string) (int64, error) {
-
+	defer func() {
+		if err := recover(); err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to execute table %s update data with error: %s", TableName, err))
+			return
+		}
+	}()
 	db.iLog.Debug(fmt.Sprintf("start to update the table: %s with columns: %s and values: %s data type: %s", TableName, Columns, Values, datatypes))
 
 	//fmt.Println(WhereArgs)
@@ -510,6 +560,13 @@ func (db *DBOperation) TableUpdate(TableName string, Columns []string, Values []
 }
 
 func (db *DBOperation) TableDelete(TableName string, Where string) (int64, error) {
+
+	defer func() {
+		if err := recover(); err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to execute table %s delete with error: %s", TableName, err))
+			return
+		}
+	}()
 
 	db.iLog.Debug(fmt.Sprintf("Start to delete the table: %s with where: %s and whereargs: ", TableName, Where))
 

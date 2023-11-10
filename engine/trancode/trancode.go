@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"time"
 
 	"database/sql"
 
@@ -31,9 +32,17 @@ type TranFlow struct {
 	ilog            logger.Log
 	DocDBCon        *documents.DocDB
 	SignalRClient   signalr.Client
+	ErrorMessage    string
 }
 
 func ExecutebyExternal(trancode string, data map[string]interface{}, DBTx *sql.Tx, DBCon *documents.DocDB, sc signalr.Client) (map[string]interface{}, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			//outputs := make(map[string]interface{})
+			return
+		}
+	}()
+
 	tranobj, err := getTranCodeData(trancode, DBCon)
 	if err != nil {
 		return nil, err
@@ -76,10 +85,21 @@ func NewTranFlow(tcode types.TranCode, externalinputs, systemSession map[string]
 		SystemSession:   systemSession,
 		DocDBCon:        documents.DocDBCon,
 		SignalRClient:   com.IACMessageBusClient,
+		ErrorMessage:    "",
 	}
 }
 
 func (t *TranFlow) Execute() (map[string]interface{}, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.ilog.Error(fmt.Sprintf("Error in Trancode.Execute: %s", r))
+			t.ErrorMessage = fmt.Sprintf("Error in Trancode.Execute: %s", r)
+			t.DBTx.Rollback()
+			t.CtxCancel()
+			return
+		}
+	}()
+
 	t.ilog.Info(fmt.Sprintf("Start process transaction code %s's %s ", t.Tcode.Name, "Execute"))
 	t.ilog.Debug(fmt.Sprintf("systemSession: %s", logger.ConvertJson(t.SystemSession)))
 	t.ilog.Debug(fmt.Sprintf("externalinputs: %s", logger.ConvertJson(t.Externalinputs)))
@@ -104,7 +124,7 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 	}
 
 	if t.Ctx == nil {
-		t.Ctx, t.CtxCancel = context.WithCancel(context.Background())
+		t.Ctx, t.CtxCancel = context.WithTimeout(context.Background(), time.Second*time.Duration(com.TransactionTimeout))
 
 		defer t.CtxCancel()
 	}

@@ -892,7 +892,7 @@ var ProcessFlow = (function(){
 			this.id = this.type=='START'? 'START': this.data.id;
 			this.build_block();
 		//	this.set_events();
-		//	this.set_events();
+			this.set_events();
 		}
 
 		build_block(){
@@ -967,7 +967,7 @@ var ProcessFlow = (function(){
 						that.node.shape.attr('functionheader/fill', Function_Type_Color_List[that.data.functype]);
 					//	that.node.shape.attr('nodeid', data.id);
 						that.node.shape.resize(that.data.width, that.data.height);
-						that.node.shape.position(that.data.x, that.data.y);						
+					//	that.node.shape.position(that.data.x, that.data.y);						
 					}else if(subtype.toUpperCase() == 'INPUT'){
 						// update input
 						
@@ -1027,7 +1027,7 @@ var ProcessFlow = (function(){
 				//	that.node.shape.attr('funcgroupheader/fill', Function_Group_Color_List[that.data.type]);
 				//	that.node.shape.attr('nodeid', data.id);
 				//	that.node.shape.resize(data.width, data.height);
-					that.node.shape.position(that.data.x, that.data.y);
+				//	that.node.shape.position(that.data.x, that.data.y);
 					for(var i=0;i<that.flow.nodes.length;i++){
 						if(that.flow.nodes[i].id == that.data.id){
 							that.flow.nodes[i] = that.data;
@@ -1052,7 +1052,28 @@ var ProcessFlow = (function(){
 			
 		}
 
+		updateposition(data){
+			let that = this;
+			
+			//that.node.shape.position(that.data.x, that.data.y);	
+			that.data = Object.assign(that.data,data);
+
+			switch(that.type.toUpperCase()){
+
+				case "FUNCTION":
+					var path = 'functiongroups/{"name":"'+that.flow.funcgroupname+'"}/functions/{"id":"'+that.data.id+'"}'
+					that.flow.FlowJsonObj.updateNode(path,that.data);
+					
+					break;
+				case "FUNCGROUP":
+					var path = 'functiongroups/{"id":"'+that.data.id+'"}'
+					that.flow.FlowJsonObj.updateNode(path,that.data);
+					break;
+				case "START":
+					break;
+			}
 		
+		}
 		delete(){
 			let that = this;
 			this.remove_events();
@@ -1078,11 +1099,13 @@ var ProcessFlow = (function(){
 			
 			this.node.shape.on('change:position', function(element, newPosition) {
 				
+				
 				let data = {
 					x: newPosition.x,
 					y: newPosition.y
 				}
-				that.update(data,'')
+				that.updateposition(data);
+				/*that.update(data,'') */
 			}); 			
 		}
 		remove_events(){
@@ -1090,15 +1113,7 @@ var ProcessFlow = (function(){
 				return;
 			let that = this;
 			
-			this.node.shape.off('change:position', function(element, newPosition) {
-			//	UI.Log('change the position',element, newPosition)
-				let data = {
-					x: newPosition.x,
-					y: newPosition.y
-				}
-				that.update(data,'')
-			});
-
+			this.node.shape.off('change:position');
 		
 		}
 		
@@ -1314,7 +1329,7 @@ var ProcessFlow = (function(){
 				that.node.shape.attr('functionheader/fill', Function_Type_Color_List[that.data.functype]);
 			//	that.node.shape.attr('nodeid', data.id);
 				that.node.shape.resize(that.data.width, that.data.height);
-				that.node.shape.position(that.data.x, that.data.y);						
+			//	that.node.shape.position(that.data.x, that.data.y);						
 			}else if(subtype.toUpperCase() == 'INPUT'){
 				// update input
 				
@@ -1441,7 +1456,7 @@ var ProcessFlow = (function(){
 				//	that.node.shape.attr('funcgroupheader/fill', Function_Group_Color_List[that.data.type]);
 				//	that.node.shape.attr('nodeid', data.id);
 				//	that.node.shape.resize(data.width, data.height);
-					that.node.shape.position(that.data.x, that.data.y);
+				//	that.node.shape.position(that.data.x, that.data.y);
 					for(var i=0;i<that.flow.nodes.length;i++){
 						if(that.flow.nodes[i].id == that.data.id){
 							that.flow.nodes[i] = that.data;

@@ -35,6 +35,7 @@ type Funcs struct {
 	FunctionMappedInputs map[string]interface{}
 	DocDBCon             *documents.DocDB
 	SignalRClient        signalr.Client
+	ErrorMessage         string
 }
 
 func NewFuncs(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sql.Tx, fobj types.Function, systemSession, userSession, externalinputs, externaloutputs, funcCachedVariables map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc) *Funcs {
@@ -47,6 +48,19 @@ func NewFuncs(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sql
 		log.User = "System"
 	}
 	var newdata []map[string]interface{}
+
+	systemSession["UTCTime"] = time.Now().UTC()
+	systemSession["LocalTime"] = time.Now()
+	if systemSession["UserNo"] == nil {
+		systemSession["UserNo"] = "System"
+	}
+	if systemSession["UserID"] == nil {
+		systemSession["UserID"] = 0
+	}
+
+	if systemSession["WorkSpace"] == nil {
+		systemSession["WorkSpace"] = ""
+	}
 
 	return &Funcs{
 		Fobj:                fobj,
@@ -65,6 +79,7 @@ func NewFuncs(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sql
 		ExecutionCount:      0,
 		DocDBCon:            DocDBCon,
 		SignalRClient:       SignalRClient,
+		ErrorMessage:        "",
 	}
 }
 
@@ -109,12 +124,72 @@ func (f *Funcs) HandleInputs() ([]string, []string, map[string]interface{}, erro
 				} else {
 					f.iLog.Error(fmt.Sprintf("Error in SetInputs: %s Prefunction[%s]", "Prefunction not found", inputs[i].Aliasname))
 					//	f.DBTx.Rollback()
-					inputs[i].Value = ""
+					if inputs[i].Datatype == types.DateTime {
+						if inputs[i].Defaultvalue == "" {
+							inputs[i].Value = time.Now().Format(types.DateTimeFormat)
+						} else {
+							inputs[i].Value = inputs[i].Defaultvalue
+						}
+
+					} else if inputs[i].Datatype == types.Integer {
+						if inputs[i].Defaultvalue == "" {
+							inputs[i].Value = "0"
+						} else {
+							inputs[i].Value = inputs[i].Defaultvalue
+						}
+					} else if inputs[i].Datatype == types.Float {
+						if inputs[i].Defaultvalue == "" {
+							inputs[i].Value = "0.0"
+						} else {
+							inputs[i].Value = inputs[i].Defaultvalue
+						}
+
+					} else if inputs[i].Datatype == types.Bool {
+						if inputs[i].Defaultvalue == "" {
+							inputs[i].Value = "false"
+						} else {
+							inputs[i].Value = inputs[i].Defaultvalue
+						}
+
+					} else {
+
+						inputs[i].Value = inputs[i].Defaultvalue
+					}
 				}
 			} else {
 				f.iLog.Error(fmt.Sprintf("Error in SetInputs: %s Prefunction[%s]", "Prefunction not found", inputs[i].Aliasname))
 				//	f.DBTx.Rollback()
-				inputs[i].Value = ""
+				if inputs[i].Datatype == types.DateTime {
+					if inputs[i].Defaultvalue == "" {
+						inputs[i].Value = time.Now().Format(types.DateTimeFormat)
+					} else {
+						inputs[i].Value = inputs[i].Defaultvalue
+					}
+
+				} else if inputs[i].Datatype == types.Integer {
+					if inputs[i].Defaultvalue == "" {
+						inputs[i].Value = "0"
+					} else {
+						inputs[i].Value = inputs[i].Defaultvalue
+					}
+				} else if inputs[i].Datatype == types.Float {
+					if inputs[i].Defaultvalue == "" {
+						inputs[i].Value = "0.0"
+					} else {
+						inputs[i].Value = inputs[i].Defaultvalue
+					}
+
+				} else if inputs[i].Datatype == types.Bool {
+					if inputs[i].Defaultvalue == "" {
+						inputs[i].Value = "false"
+					} else {
+						inputs[i].Value = inputs[i].Defaultvalue
+					}
+
+				} else {
+
+					inputs[i].Value = inputs[i].Defaultvalue
+				}
 			}
 
 		case types.Fromexternal:
@@ -136,6 +211,7 @@ func (f *Funcs) HandleInputs() ([]string, []string, map[string]interface{}, erro
 
 			}
 			if inputs[i].List == true {
+
 				f.iLog.Debug(fmt.Sprintf("check value %s if it isArray: %s", inputs[i].Value, reflect.ValueOf(inputs[i].Value).Kind().String()))
 
 				var tempstr []string
@@ -143,10 +219,41 @@ func (f *Funcs) HandleInputs() ([]string, []string, map[string]interface{}, erro
 				f.iLog.Debug(fmt.Sprintf("Unmarshal %s result: %s length:%d", inputs[i].Value, logger.ConvertJson(tempstr), len(tempstr)))
 
 				if err != nil {
-					f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
-					//	f.DBTx.Rollback()
-					newinputs[inputs[i].Name] = []int{}
+					//f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
 
+					var tempint []int
+					err := json.Unmarshal([]byte(inputs[i].Value), &tempint)
+					if err != nil {
+						//f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
+
+						var tempfloat []float64
+						err := json.Unmarshal([]byte(inputs[i].Value), &tempfloat)
+						if err != nil {
+							//f.iLog.Error(fmt.Sprintf("Unmarshal %s error: %s", inputs[i].Value, err.Error()))
+							//	f.DBTx.Rollback()
+
+							str := inputs[i].Value
+							str = strings.TrimPrefix(str, "[")
+							str = strings.TrimSuffix(str, "]")
+							strList := strings.Split(str, ",")
+
+							intList := make([]int, len(strList))
+							for index, str := range strList {
+								intList[index] = f.ConverttoInt(str)
+							}
+							newinputs[inputs[i].Name] = intList
+
+						} else {
+							temp := make([]int, 0)
+							for _, str := range tempfloat {
+								temp = append(temp, int(str))
+							}
+							newinputs[inputs[i].Name] = temp
+						}
+
+					} else {
+						newinputs[inputs[i].Name] = tempint
+					}
 				} else {
 					temp := make([]int, 0)
 					for _, str := range tempstr {
@@ -442,12 +549,14 @@ func (f *Funcs) checkinputvalue(Aliasname string, variables map[string]interface
 				Result = fmt.Sprint(variables[Aliasname])
 
 			}
+			Result = string(Result)
 		}
 	} else {
 		f.iLog.Error(fmt.Sprintf("Error in SetInputs: %s Externalinputs[%s]", "Externalinputs not found", Aliasname))
 		//	f.DBTx.Rollback()
 
 	}
+
 	f.iLog.Debug(fmt.Sprintf("checkinputvalue %s result: %s", variables[Aliasname], Result))
 	return Result, err
 }
@@ -576,6 +685,15 @@ func (f *Funcs) ConvertfromBytes(bytesbuffer []byte) map[string]interface{} {
 }
 
 func (f *Funcs) Execute() {
+
+	defer func() {
+		if r := recover(); r != nil {
+			f.iLog.Error(fmt.Sprintf("Panic in Execute: %s", r))
+			f.CancelExecution(fmt.Sprintf("Panic in Execute: %s", r))
+			f.ErrorMessage = fmt.Sprintf("Panic in Execute: %s", r)
+			return
+		}
+	}()
 
 	f.iLog.Debug(fmt.Sprintf("Execute function: %s", f.Fobj.Name))
 	//f.iLog.Debug(fmt.Sprintf("Start process %s", reflect.ValueOf(f.Execute).Kind().String()))

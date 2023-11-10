@@ -19,6 +19,12 @@ func NewEngine(trancode types.TranCode) *Engine {
 }
 
 func (e *Engine) Execute() {
+	defer func() {
+		if r := recover(); r != nil {
+			//outputs := make(map[string]interface{})
+			return
+		}
+	}()
 	iLog := logger.Log{}
 	iLog.ModuleName = logger.TranCode
 	iLog.ControllerName = "Engine"

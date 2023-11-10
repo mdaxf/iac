@@ -18,10 +18,17 @@ func (cf *TableInsertFuncs) Execute(f *Funcs) {
 	columnvalueList := []string{}
 	columndatatypeList := []int{}
 
+	var execution bool
+	execution = true
+
 	TableName := ""
 	for i, name := range namelist {
 		if name == "TableName" {
 			TableName = valuelist[i]
+		} else if name == "Execution" {
+			if valuelist[i] == "false" {
+				execution = false
+			}
 		} else {
 			columnList = append(columnList, name)
 			columnvalueList = append(columnvalueList, valuelist[i])
@@ -34,6 +41,11 @@ func (cf *TableInsertFuncs) Execute(f *Funcs) {
 	f.iLog.Debug(fmt.Sprintf("TableInsertFuncs columnvalueList: %s", columnvalueList))
 	f.iLog.Debug(fmt.Sprintf("TableInsertFuncs columndatatypeList: %s", columndatatypeList))
 	f.iLog.Debug(fmt.Sprintf("TableInsertFuncs TableName: %s", TableName))
+
+	if execution == false {
+		f.iLog.Debug(fmt.Sprintf("TableInsertFuncs Execution is false, skip execution"))
+		return
+	}
 
 	if TableName == "" {
 		f.iLog.Error(fmt.Sprintf("Error in TableInsertFuncs.Execute: %s", "TableName is empty"))

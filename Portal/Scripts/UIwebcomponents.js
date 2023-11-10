@@ -12,6 +12,39 @@ customElements.define('ui-tabulator', class extends HTMLElement {
         link.setAttribute('href', 'styles/uitabulator.css'); */
         this.shadow.appendChild(link);
       //  console.log("ui-tabulator", this)
+ 
+    }
+    connectedCallback() {
+        this.schema = this.getAttribute("schema");
+        this.datakey_field = this.getAttribute("datakey_field");
+        this.datakey_value = this.getAttribute("datakey_value");
+        this.data_viewonly = this.getAttribute("data_viewonly");
+        this.data_url = this.getAttribute("data_url");
+        this.data_method = this.getAttribute("data_method");
+        this.condition = this.getAttribute("condition");
+
+        if(!this.data_method)
+            this.data_method = "";
+        this.uitabulator = document.createElement('div');
+        this.shadow.appendChild(this.uitabulator);
+      
+        this.loadthetabulator();
+        
+        if(this.schema != null && this.schema != "")
+            this.loaddatabyschema();
+        else
+            this.createemptytable();
+
+        const UITabulatorLoadedEvent = new CustomEvent('uitabulator_loaded');
+
+        this.dispatchEvent(UITabulatorLoadedEvent);
+    }
+
+    static get observedAttributes() {
+      //  return ["schema", "datakey_field", "datakey_value", "data_viewonly", "data_url", "data_method", "condition"];
+      return ["condition"];
+    }
+    loadthetabulator(){
         this.columns = [];
         this.data = [];
         this.lngcodes={};
@@ -108,11 +141,6 @@ customElements.define('ui-tabulator', class extends HTMLElement {
             });
         }
     }
-    
-    static get observedAttributes() {
-        return ["schema", "datakey_field", "datakey_value", "data_viewonly", "condition"];
-    }
-
     loaddatabyschema(){
         let that = this;
         let ajax = new UI.Ajax("");
@@ -368,29 +396,7 @@ customElements.define('ui-tabulator', class extends HTMLElement {
               data: Tabulator_Data
           }); */
     }
-    connectedCallback() {
-        this.schema = this.getAttribute("schema");
-        this.datakey_field = this.getAttribute("datakey_field");
-        this.datakey_value = this.getAttribute("datakey_value");
-        this.data_viewonly = this.getAttribute("data_viewonly");
-        this.data_url = this.getAttribute("data_url");
-        this.data_method = this.getAttribute("data_method");
-        this.condition = this.getAttribute("condition");
-
-        if(!this.data_method)
-            this.data_method = "";
-        this.uitabulator = document.createElement('div');
-        this.shadow.appendChild(this.uitabulator);
-      
-        if(this.schema != null && this.schema != "")
-            this.loaddatabyschema();
-        else
-            this.createemptytable();
-
-        const UITabulatorLoadedEvent = new CustomEvent('uitabulator_loaded');
-
-        this.dispatchEvent(UITabulatorLoadedEvent);
-    }
+    
 
     loaddatabyQuery(query){
         let ajax = new UI.Ajax("");

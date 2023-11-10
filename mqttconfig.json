@@ -9,6 +9,11 @@
         "caFile": "",
         "topics": [
           {
+            "topic": "iac/gauge/value",
+            "qos": "0",
+            "handler": "IAC_EM_GaugeDataCollection_Test"
+          },
+          {
             "topic": "IAC_MachineState",
             "qos": "0",
             "handler": "IAC_MachineDataCollection"

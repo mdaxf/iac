@@ -5,7 +5,7 @@
     "datasource": "gauge_measurements",
     "listfields":["Gauge", "Name","DataType","Value", "DeltaValue", "UOM","RecordDateTime","CreatedBy", "CreatedOn", "UpdatedBy","UpdatedOn", "ID"],
     "keyfield":"ID",
-    "query": "SELECT Gauge, Name, DataType, CASE DataType WHEN 0 THEN DataString WHEN 1 THEN DataInt WHEN 2 THEN DataDecimal WHEN 3 THEN DataBoolean WHEN 4 THEN DataDate WHEN 5 THEN DataJson WHEN 6 THEN DataBlob ELSE DATAString END As Value, DeltaValue, (SELECT UOM FROM measurements WHERE Name = Name) As UOM, RecordDateTime, CreatedBy, CreatedOn, UpdatedBy, UpdatedOn, ID FROM gauge_measurements",
+    "query": "SELECT Gauge, Name, DataType, RawValue As Value, DeltaValue, (SELECT UOM FROM measurements WHERE Name = gauge_measurements.Name) As UOM, RecordDateTime, CreatedBy, CreatedOn, UpdatedBy, UpdatedOn, ID FROM gauge_measurements",
     "detailpage":{
         "tabs": {
             "General": {

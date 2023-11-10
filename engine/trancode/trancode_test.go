@@ -126,7 +126,37 @@ func TestBytetoobj(t *testing.T) {
 		want    types.TranCode
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "test",
+			args: args{
+				config: []byte(`{
+					"code": "test",
+					"functiongroups": [
+						{
+							"name": "test",
+							"functions": [
+								{
+									"name": "test",
+									"function": "test",
+									"inputs": [
+										{
+											"name": "test",
+											"type": "test",
+											"required": true,
+											"validation": "test",
+											"validationmessage": "test",
+											"validationtype": "test",
+											"validationvalue": "test",
+											"validationvalue2": "test",
+											"validationvalue3": "test",
+										}]
+								}]
+						}]
+				}`),
+			},
+			want:    types.TranCode{},
+			wantErr: true, // TODO: Add test cases
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

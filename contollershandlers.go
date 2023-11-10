@@ -130,6 +130,13 @@ func createEndpoints(router *gin.Engine, module string, modulepath string, endpo
 }
 
 func getHandlerFunc(module reflect.Value, name string) (gin.HandlerFunc, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			ilog.Error(fmt.Sprintf("Panic: %s", r))
+			return
+		}
+	}()
+
 	ilog.Info(fmt.Sprintf("Get Handler Function:%s", name))
 
 	if module.Kind() != reflect.Ptr || module.IsNil() {
@@ -142,6 +149,15 @@ func getHandlerFunc(module reflect.Value, name string) (gin.HandlerFunc, error) 
 	}
 
 	return func(c *gin.Context) {
+
+		defer func() {
+			if r := recover(); r != nil {
+				ilog.Error(fmt.Sprintf("Panic: %s", r))
+				c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("Panic: %s", r))
+				return
+			}
+		}()
+
 		in := make([]reflect.Value, 1)
 		in[0] = reflect.ValueOf(c)
 		out := method.Call(in)

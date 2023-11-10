@@ -169,6 +169,9 @@ func (mq *MessageQueue) execute() {
 	go func() {
 		// Start the workers
 		for {
+
+			defer wg.Done()
+
 			if mq.Length() == 0 {
 				time.Sleep(time.Millisecond * 500)
 				continue
@@ -206,6 +209,13 @@ func (mq *MessageQueue) waitForTerminationSignal() {
 }
 
 func (mq *MessageQueue) processMessage(message Message) error {
+
+	defer func() {
+		if r := recover(); r != nil {
+			mq.iLog.Error(fmt.Sprintf("Failed to process message: %v", r))
+			return
+		}
+	}()
 
 	mq.iLog.Debug(fmt.Sprintf("handlemessagefromqueue message from queue: %s", message))
 
@@ -297,6 +307,14 @@ func (mq *MessageQueue) processMessage(message Message) error {
 }
 
 func (mq *MessageQueue) worker(id int, jobs <-chan Message, wg *sync.WaitGroup) {
+
+	defer func() {
+		if r := recover(); r != nil {
+			mq.iLog.Error(fmt.Sprintf("Failed to process message: %v", r))
+			return
+		}
+	}()
+
 	mq.iLog.Debug(fmt.Sprintf("worker %d started", id))
 	mq.iLog.Debug(fmt.Sprintf("worker %d has %d jobs ", id, len(jobs)))
 	defer wg.Done()

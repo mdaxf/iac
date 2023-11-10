@@ -29,6 +29,7 @@ type FGroup struct {
 	iLog                logger.Log
 	DocDBCon            *documents.DocDB
 	SignalRClient       signalr.Client
+	ErrorMessage        string
 }
 
 func NewFGroup(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sql.Tx, fgobj types.FuncGroup, nextfuncgroup string, systemSession, userSession, externalinputs, externaloutputs map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc) *FGroup {
@@ -55,10 +56,21 @@ func NewFGroup(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sq
 		iLog:                log,
 		DocDBCon:            DocDBCon,
 		SignalRClient:       SignalRClient,
+		ErrorMessage:        "",
 	}
 
 }
 func (c *FGroup) Execute() {
+	defer func() {
+		if r := recover(); r != nil {
+			c.iLog.Error(fmt.Sprintf("Panic: %s", r))
+			c.ErrorMessage = fmt.Sprintf("Panic: %s", r)
+			c.DBTx.Rollback()
+			c.CtxCancel()
+			return
+		}
+	}()
+
 	c.iLog.Info(fmt.Sprintf("Start process function group %s's %s ", c.FGobj.Name, reflect.ValueOf(c.Execute).Kind().String()))
 	c.iLog.Debug(fmt.Sprintf("systemSession: %s", logger.ConvertJson(c.SystemSession)))
 	c.iLog.Debug(fmt.Sprintf("userSession: %s", logger.ConvertJson(c.UserSession)))
@@ -82,7 +94,11 @@ func (c *FGroup) Execute() {
 
 		f := &funcs.Funcs{
 			Fobj:                fobj,
+			Ctx:                 c.Ctx,
+			CtxCancel:           c.CtxCancel,
 			DBTx:                c.DBTx,
+			DocDBCon:            c.DocDBCon,
+			SignalRClient:       c.SignalRClient,
 			SystemSession:       systemSession,
 			UserSession:         userSession,
 			Externalinputs:      externalinputs,
@@ -91,6 +107,12 @@ func (c *FGroup) Execute() {
 		}
 
 		f.Execute()
+		if f.ErrorMessage != "" {
+			c.ErrorMessage = f.ErrorMessage
+			c.iLog.Error(fmt.Sprintf("Error: %s", c.ErrorMessage))
+			c.CtxCancel()
+			return
+		}
 		c.iLog.Info(fmt.Sprintf("End process function %s", fobj.Name))
 		//c.iLog.Debug(fmt.Sprintf("systemSession: %s", logger.ConvertJson(systemSession)))
 		c.iLog.Debug(fmt.Sprintf("funcCachedVariables: %s", logger.ConvertJson(funcCachedVariables)))
