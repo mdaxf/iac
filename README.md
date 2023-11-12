@@ -2,7 +2,7 @@ IACF (Industry Accelerator Framework) is a comprehensive solution that provides 
 
 The IACF backend is built using the Go language, which is known for its high performance and scalability. This makes IAC an ideal choice for applications that require high throughput and low latency. Go also has built-in concurrency support, which allows IACF to handle large numbers of concurrent connections efficiently.
 
-The front end of IACF is built using pure HTML and JavaScript and is designed to be highly customizable. IACF also includes a UI framework that allows you to create dynamic UIs quickly and easily.
+The front end of IACF is built using pure HTML and JavaScript and is designed to be highly customizable. IACF also includes a UI framework that allows you to create dynamic UIs quickly and easily. The frontend of IACF is managed in IAC-UI project.
 
 One of the critical features of IACF is its support for cloud or local deployment. This allows you to choose the deployment method that works best for your needs. The REST API that powers IAC is highly flexible and can be easily configured to suit your needs.
 
