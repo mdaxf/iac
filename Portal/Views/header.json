@@ -1,6 +1,0 @@
-{
-    "name": "generic header",
-    "type": "view-type",
-    "content": "<div> header content </div>",
-    "inlinestyle": "height: 100%;"
-}
