@@ -39,7 +39,7 @@ func (cf *TableInsertFuncs) Execute(f *Funcs) {
 
 	f.iLog.Debug(fmt.Sprintf("TableInsertFuncs columnList: %s", columnList))
 	f.iLog.Debug(fmt.Sprintf("TableInsertFuncs columnvalueList: %s", columnvalueList))
-	f.iLog.Debug(fmt.Sprintf("TableInsertFuncs columndatatypeList: %s", columndatatypeList))
+	f.iLog.Debug(fmt.Sprintf("TableInsertFuncs columndatatypeList: %v", columndatatypeList))
 	f.iLog.Debug(fmt.Sprintf("TableInsertFuncs TableName: %s", TableName))
 
 	if execution == false {
@@ -73,7 +73,7 @@ func (cf *TableInsertFuncs) Execute(f *Funcs) {
 		f.iLog.Error(fmt.Sprintf("Error in TableInsert Execute: %s", err.Error()))
 		return
 	}
-	f.iLog.Debug(fmt.Sprintf("TableInsert Execution Result: %s", output))
+	f.iLog.Debug(fmt.Sprintf("TableInsert Execution Result: %v", output))
 
 	outputs := make(map[string]interface{})
 	outputs["Identify"] = output

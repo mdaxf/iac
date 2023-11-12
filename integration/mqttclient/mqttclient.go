@@ -214,9 +214,9 @@ func (mqttClient *MqttClient) Initialize_mqttClient() {
 					Retry:     3,
 					Execute:   0,
 					Topic:     msg.Topic(),
-					PayLoad:   string(msg.Payload()),
+					PayLoad:   msg.Payload(),
 					Handler:   handler,
-					CreatedOn: time.Now(),
+					CreatedOn: time.Now().UTC(),
 				}
 				mqttClient.iLog.Debug(fmt.Sprintf("Push message %s to queue: %s", message, mqttClient.Queue.QueueID))
 				mqttClient.Queue.Push(message)

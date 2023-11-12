@@ -3,7 +3,6 @@ package queue
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -217,12 +216,12 @@ func (mq *MessageQueue) processMessage(message Message) error {
 		}
 	}()
 
-	mq.iLog.Debug(fmt.Sprintf("handlemessagefromqueue message from queue: %s", message))
+	mq.iLog.Debug(fmt.Sprintf("handlemessagefromqueue message from queue: %v", message))
 
 	if message.Handler != "" && message.Topic != "" {
 		// Unmarshal the JSON data into a Message object
 		message.ExecutedOn = time.Now()
-		mq.iLog.Debug(fmt.Sprintf("handlemessagefromqueue message from queue: %s", message))
+		//	mq.iLog.Debug(fmt.Sprintf("handlemessagefromqueue message from queue: %v", message))
 
 		//handler := M.handler
 		//data := M.data
@@ -230,17 +229,32 @@ func (mq *MessageQueue) processMessage(message Message) error {
 		var err error
 		message.Execute = message.Execute + 1
 
-		mq.iLog.Debug(fmt.Sprintf("execute the message %d with data %s with handler %s", message.Id, message.PayLoad, message.Handler))
+		mq.iLog.Debug(fmt.Sprintf("execute the message %d with data %v with handler %s", message.Id, message.PayLoad, message.Handler))
 
-		var data map[string]interface{}
-		err = json.Unmarshal([]byte(message.PayLoad.(string)), &data)
-
+		data := make(map[string]interface{})
+		/*
+			jsondata, err := json.Marshal(message.PayLoad)
+			if err != nil {
+				mq.iLog.Error(fmt.Sprintf("Failed to convert json to map: %v", err))
+				return err
+			}
+			mq.iLog.Debug(fmt.Sprintf("Message payload data %s, %v", jsondata, message.PayLoad))
+		*/
+		data["Topic"] = message.Topic
+		data["Payload"], err = com.ConvertInterfaceToString(message.PayLoad)
 		if err != nil {
-			mq.iLog.Error(fmt.Sprintf("Failed to unmarshal data: %v", err))
+			mq.iLog.Error(fmt.Sprintf("Failed to convert json to map: %v", err))
 			return err
 		}
-		/*tr := &trans.TranCodeController{}
-		outputs, err := tr.Execute(message.Handler, data) */
+
+		data["ID"] = message.Id
+		data["UUID"] = message.UUID
+		data["CreatedOn"] = message.CreatedOn
+
+		//		data = com.ConvertstructToMap(message)
+		mq.iLog.Debug(fmt.Sprintf("Message data %v", data))
+
+		return nil
 		if mq.DB == nil {
 			mq.DB = dbconn.DB
 		}
@@ -250,13 +264,13 @@ func (mq *MessageQueue) processMessage(message Message) error {
 			return err
 		}
 
-		tx, err := mq.DB.BeginTx(context.TODO(), &sql.TxOptions{})
+		tx, err := mq.DB.BeginTx(context.TODO(), &sql.TxOptions{Isolation: sql.LevelDefault, ReadOnly: false})
 		if err != nil {
 			mq.iLog.Error(fmt.Sprintf("Failed to begin transaction: %v", err))
 			return err
 		}
 		defer tx.Rollback()
-
+		mq.iLog.Debug(fmt.Sprintf("execute the transaction %s with data %v ", message.Handler, data))
 		outputs, err := trancode.ExecutebyExternal(message.Handler, data, tx, mq.DocDBconn, mq.SignalRClient)
 		if err != nil {
 			mq.iLog.Error(fmt.Sprintf("Failed to execute transaction: %v", err))
@@ -277,11 +291,11 @@ func (mq *MessageQueue) processMessage(message Message) error {
 		}
 		mq.iLog.Debug(fmt.Sprintf("execute the message %d with data %s with handler %s with output %s", message.Id, message.PayLoad, message.Handler, outputs))
 
-		message.CompletedOn = time.Now()
+		message.CompletedOn = time.Now().UTC()
 
 		msghis := map[string]interface{}{
 			"message":      message,
-			"executedon":   time.Now(),
+			"executedon":   time.Now().UTC(),
 			"executedby":   "System",
 			"status":       status,
 			"errormessage": errormessage,
@@ -304,6 +318,10 @@ func (mq *MessageQueue) processMessage(message Message) error {
 		return err
 	}
 	return nil
+}
+
+func bytesToMap(message Message) {
+	panic("unimplemented")
 }
 
 func (mq *MessageQueue) worker(id int, jobs <-chan Message, wg *sync.WaitGroup) {

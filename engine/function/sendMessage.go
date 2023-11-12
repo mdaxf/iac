@@ -36,7 +36,7 @@ func (cf *SendMessageFuncs) Execute(f *Funcs) {
 
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		f.iLog.Error(fmt.Sprintf("Error:", err))
+		f.iLog.Error(fmt.Sprintf("Error:%v", err))
 		return
 	}
 	// Convert JSON byte array to string

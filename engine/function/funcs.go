@@ -199,7 +199,7 @@ func (f *Funcs) HandleInputs() ([]string, []string, map[string]interface{}, erro
 
 		}
 
-		f.iLog.Debug(fmt.Sprintf("function input: %s, Source: %s, value: %s type: %s", logger.ConvertJson(inputs[i]), inputs[i].Source, inputs[i].Value, inputs[i].Datatype))
+		f.iLog.Debug(fmt.Sprintf("function input: %s, Source: %v, value: %s type: %d", logger.ConvertJson(inputs[i]), inputs[i].Source, inputs[i].Value, inputs[i].Datatype))
 		switch inputs[i].Datatype {
 
 		case types.Integer:
@@ -382,7 +382,7 @@ func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
 
 			//	newinputs[inputs[i].Name] = inputs[i].Value
 			namelist[i] = inputs[i].Name
-			f.iLog.Debug(fmt.Sprintf("function input: %s, Source: %s", logger.ConvertJson(inputs[i]), inputs[i].Source))
+			f.iLog.Debug(fmt.Sprintf("function input: %s, Source: %d", logger.ConvertJson(inputs[i]), inputs[i].Source))
 			if f.ExecutionNumber > 1 && inputs[i].Repeat && inputs[i].List {
 
 				//valuelist[i] = (f.FunctionMappedInputs[inputs[i].Name]).([]interface{})[f.ExecutionCount].(string)
@@ -679,7 +679,7 @@ func (f *Funcs) ConvertfromBytes(bytesbuffer []byte) map[string]interface{} {
 
 	err := json.Unmarshal(bytesbuffer, &temobj)
 	if err != nil {
-		f.iLog.Error(fmt.Sprintf("error:", err.Error()))
+		f.iLog.Error(fmt.Sprintf("error: %v", err.Error()))
 	}
 	return temobj
 }

@@ -58,7 +58,7 @@ func (cf *CSharpFuncs) Testfunction(content string, inputs interface{}, outputs 
 		namelist = append(namelist, key)
 		valuelist = append(valuelist, value)
 	}
-	iLog.Debug(fmt.Sprintf("Test Exec Function namelist: %s valuelist:", namelist, valuelist))
+	iLog.Debug(fmt.Sprintf("Test Exec Function namelist: %s valuelist:%v", namelist, valuelist))
 	iLog.Debug(fmt.Sprintf("Test Exec Function content: %s", content))
 
 	cmdArgs := []string{"-c", content}

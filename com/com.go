@@ -1,6 +1,12 @@
 package com
 
 import (
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"reflect"
+	"strconv"
+
 	"github.com/mdaxf/signalrsrv/signalr"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -69,4 +75,99 @@ func ConverttoBooleanwithDefault(value interface{}, defaultvalue bool) bool {
 	default:
 		return defaultvalue
 	}
+}
+
+func ConverttoString(value interface{}) string {
+	return ConverttoStringwithDefault(value, "")
+}
+
+func ConverttoStringwithDefault(value interface{}, defaultvalue string) string {
+	if value == nil {
+		return defaultvalue
+	}
+
+	if str, ok := value.(string); ok {
+		return str
+	} else {
+		switch v := value.(type) {
+		case string:
+			return v
+		case int:
+			return strconv.Itoa(v)
+		case int64:
+			return strconv.FormatInt(v, 10)
+		case uint:
+			return strconv.FormatUint(uint64(v), 10)
+		case float64:
+			return strconv.FormatFloat(v, 'f', -1, 64)
+		default:
+			return fmt.Sprintf("%v", value)
+		}
+	}
+}
+
+func ConvertstructToMap(input interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	val := reflect.ValueOf(input)
+	typ := reflect.TypeOf(input)
+
+	// Check if the input is a struct
+	if val.Kind() == reflect.Struct {
+		for i := 0; i < val.NumField(); i++ {
+			field := val.Field(i)
+			fieldName := typ.Field(i).Name
+
+			// Add the field to the map
+			result[fieldName] = field.Interface()
+		}
+	}
+
+	return result
+}
+
+func ConvertbytesToMap(data []byte) (map[string]interface{}, error) {
+	var result map[string]interface{}
+
+	err := json.Unmarshal(data, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func DecodeBase64String(input string) (string, error) {
+	decodedData, err := base64.StdEncoding.DecodeString(input)
+	if err != nil {
+		return "", err
+	}
+	return string(decodedData), nil
+}
+
+func Convertbase64ToMap(input string) (map[string]interface{}, error) {
+	// Decode Base64 string
+	decodedData, err := base64.StdEncoding.DecodeString(input)
+	if err != nil {
+		return nil, err
+	}
+	println("data:", string(decodedData))
+	return ConvertbytesToMap(decodedData)
+	// Unmarshal JSON data
+	var resultMap map[string]interface{}
+	err = json.Unmarshal(decodedData, &resultMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return resultMap, nil
+}
+
+func ConvertInterfaceToString(input interface{}) (string, error) {
+	jsondata, err := json.Marshal(input)
+	if err != nil {
+		fmt.Println(fmt.Sprintf("Failed to convert json to map: %v", err))
+		return "", err
+	}
+	return DecodeBase64String(fmt.Sprintf("%s", jsondata))
 }

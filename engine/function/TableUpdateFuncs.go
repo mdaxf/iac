@@ -42,10 +42,10 @@ func (cf *TableUpdateFuncs) Execute(f *Funcs) {
 	}
 	f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs columnList: %s", columnList))
 	f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs columnvalueList: %s", columnvalueList))
-	f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs columndatatypeList: %s", columndatatypeList))
+	f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs columndatatypeList: %v", columndatatypeList))
 	f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs keycolumnList: %s", keycolumnList))
 	f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs keycolumnvalueList: %s", keycolumnvalueList))
-	f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs keycolumndatatypeList: %s", keycolumndatatypeList))
+	f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs keycolumndatatypeList: %v", keycolumndatatypeList))
 	f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs TableName: %s", TableName))
 
 	if TableName == "" {
@@ -68,7 +68,7 @@ func (cf *TableUpdateFuncs) Execute(f *Funcs) {
 		if Where != "" {
 			Where = fmt.Sprintf("%s AND ", Where)
 		}
-		f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs Column: %s  Value: %s  keycolumndatatypeList: %s", column, keycolumnvalueList[i], keycolumndatatypeList[i]))
+		//	f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs Column: %s  Value: %s  keycolumndatatypeList: %s", column, keycolumnvalueList[i], keycolumndatatypeList[i]))
 		/*switch keycolumndatatypeList[i] {
 		case int(types.String):
 		case int(types.DateTime):
@@ -79,7 +79,7 @@ func (cf *TableUpdateFuncs) Execute(f *Funcs) {
 		value := strings.Replace(keycolumnvalueList[i], "'", "", -1)
 
 		Where = fmt.Sprintf("%s %s ='%s'", Where, column, value)
-		f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs Where: %s", Where))
+		//	f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs Where: %s", Where))
 	}
 	f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs Where: %s", Where))
 	var user string
@@ -97,7 +97,7 @@ func (cf *TableUpdateFuncs) Execute(f *Funcs) {
 		f.iLog.Error(fmt.Sprintf("Error in TableUpdate Execute: %s", err.Error()))
 		return
 	}
-	f.iLog.Debug(fmt.Sprintf("TableUpdate Execution Result: %s", output))
+	f.iLog.Debug(fmt.Sprintf("TableUpdate Execution Result: %v", output))
 
 	outputs := make(map[string]interface{})
 	outputs["RowCount"] = output

@@ -737,7 +737,7 @@ const Function_Source_Color_List = ['#82CD47', '#6DA9E4', '#F6BA6F', '#BFCCB5', 
 const Function_Dest_Color_List = ['#F6BA6F', '#BFCCB5', '#82CD47']
 const Function_Source_List =["Constant", "Previous function", "system Session", "User Session", "External"]
 const Function_Dest_List=["", "Session", "External"]
-const Function_Type_List =["ParameterMap", "Csharp Script", "Javascript", "Database Query", "StoreProcedure", "SubTranCode", "DataInsert", "DataUpdate", "DataDelete","CollectionInsert","CollectionUpdate", "CollectionDelete","ThrowError","SendMessage", "SendEmail"]
+const Function_Type_List =["ParameterMap", "GoExpression", "Javascript", "Database Query", "StoreProcedure", "SubTranCode", "DataInsert", "DataUpdate", "DataDelete","CollectionInsert","CollectionUpdate", "CollectionDelete","ThrowError","SendMessage", "SendEmail"]
 const Function_Type_Color_List = ['#82CD47', '#6DA9E4', '#F6BA6F', '#BFCCB5', '#FFEBEB', '#F0C333', '#16A085', '#C0392B', '#D35400', '#2ECC71', '#27AE60', '#8E44AD', '#F39C12', '#1ABC9C', '#E74C3C']
 const Function_Type_Obj={
 	"SubTranCode":{
@@ -6366,7 +6366,7 @@ var ProcessFlow = (function(){
 													$('#script-editor-additional-section-tab-content-'+key).show();
 
 
-												}else if(functionobj.functype == 2 || functionobj.functype == 1){  // javascript, c#
+												}else if(functionobj.functype == 2 || functionobj.functype == 1){  // javascript, go
 													let inputs = {};
 													let outputs = [];
 													let scriptcontent = script_editor.getValue();
@@ -6432,7 +6432,32 @@ var ProcessFlow = (function(){
 								lineWrapping: true,
 								extraKeys: {"Ctrl-Q": function(cm){ cm.foldCode(cm.getCursor()); }},
 								foldGutter: true,
-								gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
+								lint:true,
+								gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter","CodeMirror-lint-markers"],
+								foldOptions: {
+									widget: (from, to) => {
+										var count = undefined;
+
+										// Get open / close token
+										var startToken = '{', endToken = '}';        
+										var prevLine = window.script_editor.getLine(from.line);
+										if (prevLine.lastIndexOf('[') > prevLine.lastIndexOf('{')) {
+										startToken = '[', endToken = ']';
+										}
+
+										// Get json content
+										var internal = window.script_editor.getRange(from, to);
+										var toParse = startToken + internal + endToken;
+
+										// Get key count
+										try {
+										var parsed = JSON.parse(toParse);
+										count = Object.keys(parsed).length;
+										} catch(e) { }        
+
+										return count ? `\u21A4${count}\u21A6` : '\u2194';
+									}
+								}
 							});
 							let width = $('#popup').width() - 40;
 							let height = $('#popup').height() - 90-100;
@@ -6470,10 +6495,11 @@ var ProcessFlow = (function(){
 								new UI.FormControl(additional_section_output, 'h3', {innerHTML:'Outputs', lngcode:'Outputs'});
 								let outputtable = (new UI.FormControl(additional_section_output, 'ui-tabulator',  {id: "script-editor-outputs"})).control;
 								tabledata =[];
+								let outputs = functionobj.outputs;
 								tablecolumns = [{field:'name', title:'Input Name', width:'50%'}, {field:'value', title:'Input Value', width:'50%'}];
-								for(var i=0;i<inputs.length;i++){
-									let input = inputs[i];
-									tabledata.push({name:input.name, value:input.value})
+								for(var i=0;i<outputs.length;i++){
+									let output = outputs[i];
+									tabledata.push({name:output.name, value:""})
 								}
 								outputtable.Table = new Tabulator(outputtable.uitabulator, {
 									height:180,

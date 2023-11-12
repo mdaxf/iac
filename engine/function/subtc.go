@@ -37,7 +37,7 @@ func (cf *SubTranCodeFuncs) Execute(f *Funcs) {
 		}
 	}
 	if tcode == "" {
-		f.iLog.Error(fmt.Sprintf("Error executing transaction code: ", "No trancode input"))
+		f.iLog.Error(fmt.Sprintf("Error executing transaction code: %s", "No trancode input"))
 		return
 	}
 

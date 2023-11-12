@@ -79,7 +79,7 @@ func (cf *InputMapFuncs) Validate(f *Funcs) bool {
 				f.iLog.Error(fmt.Sprintf("Output %s is Integer and input %s is not Integer", output.Name, input.Name))
 				return false
 			}
-			if output.Datatype == types.Float && (input.Datatype != types.Float || input.Datatype != types.Integer) {
+			if output.Datatype == types.Float && (input.Datatype != types.Float && input.Datatype != types.Integer) {
 				f.iLog.Error(fmt.Sprintf("Output %s is float and input %s is not Integer or float", output.Name, input.Name))
 				return false
 			}

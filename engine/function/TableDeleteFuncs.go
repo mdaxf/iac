@@ -43,10 +43,10 @@ func (cf *TableDeleteFuncs) Execute(f *Funcs) {
 	}
 	f.iLog.Debug(fmt.Sprintf("TableDeleteFuncs columnList: %s", columnList))
 	f.iLog.Debug(fmt.Sprintf("TableDeleteFuncs columnvalueList: %s", columnvalueList))
-	f.iLog.Debug(fmt.Sprintf("TableDeleteFuncs columndatatypeList: %s", columndatatypeList))
+	f.iLog.Debug(fmt.Sprintf("TableDeleteFuncs columndatatypeList: %v", columndatatypeList))
 	f.iLog.Debug(fmt.Sprintf("TableDeleteFuncs keycolumnList: %s", keycolumnList))
 	f.iLog.Debug(fmt.Sprintf("TableDeleteFuncs keycolumnvalueList: %s", keycolumnvalueList))
-	f.iLog.Debug(fmt.Sprintf("TableDeleteFuncs keycolumndatatypeList: %s", keycolumndatatypeList))
+	f.iLog.Debug(fmt.Sprintf("TableDeleteFuncs keycolumndatatypeList: %v", keycolumndatatypeList))
 	f.iLog.Debug(fmt.Sprintf("TableDeleteFuncs TableName: %s", TableName))
 
 	if TableName == "" {
@@ -88,7 +88,7 @@ func (cf *TableDeleteFuncs) Execute(f *Funcs) {
 		f.iLog.Error(fmt.Sprintf("Error in TableDete Execute: %s", err.Error()))
 		return
 	}
-	f.iLog.Debug(fmt.Sprintf("TableDete Execution Result: %s", output))
+	f.iLog.Debug(fmt.Sprintf("TableDete Execution Result: %v", output))
 
 	outputs := make(map[string]interface{})
 	outputs["RowCount"] = output
