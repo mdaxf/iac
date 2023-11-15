@@ -92,6 +92,57 @@ func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 	}
 }
 
+func (e *TranCodeController) UnitTest(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
+
+	//var tcdata TranCodeData
+	tcdata, err := getDataFromRequest(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get transaction code %s's error", tcdata.TranCode))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Start process transaction code %s's %s: %s", tcdata.TranCode, "Unit Test", tcdata.Inputs))
+
+	outputs, err := trancode.ExecuteUnitTest(tcdata.TranCode)
+
+	if err == nil {
+		iLog.Debug(fmt.Sprintf("End process transaction code %s's %s ", tcdata.TranCode, "Unit Test"))
+		ctx.JSON(http.StatusOK, gin.H{"Outputs": outputs})
+		return
+	} else {
+		iLog.Error(fmt.Sprintf("End process transaction code %s's %s with error %s", tcdata.TranCode, "Unit Test", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"execution failed": err.Error()})
+	}
+
+}
+
+func (e *TranCodeController) TestbyTestData(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
+
+	//var tcdata TranCodeData
+	tcdata, err := getDataFromRequest(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get transaction code %s's error", tcdata.TranCode))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Start process transaction code %s's %s: %s", tcdata.TranCode, "Unit Test", tcdata.Inputs))
+
+	outputs, err := trancode.ExecuteUnitTestWithTestData(tcdata.TranCode, tcdata.Inputs)
+
+	if err == nil {
+		iLog.Debug(fmt.Sprintf("End process transaction code %s's %s ", tcdata.TranCode, "Unit Test"))
+		ctx.JSON(http.StatusOK, gin.H{"Outputs": outputs})
+		return
+	} else {
+		iLog.Error(fmt.Sprintf("End process transaction code %s's %s with error %s", tcdata.TranCode, "Unit Test", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"execution failed": err.Error()})
+	}
+}
+
 func (e *TranCodeController) Execute(Code string, externalinputs map[string]interface{}) (map[string]interface{}, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
 	iLog.Info(fmt.Sprintf("Start process transaction code %s with inputs: %s ", Code, externalinputs))
@@ -128,7 +179,7 @@ func (e *TranCodeController) Execute(Code string, externalinputs map[string]inte
 			return nil, err
 		}
 	*/
-	trancodeobj, err := trancode.GetTranCodeData(Code)
+	trancodeobj, err := trancode.GetTranCodeDatabyCode(Code)
 
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error unmarshaling json:", err.Error()))

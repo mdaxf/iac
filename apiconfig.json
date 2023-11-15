@@ -139,6 +139,27 @@
           "method": "POST",
           "path": "/revision",
           "handler": "TranCodeRevision"
+        },
+        {
+          "method": "POST",
+          "path": "/unittest",
+          "handler": "UnitTest"
+        },
+        {
+          "method": "POST",
+          "path": "/test",
+          "handler": "TestbyTestData"
+        }
+      ]
+    },
+    {
+      "path": "health",
+      "module": "HealthController",    
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/check",
+          "handler": "CheckHealth"
         }
       ]
     },
@@ -159,8 +180,8 @@
   ],
   "portal":{
     "port": 8080,
-    "path":"/portal",
-    "home":"/portal/uipage.html",
-    "logon":"/portal/login.html"
+    "path":"../iac-ui/portal",
+    "home":"../iac-ui/portal/uipage.html",
+    "logon":"../iac-ui/portal/login.html"
   }
 }

@@ -36,7 +36,7 @@ type Message struct {
 	Retry       int
 	Execute     int
 	Topic       string
-	PayLoad     interface{}
+	PayLoad     []byte
 	Handler     string
 	CreatedOn   time.Time
 	ExecutedOn  time.Time
@@ -241,11 +241,7 @@ func (mq *MessageQueue) processMessage(message Message) error {
 			mq.iLog.Debug(fmt.Sprintf("Message payload data %s, %v", jsondata, message.PayLoad))
 		*/
 		data["Topic"] = message.Topic
-		data["Payload"], err = com.ConvertInterfaceToString(message.PayLoad)
-		if err != nil {
-			mq.iLog.Error(fmt.Sprintf("Failed to convert json to map: %v", err))
-			return err
-		}
+		data["Payload"] = string(message.PayLoad)
 
 		data["ID"] = message.Id
 		data["UUID"] = message.UUID
@@ -254,7 +250,6 @@ func (mq *MessageQueue) processMessage(message Message) error {
 		//		data = com.ConvertstructToMap(message)
 		mq.iLog.Debug(fmt.Sprintf("Message data %v", data))
 
-		return nil
 		if mq.DB == nil {
 			mq.DB = dbconn.DB
 		}

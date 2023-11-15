@@ -14,6 +14,15 @@ type TranCode struct {
 	Firstfuncgroup string                 "json:'firstfuncgroup'"
 	SystemData     SystemData             "json:'system'"
 	Description    string                 "json:'description'"
+	TestDatas      []TestData             "json:'testdatas'"
+}
+
+type TestData struct {
+	Name      string   "json:'name'"
+	Inputs    []Input  "json:'inputs'"
+	Outputs   []Output "json:'outputs'"
+	WantErr   bool     "json:'wanterr'"
+	WantedErr string   "json:'wantederr'"
 }
 
 type SystemData struct {

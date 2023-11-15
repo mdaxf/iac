@@ -41,6 +41,11 @@ var wg sync.WaitGroup
 var router *gin.Engine
 
 func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			ilog.Error(fmt.Sprintf("Panic: %v", r))
+		}
+	}()
 	// Load configuration from the file
 
 	config, err := configuration.LoadConfig()
@@ -93,21 +98,9 @@ func main() {
 
 	router = gin.Default()
 
-	//router.StaticFile("/portal", "./portal")
-	//router.Static("/portal", "./portal")
-	//	router.LoadHTMLGlob("portal/*.html")
-	//	router.LoadHTMLGlob("portal/*.ico")
-
-	// Serve static files from the "/public" URL path without authentication
-	router.GET(portal.Path+"/*filepath", func(c *gin.Context) {
-		ilog.Debug(fmt.Sprintf("Portal path: %s, %s", portal.Path, portal.Home))
-		http.StripPrefix(portal.Path, http.FileServer(http.Dir("./portal"))).ServeHTTP(c.Writer, c.Request)
-	})
-
-	router.GET(portal.Path, func(c *gin.Context) {
-		ilog.Debug(fmt.Sprintf("Portal path: %s, %s", portal.Path, portal.Home))
-		c.HTML(http.StatusOK, portal.Home, nil)
-	})
+	router.Static("/portal", portal.Path)
+	router.StaticFile("/portal", portal.Home)
+	//	router.StaticFile("/portal", portal.Logon)
 
 	if configuration.GlobalConfiguration.WebServerConfig != nil {
 		webserverconfig := configuration.GlobalConfiguration.WebServerConfig
@@ -191,7 +184,7 @@ func main() {
 
 	 */
 	// Start the server
-	router.Run(fmt.Sprintf(":%d", config.Port))
+	go router.Run(fmt.Sprintf(":%d", config.Port))
 
 	ilog.Info(fmt.Sprintf("Started portal on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
 
@@ -270,11 +263,7 @@ func GinMiddleware(headers map[string]interface{}) gin.HandlerFunc {
 			c.Header(key, value.(string))
 			//	c.Writer.Header().Set(key, value.(string))
 		}
-		/*		c.Writer.Header().Set("Access-Control-Allow-Origin", allowOrigin)
-				c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-				c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
-				c.Writer.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, Content-Length, X-CSRF-Token, Token, session, Origin, Host, Connection, Accept-Encoding, Accept-Language, X-Requested-With")
-		*/
+
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
 			return

@@ -35,6 +35,43 @@ type TranFlow struct {
 	ErrorMessage    string
 }
 
+func ExecuteUnitTest(trancode string) (map[string]interface{}, error) {
+	tranobj, err := getTranCodeData(trancode, documents.DocDBCon)
+	if err != nil {
+		return nil, err
+	}
+	tf := NewTranFlow(tranobj, map[string]interface{}{}, map[string]interface{}{}, nil, nil)
+
+	result, err := tf.UnitTest()
+
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+func ExecuteUnitTestWithTestData(trancode string, testcase map[string]interface{}) (map[string]interface{}, error) {
+	tranobj, err := getTranCodeData(trancode, documents.DocDBCon)
+	if err != nil {
+		return nil, err
+	}
+	tf := NewTranFlow(tranobj, map[string]interface{}{}, map[string]interface{}{}, nil, nil)
+
+	var testdata types.TestData
+
+	testdata.Inputs = testcase["inputs"].([]types.Input)
+	testdata.Outputs = testcase["outputs"].([]types.Output)
+	testdata.Name = testcase["name"].(string)
+	testdata.WantErr = testcase["wanterr"].(bool)
+	testdata.WantedErr = testcase["wantederr"].(string)
+
+	result, err := tf.UnitTestbyTestData(testdata)
+
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func ExecutebyExternal(trancode string, data map[string]interface{}, DBTx *sql.Tx, DBCon *documents.DocDB, sc signalr.Client) (map[string]interface{}, error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -216,7 +253,7 @@ type TranFlowstr struct {
 }
 
 func (t *TranFlowstr) Execute(tcode string, inputs map[string]interface{}, sc signalr.Client, docdbconn *documents.DocDB, ctx context.Context, ctxcancel context.CancelFunc, dbTx ...*sql.Tx) (map[string]interface{}, error) {
-	tc, err := GetTranCodeData(tcode)
+	tc, err := GetTranCodeDatabyCode(tcode)
 
 	if err != nil {
 		return nil, err
@@ -233,7 +270,100 @@ func (t *TranFlowstr) Execute(tcode string, inputs map[string]interface{}, sc si
 	return tf.Execute()
 }
 
-func GetTranCodeData(Code string) (types.TranCode, error) {
+func (t *TranFlow) UnitTestbyTestData(testdata types.TestData) (map[string]interface{}, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.ilog.Error(fmt.Sprintf("Error in Trancode.Execute: %s", r))
+			t.ErrorMessage = fmt.Sprintf("Error in Trancode.Execute: %s", r)
+			t.DBTx.Rollback()
+			t.CtxCancel()
+			return
+		}
+	}()
+
+	t.ilog.Debug(fmt.Sprintf("Start process transaction code %s's with test data: %s ", t.Tcode.Name, testdata))
+	t.ilog.Debug(fmt.Sprintf("externalinputs: %s", logger.ConvertJson(testdata.Inputs)))
+	t.ilog.Debug(fmt.Sprintf("expected externaloutputs: %s", logger.ConvertJson(testdata.Outputs)))
+
+	t.Externalinputs = convertInputsToMap(testdata.Inputs)
+	t.externaloutputs = map[string]interface{}{}
+	testresult := map[string]interface{}{}
+	testresult["Name"] = testdata.Name
+	testresult["Inputs"] = testdata.Inputs
+	testresult["ExpectedOutputs"] = testdata.Outputs
+	testresult["ExpectError"] = testdata.WantErr
+	testresult["ExpectedError"] = testdata.WantedErr
+	outputs, err := t.Execute()
+	t.ilog.Debug(fmt.Sprintf("actual externaloutputs: %v, expected outputs: %v", outputs, testdata.Outputs))
+	if err != nil {
+		t.ilog.Error(fmt.Sprintf("Error in Trancode.Execute: %s", err.Error()))
+
+		if testdata.WantErr {
+			if testdata.WantedErr == err.Error() {
+				testresult["ActualError"] = err.Error()
+				testresult["Result"] = "Pass"
+
+			} else {
+				testresult["ActualError"] = err.Error()
+				testresult["Result"] = "Pass"
+
+			}
+
+		} else {
+			testresult["ActualError"] = err.Error()
+			testresult["Result"] = "Fail"
+
+		}
+	}
+
+	if !testdata.WantErr {
+		if !compareMap(outputs, convertOutputsToMap(testdata.Outputs)) {
+			testresult["ActualOutputs"] = outputs
+			testresult["Result"] = "Fail"
+
+		} else {
+			testresult["ActualOutputs"] = outputs
+			testresult["Result"] = "Pass"
+
+		}
+	} else {
+		testresult["Result"] = "Fail"
+		testresult["ActualOutputs"] = outputs
+		testresult["ActualError"] = ""
+
+	}
+
+	return testresult, nil
+}
+
+func (t *TranFlow) UnitTest() (map[string]interface{}, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.ilog.Error(fmt.Sprintf("Error in Trancode.Execute: %s", r))
+			t.ErrorMessage = fmt.Sprintf("Error in Trancode.Execute: %s", r)
+			t.DBTx.Rollback()
+			t.CtxCancel()
+			return
+		}
+	}()
+
+	result := make(map[string]interface{})
+
+	t.ilog.Info(fmt.Sprintf("Start Process for transaction code %s's %s ", t.Tcode.Name, "Unit Test"))
+	t.ilog.Debug(fmt.Sprintf("systemSession: %s", logger.ConvertJson(t.SystemSession)))
+	testdatalist := t.Tcode.TestDatas
+
+	for _, testdata := range testdatalist {
+
+		testresult, _ := t.UnitTestbyTestData(testdata)
+		result[testdata.Name] = testresult
+
+	}
+
+	return result, nil
+}
+
+func GetTranCodeDatabyCode(Code string) (types.TranCode, error) {
 	/*	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
 		iLog.Info(fmt.Sprintf("Get the trancode code for %s ", Code))
 
@@ -313,4 +443,43 @@ func getTranCodeData(Code string, DBConn *documents.DocDB) (types.TranCode, erro
 	}
 
 	return trancodeobj, nil
+}
+
+func convertInputsToMap(inputs []types.Input) map[string]interface{} {
+	result := map[string]interface{}{}
+
+	for _, input := range inputs {
+		result[input.Name] = input.Value
+	}
+
+	return result
+}
+
+func convertOutputsToMap(outputs []types.Output) map[string]interface{} {
+	result := map[string]interface{}{}
+
+	for _, output := range outputs {
+		result[output.Name] = output.Value
+	}
+
+	return result
+}
+
+func compareMap(map1, map2 map[string]interface{}) bool {
+	if len(map1) != len(map2) {
+		return false
+	}
+
+	for key1, value1 := range map1 {
+		value2, ok := map2[key1]
+		if !ok {
+			return false
+		}
+
+		if value1 != value2 {
+			return false
+		}
+	}
+
+	return true
 }

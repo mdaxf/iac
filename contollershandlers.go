@@ -26,6 +26,7 @@ import (
 	"github.com/mdaxf/iac/controllers/collectionop"
 	"github.com/mdaxf/iac/controllers/databaseop"
 	"github.com/mdaxf/iac/controllers/function"
+	"github.com/mdaxf/iac/controllers/healthcheck"
 	"github.com/mdaxf/iac/controllers/lngcodes"
 	"github.com/mdaxf/iac/controllers/role"
 	"github.com/mdaxf/iac/controllers/trans"
@@ -73,6 +74,9 @@ func getModule(module string) reflect.Value {
 		return reflect.ValueOf(moduleInstance)
 	case "LCController":
 		moduleInstance := &lngcodes.LCController{}
+		return reflect.ValueOf(moduleInstance)
+	case "HealthController":
+		moduleInstance := &healthcheck.HealthController{}
 		return reflect.ValueOf(moduleInstance)
 	}
 
