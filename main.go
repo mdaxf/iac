@@ -109,21 +109,6 @@ func main() {
 		router.Use(GinMiddleware(headers))
 	}
 
-	router.GET("/debug", func(c *gin.Context) {
-		headers := c.Request.Header
-		useragent := c.Request.Header.Get("User-Agent")
-		ilog.Debug(fmt.Sprintf("User-Agent: %s, headers: %v", useragent, headers))
-		debugInfo := map[string]interface{}{
-			"Route":          c.FullPath(),
-			"requestheader":  headers,
-			"User-Agent":     useragent,
-			"requestbody":    c.Request.Body,
-			"responseheader": c.Writer.Header(),
-			"Method":         c.Request.Method,
-		}
-
-		c.JSON(http.StatusOK, debugInfo)
-	})
 	// Load controllers dynamically based on the configuration file
 	plugincontrollers := make(map[string]interface{})
 	for _, controllerConfig := range config.PluginControllers {
@@ -142,20 +127,23 @@ func main() {
 		plugincontrollers[controllerConfig.Path] = controllerModule
 	}
 
-	// Create endpoints dynamically based on the configuration file
-	for _, controllerConfig := range config.PluginControllers {
-		for _, endpointConfig := range controllerConfig.Endpoints {
-			method := endpointConfig.Method
-			path := fmt.Sprintf("/%s%s", controllerConfig.Path, endpointConfig.Path)
-			handler := plugincontrollers[controllerConfig.Path].(map[string]interface{})[endpointConfig.Handler].(func(*gin.Context))
-			router.Handle(method, path, handler)
+	go func() {
+		// Create endpoints dynamically based on the configuration file
+		for _, controllerConfig := range config.PluginControllers {
+			for _, endpointConfig := range controllerConfig.Endpoints {
+				method := endpointConfig.Method
+				path := fmt.Sprintf("/%s%s", controllerConfig.Path, endpointConfig.Path)
+				handler := plugincontrollers[controllerConfig.Path].(map[string]interface{})[endpointConfig.Handler].(func(*gin.Context))
+				router.Handle(method, path, handler)
+			}
 		}
-	}
-
+	}()
 	// Load controllers statically based on the configuration file
 	ilog.Info("Loading controllers")
-	loadControllers(router, config.Controllers)
 
+	go func() {
+		loadControllers(router, config.Controllers)
+	}()
 	// Start the portals
 	ilog.Info("Starting portals")
 
@@ -176,6 +164,22 @@ func main() {
 
 	router.GET("/config", func(c *gin.Context) {
 		c.JSON(http.StatusOK, clientconfig)
+	})
+
+	router.GET("/debug", func(c *gin.Context) {
+		headers := c.Request.Header
+		useragent := c.Request.Header.Get("User-Agent")
+		ilog.Debug(fmt.Sprintf("User-Agent: %s, headers: %v", useragent, headers))
+		debugInfo := map[string]interface{}{
+			"Route":          c.FullPath(),
+			"requestheader":  headers,
+			"User-Agent":     useragent,
+			"requestbody":    c.Request.Body,
+			"responseheader": c.Writer.Header(),
+			"Method":         c.Request.Method,
+		}
+
+		c.JSON(http.StatusOK, debugInfo)
 	})
 	/*
 		router.Use(static.Serve("/portal", static.LocalFile("./portal", true)))

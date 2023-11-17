@@ -14,12 +14,13 @@ import (
 var Instance string
 var InstanceType string
 var InstanceName string
-var MongoDBClients []*mongo.Client
 var SingalRConfig map[string]interface{}
-
-var IACMessageBusClient signalr.Client
 var TransactionTimeout int
 var DBTransactionTimeout int
+
+var MongoDBClients []*mongo.Client
+
+var IACMessageBusClient signalr.Client
 
 func ConverttoInt(value interface{}) int {
 	return ConverttoIntwithDefault(value, 0)
@@ -170,4 +171,16 @@ func ConvertInterfaceToString(input interface{}) (string, error) {
 		return "", err
 	}
 	return DecodeBase64String(fmt.Sprintf("%s", jsondata))
+}
+
+func ConvertMapToString(data map[string]interface{}) (string, error) {
+	// Marshal the map to JSON
+	jsonBytes, err := json.Marshal(data)
+	if err != nil {
+		return "", err
+	}
+
+	// Convert the byte slice to a string
+	jsonString := string(jsonBytes)
+	return jsonString, nil
 }

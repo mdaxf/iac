@@ -42,6 +42,7 @@ var ilog logger.Log
 func initialize() {
 
 	ilog = logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Initialization"}
+
 	initializeloger()
 	ilog.Debug("initialize logger")
 	config.SessionCacheTimeout = 1800
@@ -288,6 +289,8 @@ func initializedDocuments() {
 }
 
 func initializeMqttClient() {
+	config.MQTTClients = make(map[string]*mqttclient.MqttClient)
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -307,13 +310,21 @@ func initializeMqttClient() {
 
 		}
 		ilog.Debug(fmt.Sprintf("MQTT Clients configuration: %v", logger.ConvertJson(mqttconfig)))
-
+		i := 1
 		for _, mqttcfg := range mqttconfig.Mqtts {
 			ilog.Debug(fmt.Sprintf("MQTT Client configuration: %s", logger.ConvertJson(mqttcfg)))
-			mqttclient.NewMqttClient(mqttcfg)
-
+			mqtc := mqttclient.NewMqttClient(mqttcfg)
+			//	fmt.Println("MQTT Client: %v", mqtc)
+			//	ilog.Debug(fmt.Sprintf("MQTT Client: %v", mqtc))
+			config.MQTTClients[fmt.Sprintf("mqttclient_%d", i)] = mqtc
+			mqtc.Initialize_mqttClient()
+			//	fmt.Sprintln("MQTT Client: %v", config.MQTTClients)
+			//	ilog.Debug(fmt.Sprintf("MQTT Client: %v", config.MQTTClients))
+			i++
 		}
 
+		fmt.Println("MQTT Clients: %v, %d", config.MQTTClients, i)
+		ilog.Debug(fmt.Sprintf("MQTT Clients: %v, %d", config.MQTTClients, i))
 	}()
 
 }

@@ -27,15 +27,16 @@ type MqttConfig struct {
 }
 
 type Mqtt struct {
-	Type       string      `json:"type"` // tcp, ws, wss
-	Broker     string      `json:"broker"`
-	Port       string      `json:"port"`
-	CertFile   string      `json:"certFile"`
-	KeyFile    string      `json:"keyFile"`
-	CaCertFile string      `json:"caFile"`
-	Username   string      `json:"username"`
-	Password   string      `json:"password"`
-	Topics     []MqttTopic `json:"topics"`
+	Type          string      `json:"type"` // tcp, ws, wss
+	Broker        string      `json:"broker"`
+	Port          string      `json:"port"`
+	CertFile      string      `json:"certFile"`
+	KeyFile       string      `json:"keyFile"`
+	CaCertFile    string      `json:"caFile"`
+	Username      string      `json:"username"`
+	Password      string      `json:"password"`
+	Topics        []MqttTopic `json:"topics"`
+	AutoReconnect bool        `json:"reconnect"`
 }
 
 type MqttTopic struct {
@@ -45,6 +46,7 @@ type MqttTopic struct {
 }
 
 type MqttClient struct {
+	Config         Mqtt
 	mqttBrokertype string
 	mqttBroker     string
 	mqttPort       string
@@ -56,7 +58,7 @@ type MqttClient struct {
 	mqttClientID   string
 	mqttTopics     []MqttTopic
 	iLog           logger.Log
-	client         mqtt.Client
+	Client         mqtt.Client
 	Queue          *queue.MessageQueue
 	DocDBconn      *documents.DocDB
 	DB             *sql.DB
@@ -69,6 +71,7 @@ func NewMqttClient(configurations Mqtt) *MqttClient {
 	iLog.Debug(fmt.Sprintf(("Create MqttClient with configuration : %s"), logger.ConvertJson(configurations)))
 
 	mqttclient := &MqttClient{
+		Config:         configurations,
 		mqttBrokertype: configurations.Type, // tcp, ws, wss
 		mqttBroker:     configurations.Broker,
 		mqttPort:       configurations.Port,
@@ -90,7 +93,7 @@ func NewMqttClient(configurations Mqtt) *MqttClient {
 	mqttclient.Queue.DB = dbconn.DB
 	mqttclient.Queue.SignalRClient = com.IACMessageBusClient
 
-	mqttclient.Initialize_mqttClient()
+	//	mqttclient.Initialize_mqttClient()
 	return mqttclient
 }
 
@@ -152,7 +155,8 @@ func (mqttClient *MqttClient) Initialize_mqttClient() {
 	}
 	// Create an MQTT client
 	client := mqtt.NewClient(opts)
-	mqttClient.client = client
+	mqttClient.Client = client
+
 	// Create a channel to receive MQTT messages
 	messageChannel := make(chan mqtt.Message)
 
@@ -230,7 +234,7 @@ func (mqttClient *MqttClient) Initialize_mqttClient() {
 }
 func (mqttClient *MqttClient) Publish(topic string, payload string) {
 
-	token := mqttClient.client.Publish(topic, 0, false, payload)
+	token := mqttClient.Client.Publish(topic, 0, false, payload)
 	token.Wait()
 	if token.Error() != nil {
 		mqttClient.iLog.Debug(fmt.Sprintf("Failed to publish message: topic %s, payload %s\n %s\n with error:", topic, payload, token.Error()))
@@ -254,7 +258,7 @@ func (mqttClient *MqttClient) waitForTerminationSignal() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
 	fmt.Println("\nShutting down...")
-	mqttClient.client.Disconnect(250)
+	mqttClient.Client.Disconnect(250)
 	time.Sleep(2 * time.Second) // Add any cleanup or graceful shutdown logic here
 	os.Exit(0)
 }

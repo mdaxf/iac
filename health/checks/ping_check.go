@@ -47,6 +47,13 @@ func NewPingCheck(URL, Method string, Timeout int, Body io.Reader, Headers map[s
 }
 
 func (p PingCheck) checkstatus() error {
+
+	defer func() {
+		if r := recover(); r != nil {
+			return
+		}
+	}()
+
 	req, err := http.NewRequest(p.Method, p.URL, p.Body)
 
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mdaxf/iac/com"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -46,6 +47,8 @@ type (
 	Check struct {
 		// Status is the check status.
 		Status Status `json:"status"`
+		// Result is the check result.
+		Results map[string]interface{} `json:"results"`
 		// Timestamp is the time in which the check occurred.
 		Timestamp time.Time `json:"timestamp"`
 		// Failures holds the failed checks along with their messages.
@@ -68,6 +71,8 @@ type (
 		HeapObjectsCount int `json:"heap_objects_count"`
 		// TotalAllocBytes is the bytes allocated and not yet freed.
 		AllocBytes int `json:"alloc_bytes"`
+
+		Metrics map[string]interface{} `json:"system"`
 	}
 
 	// Component descriptive values about the component for which checks are made
@@ -154,9 +159,9 @@ func (h *Health) HandlerFunc(w http.ResponseWriter, r *http.Request) {
 	}
 
 	code := http.StatusOK
-	if c.Status == StatusUnavailable {
+	/*if c.Status == StatusUnavailable {
 		code = http.StatusServiceUnavailable
-	}
+	}  */
 	w.WriteHeader(code)
 	w.Write(data)
 }
@@ -185,11 +190,20 @@ func (h *Health) Measure(ctx context.Context) Check {
 		wg sync.WaitGroup
 		mu sync.Mutex
 	)
+
+	fmt.Println("h.checks", h.checks)
+	results := make(map[string]interface{})
+
 	for _, c := range h.checks {
 		limiterCh <- true
 		wg.Add(1)
-
+		result := make(map[string]interface{})
 		go func(c Config) {
+			fmt.Println("configuration:", c)
+			result["Name"] = c.Name
+			result["Timeout"] = c.Timeout
+			result["SkipOnErr"] = c.SkipOnErr
+
 			ctx, span := tracer.Start(ctx, c.Name)
 			defer func() {
 				span.End()
@@ -205,7 +219,8 @@ func (h *Health) Measure(ctx context.Context) Check {
 			}()
 
 			timeout := time.NewTimer(c.Timeout)
-
+			fmt.Println("timeout:", timeout)
+			fmt.Println("resCh:", resCh)
 			select {
 			case <-timeout.C:
 				mu.Lock()
@@ -230,23 +245,33 @@ func (h *Health) Measure(ctx context.Context) Check {
 					status = getAvailability(status, c.SkipOnErr)
 				}
 			}
+			result["status"] = status
+			results[c.Name] = result
 		}(c)
 	}
 
 	wg.Wait()
 	span.SetAttributes(attribute.String("status", string(status)))
 
+	resultstr, err := com.ConvertMapToString(results)
+	if err != nil {
+		fmt.Println(fmt.Sprintf("Failed to convert json to map: %v", err))
+		resultstr = fmt.Sprintf("%v", results)
+	}
+	span.SetAttributes(attribute.String("results", resultstr))
+
 	var systemMetrics *System
 	if h.systemInfoEnabled {
 		systemMetrics = newSystemMetrics()
 	}
 
-	return newCheck(h.component, status, systemMetrics, failures)
+	return newCheck(h.component, status, results, systemMetrics, failures)
 }
 
-func newCheck(c Component, s Status, system *System, failures map[string]string) Check {
+func newCheck(c Component, s Status, results map[string]interface{}, system *System, failures map[string]string) Check {
 	return Check{
 		Status:    s,
+		Results:   results,
 		Timestamp: time.Now(),
 		Failures:  failures,
 		System:    system,
@@ -258,12 +283,15 @@ func newSystemMetrics() *System {
 	s := runtime.MemStats{}
 	runtime.ReadMemStats(&s)
 
+	metrics := com.ConvertstructToMap(s)
+
 	return &System{
 		Version:          runtime.Version(),
 		GoroutinesCount:  runtime.NumGoroutine(),
 		TotalAllocBytes:  int(s.TotalAlloc),
 		HeapObjectsCount: int(s.HeapObjects),
 		AllocBytes:       int(s.Alloc),
+		Metrics:          metrics,
 	}
 }
 

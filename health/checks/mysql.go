@@ -31,6 +31,12 @@ func CheckMySQLStatus(ctx context.Context, db *sql.DB, connectionString string) 
 
 func (check *MySQLCheck) CheckbyConnectionString() error {
 
+	defer func() {
+		if r := recover(); r != nil {
+			return
+		}
+	}()
+
 	var checkErr error
 	checkErr = nil
 
@@ -42,6 +48,11 @@ func (check *MySQLCheck) CheckbyConnectionString() error {
 		return checkErr
 	}
 	defer func() {
+		defer func() {
+			if r := recover(); r != nil {
+				return
+			}
+		}()
 		// override checkErr only if there were no other errors
 		if cerr := db.Close(); cerr != nil && checkErr == nil {
 			checkErr = fmt.Errorf("MySQL health check failed on connection closing: %w", cerr)

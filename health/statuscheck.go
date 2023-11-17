@@ -3,13 +3,13 @@ package health
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/config"
 	dbconn "github.com/mdaxf/iac/databases"
-
 	"github.com/mdaxf/iac/health/checks"
 )
 
@@ -21,8 +21,8 @@ func CheckSystemHealth(c *gin.Context) (map[string]interface{}, error) {
 		}
 	}()
 
-	ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
-
+	//	ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
+	ctx := c
 	h, _ := New(WithComponent(Component{
 		Name:         "IAC Service",
 		Instance:     com.Instance,
@@ -34,10 +34,12 @@ func CheckSystemHealth(c *gin.Context) (map[string]interface{}, error) {
 		Timeout:   time.Second * 5,
 		SkipOnErr: true,
 		Check: func(context context.Context) error {
-			checks.CheckHttpStatus(ctx, "/health", time.Second*5)
+			checks.CheckHttpStatus(ctx, "/portal/uipage.html", time.Second*5)
 			return nil
 		},
 	}))
+
+	h.systemInfoEnabled = true
 
 	documentsConfig := config.GlobalConfiguration.DocumentConfig
 
@@ -66,7 +68,42 @@ func CheckSystemHealth(c *gin.Context) (map[string]interface{}, error) {
 			},
 		})
 	}
+	fmt.Println("MQTT Clients:", config.MQTTClients)
+	for key, value := range config.MQTTClients {
+		fmt.Println(key)
+		client := value
+		h.Register(Config{
+			Name: "mqtt." + key,
+			Check: func(ctx context.Context) error {
+				return checks.CheckMqttClientStatus(ctx, client.Client)
+			},
+		})
+	}
 
+	if com.SingalRConfig != nil {
+		SAddress := com.SingalRConfig["server"].(string)
+		WcAddress := com.SingalRConfig["serverwc"].(string)
+		fmt.Println("SignalR Address:", SAddress)
+		fmt.Println("SignalR Websocket Address:", WcAddress)
+
+		if WcAddress != "" {
+
+			h.Register(Config{
+				Name: "signalr Websocket Server",
+				Check: func(ctx context.Context) error {
+					return checks.CheckSignalRSrvStatus(ctx, SAddress, WcAddress)
+				},
+			})
+		}
+		if SAddress != "" {
+			h.Register(Config{
+				Name: "signalr Http Server",
+				Check: func(ctx context.Context) error {
+					return checks.CheckSignalRSrvHttpStatus(ctx, SAddress, WcAddress)
+				},
+			})
+		}
+	}
 	/*	h.Register(Config{
 		Name: "ping",
 		Check: func(ctx context.Context) error {

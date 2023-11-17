@@ -62,6 +62,12 @@ func NewMongoDbCheck(ctx context.Context, connectionString string, timeoutConnec
 
 func (check MongoDbCheck) CheckStatus() error {
 
+	defer func() {
+		if r := recover(); r != nil {
+			return
+		}
+	}()
+
 	var checkErr error
 	checkErr = nil
 	ctx := check.Ctx

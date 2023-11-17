@@ -5,7 +5,7 @@
     "description":"IAC is a framework for building web applications with Go.",
     "author":"IAC",
     "singalrconfig":{
-        "serverwc": "http://127.0.0.1:8222",
+        "serverwc": "ws://127.0.0.1:8222",
         "server": "http://127.0.0.1:8222",
         "hub": "/iacmessagebus"
     },

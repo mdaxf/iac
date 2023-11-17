@@ -26,7 +26,7 @@ import (
 	"github.com/mdaxf/iac/controllers/collectionop"
 	"github.com/mdaxf/iac/controllers/databaseop"
 	"github.com/mdaxf/iac/controllers/function"
-	"github.com/mdaxf/iac/controllers/healthcheck"
+	healthcheck "github.com/mdaxf/iac/controllers/health"
 	"github.com/mdaxf/iac/controllers/lngcodes"
 	"github.com/mdaxf/iac/controllers/role"
 	"github.com/mdaxf/iac/controllers/trans"

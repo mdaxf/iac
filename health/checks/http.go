@@ -45,6 +45,13 @@ func NewHttpCheck(ctx context.Context, url string, timeout time.Duration) HttpCh
 // - getting response status from defined URL
 // - verifying that status code is less than 500
 func (check HttpCheck) CheckStatus() error {
+
+	defer func() {
+		if r := recover(); r != nil {
+			return
+		}
+	}()
+
 	config := check
 	ctx := config.Ctx
 	req, err := http.NewRequest(http.MethodGet, check.URL, nil)

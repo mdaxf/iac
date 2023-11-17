@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 
 	"github.com/mdaxf/iac/com"
+	"github.com/mdaxf/iac/integration/mqttclient"
 )
 
 type Controller struct {
@@ -53,6 +54,8 @@ type Portal struct {
 
 var apiconfig = "apiconfig.json"
 var gconfig = "configuration.json"
+
+var MQTTClients map[string]*mqttclient.MqttClient
 
 func LoadConfig() (*Config, error) {
 	data, err := ioutil.ReadFile(apiconfig)
