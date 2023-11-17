@@ -5,21 +5,30 @@ Overview of Key Features:
 🔧 Easy Configuration for All Organizations:
 
 IACF simplifies energy management for organizations of all sizes with an intuitive interface that facilitates easy configuration. Whether you're a small business or a large enterprise, IACF adapts to your organizational structure, ensuring a seamless integration process for enhanced energy management.
+
 🌳 Tree Structure for Multi-level Units:
 
 Navigate through your energy infrastructure effortlessly with IACF's innovative tree structure. Providing a hierarchical representation of multiple organizational levels, this feature offers a clear and organized view of your energy units, simplifying management and oversight.
+
 🌍 Map Integration for Visual Insight:
 
 IACF's map integration brings a visual dimension to energy management. Link gauges to specific levels on the map for a comprehensive spatial understanding of your energy landscape, turning complex data into actionable insights for strategic decision-making.
+
+![image](https://github.com/mdaxf/iac/assets/23530144/90cb23af-3637-4d4f-8f2b-149139018b64)
+
 📊 Real-time Data Collection through MQTT:
 
 Stay ahead of the curve with IACF's real-time data collection through MQTT. Connect seamlessly to on-site meters, ensuring a constant flow of up-to-the-minute data. This capability empowers organizations to respond promptly to changes in energy consumption, identify potential issues, and optimize resource allocation.
+
 🚦 Gauge Cockpit for Comprehensive Monitoring:
 
 Take control of your energy metrics with IACF's Gauge Cockpit, providing a detailed display of linked measurements and meter statuses. Monitor performance, detect anomalies, and streamline decision-making with real-time data at your fingertips.
+![image](https://github.com/mdaxf/iac/assets/23530144/4ed02d34-7798-4803-af7d-4c364644e0b9)
+
 📈 Historical Data Analysis:
 
 Dive deep into your energy history with IACF's robust historical data analysis tools. Uncover trends, patterns, and anomalies, enabling data-driven decisions, identifying areas for improvement, and implementing targeted strategies for energy efficiency.
+
 💡 Future-ready with Advanced Data Analysis:
 
 IACF goes beyond the present with advanced data analysis capabilities, leveraging machine learning algorithms and predictive analytics to anticipate future trends, identify risks, and optimize energy usage.
