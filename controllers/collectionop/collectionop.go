@@ -34,6 +34,13 @@ type CollectionData struct {
 
 func (c *CollectionController) GetListofCollectionData(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetListofCollectionData"}
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "collectionop.GetListofCollectionData", elapsed))
+	}()
+
 	iLog.Debug(fmt.Sprintf("Get collection list from respository"))
 
 	body, err := ioutil.ReadAll(ctx.Request.Body)
@@ -95,7 +102,13 @@ func (c *CollectionController) GetListofCollectionData(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"data": collectionitems})
 }
 func (c *CollectionController) GetDetailCollectionData(ctx *gin.Context) {
+	startTime := time.Now()
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDetailCollectionData"}
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "collectionop.GetDetailCollectionData", elapsed))
+	}()
+
 	iLog.Debug(fmt.Sprintf("Get collection detail data from respository"))
 
 	var data CollectionData
@@ -129,6 +142,13 @@ func (c *CollectionController) GetDetailCollectionData(ctx *gin.Context) {
 }
 func (c *CollectionController) GetDetailCollectionDatabyID(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDetailCollectionData"}
+	startTime := time.Now()
+
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "collectionop.GetDetailCollectionDatabyID", elapsed))
+	}()
+
 	iLog.Debug(fmt.Sprintf("Get collection detail data from respository"))
 
 	var data CollectionData
@@ -176,6 +196,13 @@ func (c *CollectionController) GetDetailCollectionDatabyID(ctx *gin.Context) {
 }
 func (c *CollectionController) GetDetailCollectionDatabyName(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDetailCollectionDatabyName"}
+	startTime := time.Now()
+
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "collectionop.GetDetailCollectionDatabyName", elapsed))
+	}()
+
 	iLog.Debug(fmt.Sprintf("Get default collection detail data from respository"))
 
 	var data CollectionData
@@ -208,6 +235,13 @@ func (c *CollectionController) GetDetailCollectionDatabyName(ctx *gin.Context) {
 }
 func (c *CollectionController) UpdateCollectionData(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UpdateCollectionData"}
+	startTime := time.Now()
+
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "collectionop.UpdateCollectionData", elapsed))
+	}()
+
 	iLog.Debug(fmt.Sprintf("update collection data to respository"))
 
 	var data CollectionData
@@ -347,6 +381,12 @@ func (c *CollectionController) UpdateCollectionData(ctx *gin.Context) {
 }
 func (c *CollectionController) DeleteCollectionDatabyID(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "DeleteCollectionData"}
+	startTime := time.Now()
+
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "collectionop.DeleteCollectionDatabyID", elapsed))
+	}()
 	iLog.Debug(fmt.Sprintf("delete collection data to respository"))
 	var data CollectionData
 	if err := ctx.BindJSON(&data); err != nil {
@@ -390,6 +430,13 @@ func (c *CollectionController) DeleteCollectionDatabyID(ctx *gin.Context) {
 func (c *CollectionController) CollectionObjectRevision(ctx *gin.Context) {
 
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "CollectionObjectRevision"}
+	startTime := time.Now()
+
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "collectionop.CollectionObjectRevision", elapsed))
+	}()
+
 	iLog.Debug(fmt.Sprintf("Revision collection to respository!"))
 
 	request, err := common.GetRequestBodybyJson(ctx)
@@ -574,6 +621,13 @@ func (c *CollectionController) buildProjection(jsonMap map[string]interface{}, p
 
 func ValidateIfObjectExist(collectionname string, filter bson.M) (bool, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "ValidateIfObjectExist"}
+	startTime := time.Now()
+
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "collectionop.ValidateIfObjectExist", elapsed))
+	}()
+
 	iLog.Debug(fmt.Sprintf("Validate if object exist in collection"))
 
 	collectionitems, err := documents.DocDBCon.QueryCollection(collectionname, filter, nil)

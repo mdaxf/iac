@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"time"
 
 	config "github.com/mdaxf/iac/config"
 	dbconn "github.com/mdaxf/iac/databases"
@@ -40,8 +41,14 @@ var err error
 var ilog logger.Log
 
 func initialize() {
-
 	ilog = logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Initialization"}
+	startTime := time.Now()
+	fmt.Println("initialize starttime: %v", startTime)
+	defer func() {
+		fmt.Println("initialize defer time: %v", time.Now())
+		elapsed := time.Since(startTime)
+		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.initialize", elapsed))
+	}()
 
 	initializeloger()
 	ilog.Debug("initialize logger")
@@ -65,9 +72,18 @@ func initialize() {
 		fmt.Println("IAC Message Bus: ", com.IACMessageBusClient)
 		ilog.Debug(fmt.Sprintf("IAC Message Bus: %v", com.IACMessageBusClient))
 	}()
+
+	fmt.Println("initialize end time: %v", time.Now())
 }
 
 func initializeDatabase() {
+	startTime := time.Now()
+
+	defer func() {
+
+		elapsed := time.Since(startTime)
+		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.initializeDatabase", elapsed))
+	}()
 
 	ilog.Debug("initialize Database")
 	databaseconfig := config.GlobalConfiguration.DatabaseConfig
@@ -108,9 +124,15 @@ func initializeDatabase() {
 	if err != nil {
 		ilog.Error(fmt.Sprintf("initialize Database error: %s", err.Error()))
 	}
+
 }
 
 func initializecache() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.initializecache", elapsed))
+	}()
 	/*
 		type cacheconfigstruct struct {
 			Adapter  string
@@ -257,6 +279,11 @@ func initializeloger() {
 }
 
 func initializedDocuments() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.initializedDocuments", elapsed))
+	}()
 
 	if config.GlobalConfiguration.DocumentConfig == nil {
 		fmt.Errorf("documentdb configuration is missing")
@@ -289,6 +316,12 @@ func initializedDocuments() {
 }
 
 func initializeMqttClient() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.initializeMqttClient", elapsed))
+	}()
+
 	config.MQTTClients = make(map[string]*mqttclient.MqttClient)
 
 	wg.Add(1)
@@ -357,6 +390,12 @@ func initializeOPCClient() {
 } */
 
 func initializeIACMessageBus() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.initializeIACMessageBus", elapsed))
+	}()
+
 	wg.Add(1)
 	go func() {
 		ilog.Debug("initialize IAC Message Bus")

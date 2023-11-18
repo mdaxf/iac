@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
 	config "github.com/mdaxf/iac/config"
 
@@ -36,6 +37,12 @@ import (
 
 func loadControllers(router *gin.Engine, controllers []config.Controller) {
 
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.loadControllers", elapsed))
+	}()
+
 	for _, controllerConfig := range controllers {
 		ilog.Info(fmt.Sprintf("loadControllers:%s", controllerConfig.Module))
 
@@ -47,6 +54,12 @@ func loadControllers(router *gin.Engine, controllers []config.Controller) {
 }
 
 func getModule(module string) reflect.Value {
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.getModule", elapsed))
+	}()
 
 	ilog.Info(fmt.Sprintf("loadControllers get controller instance:%s", module))
 
@@ -84,6 +97,12 @@ func getModule(module string) reflect.Value {
 }
 
 func createEndpoints(router *gin.Engine, module string, modulepath string, endpoints []config.Endpoint) error {
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.createEndpoints", elapsed))
+	}()
 
 	ilog.Info(fmt.Sprintf("Create the endpoints for the module:%s", module))
 
@@ -134,6 +153,12 @@ func createEndpoints(router *gin.Engine, module string, modulepath string, endpo
 }
 
 func getHandlerFunc(module reflect.Value, name string) (gin.HandlerFunc, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.getHandlerFunc", elapsed))
+	}()
+
 	defer func() {
 		if r := recover(); r != nil {
 			ilog.Error(fmt.Sprintf("Panic: %s", r))

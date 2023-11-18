@@ -36,16 +36,25 @@ type Log struct {
 
 func Init(config map[string]interface{}) {
 
+	performance := false
+	performancestr := config["performance"]
+	if performancestr != nil && performancestr.(bool) == true {
+		performance = true
+	}
+
+	fmt.Println("performance:", performance)
+
 	FrameworkLogger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
 	//FrameworkLogger.SetLogger(logs.AdapterConsole)
 	setLogger(FrameworkLogger, config, "Framework")
+	FrameworkLogger.Perf = performance
 
 	PortalLogger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
 	//PortalLogger.SetLogger(logs.AdapterConsole)
 	setLogger(PortalLogger, config, "Portal")
-
+	PortalLogger.Perf = performance
 	//	PortalLogger.Debug("this is a debug message")
 
 	APILogger = logs.NewLogger()
@@ -53,29 +62,34 @@ func Init(config map[string]interface{}) {
 	//APILogger.SetLogger(logs.AdapterConsole)
 	setLogger(APILogger, config, "API")
 	//	APILogger.Debug("this is a debug message")
+	APILogger.Perf = performance
 
 	DatabaseLogger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
 	//DatabaseLogger.SetLogger(logs.AdapterConsole)
 	setLogger(DatabaseLogger, config, "Database")
 	//	DatabaseLogger.Debug("this is a debug message")
+	DatabaseLogger.Perf = performance
 
 	TranCodeLogger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
 	//TranCodeLogger.SetLogger(logs.AdapterConsole)
 	setLogger(TranCodeLogger, config, "BPM")
 	//	TranCodeLogger.Debug("this is a debug message")
+	TranCodeLogger.Perf = performance
 
 	JobLogger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
 	//JobLogger.SetLogger(logs.AdapterConsole)
 	setLogger(JobLogger, config, "Job")
 	//	JobLogger.Debug("this is a debug message")
+	JobLogger.Perf = performance
 
 	Logger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
 	//Logger.SetLogger(logs.AdapterConsole)
 	setLogger(Logger, config, "Log")
+	Logger.Perf = performance
 	//logs.SetLogger(logs.AdapterMultiFile, ``{"filename":"test.log","separate":["emergency", "alert", "critical", "error", "warning", "notice", "info", "debug"]}``)
 }
 
@@ -89,6 +103,12 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 	if levelstr == nil {
 		levelstr = "debug"
 	}
+	performance := false
+	performancestr := config["performance"]
+	if performancestr != nil && performancestr.(bool) == true {
+		performance = true
+	}
+
 	switch levelstr {
 	case "emergency":
 		level = 0
@@ -106,6 +126,8 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 		level = 6
 	case "debug":
 		level = 7
+	case "performance":
+		level = 8
 	default:
 		level = 3
 	}
@@ -168,26 +190,26 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 				collection = documentdbcfg["collection"].(string)
 			}
 		}
-		loger.SetLogger(logs.AdapterDocumentDB, fmt.Sprintf(`{"level":"%d", "conn":"%s", "db":"%s", "collection":"%s"}`, level, conn, db, collection))
+		loger.SetLogger(logs.AdapterDocumentDB, fmt.Sprintf(`{"level":"%d", "conn":"%s", "db":"%s", "collection":"%s", "Perf": "%b"}`, level, conn, db, collection, performance))
 		return
 	}
 
 	switch logadapter {
 	case "console":
-		loger.SetLogger(logs.AdapterConsole, fmt.Sprintf(`{"level":%d}`, level))
+		loger.SetLogger(logs.AdapterConsole, fmt.Sprintf(`{"level":%d, "Perf": "%b"}`, level, performance))
 	case "file":
 		//	logs.SetLogger(logs.AdapterFile, `{"filename":"test.log"}`)
-		loger.SetLogger(logs.AdapterFile, fmt.Sprintf(`{"level":"%d","filename":"%s","maxlines":"%d","maxsize":"%d"}`, level, fullfilename, maxlines, maxsize))
+		loger.SetLogger(logs.AdapterFile, fmt.Sprintf(`{"level":"%d","filename":"%s","maxlines":"%d","maxsize":"%d","Perf": "%b"}`, level, fullfilename, maxlines, maxsize, performance))
 	case "multifile":
-		loger.SetLogger(logs.AdapterMultiFile, fmt.Sprintf(`{"filename":"%s","level":"%s", }`, fullfilename, level))
+		loger.SetLogger(logs.AdapterMultiFile, fmt.Sprintf(`{"filename":"%s","level":"%s", "Perf": "%b"}`, fullfilename, level, performance))
 	case "smtp":
-		loger.SetLogger(logs.AdapterMail, fmt.Sprintf(`{"username":"%s","password":"%s","host":"%s","subject":"%s","sendTos":"%s","level":"%d"}`, config["username"], config["password"], config["host"], config["subject"], config["sendTos"], level))
+		loger.SetLogger(logs.AdapterMail, fmt.Sprintf(`{"username":"%s","password":"%s","host":"%s","subject":"%s","sendTos":"%s","level":"%d","Perf": "%b"}`, config["username"], config["password"], config["host"], config["subject"], config["sendTos"], level, performance))
 	case "conn":
-		loger.SetLogger(logs.AdapterConn, fmt.Sprintf(`{"net":"%s","addr":"%s","level":"%d"}`, config["net"], config["addr"], level))
+		loger.SetLogger(logs.AdapterConn, fmt.Sprintf(`{"net":"%s","addr":"%s","level":"%d", "Perf": "%b"}`, config["net"], config["addr"], level, performance))
 	case "documentdb":
-		loger.SetLogger(logs.AdapterDocumentDB, fmt.Sprintf(`{"level":"%d"}`, level))
+		loger.SetLogger(logs.AdapterDocumentDB, fmt.Sprintf(`{"level":"%d","Perf": "%b"}`, level, performance))
 	default:
-		loger.SetLogger(logs.AdapterConsole)
+		loger.SetLogger(logs.AdapterConsole, fmt.Sprintf(`{"level":%d, "Perf": "%b"}`, level, performance))
 	}
 	//loger.SetLogger(logs.AdapterFile, `{"filename":"test.log","level":7}`)
 }
@@ -369,6 +391,27 @@ func (l *Log) Emergency(logmsg string) {
 		FrameworkLogger.Emergency(logmsg)
 	default:
 		Logger.Emergency(logmsg)
+	}
+}
+
+func (l *Log) Performance(logmsg string) {
+	logmsg = (fmt.Sprintf("%s  %s  %s", l.User, l.ControllerName, logmsg))
+
+	switch l.ModuleName {
+	case Portal:
+		PortalLogger.Performance(logmsg)
+	case API:
+		APILogger.Performance(logmsg)
+	case Database:
+		DatabaseLogger.Performance(logmsg)
+	case TranCode:
+		TranCodeLogger.Performance(logmsg)
+	case Job:
+		JobLogger.Performance(logmsg)
+	case Framework:
+		FrameworkLogger.Performance(logmsg)
+	default:
+		Logger.Performance(logmsg)
 	}
 }
 

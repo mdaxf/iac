@@ -34,7 +34,18 @@ func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 		}
 		log.Println(string(jsonString))  */
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.ExecuteTranCode", elapsed))
+	}()
 
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("ExecuteTranCode defer error: %s", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
 	//var tcdata TranCodeData
 	tcdata, err := getDataFromRequest(ctx)
 
@@ -94,7 +105,18 @@ func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 
 func (e *TranCodeController) UnitTest(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.UnitTest", elapsed))
+	}()
 
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("UnitTest defer error: %s", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
 	//var tcdata TranCodeData
 	tcdata, err := getDataFromRequest(ctx)
 	if err != nil {
@@ -120,7 +142,19 @@ func (e *TranCodeController) UnitTest(ctx *gin.Context) {
 
 func (e *TranCodeController) TestbyTestData(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.TestbyTestData", elapsed))
+	}()
 
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("TestbyTestData defer error: %s", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+	//var
 	//var tcdata TranCodeData
 	tcdata, err := getDataFromRequest(ctx)
 	if err != nil {
@@ -145,6 +179,19 @@ func (e *TranCodeController) TestbyTestData(ctx *gin.Context) {
 
 func (e *TranCodeController) Execute(Code string, externalinputs map[string]interface{}) (map[string]interface{}, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.Execute", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("Execute defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
 	iLog.Info(fmt.Sprintf("Start process transaction code %s with inputs: %s ", Code, externalinputs))
 
 	iLog.Info(fmt.Sprintf("Start process transaction code %s's %s ", Code, "Execute"))
@@ -202,6 +249,19 @@ func (e *TranCodeController) Execute(Code string, externalinputs map[string]inte
 
 func (e *TranCodeController) getTransCode(name string) (types.TranCode, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.getTransCode", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("getTransCode defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
 	iLog.Debug(fmt.Sprintf("Get transaction code /%s/%s%s", "trancodes", name, ".json"))
 
 	data, err := ioutil.ReadFile(fmt.Sprintf("./%s/%s%s", "trancodes", name, ".json"))
@@ -221,6 +281,20 @@ func (e *TranCodeController) getTransCode(name string) (types.TranCode, error) {
 
 func (e *TranCodeController) GetTranCodeListFromRespository(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetTranCodeListFromRespository"}
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.GetTranCodeListFromRespository", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("GetTranCodeListFromRespository defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
 	iLog.Debug(fmt.Sprintf("Get transaction code list from respository"))
 
 	projection := bson.M{
@@ -253,6 +327,19 @@ func (e *TranCodeController) GetTranCodeListFromRespository(ctx *gin.Context) {
 
 func (e *TranCodeController) GetTranCodeDetailFromRespository(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetTranCodeDetailFromRespository"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.GetTranCodeDetailFromRespository", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("GetTranCodeDetailFromRespository defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
 	iLog.Debug(fmt.Sprintf("Get transaction code detail data from respository: %v", ctx.Params))
 
 	var tcdata TranCodeData
@@ -283,6 +370,18 @@ func (e *TranCodeController) GetTranCodeDetailFromRespository(ctx *gin.Context) 
 
 func (e *TranCodeController) UpdateTranCodeToRespository(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCodeController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.UpdateTranCodeToRespository", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("UpdateTranCodeToRespository defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
 	iLog.Debug(fmt.Sprintf("Update transaction code to respository!"))
 
 	var tcdata TranCodeData
@@ -400,6 +499,18 @@ func (e *TranCodeController) UpdateTranCodeToRespository(ctx *gin.Context) {
 
 func (e *TranCodeController) TranCodeRevision(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCodeController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.TranCodeRevision", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("TranCodeRevision defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
 	iLog.Debug(fmt.Sprintf("Revision transaction code to respository!"))
 
 	request, err := common.GetRequestBodybyJson(ctx)
@@ -521,6 +632,18 @@ func (e *TranCodeController) TranCodeRevision(ctx *gin.Context) {
 }
 func ValidateIfObjectExist(filter bson.M) (bool, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "ValidateIfObjectExist"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.ValidateIfObjectExist", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("ValidateIfObjectExist defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
 	iLog.Debug(fmt.Sprintf("Validate if object exist in collection"))
 
 	collectionitems, err := documents.DocDBCon.QueryCollection("Transaction_Code", filter, nil)
@@ -535,6 +658,18 @@ func ValidateIfObjectExist(filter bson.M) (bool, error) {
 }
 func getDataFromRequest(ctx *gin.Context) (TranCodeData, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromRequest"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.getDataFromRequest", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("getDataFromRequest defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
 	iLog.Debug(fmt.Sprintf("GetDataFromRequest"))
 
 	var data TranCodeData

@@ -47,6 +47,7 @@ var colors = []brush{
 	newBrush("1;32"), // Notice             green
 	newBrush("1;34"), // Informational      blue
 	newBrush("1;44"), // Debug              Background blue
+	newBrush("1;32"), // Performance              Background blue
 }
 
 // consoleWriter implements LoggerInterface and writes messages to terminal.
@@ -110,7 +111,7 @@ func (c *consoleWriter) Init(config string) error {
 
 // WriteMsg writes message in console.
 func (c *consoleWriter) WriteMsg(lm *LogMsg) error {
-	if lm.Level > c.Level {
+	if lm.Level > c.Level && lm.Level != LeverPerformance {
 		return nil
 	}
 	msg := c.formatter.Format(lm)

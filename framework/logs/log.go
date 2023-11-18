@@ -53,6 +53,7 @@ const (
 	LevelNotice
 	LevelInformational
 	LevelDebug
+	LeverPerformance
 )
 
 // levelLogLogger is defined to implement log.Logger
@@ -92,7 +93,7 @@ type Logger interface {
 
 var (
 	adapters    = make(map[string]newLoggerFunc)
-	levelPrefix = [LevelDebug + 1]string{"[M]", "[A]", "[C]", "[E]", "[W]", "[N]", "[I]", "[D]"}
+	levelPrefix = [LeverPerformance + 1]string{"[M]", "[A]", "[C]", "[E]", "[W]", "[N]", "[I]", "[D]", "[P]"}
 )
 
 // Register makes a log provide available by the provided name.
@@ -129,6 +130,7 @@ type IACLogger struct {
 	flushChan           chan struct{}
 	outputs             []*nameLogger
 	globalFormatter     string
+	Perf                bool
 }
 
 const defaultAsyncMsgLen = 1e3
@@ -154,6 +156,7 @@ func NewLogger(channelLens ...int64) *IACLogger {
 	if bl.msgChanLen <= 0 {
 		bl.msgChanLen = defaultAsyncMsgLen
 	}
+	bl.Perf = true
 	bl.flushChan = make(chan struct{}, 1)
 	bl.closeChan = make(chan struct{}, 1)
 	//	bl.setLogger(AdapterConsole)
@@ -168,6 +171,7 @@ func New() *IACLogger {
 	if bl.msgChanLen <= 0 {
 		bl.msgChanLen = defaultAsyncMsgLen
 	}
+	bl.Perf = true
 	bl.flushChan = make(chan struct{}, 1)
 	bl.closeChan = make(chan struct{}, 1)
 	bl.setLogger(AdapterConsole)
@@ -593,6 +597,24 @@ func (bl *IACLogger) Info(format string, v ...interface{}) {
 	}
 
 	bl.writeMsg(lm)
+}
+
+// Performance level message./
+func (bl *IACLogger) Performance(format string, v ...interface{}) {
+	//fmt.Println("bl.Perf:", bl.Perf)
+	if bl.Perf {
+		lm := &LogMsg{
+			Level: LeverPerformance,
+			Msg:   format,
+			When:  time.Now(),
+			Args:  v,
+		}
+
+		bl.writeMsg(lm)
+
+		//	lm.Level = LevelDebug
+		//	bl.writeMsg(lm)
+	}
 }
 
 // Trace Log TRACE level message.

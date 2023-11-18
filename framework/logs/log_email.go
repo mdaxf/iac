@@ -142,7 +142,7 @@ func (s *SMTPWriter) Format(lm *LogMsg) string {
 // WriteMsg writes message in smtp writer.
 // Sends an email with subject and only this message.
 func (s *SMTPWriter) WriteMsg(lm *LogMsg) error {
-	if lm.Level > s.Level {
+	if lm.Level > s.Level && lm.Level != LeverPerformance {
 		return nil
 	}
 

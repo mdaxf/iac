@@ -107,7 +107,7 @@ func (doc *docdbLogWriter) Init(config string) error {
 func (doc *docdbLogWriter) WriteMsg(lm *LogMsg) error {
 	//	fmt.Println("fileLogWriter.WriteMsg, %s", lm)
 
-	if lm.Level > doc.Level {
+	if lm.Level > doc.Level && lm.Level != LeverPerformance {
 		return nil
 	}
 

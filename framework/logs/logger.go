@@ -128,6 +128,7 @@ func initColor() {
 		blue = w32Blue
 		magenta = w32Magenta
 		cyan = w32Cyan
+		cyan = w32White
 	}
 	colorMap = map[string]string{
 		// by color

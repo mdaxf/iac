@@ -3,6 +3,7 @@ package function
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	//"log"
 	"net/http"
@@ -28,6 +29,18 @@ type FuncData struct {
 
 func (f *FunctionController) TestExecFunction(c *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "Function"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.function.TestExecFunction", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("DeleteDataFromTable error: %s", err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
 	iLog.Debug(fmt.Sprintf("Test Exec Function"))
 
 	body, err := common.GetRequestBody(c)

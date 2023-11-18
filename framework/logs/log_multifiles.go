@@ -26,12 +26,12 @@ import (
 // and write the error-level logs to project.error.log and write the debug-level logs to project.debug.log
 // the rotate attribute also  acts like fileLogWriter
 type multiFileLogWriter struct {
-	writers       [LevelDebug + 1 + 1]*fileLogWriter // the last one for fullLogWriter
+	writers       [LevelDebug + 1 + 1 + 1]*fileLogWriter // the last one for fullLogWriter
 	fullLogWriter *fileLogWriter
 	Separate      []string `json:"separate"`
 }
 
-var levelNames = [...]string{"emergency", "alert", "critical", "error", "warning", "notice", "info", "debug"}
+var levelNames = [...]string{"emergency", "alert", "critical", "error", "warning", "notice", "info", "debug", "performance"}
 
 // Init file logger with json config.
 // jsonConfig like:
@@ -53,7 +53,7 @@ func (f *multiFileLogWriter) Init(config string) error {
 		return err
 	}
 	f.fullLogWriter = writer
-	f.writers[LevelDebug+1] = writer
+	f.writers[LevelDebug+1+1] = writer
 
 	// unmarshal "separate" field to f.Separate
 	err = json.Unmarshal([]byte(config), f)

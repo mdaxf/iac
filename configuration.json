@@ -46,7 +46,8 @@
     },
     "log":{
         "adapter": "console", 
-        "level": "debug",
+        "level": "performance",
+        "performance": true,
         "file":{
             "folder": "c:\\\\temp\\\\iac_loger", 
             "file": "iac.log",

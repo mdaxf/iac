@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"reflect"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mdaxf/iac/logger"
@@ -12,6 +13,13 @@ import (
 
 func GetRequestBody(ctx *gin.Context) ([]byte, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetRequestBody"}
+	startTime := time.Now()
+
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.common.GetRequestBody", elapsed))
+	}()
+
 	iLog.Debug(fmt.Sprintf("GetRequestBody"))
 
 	body, err := ioutil.ReadAll(ctx.Request.Body)
@@ -26,6 +34,12 @@ func GetRequestBody(ctx *gin.Context) ([]byte, error) {
 
 func GetRequestBodybyJson(ctx *gin.Context) (map[string]interface{}, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetRequestBodybyJson"}
+	startTime := time.Now()
+
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.common.GetRequestBodybyJson", elapsed))
+	}()
 	iLog.Debug(fmt.Sprintf("GetRequestBodybyJson"))
 
 	var request map[string]interface{}

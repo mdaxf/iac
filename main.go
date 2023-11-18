@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"log"
 	"net/http"
@@ -41,6 +42,12 @@ var wg sync.WaitGroup
 var router *gin.Engine
 
 func main() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.initializeIACMessageBus", elapsed))
+	}()
+
 	defer func() {
 		if r := recover(); r != nil {
 			ilog.Error(fmt.Sprintf("Panic: %v", r))
@@ -191,6 +198,9 @@ func main() {
 	go router.Run(fmt.Sprintf(":%d", config.Port))
 
 	ilog.Info(fmt.Sprintf("Started portal on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
+
+	elapsed := time.Since(startTime)
+	ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.main", elapsed))
 
 	wg.Wait()
 }

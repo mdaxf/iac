@@ -33,7 +33,18 @@ type LCData struct {
 
 func (f *LCController) GetLngCodes(c *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "LngCodes"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.lngcodes.GetLngCodes", elapsed))
+	}()
 
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("GetLngCodes error: %s", err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
 	iLog.Debug(fmt.Sprintf("Get LngCodes"))
 
 	_, LoginName, _, err := auth.GetUserInformation(c.GetHeader("Authorization"))
@@ -118,7 +129,18 @@ func (f *LCController) GetLngCodes(c *gin.Context) {
 
 func (f *LCController) UpdateLngCode(c *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "LngCodes"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.lngcodes.UpdateLngCode", elapsed))
+	}()
 
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("UpdateLngCode error: %s", err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
 	iLog.Debug(fmt.Sprintf("Update LngCode"))
 
 	_, LoginName, _, err := auth.GetUserInformation(c.GetHeader("Authorization"))
@@ -177,6 +199,17 @@ func (f *LCController) UpdateLngCode(c *gin.Context) {
 }
 func (f *LCController) insertlngcode(db *dbconn.DBOperation, lngcode string, text string, language string, User string) error {
 	iLog := logger.Log{ModuleName: logger.API, User: User, ControllerName: "LngCodes"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.lngcodes.insertlngcode", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("insertlngcode error: %s", err))
+		}
+	}()
 	currentTimeUTC := time.Now().UTC()
 
 	// Format the time as a string in the MySQL date and time format
@@ -223,6 +256,18 @@ func (f *LCController) insertlngcode(db *dbconn.DBOperation, lngcode string, tex
 
 func (f *LCController) updatelngcodbyid(db *dbconn.DBOperation, id int, lngcode string, text string, language string, User string) error {
 	iLog := logger.Log{ModuleName: logger.API, User: User, ControllerName: "LngCodes"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.lngcodes.updatelngcodbyid", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("insertlngcode error: %s", err))
+		}
+	}()
+
 	currentTimeUTC := time.Now().UTC()
 
 	// Format the time as a string in the MySQL date and time format
@@ -264,7 +309,17 @@ func (f *LCController) updatelngcodbyid(db *dbconn.DBOperation, id int, lngcode 
 
 func (f *LCController) populatesinglelngcodes(db *dbconn.DBOperation, lngcode string, text string, language string, User string) {
 	iLog := logger.Log{ModuleName: logger.API, User: User, ControllerName: "LngCodes"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.lngcodes.populatesinglelngcodes", elapsed))
+	}()
 
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("populatesinglelngcodes error: %s", err))
+		}
+	}()
 	iLog.Debug(fmt.Sprintf("populatesinglelngcodes"))
 
 	if lngcode == "" {
@@ -383,7 +438,17 @@ func (f *LCController) populatesinglelngcodes(db *dbconn.DBOperation, lngcode st
 
 func (f *LCController) populatelngcodes(lngcodes []string, text []string, language string, User string) {
 	iLog := logger.Log{ModuleName: logger.API, User: User, ControllerName: "LngCodes"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.lngcodes.populatelngcodes", elapsed))
+	}()
 
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("populatelngcodes error: %s", err))
+		}
+	}()
 	iLog.Debug(fmt.Sprintf("populatelngcodes"))
 
 	if len(lngcodes) == 0 {

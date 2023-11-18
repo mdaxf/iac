@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	//"log"
 	"net/http"
@@ -35,6 +36,20 @@ type QueryInput struct {
 
 func (db *DBController) GetDatabyQuery(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromTable"}
+	startTime := time.Now()
+
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.databaseop.GetDatabyQuery", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("Get data by query error: %s", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
 	iLog.Debug(fmt.Sprintf("Get data by query"))
 
 	var data QueryInput
@@ -103,6 +118,20 @@ func (db *DBController) GetDatabyQuery(ctx *gin.Context) {
 */
 func (db *DBController) GetDataFromTables(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromTable"}
+	startTime := time.Now()
+
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.databaseop.GetDataFromTables", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("Get data from tables error: %s", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
 	iLog.Debug(fmt.Sprintf("Get data from table"))
 
 	data, err := db.GetDataFromRequest(ctx)
@@ -148,6 +177,18 @@ func (db *DBController) GetDataFromTables(ctx *gin.Context) {
 
 func (db *DBController) getDataStructForQuery(data map[string]interface{}) (string, string, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromTable"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.databaseop.getDataStructForQuery", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("Get data struct for query error: %s", err))
+		}
+	}()
+
 	iLog.Debug(fmt.Sprintf("get data struct for query"))
 	Query := ""
 	TableName := ""
@@ -343,6 +384,19 @@ func (db *DBController) getsubtabls(tablename string, data map[string]interface{
 
 func (db *DBController) InsertDataToTable(ctx *gin.Context) error {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "InsertDataToTables"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.databaseop.InsertDataToTable", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("InsertDataToTable error: %s", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
 	iLog.Debug(fmt.Sprintf("Insert data to table"))
 	data, err := db.GetDataFromRequest(ctx)
 	if err != nil {
@@ -422,6 +476,19 @@ func (db *DBController) InsertDataToTable(ctx *gin.Context) error {
 
 func (db *DBController) UpdateDataToTable(ctx *gin.Context) error {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UpdateDataToTables"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.databaseop.UpdateDataToTable", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("UpdateDataToTable error: %s", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
 	iLog.Debug(fmt.Sprintf("Update data to table"))
 
 	data, err := db.GetDataFromRequest(ctx)
@@ -515,6 +582,19 @@ func (db *DBController) UpdateDataToTable(ctx *gin.Context) error {
 
 func (db *DBController) DeleteDataFromTable(ctx *gin.Context) error {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "DeleteDataFromTable"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.databaseop.DeleteDataFromTable", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("DeleteDataFromTable error: %s", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
 	iLog.Debug(fmt.Sprintf("Delete data to table"))
 
 	data, err := db.GetDataFromRequest(ctx)
@@ -565,6 +645,18 @@ func (db *DBController) DeleteDataFromTable(ctx *gin.Context) error {
 
 func (db *DBController) GetDataFromRequest(ctx *gin.Context) (DBData, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromRequest"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.databaseop.GetDataFromRequest", elapsed))
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
 	iLog.Debug(fmt.Sprintf("GetDataFromRequest"))
 
 	var data DBData
