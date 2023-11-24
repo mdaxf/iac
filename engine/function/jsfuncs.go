@@ -2,8 +2,10 @@ package funcs
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/dop251/goja"
+	"github.com/mdaxf/iac/logger"
 	"github.com/robertkrimen/otto"
 )
 
@@ -11,6 +13,18 @@ type JSFuncs struct {
 }
 
 func (cf *JSFuncs) Execute(f *Funcs) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.JSFuncs.Execute", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.JSFuncs.Execute with error: %s", err))
+			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.JSFuncs.Execute with error: %s", err)
+			return
+		}
+	}()
 	f.iLog.Debug(fmt.Sprintf("Start process %s : %s", "JSFuncs.Execute", f.Fobj.Name))
 
 	namelist, _, inputs := f.SetInputs()
@@ -42,6 +56,19 @@ func (cf *JSFuncs) Execute(f *Funcs) {
 }
 
 func (cf *JSFuncs) Validate(f *Funcs) (bool, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.JSFuncs.Validate", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.JSFuncs.Validate with error: %s", err))
+			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.JSFuncs.Validate with error: %s", err)
+			return
+		}
+	}()
+
 	vm := goja.New()
 	_, err := vm.RunString(f.Fobj.Content)
 	if err != nil {
@@ -52,6 +79,19 @@ func (cf *JSFuncs) Validate(f *Funcs) (bool, error) {
 }
 
 func (cf *JSFuncs) Testfunction(content string, inputs interface{}, outputs []string) (map[string]interface{}, error) {
+	iLog := logger.Log{ModuleName: logger.TranCode, User: "System", ControllerName: "JSFuncs"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("engine.funcs.JSFuncs.Execute", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("There is error to engine.funcs.JSFuncs.Execute with error: %s", err))
+			//ErrorMessage = fmt.Sprintf("There is error to engine.funcs.JSFuncs.Execute with error: %s", err)
+			return
+		}
+	}()
 
 	namelist := make([]string, 0)
 	valuelist := make([]interface{}, 0)
@@ -88,6 +128,18 @@ func (cf *JSFuncs) Testfunction(content string, inputs interface{}, outputs []st
 }
 
 func (cf *JSFuncs) Execute_otto(f *Funcs) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.JSFuncs.Execute", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.JSFuncs.Execute with error: %s", err))
+			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.JSFuncs.Execute with error: %s", err)
+			return
+		}
+	}()
 	f.iLog.Debug(fmt.Sprintf("Start process %s : %s", "JSFuncs.Execute", f.Fobj.Name))
 
 	namelist, _, inputs := f.SetInputs()

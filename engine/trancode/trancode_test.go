@@ -205,6 +205,8 @@ func TestTranFlowstr_Execute(t *testing.T) {
 		ctx       context.Context
 		ctxcancel context.CancelFunc
 		dbTx      []*sql.Tx
+		sc        signalr.Client
+		doc       *documents.DocDB
 	}
 	tests := []struct {
 		name    string
@@ -217,7 +219,7 @@ func TestTranFlowstr_Execute(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.tr.Execute(tt.args.tcode, tt.args.inputs, tt.args.ctx, tt.args.ctxcancel, tt.args.dbTx...)
+			got, err := tt.tr.Execute(tt.args.tcode, tt.args.inputs, tt.args.sc, tt.args.doc, tt.args.ctx, tt.args.ctxcancel, tt.args.dbTx...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("TranFlowstr.Execute() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -243,7 +245,7 @@ func TestGetTranCodeData(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetTranCodeData(tt.args.Code)
+			got, err := GetTranCodeDatabyCode(tt.args.Code)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetTranCodeData() error = %v, wantErr %v", err, tt.wantErr)
 				return

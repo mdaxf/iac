@@ -40,7 +40,7 @@ func (db *DBController) GetDatabyQuery(ctx *gin.Context) {
 
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.databaseop.GetDatabyQuery", elapsed))
+		iLog.PerformanceWithDuration("controllers.databaseop.GetDatabyQuery", elapsed)
 	}()
 
 	defer func() {
@@ -49,7 +49,14 @@ func (db *DBController) GetDatabyQuery(ctx *gin.Context) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+	_, user, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	}
 
+	iLog.ClientID = clientid
+	iLog.User = user
 	iLog.Debug(fmt.Sprintf("Get data by query"))
 
 	var data QueryInput
@@ -122,7 +129,7 @@ func (db *DBController) GetDataFromTables(ctx *gin.Context) {
 
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.databaseop.GetDataFromTables", elapsed))
+		iLog.PerformanceWithDuration("controllers.databaseop.GetDataFromTables", elapsed)
 	}()
 
 	defer func() {
@@ -131,7 +138,14 @@ func (db *DBController) GetDataFromTables(ctx *gin.Context) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+	_, user, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	}
 
+	iLog.ClientID = clientid
+	iLog.User = user
 	iLog.Debug(fmt.Sprintf("Get data from table"))
 
 	data, err := db.GetDataFromRequest(ctx)
@@ -142,7 +156,7 @@ func (db *DBController) GetDataFromTables(ctx *gin.Context) {
 	}
 	iLog.Debug(fmt.Sprintf("Get data from table: %s", data.TableName))
 
-	Query, TableNames, err := db.getDataStructForQuery(data.Data)
+	Query, TableNames, err := db.getDataStructForQuery(data.Data, user, clientid)
 	Wherestr := ""
 	iLog.Debug(fmt.Sprintf("get where condition: %s", data.Where))
 	for key, value := range data.Where {
@@ -175,12 +189,12 @@ func (db *DBController) GetDataFromTables(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"data": result})
 }
 
-func (db *DBController) getDataStructForQuery(data map[string]interface{}) (string, string, error) {
-	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromTable"}
+func (db *DBController) getDataStructForQuery(data map[string]interface{}, user string, clientid string) (string, string, error) {
+	iLog := logger.Log{ModuleName: logger.API, User: user, ClientID: clientid, ControllerName: "GetDataFromTable"}
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.databaseop.getDataStructForQuery", elapsed))
+		iLog.PerformanceWithDuration("controllers.databaseop.getDataStructForQuery", elapsed)
 	}()
 
 	defer func() {
@@ -215,7 +229,7 @@ func (db *DBController) getDataStructForQuery(data map[string]interface{}) (stri
 		} else {
 			if item, ok := v.(map[string]interface{}); ok {
 
-				subquery, tablelinks, err := db.getmysqlsubtabls(tablename, item, false)
+				subquery, tablelinks, err := db.getmysqlsubtabls(tablename, item, false, user, clientid)
 				if err != nil {
 					return "", "", err
 				}
@@ -235,8 +249,8 @@ func (db *DBController) getDataStructForQuery(data map[string]interface{}) (stri
 	return strings.TrimRight(Query, ","), strings.TrimRight(TableName, ","), nil
 }
 
-func (db *DBController) getmysqlsubtabls(tablename string, data map[string]interface{}, markasJson bool) (string, string, error) {
-	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromTable"}
+func (db *DBController) getmysqlsubtabls(tablename string, data map[string]interface{}, markasJson bool, user string, clientid string) (string, string, error) {
+	iLog := logger.Log{ModuleName: logger.API, User: user, ClientID: clientid, ControllerName: "GetDataFromTable"}
 	Links := ""
 	Query := " "
 	TableLinks := ""
@@ -252,7 +266,7 @@ func (db *DBController) getmysqlsubtabls(tablename string, data map[string]inter
 		} else if k == "subtables" {
 			if item, ok := v.(map[string]interface{}); ok {
 				for key, value := range item {
-					subquery, subtablelink, err := db.getmysqlsubtabls(key, value.(map[string]interface{}), true)
+					subquery, subtablelink, err := db.getmysqlsubtabls(key, value.(map[string]interface{}), true, user, clientid)
 					if err != nil {
 						return "", "", err
 					}
@@ -308,8 +322,8 @@ func (db *DBController) getmysqlsubtabls(tablename string, data map[string]inter
 	return Query, TableLinks, nil
 
 }
-func (db *DBController) getsubtabls(tablename string, data map[string]interface{}, markasJson bool) (string, error) {
-	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromTable"}
+func (db *DBController) getsubtabls(tablename string, data map[string]interface{}, markasJson bool, user string, clientid string) (string, error) {
+	iLog := logger.Log{ModuleName: logger.API, User: user, ClientID: clientid, ControllerName: "GetDataFromTable"}
 	/*
 		"t1": {
 							"fields": ["field1", "field2", "field3"],
@@ -340,7 +354,7 @@ func (db *DBController) getsubtabls(tablename string, data map[string]interface{
 		} else if k == "subtables" {
 			if item, ok := v.(map[string]interface{}); ok {
 				for key, value := range item {
-					subquery, err := db.getsubtabls(key, value.(map[string]interface{}), true)
+					subquery, err := db.getsubtabls(key, value.(map[string]interface{}), true, user, clientid)
 					if err != nil {
 						return "", err
 					}
@@ -387,7 +401,7 @@ func (db *DBController) InsertDataToTable(ctx *gin.Context) error {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.databaseop.InsertDataToTable", elapsed))
+		iLog.PerformanceWithDuration("controllers.databaseop.InsertDataToTable", elapsed)
 	}()
 
 	defer func() {
@@ -396,7 +410,14 @@ func (db *DBController) InsertDataToTable(ctx *gin.Context) error {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+	_, user, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	}
 
+	iLog.ClientID = clientid
+	iLog.User = user
 	iLog.Debug(fmt.Sprintf("Insert data to table"))
 	data, err := db.GetDataFromRequest(ctx)
 	if err != nil {
@@ -479,7 +500,7 @@ func (db *DBController) UpdateDataToTable(ctx *gin.Context) error {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.databaseop.UpdateDataToTable", elapsed))
+		iLog.PerformanceWithDuration("controllers.databaseop.UpdateDataToTable", elapsed)
 	}()
 
 	defer func() {
@@ -488,7 +509,14 @@ func (db *DBController) UpdateDataToTable(ctx *gin.Context) error {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+	_, user, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	}
 
+	iLog.ClientID = clientid
+	iLog.User = user
 	iLog.Debug(fmt.Sprintf("Update data to table"))
 
 	data, err := db.GetDataFromRequest(ctx)
@@ -585,7 +613,7 @@ func (db *DBController) DeleteDataFromTable(ctx *gin.Context) error {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.databaseop.DeleteDataFromTable", elapsed))
+		iLog.PerformanceWithDuration("controllers.databaseop.DeleteDataFromTable", elapsed)
 	}()
 
 	defer func() {
@@ -594,7 +622,14 @@ func (db *DBController) DeleteDataFromTable(ctx *gin.Context) error {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+	_, user, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	}
 
+	iLog.ClientID = clientid
+	iLog.User = user
 	iLog.Debug(fmt.Sprintf("Delete data to table"))
 
 	data, err := db.GetDataFromRequest(ctx)
@@ -648,7 +683,7 @@ func (db *DBController) GetDataFromRequest(ctx *gin.Context) (DBData, error) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.databaseop.GetDataFromRequest", elapsed))
+		iLog.PerformanceWithDuration("controllers.databaseop.GetDataFromRequest", elapsed)
 	}()
 
 	defer func() {
@@ -657,6 +692,16 @@ func (db *DBController) GetDataFromRequest(ctx *gin.Context) (DBData, error) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+
+	_, user, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
+		return DBData{}, err
+	}
+
+	iLog.ClientID = clientid
+	iLog.User = user
+
 	iLog.Debug(fmt.Sprintf("GetDataFromRequest"))
 
 	var data DBData

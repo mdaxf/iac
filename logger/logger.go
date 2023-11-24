@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/framework/logs"
 )
 
@@ -32,6 +34,7 @@ type Log struct {
 	ModuleName     string
 	ControllerName string
 	User           string
+	ClientID       string
 }
 
 func Init(config map[string]interface{}) {
@@ -42,6 +45,12 @@ func Init(config map[string]interface{}) {
 		performance = true
 	}
 
+	performancethrehold := 10
+
+	if config["performancethread"] != nil {
+		performancethrehold = com.ConverttoIntwithDefault(config["performancethread"], 10)
+	}
+
 	fmt.Println("performance:", performance)
 
 	FrameworkLogger = logs.NewLogger()
@@ -49,6 +58,7 @@ func Init(config map[string]interface{}) {
 	//FrameworkLogger.SetLogger(logs.AdapterConsole)
 	setLogger(FrameworkLogger, config, "Framework")
 	FrameworkLogger.Perf = performance
+	FrameworkLogger.Threhold = performancethrehold
 
 	PortalLogger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
@@ -56,6 +66,7 @@ func Init(config map[string]interface{}) {
 	setLogger(PortalLogger, config, "Portal")
 	PortalLogger.Perf = performance
 	//	PortalLogger.Debug("this is a debug message")
+	PortalLogger.Threhold = performancethrehold
 
 	APILogger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
@@ -70,6 +81,7 @@ func Init(config map[string]interface{}) {
 	setLogger(DatabaseLogger, config, "Database")
 	//	DatabaseLogger.Debug("this is a debug message")
 	DatabaseLogger.Perf = performance
+	DatabaseLogger.Threhold = performancethrehold
 
 	TranCodeLogger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
@@ -77,6 +89,7 @@ func Init(config map[string]interface{}) {
 	setLogger(TranCodeLogger, config, "BPM")
 	//	TranCodeLogger.Debug("this is a debug message")
 	TranCodeLogger.Perf = performance
+	TranCodeLogger.Threhold = performancethrehold
 
 	JobLogger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
@@ -84,12 +97,14 @@ func Init(config map[string]interface{}) {
 	setLogger(JobLogger, config, "Job")
 	//	JobLogger.Debug("this is a debug message")
 	JobLogger.Perf = performance
+	JobLogger.Threhold = performancethrehold
 
 	Logger = logs.NewLogger()
 	//logs.SetGlobalFormatter(GlobalFormatter())
 	//Logger.SetLogger(logs.AdapterConsole)
 	setLogger(Logger, config, "Log")
 	Logger.Perf = performance
+	Logger.Threhold = performancethrehold
 	//logs.SetLogger(logs.AdapterMultiFile, ``{"filename":"test.log","separate":["emergency", "alert", "critical", "error", "warning", "notice", "info", "debug"]}``)
 }
 
@@ -107,6 +122,11 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 	performancestr := config["performance"]
 	if performancestr != nil && performancestr.(bool) == true {
 		performance = true
+	}
+	performancethrehold := 10
+
+	if config["performancethread"] != nil {
+		performancethrehold = com.ConverttoIntwithDefault(config["performancethread"], 10)
 	}
 
 	switch levelstr {
@@ -190,26 +210,26 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 				collection = documentdbcfg["collection"].(string)
 			}
 		}
-		loger.SetLogger(logs.AdapterDocumentDB, fmt.Sprintf(`{"level":"%d", "conn":"%s", "db":"%s", "collection":"%s", "Perf": "%b"}`, level, conn, db, collection, performance))
+		loger.SetLogger(logs.AdapterDocumentDB, fmt.Sprintf(`{"level":"%d", "conn":"%s", "db":"%s", "collection":"%s", "Perf": "%b", "Threhold": %d}`, level, conn, db, collection, performance, performancethrehold))
 		return
 	}
 
 	switch logadapter {
 	case "console":
-		loger.SetLogger(logs.AdapterConsole, fmt.Sprintf(`{"level":%d, "Perf": "%b"}`, level, performance))
+		loger.SetLogger(logs.AdapterConsole, fmt.Sprintf(`{"level":%d, "Perf": "%b", "Threhold": %d}`, level, performance, performancethrehold))
 	case "file":
 		//	logs.SetLogger(logs.AdapterFile, `{"filename":"test.log"}`)
-		loger.SetLogger(logs.AdapterFile, fmt.Sprintf(`{"level":"%d","filename":"%s","maxlines":"%d","maxsize":"%d","Perf": "%b"}`, level, fullfilename, maxlines, maxsize, performance))
+		loger.SetLogger(logs.AdapterFile, fmt.Sprintf(`{"level":"%d","filename":"%s","maxlines":"%d","maxsize":"%d","Perf": "%b", "Threhold": %d}`, level, fullfilename, maxlines, maxsize, performance, performancethrehold))
 	case "multifile":
-		loger.SetLogger(logs.AdapterMultiFile, fmt.Sprintf(`{"filename":"%s","level":"%s", "Perf": "%b"}`, fullfilename, level, performance))
+		loger.SetLogger(logs.AdapterMultiFile, fmt.Sprintf(`{"filename":"%s","level":"%s", "Perf": "%b", "Threhold": %d}`, fullfilename, level, performance, performancethrehold))
 	case "smtp":
-		loger.SetLogger(logs.AdapterMail, fmt.Sprintf(`{"username":"%s","password":"%s","host":"%s","subject":"%s","sendTos":"%s","level":"%d","Perf": "%b"}`, config["username"], config["password"], config["host"], config["subject"], config["sendTos"], level, performance))
+		loger.SetLogger(logs.AdapterMail, fmt.Sprintf(`{"username":"%s","password":"%s","host":"%s","subject":"%s","sendTos":"%s","level":"%d","Perf": "%b", "Threhold": %d}`, config["username"], config["password"], config["host"], config["subject"], config["sendTos"], level, performance, performancethrehold))
 	case "conn":
-		loger.SetLogger(logs.AdapterConn, fmt.Sprintf(`{"net":"%s","addr":"%s","level":"%d", "Perf": "%b"}`, config["net"], config["addr"], level, performance))
+		loger.SetLogger(logs.AdapterConn, fmt.Sprintf(`{"net":"%s","addr":"%s","level":"%d", "Perf": "%b", "Threhold": %d}`, config["net"], config["addr"], level, performance, performancethrehold))
 	case "documentdb":
-		loger.SetLogger(logs.AdapterDocumentDB, fmt.Sprintf(`{"level":"%d","Perf": "%b"}`, level, performance))
+		loger.SetLogger(logs.AdapterDocumentDB, fmt.Sprintf(`{"level":"%d","Perf": "%b", "Threhold": %d}`, level, performance, performancethrehold))
 	default:
-		loger.SetLogger(logs.AdapterConsole, fmt.Sprintf(`{"level":%d, "Perf": "%b"}`, level, performance))
+		loger.SetLogger(logs.AdapterConsole, fmt.Sprintf(`{"level":%d, "Perf": "%b", "Threhold": %d}`, level, performance, performancethrehold))
 	}
 	//loger.SetLogger(logs.AdapterFile, `{"filename":"test.log","level":7}`)
 }
@@ -224,7 +244,7 @@ func GlobalFormatter(lm *logs.LogMsg) string {
 
 func (l *Log) Debug(logmsg string) {
 
-	logmsg = (fmt.Sprintf("%s  %s  %s", l.User, l.ControllerName, logmsg))
+	logmsg = (fmt.Sprintf("%s %s  %s  %s", l.ClientID, l.User, l.ControllerName, logmsg))
 
 	switch l.ModuleName {
 	case Portal:
@@ -246,7 +266,7 @@ func (l *Log) Debug(logmsg string) {
 }
 
 func (l *Log) Info(logmsg string) {
-	logmsg = (fmt.Sprintf("%s  %s  %s", l.User, l.ControllerName, logmsg))
+	logmsg = (fmt.Sprintf("%s %s  %s  %s", l.ClientID, l.User, l.ControllerName, logmsg))
 
 	switch l.ModuleName {
 	case Portal:
@@ -267,7 +287,7 @@ func (l *Log) Info(logmsg string) {
 }
 
 func (l *Log) Warn(logmsg string) {
-	logmsg = (fmt.Sprintf("%s  %s  %s", l.User, l.ControllerName, logmsg))
+	logmsg = (fmt.Sprintf("%s %s  %s  %s", l.ClientID, l.User, l.ControllerName, logmsg))
 
 	switch l.ModuleName {
 	case Portal:
@@ -288,7 +308,7 @@ func (l *Log) Warn(logmsg string) {
 }
 
 func (l *Log) Error(logmsg string) {
-	logmsg = (fmt.Sprintf("%s  %s  %s", l.User, l.ControllerName, logmsg))
+	logmsg = (fmt.Sprintf("%s %s  %s  %s", l.ClientID, l.User, l.ControllerName, logmsg))
 
 	switch l.ModuleName {
 	case Portal:
@@ -309,7 +329,7 @@ func (l *Log) Error(logmsg string) {
 }
 
 func (l *Log) Notice(logmsg string) {
-	logmsg = (fmt.Sprintf("%s  %s  %s", l.User, l.ControllerName, logmsg))
+	logmsg = (fmt.Sprintf("%s %s  %s  %s", l.ClientID, l.User, l.ControllerName, logmsg))
 
 	switch l.ModuleName {
 	case Portal:
@@ -331,7 +351,7 @@ func (l *Log) Notice(logmsg string) {
 }
 
 func (l *Log) Critical(logmsg string) {
-	logmsg = (fmt.Sprintf("%s  %s  %s", l.User, l.ControllerName, logmsg))
+	logmsg = (fmt.Sprintf("%s %s  %s  %s", l.ClientID, l.User, l.ControllerName, logmsg))
 
 	switch l.ModuleName {
 	case Portal:
@@ -353,7 +373,7 @@ func (l *Log) Critical(logmsg string) {
 }
 
 func (l *Log) Alert(logmsg string) {
-	logmsg = (fmt.Sprintf("%s  %s  %s", l.User, l.ControllerName, logmsg))
+	logmsg = (fmt.Sprintf("%s %s  %s  %s", l.ClientID, l.User, l.ControllerName, logmsg))
 
 	switch l.ModuleName {
 	case Portal:
@@ -374,7 +394,7 @@ func (l *Log) Alert(logmsg string) {
 }
 
 func (l *Log) Emergency(logmsg string) {
-	logmsg = (fmt.Sprintf("%s  %s  %s", l.User, l.ControllerName, logmsg))
+	logmsg = (fmt.Sprintf("%s %s  %s  %s", l.ClientID, l.User, l.ControllerName, logmsg))
 
 	switch l.ModuleName {
 	case Portal:
@@ -394,25 +414,33 @@ func (l *Log) Emergency(logmsg string) {
 	}
 }
 
-func (l *Log) Performance(logmsg string) {
-	logmsg = (fmt.Sprintf("%s  %s  %s", l.User, l.ControllerName, logmsg))
+func (l *Log) performance(elapsed time.Duration, logmsg string) {
+	logmsg = (fmt.Sprintf("%s %s  %s  %s", l.ClientID, l.User, l.ControllerName, logmsg))
 
 	switch l.ModuleName {
 	case Portal:
-		PortalLogger.Performance(logmsg)
+		PortalLogger.Performance(elapsed, logmsg)
 	case API:
-		APILogger.Performance(logmsg)
+		APILogger.Performance(elapsed, logmsg)
 	case Database:
-		DatabaseLogger.Performance(logmsg)
+		DatabaseLogger.Performance(elapsed, logmsg)
 	case TranCode:
-		TranCodeLogger.Performance(logmsg)
+		TranCodeLogger.Performance(elapsed, logmsg)
 	case Job:
-		JobLogger.Performance(logmsg)
+		JobLogger.Performance(elapsed, logmsg)
 	case Framework:
-		FrameworkLogger.Performance(logmsg)
+		FrameworkLogger.Performance(elapsed, logmsg)
 	default:
-		Logger.Performance(logmsg)
+		Logger.Performance(elapsed, logmsg)
 	}
+}
+
+func (l *Log) PerformanceWithDuration(function string, elapsed time.Duration) {
+
+	logmsg := fmt.Sprintf(" %s execution elapsed time: %v", function, elapsed)
+
+	l.performance(elapsed, logmsg)
+
 }
 
 func ConvertJson(jobj interface{}) string {

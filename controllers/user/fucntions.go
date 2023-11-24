@@ -25,15 +25,29 @@ import (
 	dbconn "github.com/mdaxf/iac/databases"
 
 	"github.com/mdaxf/iac/config"
+	"github.com/mdaxf/iac/controllers/common"
 	"github.com/mdaxf/iac/framework/auth"
 	"github.com/mdaxf/iac/logger"
-
 	"golang.org/x/crypto/bcrypt"
 )
 
 func execLogin(ctx *gin.Context, username string, password string, clienttoken string, ClientID string, Renew bool) {
 
-	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+	log := logger.Log{ModuleName: logger.API, User: username, ClientID: ClientID, ControllerName: "UserController"}
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("controllers.user.execLogin", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("execLogin defer error: %s", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
 	log.Debug("Login execution function is called.")
 	log.Debug(fmt.Sprintf("login parameters:%s  %s  token: %s  renew:%s", username, password, clienttoken, Renew))
 	fmt.Println("Session Timeout:", config.SessionCacheTimeout)
@@ -227,8 +241,21 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 
 }
 
-func getUserImage(username string) (string, error) {
-	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+func getUserImage(username string, clientid string) (string, error) {
+	log := logger.Log{ModuleName: logger.API, User: username, ClientID: clientid, ControllerName: "UserController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("controllers.user.getUserImage", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("getUserImage defer error: %s", err))
+			//ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
 	log.Debug("Get User Image execution function is called.")
 
 	querystr := fmt.Sprintf(GetUserImageQuery, username)
@@ -279,8 +306,22 @@ func getUserImage(username string) (string, error) {
 	return "", nil
 }
 
-func getUserMenus(userID int, isMobile bool, parentID int) ([]map[string]interface{}, error) {
-	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+func getUserMenus(userID int, isMobile bool, parentID int, username string, clientid string) ([]map[string]interface{}, error) {
+	log := logger.Log{ModuleName: logger.API, User: username, ClientID: clientid, ControllerName: "UserController"}
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("controllers.user.getUserMenus", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("getUserMenus defer error: %s", err))
+			//ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
 	log.Debug("get user menus execution function is called.")
 
 	Mobile := 0
@@ -318,8 +359,21 @@ func getUserMenus(userID int, isMobile bool, parentID int) ([]map[string]interfa
 	return jdata, nil
 }
 
-func execChangePassword(ctx *gin.Context, username string, oldpassword string, newpassword string) error {
-	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+func execChangePassword(ctx *gin.Context, username string, oldpassword string, newpassword string, clientid string) error {
+	log := logger.Log{ModuleName: logger.API, User: username, ClientID: clientid, ControllerName: "UserController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("controllers.user.execChangePassword", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("execChangePassword defer error: %s", err))
+			//ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
 	log.Debug("execChangePassword execution function is called.")
 
 	result, jdata, err := validatePassword(username, oldpassword)
@@ -385,7 +439,28 @@ func execChangePassword(ctx *gin.Context, username string, oldpassword string, n
 }
 
 func execLogout(ctx *gin.Context, token string) (string, error) {
+	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
 
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("controllers.user.execLogout", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("execLogout defer error: %s", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+	_, user, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		log.Error(fmt.Sprintf("Get user information Error: %v", err))
+
+		return "", err
+	}
+	log.ClientID = clientid
+	log.User = user
 	config.SessionCache.Delete(ctx, token)
 
 	return "OK", nil
@@ -403,6 +478,20 @@ func hashPassword(password string) (string, error) {
 
 func validatePassword(username string, password string) (bool, []map[string]interface{}, error) {
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("controllers.user.validatePassword", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("validatePassword defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
 	log.Debug(fmt.Sprintf("validate password function is called. username: %s ", username))
 
 	//	hashedPassword, err := hashPassword(password)

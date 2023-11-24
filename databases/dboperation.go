@@ -37,19 +37,38 @@ type DBOperation struct {
 }
 
 func NewDBOperation(User string, DBTx *sql.Tx, moduleName string) *DBOperation {
+	startTime := time.Now()
 	if moduleName == "" {
 		moduleName = logger.Database
 	}
+	iLog := logger.Log{ModuleName: moduleName, User: User, ControllerName: "Database"}
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("dbconn.NewDBOperation", elapsed)
+	}()
 
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("There is error to query database with error: %s", err))
+			return
+		}
+	}()
 	return &DBOperation{
 		DBTx:       DBTx,
 		ModuleName: moduleName,
-		iLog:       logger.Log{ModuleName: moduleName, User: User, ControllerName: "Database"},
+		iLog:       iLog,
 		User:       User,
 	}
 }
 
 func (db *DBOperation) Query(querystr string, args ...interface{}) (*sql.Rows, error) {
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		db.iLog.PerformanceWithDuration("dbconn.Query", elapsed)
+	}()
+
 	defer func() {
 		if err := recover(); err != nil {
 			db.iLog.Error(fmt.Sprintf("There is error to query database with error: %s", err))
@@ -98,6 +117,11 @@ func (db *DBOperation) Query(querystr string, args ...interface{}) (*sql.Rows, e
 }
 
 func (db *DBOperation) QuerybyList(querystr string, namelist []string, inputs map[string]interface{}, finputs []types.Input) (map[string][]interface{}, int, int, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		db.iLog.PerformanceWithDuration("dbconn.QuerybyList", elapsed)
+	}()
 	defer func() {
 		if err := recover(); err != nil {
 			db.iLog.Error(fmt.Sprintf("There is error to query database with error: %s", err))
@@ -170,6 +194,12 @@ func (db *DBOperation) QuerybyList(querystr string, namelist []string, inputs ma
 }
 
 func (db *DBOperation) Query_Json(querystr string, args ...interface{}) ([]map[string]interface{}, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		db.iLog.PerformanceWithDuration("dbconn.Query_Json", elapsed)
+	}()
+
 	defer func() {
 		if err := recover(); err != nil {
 			db.iLog.Error(fmt.Sprintf("There is error to query database with error: %s", err))
@@ -228,6 +258,12 @@ func (db *DBOperation) Query_Json(querystr string, args ...interface{}) ([]map[s
 }
 
 func (db *DBOperation) ExecSP(procedureName string, args ...interface{}) error {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		db.iLog.PerformanceWithDuration("dbconn.ExecSP", elapsed)
+	}()
+
 	defer func() {
 		if err := recover(); err != nil {
 			db.iLog.Error(fmt.Sprintf("There is error to execute store procedure %s in database with error: %s", procedureName, err))
@@ -278,6 +314,12 @@ func (db *DBOperation) ExecSP(procedureName string, args ...interface{}) error {
 }
 
 func (db *DBOperation) ExeSPwithRow(procedureName string, args ...interface{}) (*sql.Rows, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		db.iLog.PerformanceWithDuration("dbconn.ExeSPwithRow", elapsed)
+	}()
+
 	defer func() {
 		if err := recover(); err != nil {
 			db.iLog.Error(fmt.Sprintf("There is error to execute store procedure %s in database with error: %s", procedureName, err))
@@ -335,6 +377,12 @@ func (db *DBOperation) ExeSPwithRow(procedureName string, args ...interface{}) (
 }
 
 func (db *DBOperation) ExecSP_Json(procedureName string, args ...interface{}) ([]map[string]interface{}, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		db.iLog.PerformanceWithDuration("dbconn.ExecSP_Json", elapsed)
+	}()
+
 	defer func() {
 		if err := recover(); err != nil {
 			db.iLog.Error(fmt.Sprintf("There is error to execute store procedure %s in database with error: %s", procedureName, err))
@@ -353,6 +401,19 @@ func (db *DBOperation) ExecSP_Json(procedureName string, args ...interface{}) ([
 }
 
 func (db *DBOperation) chechoutputparameter(str string) (bool, string) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		db.iLog.PerformanceWithDuration("dbconn.chechoutputparameter", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to chechoutputparameter with error: %s", err))
+			return
+		}
+	}()
+
 	db.iLog.Debug(fmt.Sprintf("start to check the output parameter: %s...", str))
 	output := false
 	parameter := str
@@ -368,6 +429,12 @@ func (db *DBOperation) chechoutputparameter(str string) (bool, string) {
 }
 
 func (db *DBOperation) TableInsert(TableName string, Columns []string, Values []string) (int64, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		db.iLog.PerformanceWithDuration("dbconn.TableInsert", elapsed)
+	}()
+
 	defer func() {
 		if err := recover(); err != nil {
 			db.iLog.Error(fmt.Sprintf("There is error to execute table %s insert data with error: %s", TableName, err))
@@ -433,6 +500,12 @@ func (db *DBOperation) TableInsert(TableName string, Columns []string, Values []
 }
 
 func (db *DBOperation) TableUpdate(TableName string, Columns []string, Values []string, datatypes []int, Where string) (int64, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		db.iLog.PerformanceWithDuration("dbconn.TableUpdate", elapsed)
+	}()
+
 	defer func() {
 		if err := recover(); err != nil {
 			db.iLog.Error(fmt.Sprintf("There is error to execute table %s update data with error: %s", TableName, err))
@@ -560,6 +633,11 @@ func (db *DBOperation) TableUpdate(TableName string, Columns []string, Values []
 }
 
 func (db *DBOperation) TableDelete(TableName string, Where string) (int64, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		db.iLog.PerformanceWithDuration("dbconn.TableDelete", elapsed)
+	}()
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -623,6 +701,18 @@ func (db *DBOperation) TableDelete(TableName string, Where string) (int64, error
 }
 
 func (db *DBOperation) Conto_JsonbyList(rows *sql.Rows) (map[string][]interface{}, int, int, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		db.iLog.PerformanceWithDuration("dbconn.Conto_JsonbyList", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to Conto_JsonbyList with error: %s", err))
+			return
+		}
+	}()
 
 	db.iLog.Debug(fmt.Sprintf("Start to convert the rows to json...%s", rows))
 	cols, err := rows.ColumnTypes()
@@ -681,6 +771,19 @@ func (db *DBOperation) Conto_JsonbyList(rows *sql.Rows) (map[string][]interface{
 
 }
 func (db *DBOperation) Conto_Json(rows *sql.Rows) ([]map[string]interface{}, error) {
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		db.iLog.PerformanceWithDuration("dbconn.Conto_Json", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to Conto_Json with error: %s", err))
+			return
+		}
+	}()
 
 	db.iLog.Debug(fmt.Sprintf("Start to convert the rows to json...%s", rows))
 

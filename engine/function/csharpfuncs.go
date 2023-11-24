@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	//	"os"
 	"os/exec"
@@ -18,6 +19,17 @@ type CSharpFuncs struct {
 }
 
 func (cf *CSharpFuncs) Execute(f *Funcs) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.func.CSharpFuncs.Execute", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.func.CSharpFuncs.Execute with error: %s", err))
+			return
+		}
+	}()
 	namelist, _, inputs := f.SetInputs()
 
 	cmdArgs := []string{"-c", f.Fobj.Content}
@@ -37,12 +49,35 @@ func (cf *CSharpFuncs) Execute(f *Funcs) {
 }
 
 func (cf *CSharpFuncs) Validate(f *Funcs) (bool, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.func.CSharpFuncs.Validate", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.func.CSharpFuncs.Validate with error: %s", err))
+			return
+		}
+	}()
 
 	return true, nil
 }
 
 func (cf *CSharpFuncs) Testfunction(content string, inputs interface{}, outputs []string) (map[string]interface{}, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "CSharp Function"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("engine.func.CSharpFuncs.Testfunction", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("There is error to engine.func.CSharpFuncs.Testfunction with error: %s", err))
+			return
+		}
+	}()
+
 	iLog.Debug(fmt.Sprintf("Test Exec Function"))
 
 	/* pass, err := cf.Validate(f)

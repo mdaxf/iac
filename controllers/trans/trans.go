@@ -37,7 +37,7 @@ func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.ExecuteTranCode", elapsed))
+		iLog.PerformanceWithDuration("controllers.trans.ExecuteTranCode", elapsed)
 	}()
 
 	defer func() {
@@ -46,6 +46,17 @@ func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+
+	_, userno, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetRequestUser error: %s", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		return
+	}
+
+	iLog.User = userno
+	iLog.ClientID = clientid
+
 	//var tcdata TranCodeData
 	tcdata, err := getDataFromRequest(ctx)
 
@@ -90,7 +101,10 @@ func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 	}
 	iLog.Debug(fmt.Sprintf("transaction code %s's json inputs: %s", tcdata.TranCode, inputs_json))
 	*/
-	tf := trancode.NewTranFlow(code, tcdata.Inputs, map[string]interface{}{}, nil, nil, nil)
+	systemsessions := make(map[string]interface{})
+	systemsessions["UserNo"] = userno
+	systemsessions["ClientID"] = clientid
+	tf := trancode.NewTranFlow(code, tcdata.Inputs, systemsessions, nil, nil, nil)
 	outputs, err := tf.Execute()
 
 	if err == nil {
@@ -108,7 +122,7 @@ func (e *TranCodeController) UnitTest(ctx *gin.Context) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.UnitTest", elapsed))
+		iLog.PerformanceWithDuration("controllers.trans.UnitTest", elapsed)
 	}()
 
 	defer func() {
@@ -117,6 +131,19 @@ func (e *TranCodeController) UnitTest(ctx *gin.Context) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+	_, userno, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetRequestUser error: %s", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		return
+	}
+
+	iLog.User = userno
+	iLog.ClientID = clientid
+	systemsessions := make(map[string]interface{})
+	systemsessions["UserNo"] = userno
+	systemsessions["ClientID"] = clientid
+
 	//var tcdata TranCodeData
 	tcdata, err := getDataFromRequest(ctx)
 	if err != nil {
@@ -127,7 +154,7 @@ func (e *TranCodeController) UnitTest(ctx *gin.Context) {
 
 	iLog.Info(fmt.Sprintf("Start process transaction code %s's %s: %s", tcdata.TranCode, "Unit Test", tcdata.Inputs))
 
-	outputs, err := trancode.ExecuteUnitTest(tcdata.TranCode)
+	outputs, err := trancode.ExecuteUnitTest(tcdata.TranCode, systemsessions)
 
 	if err == nil {
 		iLog.Debug(fmt.Sprintf("End process transaction code %s's %s ", tcdata.TranCode, "Unit Test"))
@@ -145,7 +172,7 @@ func (e *TranCodeController) TestbyTestData(ctx *gin.Context) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.TestbyTestData", elapsed))
+		iLog.PerformanceWithDuration("controllers.trans.TestbyTestData", elapsed)
 	}()
 
 	defer func() {
@@ -154,6 +181,15 @@ func (e *TranCodeController) TestbyTestData(ctx *gin.Context) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+	_, userno, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetRequestUser error: %s", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		return
+	}
+
+	iLog.User = userno
+	iLog.ClientID = clientid
 	//var
 	//var tcdata TranCodeData
 	tcdata, err := getDataFromRequest(ctx)
@@ -162,10 +198,12 @@ func (e *TranCodeController) TestbyTestData(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
+	systemsessions := make(map[string]interface{})
+	systemsessions["UserNo"] = userno
+	systemsessions["ClientID"] = clientid
 	iLog.Info(fmt.Sprintf("Start process transaction code %s's %s: %s", tcdata.TranCode, "Unit Test", tcdata.Inputs))
 
-	outputs, err := trancode.ExecuteUnitTestWithTestData(tcdata.TranCode, tcdata.Inputs)
+	outputs, err := trancode.ExecuteUnitTestWithTestData(tcdata.TranCode, tcdata.Inputs, systemsessions)
 
 	if err == nil {
 		iLog.Debug(fmt.Sprintf("End process transaction code %s's %s ", tcdata.TranCode, "Unit Test"))
@@ -177,12 +215,12 @@ func (e *TranCodeController) TestbyTestData(ctx *gin.Context) {
 	}
 }
 
-func (e *TranCodeController) Execute(Code string, externalinputs map[string]interface{}) (map[string]interface{}, error) {
-	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
+func (e *TranCodeController) Execute(Code string, externalinputs map[string]interface{}, user string, clientid string) (map[string]interface{}, error) {
+	iLog := logger.Log{ModuleName: logger.API, User: user, ClientID: clientid, ControllerName: "TranCode"}
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.Execute", elapsed))
+		iLog.PerformanceWithDuration("controllers.trans.Execute", elapsed)
 	}()
 
 	defer func() {
@@ -233,8 +271,10 @@ func (e *TranCodeController) Execute(Code string, externalinputs map[string]inte
 		return nil, err
 	}
 	iLog.Debug(fmt.Sprintf("transaction code %s's json: %s", Code, trancodeobj))
-
-	tf := trancode.NewTranFlow(trancodeobj, externalinputs, map[string]interface{}{}, nil, nil, nil)
+	systemsessions := make(map[string]interface{})
+	systemsessions["UserNo"] = user
+	systemsessions["ClientID"] = clientid
+	tf := trancode.NewTranFlow(trancodeobj, externalinputs, systemsessions, nil, nil, nil)
 	outputs, err := tf.Execute()
 
 	if err == nil {
@@ -247,12 +287,12 @@ func (e *TranCodeController) Execute(Code string, externalinputs map[string]inte
 	}
 }
 
-func (e *TranCodeController) getTransCode(name string) (types.TranCode, error) {
-	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
+func (e *TranCodeController) getTransCode(name string, user string, clientid string) (types.TranCode, error) {
+	iLog := logger.Log{ModuleName: logger.API, User: user, ClientID: clientid, ControllerName: "TranCode"}
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.getTransCode", elapsed))
+		iLog.PerformanceWithDuration("controllers.trans.getTransCode", elapsed)
 	}()
 
 	defer func() {
@@ -285,7 +325,7 @@ func (e *TranCodeController) GetTranCodeListFromRespository(ctx *gin.Context) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.GetTranCodeListFromRespository", elapsed))
+		iLog.PerformanceWithDuration("controllers.trans.GetTranCodeListFromRespository", elapsed)
 	}()
 
 	defer func() {
@@ -294,7 +334,15 @@ func (e *TranCodeController) GetTranCodeListFromRespository(ctx *gin.Context) {
 			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+	_, userno, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetRequestUser error: %s", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		return
+	}
 
+	iLog.User = userno
+	iLog.ClientID = clientid
 	iLog.Debug(fmt.Sprintf("Get transaction code list from respository"))
 
 	projection := bson.M{
@@ -330,7 +378,7 @@ func (e *TranCodeController) GetTranCodeDetailFromRespository(ctx *gin.Context) 
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.GetTranCodeDetailFromRespository", elapsed))
+		iLog.PerformanceWithDuration("controllers.trans.GetTranCodeDetailFromRespository", elapsed)
 	}()
 
 	defer func() {
@@ -339,7 +387,15 @@ func (e *TranCodeController) GetTranCodeDetailFromRespository(ctx *gin.Context) 
 			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+	_, userno, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetRequestUser error: %s", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		return
+	}
 
+	iLog.User = userno
+	iLog.ClientID = clientid
 	iLog.Debug(fmt.Sprintf("Get transaction code detail data from respository: %v", ctx.Params))
 
 	var tcdata TranCodeData
@@ -373,7 +429,7 @@ func (e *TranCodeController) UpdateTranCodeToRespository(ctx *gin.Context) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.UpdateTranCodeToRespository", elapsed))
+		iLog.PerformanceWithDuration("controllers.trans.UpdateTranCodeToRespository", elapsed)
 	}()
 
 	defer func() {
@@ -382,6 +438,16 @@ func (e *TranCodeController) UpdateTranCodeToRespository(ctx *gin.Context) {
 			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+	_, userno, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetRequestUser error: %s", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		return
+	}
+
+	iLog.User = userno
+	iLog.ClientID = clientid
+
 	iLog.Debug(fmt.Sprintf("Update transaction code to respository!"))
 
 	var tcdata TranCodeData
@@ -502,7 +568,7 @@ func (e *TranCodeController) TranCodeRevision(ctx *gin.Context) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.TranCodeRevision", elapsed))
+		iLog.PerformanceWithDuration("controllers.trans.TranCodeRevision", elapsed)
 	}()
 
 	defer func() {
@@ -511,6 +577,16 @@ func (e *TranCodeController) TranCodeRevision(ctx *gin.Context) {
 			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+	_, userno, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetRequestUser error: %s", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		return
+	}
+
+	iLog.User = userno
+	iLog.ClientID = clientid
+
 	iLog.Debug(fmt.Sprintf("Revision transaction code to respository!"))
 
 	request, err := common.GetRequestBodybyJson(ctx)
@@ -552,7 +628,7 @@ func (e *TranCodeController) TranCodeRevision(ctx *gin.Context) {
 
 	vfilter := bson.M{"trancodename": newname, "version": newvision}
 
-	existedobj, err := ValidateIfObjectExist(vfilter)
+	existedobj, err := ValidateIfObjectExist(vfilter, userno, clientid)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Failed to query transaction code: %v", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -630,12 +706,12 @@ func (e *TranCodeController) TranCodeRevision(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"Outputs": result})
 
 }
-func ValidateIfObjectExist(filter bson.M) (bool, error) {
+func ValidateIfObjectExist(filter bson.M, userno string, clientid string) (bool, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "ValidateIfObjectExist"}
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.ValidateIfObjectExist", elapsed))
+		iLog.PerformanceWithDuration("controllers.trans.ValidateIfObjectExist", elapsed)
 	}()
 
 	defer func() {
@@ -644,6 +720,9 @@ func ValidateIfObjectExist(filter bson.M) (bool, error) {
 			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+
+	iLog.User = userno
+	iLog.ClientID = clientid
 	iLog.Debug(fmt.Sprintf("Validate if object exist in collection"))
 
 	collectionitems, err := documents.DocDBCon.QueryCollection("Transaction_Code", filter, nil)
@@ -661,7 +740,7 @@ func getDataFromRequest(ctx *gin.Context) (TranCodeData, error) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.trans.getDataFromRequest", elapsed))
+		iLog.PerformanceWithDuration("controllers.trans.getDataFromRequest", elapsed)
 	}()
 
 	defer func() {
@@ -670,6 +749,16 @@ func getDataFromRequest(ctx *gin.Context) (TranCodeData, error) {
 			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+	_, userno, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetRequestUser error: %s", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		return TranCodeData{}, err
+	}
+
+	iLog.User = userno
+	iLog.ClientID = clientid
+
 	iLog.Debug(fmt.Sprintf("GetDataFromRequest"))
 
 	var data TranCodeData

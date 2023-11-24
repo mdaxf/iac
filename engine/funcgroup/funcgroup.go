@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"database/sql"
 
@@ -36,11 +37,23 @@ func NewFGroup(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sq
 	log := logger.Log{}
 	log.ModuleName = logger.TranCode
 	log.ControllerName = "Function Group"
-	if systemSession["User"] != nil {
-		log.User = systemSession["User"].(string)
+	if systemSession["UserNo"] != nil {
+		log.User = systemSession["UserNo"].(string)
 	} else {
 		log.User = "System"
 	}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("engine.funcgroup.NewFGroup", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("There is error to engine.funcgroup.NewFGroup with error: %s", err))
+			return
+		}
+	}()
 
 	return &FGroup{
 		FGobj:               fgobj,
@@ -61,6 +74,12 @@ func NewFGroup(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sq
 
 }
 func (c *FGroup) Execute() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		c.iLog.PerformanceWithDuration("engine.funcgroup.Execute", elapsed)
+	}()
+
 	defer func() {
 		if r := recover(); r != nil {
 			c.iLog.Error(fmt.Sprintf("Panic: %s", r))
@@ -142,6 +161,12 @@ func (c *FGroup) Execute() {
 }
 
 func (c *FGroup) CheckRouter(RouterDef types.RouterDef) string {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		c.iLog.PerformanceWithDuration("engine.funcgroup.CheckRouter", elapsed)
+	}()
+
 	c.iLog.Info(fmt.Sprintf("Start process function group %s's %s ", c.FGobj.Name, reflect.ValueOf(c.CheckRouter).Kind().String()))
 	c.iLog.Debug(fmt.Sprintf("RouterDef: %s", logger.ConvertJson(RouterDef)))
 

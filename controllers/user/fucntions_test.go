@@ -57,6 +57,7 @@ func Test_execLogin(t *testing.T) {
 func Test_getUserImage(t *testing.T) {
 	type args struct {
 		username string
+		clientid string
 	}
 	tests := []struct {
 		name    string
@@ -73,7 +74,7 @@ func Test_getUserImage(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := getUserImage(tt.args.username)
+			got, err := getUserImage(tt.args.username, tt.args.clientid)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getUserImage() error = %v, wantErr %v", err, tt.wantErr)
 				return

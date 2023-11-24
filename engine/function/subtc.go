@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/mdaxf/iac/engine/callback"
 )
@@ -27,6 +28,19 @@ type SubTranCode struct {
 }
 
 func (cf *SubTranCodeFuncs) Execute(f *Funcs) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.SubTransCode.Execute", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SubTransCode.Execute with error: %s", err))
+			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.SubTransCode.Execute with error: %s", err)
+			return
+		}
+	}()
+
 	tcode := ""
 	f.iLog.Debug(fmt.Sprintf("Executing subtran function"))
 	namelist, valuelist, mappedinputs := f.SetInputs()
@@ -53,6 +67,18 @@ func (cf *SubTranCodeFuncs) Execute(f *Funcs) {
 }
 
 func (cf *SubTranCodeFuncs) Validate(f *Funcs) (bool, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.SubTransCode.Validate", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SubTransCode.Validate with error: %s", err))
+			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.SubTransCode.Validate with error: %s", err)
+			return
+		}
+	}()
 
 	return true, nil
 }

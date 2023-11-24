@@ -18,6 +18,18 @@ var jwtsecretKey = "IACFramework"
 
 func Generate_authentication_token(userID string, loginName string, ClientID string) (string, string, string, error) {
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "Authorization"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("auth.Generate_authentication_token", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error(fmt.Sprintf("Error in auth.Generate_authentication_token: %s", r))
+			return
+		}
+	}()
+
 	log.Debug("Authorization function is called.")
 
 	//Creating Access Token
@@ -41,9 +53,25 @@ func Generate_authentication_token(userID string, loginName string, ClientID str
 	log.Debug(fmt.Sprintf("Authorization Token:%s", token))
 	return token, createdt, string(expiredt.Format("2006-01-02 15:04:05")), nil
 }
-func GetUserInformation(authHeader string) (string, string, string, error) {
+func GetUserInformation(c *gin.Context) (string, string, string, error) {
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "Authorization"}
 	//	log.Debug(fmt.Sprintf("Authorization validation function is called for tocken: %s ", tokenString))
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("auth.GetUserInformation", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error(fmt.Sprintf("Error in auth.GetUserInformation: %s", r))
+			return
+		}
+	}()
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		log.Error(fmt.Sprintf("Missing Authorization header"))
+		return "", "", "", nil
+	}
 
 	bearerToken := strings.Split(authHeader, " ")
 	if len(bearerToken) != 2 || strings.ToLower(bearerToken[0]) != "bearer" {
@@ -81,7 +109,17 @@ func GetUserInformation(authHeader string) (string, string, string, error) {
 func ValidateToken(tokenString string) (bool, error) {
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "Authorization"}
 	//	log.Debug(fmt.Sprintf("Authorization validation function is called for tocken: %s ", tokenString))
-
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("auth.ValidateToken", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error(fmt.Sprintf("Error in auth.ValidateToken: %s", r))
+			return
+		}
+	}()
 	// Parse the token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// Provide the secret key used during token generation
@@ -125,6 +163,19 @@ func ValidateToken(tokenString string) (bool, error) {
 
 func Extendexptime(tokenString string) (string, string, string, error) {
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "Authorization"}
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("auth.Extendexptime", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error(fmt.Sprintf("Error in auth.Extendexptime: %s", r))
+			return
+		}
+	}()
+
 	log.Debug(fmt.Sprintf("Extend the token function is called for tocken: %s ", tokenString))
 
 	// Parse the token
@@ -171,6 +222,18 @@ func Extendexptime(tokenString string) (string, string, string, error) {
 
 func AuthMiddleware() gin.HandlerFunc {
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "Authorization"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("auth.AuthMiddleware", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error(fmt.Sprintf("Error in auth.AuthMiddleware: %s", r))
+			return
+		}
+	}()
+
 	log.Debug(fmt.Sprintf("Authorization for the API call"))
 
 	return func(c *gin.Context) {
@@ -230,6 +293,17 @@ func protectedHandler(c *gin.Context) {
 	// This is the protected REST API endpoint.
 	// You can access the userID from the context.
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "Authorization"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("auth.protectedHandler", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error(fmt.Sprintf("Error in auth.protectedHandler: %s", r))
+			return
+		}
+	}()
 	log.Debug(fmt.Sprintf("Authorization the user"))
 
 	userID, _ := c.Get("userID")

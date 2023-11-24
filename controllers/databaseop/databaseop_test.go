@@ -45,7 +45,9 @@ func TestDBController_GetDataFromTables(t *testing.T) {
 
 func TestDBController_getDataStructForQuery(t *testing.T) {
 	type args struct {
-		data map[string]interface{}
+		data     map[string]interface{}
+		user     string
+		clientid string
 	}
 	tests := []struct {
 		name    string
@@ -59,7 +61,7 @@ func TestDBController_getDataStructForQuery(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := tt.db.getDataStructForQuery(tt.args.data)
+			got, got1, err := tt.db.getDataStructForQuery(tt.args.data, tt.args.user, tt.args.clientid)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DBController.getDataStructForQuery() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -79,6 +81,8 @@ func TestDBController_getmysqlsubtabls(t *testing.T) {
 		tablename  string
 		data       map[string]interface{}
 		markasJson bool
+		user       string
+		clientid   string
 	}
 	tests := []struct {
 		name    string
@@ -92,7 +96,7 @@ func TestDBController_getmysqlsubtabls(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := tt.db.getmysqlsubtabls(tt.args.tablename, tt.args.data, tt.args.markasJson)
+			got, got1, err := tt.db.getmysqlsubtabls(tt.args.tablename, tt.args.data, tt.args.markasJson, tt.args.user, tt.args.clientid)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DBController.getmysqlsubtabls() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -112,6 +116,8 @@ func TestDBController_getsubtabls(t *testing.T) {
 		tablename  string
 		data       map[string]interface{}
 		markasJson bool
+		user       string
+		clientid   string
 	}
 	tests := []struct {
 		name    string
@@ -124,7 +130,7 @@ func TestDBController_getsubtabls(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.db.getsubtabls(tt.args.tablename, tt.args.data, tt.args.markasJson)
+			got, err := tt.db.getsubtabls(tt.args.tablename, tt.args.data, tt.args.markasJson, tt.args.user, tt.args.clientid)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DBController.getsubtabls() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -14,6 +14,19 @@ type SendMessageFuncs struct {
 }
 
 func (cf *SendMessageFuncs) Execute(f *Funcs) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.SendEmessage.Execute", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SendEmessage.Execute with error: %s", err))
+			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.SendEmessage.Execute with error: %s", err)
+			return
+		}
+	}()
+
 	f.iLog.Debug(fmt.Sprintf("SendMessageFuncs Execute: %v", f))
 
 	namelist, valuelist, _ := f.SetInputs()
@@ -74,6 +87,19 @@ func (cf *SendMessageFuncs) Execute(f *Funcs) {
 }
 
 func (cf *SendMessageFuncs) Validate(f *Funcs) (bool, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.SendEmessage.Validate", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SendEmessage.Validate with error: %s", err))
+			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.SendEmessage.Validate with error: %s", err)
+			return
+		}
+	}()
+
 	f.iLog.Debug(fmt.Sprintf("SendMessageFuncs validate: %v", f))
 	namelist, valuelist, _ := f.SetInputs()
 

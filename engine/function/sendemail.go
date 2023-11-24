@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	sendemail "github.com/mdaxf/iac/framework/notification"
 )
@@ -23,6 +24,18 @@ type EmailStru struct {
 }
 
 func (cf *EmailFuncs) Execute(f *Funcs) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.SendEmail.Execute", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SendEmail.Execute with error: %s", err))
+			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.SendEmail.Execute with error: %s", err)
+			return
+		}
+	}()
 
 	f.iLog.Debug(fmt.Sprintf("EmailFuncs Execute"))
 
@@ -45,6 +58,19 @@ func (cf *EmailFuncs) Execute(f *Funcs) {
 }
 
 func (cf *EmailFuncs) Validate(f *Funcs) (bool, EmailStru) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.SendEmail.Validate", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SendEmail.Validate with error: %s", err))
+			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.SendEmail.Validate with error: %s", err)
+			return
+		}
+	}()
+
 	namelist, valuelist, _ := f.SetInputs()
 
 	email := EmailStru{}

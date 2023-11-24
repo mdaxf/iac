@@ -47,6 +47,18 @@ func NewFuncs(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sql
 	} else {
 		log.User = "System"
 	}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("engine.funcs.NewFuncs", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("There is error to engine.funcs.NewFuncs with error: %s", err))
+			return
+		}
+	}()
+
 	var newdata []map[string]interface{}
 
 	systemSession["UTCTime"] = time.Now().UTC()
@@ -84,7 +96,20 @@ func NewFuncs(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sql
 }
 
 func (f *Funcs) HandleInputs() ([]string, []string, map[string]interface{}, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.HandleInputs", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.HandleInputs with error: %s", err))
+			return
+		}
+	}()
+
 	f.iLog.Debug(fmt.Sprintf("Start process %s", reflect.ValueOf(f.HandleInputs).Kind().String()))
+
 	f.iLog.Debug(fmt.Sprintf("function inputs: %s", logger.ConvertJson(f.Fobj.Inputs)))
 
 	newinputs := make(map[string]interface{})
@@ -364,6 +389,17 @@ func (f *Funcs) HandleInputs() ([]string, []string, map[string]interface{}, erro
 }
 
 func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.SetInputs", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SetInputs with error: %s", err))
+			return
+		}
+	}()
 
 	f.iLog.Debug(fmt.Sprintf("Start process %s", reflect.ValueOf(f.SetInputs).Kind().String()))
 
@@ -430,6 +466,17 @@ func isArray(value interface{}) bool {
 }
 
 func (f *Funcs) checkifRepeatExecution() (int, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.checkifRepeatExecution", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.checkifRepeatExecution with error: %s", err))
+			return
+		}
+	}()
 
 	inputs := f.Fobj.Inputs
 	lastcount := -2
@@ -483,6 +530,18 @@ func (f *Funcs) checkifRepeatExecution() (int, error) {
 }
 
 func (f *Funcs) checkinputvalue(Aliasname string, variables map[string]interface{}) (string, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.checkinputvalue", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.checkinputvalue with error: %s", err))
+			return
+		}
+	}()
+
 	var err error
 	err = nil
 	var Result string
@@ -562,6 +621,7 @@ func (f *Funcs) checkinputvalue(Aliasname string, variables map[string]interface
 }
 
 func customMarshal(v interface{}) string {
+
 	var jsonStr string
 	switch reflect.TypeOf(v).Kind() {
 	case reflect.Struct:
@@ -580,6 +640,18 @@ func customMarshal(v interface{}) string {
 }
 
 func (f *Funcs) ConverttoInt(str string) int {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.ConverttoInt", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoInt with error: %s", err))
+			return
+		}
+	}()
+
 	temp, err := strconv.Atoi(str)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Convert %s to int error: %s", str, err.Error()))
@@ -589,6 +661,18 @@ func (f *Funcs) ConverttoInt(str string) int {
 }
 
 func (f *Funcs) ConverttoFloat(str string) float64 {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.ConverttoFloat", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoFloat with error: %s", err))
+			return
+		}
+	}()
+
 	temp, err := strconv.ParseFloat(str, 64)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Convert %s to float error: %s", str, err.Error()))
@@ -598,6 +682,18 @@ func (f *Funcs) ConverttoFloat(str string) float64 {
 }
 
 func (f *Funcs) ConverttoBool(str string) bool {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.ConverttoBool", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoBool with error: %s", err))
+			return
+		}
+	}()
+
 	temp, err := strconv.ParseBool(str)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Convert %s to bool error: %s", str, err.Error()))
@@ -607,6 +703,18 @@ func (f *Funcs) ConverttoBool(str string) bool {
 }
 
 func (f *Funcs) ConverttoDateTime(str string) time.Time {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.ConverttoDatTime", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoDateTime with error: %s", err))
+			return
+		}
+	}()
+
 	temp, err := time.Parse(types.DateTimeFormat, str)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Convert %s to time error: %s", str, err.Error()))
@@ -616,6 +724,17 @@ func (f *Funcs) ConverttoDateTime(str string) time.Time {
 }
 
 func (f *Funcs) SetOutputs(outputs map[string]interface{}) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.SetOutputs", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SetOutputs with error: %s", err))
+			return
+		}
+	}()
 
 	f.iLog.Debug(fmt.Sprintf("function's ouputs: %s", logger.ConvertJson(outputs)))
 
@@ -624,6 +743,18 @@ func (f *Funcs) SetOutputs(outputs map[string]interface{}) {
 }
 
 func (f *Funcs) SetfuncOutputs() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.SetfuncOutputs", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SetfuncOutputs with error: %s", err))
+			return
+		}
+	}()
+
 	newoutputs := make(map[string]interface{})
 	if f.ExecutionNumber > 1 {
 		for index, outputs := range f.FunctionOutputs {
@@ -643,6 +774,18 @@ func (f *Funcs) SetfuncOutputs() {
 }
 
 func (f *Funcs) SetfuncSingleOutputs(outputs map[string]interface{}) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.SetfuncSingleOutputs", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SetfuncSingleOutputs with error: %s", err))
+			return
+		}
+	}()
+
 	for i := 0; i < len(f.Fobj.Outputs); i++ {
 		if outputs[f.Fobj.Outputs[i].Name] == nil {
 			continue
@@ -669,6 +812,17 @@ func (f *Funcs) SetfuncSingleOutputs(outputs map[string]interface{}) {
 }
 
 func (f *Funcs) ConvertfromBytes(bytesbuffer []byte) map[string]interface{} {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.ConvertfromBytes", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConvertfromBytes with error: %s", err))
+			return
+		}
+	}()
 
 	f.iLog.Debug(fmt.Sprintf("Start process %s", reflect.ValueOf(f.ConvertfromBytes).Kind().String()))
 
@@ -685,6 +839,11 @@ func (f *Funcs) ConvertfromBytes(bytesbuffer []byte) map[string]interface{} {
 }
 
 func (f *Funcs) Execute() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.Execute", elapsed)
+	}()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -786,11 +945,33 @@ func (f *Funcs) Execute() {
 }
 
 func (f *Funcs) Validate() (bool, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.Validate", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.Validate with error: %s", err))
+			return
+		}
+	}()
 
 	return true, nil
 }
 
 func (f *Funcs) CancelExecution(errormessage string) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.CancelExecution", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.CancelExecution with error: %s", err))
+			return
+		}
+	}()
 
 	f.iLog.Error(fmt.Sprintf("There is error during functoin %s execution: %s", f.Fobj.Name, errormessage))
 	f.DBTx.Rollback()
@@ -800,6 +981,17 @@ func (f *Funcs) CancelExecution(errormessage string) {
 }
 
 func (f *Funcs) convertMap(m map[string][]interface{}) map[string]interface{} {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.convertMap", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.convertMap with error: %s", err))
+			return
+		}
+	}()
 
 	f.iLog.Debug(fmt.Sprintf("Convert Map to Json Objects: %s", m))
 
@@ -819,6 +1011,17 @@ func (f *Funcs) convertMap(m map[string][]interface{}) map[string]interface{} {
 }
 
 func (f *Funcs) revertMap(m map[string]interface{}) map[string][]interface{} {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.revertMap", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.revertMap with error: %s", err))
+			return
+		}
+	}()
 
 	f.iLog.Debug(fmt.Sprintf("Revert Json Objects to array: %s", m))
 	reverted := make(map[string][]interface{})

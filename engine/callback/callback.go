@@ -21,6 +21,19 @@ func init() {
 
 func RegisterCallBack(key string, callBack interface{}) {
 	log := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "CallbackRegister"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("engine.callback.RegisterCallBack", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("There is error to engine.callback.RegisterCallBack with error: %s", err))
+			return
+		}
+	}()
+
 	log.Debug(fmt.Sprintf("RegisterCallBack: %s with %v", key, callBack))
 	callBackMap[key] = callBack
 
@@ -29,6 +42,20 @@ func RegisterCallBack(key string, callBack interface{}) {
 
 func ExecuteTranCode(key string, tcode string, inputs map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc, dbTx *sql.Tx, DBCon *documents.DocDB, sc signalr.Client) []interface{} {
 	log := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "CallbackExecution"}
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("engine.callback.ExecuteTranCode", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("There is error to engine.callback.ExecuteTranCode with error: %s", err))
+			return
+		}
+	}()
+
 	log.Debug(fmt.Sprintf("CallBackFunc: %s with %s %s %s %s %s", key, tcode, inputs, ctx, ctxcancel, dbTx))
 	log.Debug(fmt.Sprintf("callBackMap: %s", callBackMap))
 	if callBack, ok := callBackMap[key]; ok {

@@ -3,6 +3,7 @@ package email
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/go-gomail/gomail"
 	"github.com/mdaxf/iac/logger"
@@ -18,6 +19,18 @@ type EmailConfiguration struct {
 
 func SendEmail(emailConfig EmailConfiguration, to []string, subject string, body string) error {
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "Notification"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("framework.email.SendEmail", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error(fmt.Sprintf("Error in framework.email.SendEmail: %s", r))
+			return
+		}
+	}()
+
 	log.Debug(fmt.Sprintf("Send the notification by email to: %s  ", strings.Join(to, ",")))
 
 	m := gomail.NewMessage()
@@ -37,6 +50,17 @@ func SendEmail(emailConfig EmailConfiguration, to []string, subject string, body
 
 func SendEmailWithAttachment(emailConfig EmailConfiguration, to []string, subject string, body string, attachment string) error {
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "Notification"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("framework.email.SendEmailWithAttachment", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error(fmt.Sprintf("Error in framework.email.SendEmailWithAttachment: %s", r))
+			return
+		}
+	}()
 	log.Debug(fmt.Sprintf("Send the notification by email to: %s  ", strings.Join(to, ",")))
 
 	m := gomail.NewMessage()

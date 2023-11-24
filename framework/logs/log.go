@@ -131,6 +131,7 @@ type IACLogger struct {
 	outputs             []*nameLogger
 	globalFormatter     string
 	Perf                bool
+	Threhold            int
 }
 
 const defaultAsyncMsgLen = 1e3
@@ -159,6 +160,7 @@ func NewLogger(channelLens ...int64) *IACLogger {
 	bl.Perf = true
 	bl.flushChan = make(chan struct{}, 1)
 	bl.closeChan = make(chan struct{}, 1)
+	bl.Threhold = 10
 	//	bl.setLogger(AdapterConsole)
 	return bl
 }
@@ -174,6 +176,7 @@ func New() *IACLogger {
 	bl.Perf = true
 	bl.flushChan = make(chan struct{}, 1)
 	bl.closeChan = make(chan struct{}, 1)
+	bl.Threhold = 10
 	bl.setLogger(AdapterConsole)
 	return bl
 }
@@ -254,6 +257,8 @@ func (bl *IACLogger) SetLogger(adapterName string, configs ...string) error {
 	bl.lock.Lock()
 	defer bl.lock.Unlock()
 	if !bl.init {
+		bl.Perf = true
+		bl.Threhold = 10
 		bl.outputs = []*nameLogger{}
 		bl.init = true
 	}
@@ -315,6 +320,8 @@ func (bl *IACLogger) writeMsg(lm *LogMsg) error {
 		bl.lock.Lock()
 		bl.setLogger(AdapterConsole)
 		bl.lock.Unlock()
+		bl.Perf = true
+		bl.Threhold = 10
 	}
 
 	var (
@@ -600,20 +607,29 @@ func (bl *IACLogger) Info(format string, v ...interface{}) {
 }
 
 // Performance level message./
-func (bl *IACLogger) Performance(format string, v ...interface{}) {
-	//fmt.Println("bl.Perf:", bl.Perf)
+func (bl *IACLogger) Performance(elapsed time.Duration, format string, v ...interface{}) {
+
+	//	fmt.Println(bl, bl.Perf, bl.Threhold, elapsed.Milliseconds(), format, v)
+
+	if bl == nil {
+		return
+	}
 	if bl.Perf {
-		lm := &LogMsg{
-			Level: LeverPerformance,
-			Msg:   format,
-			When:  time.Now(),
-			Args:  v,
+
+		if elsapsedTime := elapsed.Milliseconds(); elsapsedTime > int64(bl.Threhold) {
+
+			lm := &LogMsg{
+				Level: LeverPerformance,
+				Msg:   format,
+				When:  time.Now(),
+				Args:  v,
+			}
+
+			bl.writeMsg(lm)
+
+			//	lm.Level = LevelDebug
+			//	bl.writeMsg(lm)
 		}
-
-		bl.writeMsg(lm)
-
-		//	lm.Level = LevelDebug
-		//	bl.writeMsg(lm)
 	}
 }
 

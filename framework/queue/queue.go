@@ -51,6 +51,17 @@ type PayLoad struct {
 func NewMessageQueue(Id string, Name string) *MessageQueue {
 
 	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "MessageQueue"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("framework.queue.NewMessageQueue", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			iLog.Error(fmt.Sprintf("Error in framework.queue.NewMessageQueue: %s", r))
+			return
+		}
+	}()
 
 	iLog.Debug(fmt.Sprintf(("Create MessageQueue %s %s"), Id, Name))
 
@@ -70,7 +81,17 @@ func NewMessageQueue(Id string, Name string) *MessageQueue {
 func NewMessageQueuebyExternal(Id string, Name string, DB *sql.DB, DocDBconn *documents.DocDB, SignalRClient signalr.Client) *MessageQueue {
 
 	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "MessageQueue"}
-
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("framework.queue.NewMessageQueuebyExternal", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			iLog.Error(fmt.Sprintf("Error in framework.queue.NewMessageQueuebyExternal: %s", r))
+			return
+		}
+	}()
 	iLog.Debug(fmt.Sprintf(("Create MessageQueue %s %s"), Id, Name))
 
 	mq := &MessageQueue{
@@ -87,6 +108,17 @@ func NewMessageQueuebyExternal(Id string, Name string, DB *sql.DB, DocDBconn *do
 	return mq
 }
 func (mq *MessageQueue) Push(message Message) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		mq.iLog.PerformanceWithDuration("framework.queue.Push", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			mq.iLog.Error(fmt.Sprintf("Error in framework.queue.Push: %s", r))
+			return
+		}
+	}()
 	mq.lock.Lock()
 	defer mq.lock.Unlock()
 	mq.iLog.Debug(fmt.Sprintf("Push message %s to queue: %s", message, mq.QueueID))
@@ -94,6 +126,17 @@ func (mq *MessageQueue) Push(message Message) {
 }
 
 func (mq *MessageQueue) Pop() Message {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		mq.iLog.PerformanceWithDuration("framework.queue.Pop", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			mq.iLog.Error(fmt.Sprintf("Error in framework.queue.Pop: %s", r))
+			return
+		}
+	}()
 	mq.lock.Lock()
 	defer mq.lock.Unlock()
 	mq.iLog.Debug(fmt.Sprintf("Pop message from queue which queue length is %d", len(mq.messages)))
@@ -113,12 +156,34 @@ func (mq *MessageQueue) Length() int {
 }
 
 func (mq *MessageQueue) Clear() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		mq.iLog.PerformanceWithDuration("framework.queue.Clear", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			mq.iLog.Error(fmt.Sprintf("Error in framework.queue.Clear: %s", r))
+			return
+		}
+	}()
 	mq.lock.Lock()
 	defer mq.lock.Unlock()
 	mq.messages = nil
 }
 
 func (mq *MessageQueue) WaitAndPop(timeout time.Duration) Message {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		mq.iLog.PerformanceWithDuration("framework.queue.WaitAndPop", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			mq.iLog.Error(fmt.Sprintf("Error in framework.queue.WaitAndPop: %s", r))
+			return
+		}
+	}()
 	mq.lock.Lock()
 	defer mq.lock.Unlock()
 	mq.iLog.Debug(fmt.Sprintf("WaitAndPop message from queue which queue length is %d", len(mq.messages)))
@@ -133,6 +198,17 @@ func (mq *MessageQueue) WaitAndPop(timeout time.Duration) Message {
 }
 
 func (mq *MessageQueue) WaitAndPopWithTimeout(timeout time.Duration) Message {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		mq.iLog.PerformanceWithDuration("framework.queue.WaitAndPopWithTimeout", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			mq.iLog.Error(fmt.Sprintf("Error in framework.queue.WaitAndPopWithTimeout: %s", r))
+			return
+		}
+	}()
 	mq.lock.Lock()
 	defer mq.lock.Unlock()
 	mq.iLog.Debug(fmt.Sprintf("WaitAndPopWithTimeout message from queue which queue length is %d", len(mq.messages)))
@@ -147,6 +223,17 @@ func (mq *MessageQueue) WaitAndPopWithTimeout(timeout time.Duration) Message {
 }
 
 func (mq *MessageQueue) Peek() Message {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		mq.iLog.PerformanceWithDuration("framework.queue.Peek", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			mq.iLog.Error(fmt.Sprintf("Error in framework.queue.Peek: %s", r))
+			return
+		}
+	}()
 	mq.lock.Lock()
 	defer mq.lock.Unlock()
 	mq.iLog.Debug(fmt.Sprintf("Peek message from queue which queue length is %d", len(mq.messages)))
@@ -159,6 +246,17 @@ func (mq *MessageQueue) Peek() Message {
 }
 
 func (mq *MessageQueue) execute() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		mq.iLog.PerformanceWithDuration("framework.queue.execute", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			mq.iLog.Error(fmt.Sprintf("Error in framework.queue.execute: %s", r))
+			return
+		}
+	}()
 	numMessages := 10
 	//maxWorkers := 10
 
@@ -198,6 +296,17 @@ func (mq *MessageQueue) execute() {
 }
 
 func (mq *MessageQueue) waitForTerminationSignal() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		mq.iLog.PerformanceWithDuration("framework.queue.waitForTerminationSignal", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			mq.iLog.Error(fmt.Sprintf("Error in framework.queue.waitForTerminationSignal: %s", r))
+			return
+		}
+	}()
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
@@ -208,10 +317,15 @@ func (mq *MessageQueue) waitForTerminationSignal() {
 }
 
 func (mq *MessageQueue) processMessage(message Message) error {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		mq.iLog.PerformanceWithDuration("framework.queue.processMessage", elapsed)
+	}()
 
 	defer func() {
 		if r := recover(); r != nil {
-			mq.iLog.Error(fmt.Sprintf("Failed to process message: %v", r))
+			mq.iLog.Error(fmt.Sprintf("framework.queue.processMessage failed to process message: %v", r))
 			return
 		}
 	}()
@@ -320,10 +434,15 @@ func bytesToMap(message Message) {
 }
 
 func (mq *MessageQueue) worker(id int, jobs <-chan Message, wg *sync.WaitGroup) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		mq.iLog.PerformanceWithDuration("framework.queue.worker", elapsed)
+	}()
 
 	defer func() {
 		if r := recover(); r != nil {
-			mq.iLog.Error(fmt.Sprintf("Failed to process message: %v", r))
+			mq.iLog.Error(fmt.Sprintf("framework.queue.processMessage failed to process message: %v", r))
 			return
 		}
 	}()

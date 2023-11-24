@@ -30,6 +30,8 @@ func TestTranCodeController_Execute(t *testing.T) {
 	type args struct {
 		Code           string
 		externalinputs map[string]interface{}
+		user           string
+		clientid       string
 	}
 	tests := []struct {
 		name    string
@@ -42,7 +44,7 @@ func TestTranCodeController_Execute(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.e.Execute(tt.args.Code, tt.args.externalinputs)
+			got, err := tt.e.Execute(tt.args.Code, tt.args.externalinputs, tt.args.user, tt.args.clientid)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("TranCodeController.Execute() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -56,7 +58,9 @@ func TestTranCodeController_Execute(t *testing.T) {
 
 func TestTranCodeController_getTransCode(t *testing.T) {
 	type args struct {
-		name string
+		name     string
+		user     string
+		clientid string
 	}
 	tests := []struct {
 		name    string
@@ -69,7 +73,7 @@ func TestTranCodeController_getTransCode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.e.getTransCode(tt.args.name)
+			got, err := tt.e.getTransCode(tt.args.name, tt.args.user, tt.args.clientid)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("TranCodeController.getTransCode() error = %v, wantErr %v", err, tt.wantErr)
 				return

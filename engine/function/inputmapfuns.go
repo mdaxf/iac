@@ -2,6 +2,7 @@ package funcs
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/mdaxf/iac/engine/types"
 )
@@ -9,6 +10,18 @@ import (
 type InputMapFuncs struct{}
 
 func (cf *InputMapFuncs) Execute(f *Funcs) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.InputMapFuncs.Execute", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.InputMapFuncs.Execute with error: %s", err))
+			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.InputMapFuncs.Execute with error: %s", err)
+			return
+		}
+	}()
 	namelist, valuelist, _ := f.SetInputs()
 
 	data := f.Fobj.Mapdata
@@ -35,6 +48,19 @@ func (cf *InputMapFuncs) Execute(f *Funcs) {
 }
 
 func (cf *InputMapFuncs) Validate(f *Funcs) bool {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.InputMapFuncs.Validate", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.InputMapFuncs.Validate with error: %s", err))
+			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.InputMapFuncs.Validate with error: %s", err)
+			return
+		}
+	}()
+
 	data := f.Fobj.Mapdata
 
 	//var data map[string]interface{}

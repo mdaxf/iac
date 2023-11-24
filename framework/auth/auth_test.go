@@ -45,7 +45,7 @@ func TestGenerate_authentication_token(t *testing.T) {
 
 func TestGetUserInformation(t *testing.T) {
 	type args struct {
-		authHeader string
+		ctx *gin.Context
 	}
 	tests := []struct {
 		name    string
@@ -59,7 +59,7 @@ func TestGetUserInformation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, got2, err := GetUserInformation(tt.args.authHeader)
+			got, got1, got2, err := GetUserInformation(tt.args.ctx)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetUserInformation() error = %v, wantErr %v", err, tt.wantErr)
 				return

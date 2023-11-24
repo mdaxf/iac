@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-
+	"github.com/mdaxf/iac/controllers/common"
 	"github.com/mdaxf/iac/health"
 	"github.com/mdaxf/iac/logger"
 )
@@ -20,7 +20,7 @@ func (f *HealthController) CheckHealth(c *gin.Context) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.health.CheckHealth", elapsed))
+		iLog.PerformanceWithDuration("controllers.health.CheckHealth", elapsed)
 	}()
 
 	defer func() {
@@ -29,6 +29,16 @@ func (f *HealthController) CheckHealth(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	iLog.Debug("Health Check")
 	data, err := health.CheckSystemHealth(c)
 
 	if err != nil {

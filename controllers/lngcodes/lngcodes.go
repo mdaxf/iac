@@ -36,7 +36,7 @@ func (f *LCController) GetLngCodes(c *gin.Context) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.lngcodes.GetLngCodes", elapsed))
+		iLog.PerformanceWithDuration("controllers.lngcodes.GetLngCodes", elapsed)
 	}()
 
 	defer func() {
@@ -45,15 +45,19 @@ func (f *LCController) GetLngCodes(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
-	iLog.Debug(fmt.Sprintf("Get LngCodes"))
 
-	_, LoginName, _, err := auth.GetUserInformation(c.GetHeader("Authorization"))
+	_, LoginName, _, err := auth.GetUserInformation(c)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Get LngCode error: %s", err.Error()))
 	}
 	if LoginName == "" {
 		LoginName = "System"
 	}
+
+	iLog.User = LoginName
+
+	iLog.Debug(fmt.Sprintf("Get LngCodes"))
+
 	body, err := common.GetRequestBody(c)
 
 	if err != nil {
@@ -132,7 +136,7 @@ func (f *LCController) UpdateLngCode(c *gin.Context) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.lngcodes.UpdateLngCode", elapsed))
+		iLog.PerformanceWithDuration("controllers.lngcodes.UpdateLngCode", elapsed)
 	}()
 
 	defer func() {
@@ -141,9 +145,8 @@ func (f *LCController) UpdateLngCode(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
-	iLog.Debug(fmt.Sprintf("Update LngCode"))
 
-	_, LoginName, _, err := auth.GetUserInformation(c.GetHeader("Authorization"))
+	_, LoginName, _, err := auth.GetUserInformation(c)
 
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Update LngCode error: %s", err.Error()))
@@ -151,7 +154,9 @@ func (f *LCController) UpdateLngCode(c *gin.Context) {
 	if LoginName == "" {
 		LoginName = "System"
 	}
+	iLog.User = LoginName
 
+	iLog.Debug(fmt.Sprintf("Update LngCode"))
 	body, err := common.GetRequestBody(c)
 
 	if err != nil {
@@ -202,7 +207,7 @@ func (f *LCController) insertlngcode(db *dbconn.DBOperation, lngcode string, tex
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.lngcodes.insertlngcode", elapsed))
+		iLog.PerformanceWithDuration("controllers.lngcodes.insertlngcode", elapsed)
 	}()
 
 	defer func() {
@@ -259,7 +264,7 @@ func (f *LCController) updatelngcodbyid(db *dbconn.DBOperation, id int, lngcode 
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.lngcodes.updatelngcodbyid", elapsed))
+		iLog.PerformanceWithDuration("controllers.lngcodes.updatelngcodbyid", elapsed)
 	}()
 
 	defer func() {
@@ -312,7 +317,7 @@ func (f *LCController) populatesinglelngcodes(db *dbconn.DBOperation, lngcode st
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.lngcodes.populatesinglelngcodes", elapsed))
+		iLog.PerformanceWithDuration("controllers.lngcodes.populatesinglelngcodes", elapsed)
 	}()
 
 	defer func() {
@@ -441,7 +446,7 @@ func (f *LCController) populatelngcodes(lngcodes []string, text []string, langua
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.lngcodes.populatelngcodes", elapsed))
+		iLog.PerformanceWithDuration("controllers.lngcodes.populatelngcodes", elapsed)
 	}()
 
 	defer func() {

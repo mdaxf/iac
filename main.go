@@ -42,15 +42,22 @@ var wg sync.WaitGroup
 var router *gin.Engine
 
 func main() {
+	Initialized = false
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.initializeIACMessageBus", elapsed))
+		if Initialized {
+			ilog.PerformanceWithDuration("main.initializeIACMessageBus", elapsed)
+		}
 	}()
 
 	defer func() {
 		if r := recover(); r != nil {
-			ilog.Error(fmt.Sprintf("Panic: %v", r))
+			if Initialized {
+				ilog.Error(fmt.Sprintf("Panic: %v", r))
+			} else {
+				log.Fatalf("Panic: %v", r)
+			}
 		}
 	}()
 	// Load configuration from the file
@@ -200,7 +207,7 @@ func main() {
 	ilog.Info(fmt.Sprintf("Started portal on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
 
 	elapsed := time.Since(startTime)
-	ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.main", elapsed))
+	ilog.PerformanceWithDuration("main.main", elapsed)
 
 	wg.Wait()
 }

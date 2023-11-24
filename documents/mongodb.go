@@ -31,11 +31,25 @@ var DatabaseConnection = "mongodb://localhost:27017"
 var DatabaseName       = "IAC_CFG"
 */
 
-func InitMongDB(DatabaseConnection string, DatabaseName string) (*DocDB, error) {
+func InitMongoDB(DatabaseConnection string, DatabaseName string) (*DocDB, error) {
+	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "MongoDB Connection"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("documents.InitMongoDB", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("There is error to documents.InitMongoDB with error: %s", err))
+			return
+		}
+	}()
+
 	doc := &DocDB{
 		DatabaseConnection: DatabaseConnection,
 		DatabaseName:       DatabaseName,
-		iLog:               logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "MongoDB Connection"},
+		iLog:               iLog,
 	}
 
 	return doc.ConnectMongoDB()
@@ -43,6 +57,18 @@ func InitMongDB(DatabaseConnection string, DatabaseName string) (*DocDB, error) 
 }
 
 func (doc *DocDB) ConnectMongoDB() (*DocDB, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		doc.iLog.PerformanceWithDuration("documents.ConnectMongoDB", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			doc.iLog.Error(fmt.Sprintf("There is error to documents.ConnectMongoDB with error: %s", err))
+			return
+		}
+	}()
 
 	doc.iLog.Info(fmt.Sprintf("Connect Database: %s %s", doc.DatabaseType, doc.DatabaseConnection))
 
@@ -68,6 +94,18 @@ func (doc *DocDB) ConnectMongoDB() (*DocDB, error) {
 }
 
 func (doc *DocDB) QueryCollection(collectionname string, filter bson.M, projection bson.M) ([]bson.M, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		doc.iLog.PerformanceWithDuration("documents.QueryCollection", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			doc.iLog.Error(fmt.Sprintf("There is error to documents.QueryCollection with error: %s", err))
+			return
+		}
+	}()
 
 	MongoDBCollection := doc.MongoDBDatabase.Collection(collectionname)
 
@@ -102,6 +140,18 @@ func (doc *DocDB) QueryCollection(collectionname string, filter bson.M, projecti
 	return results, nil
 }
 func (doc *DocDB) GetDefaultItembyName(collectionname string, name string) (bson.M, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		doc.iLog.PerformanceWithDuration("documents.GetDefaultItembyName", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			doc.iLog.Error(fmt.Sprintf("There is error to documents.GetDefaultItembyName with error: %s", err))
+			return
+		}
+	}()
 
 	MongoDBCollection := doc.MongoDBDatabase.Collection(collectionname)
 
@@ -121,6 +171,18 @@ func (doc *DocDB) GetDefaultItembyName(collectionname string, name string) (bson
 }
 
 func (doc *DocDB) GetItembyID(collectionname string, id string) (bson.M, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		doc.iLog.PerformanceWithDuration("documents.GetItembyID", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			doc.iLog.Error(fmt.Sprintf("There is error to documents.GetItembyID with error: %s", err))
+			return
+		}
+	}()
 
 	MongoDBCollection := doc.MongoDBDatabase.Collection(collectionname)
 
@@ -151,6 +213,18 @@ func (doc *DocDB) GetItembyID(collectionname string, id string) (bson.M, error) 
 	return result, err
 }
 func (doc *DocDB) UpdateCollection(collectionname string, filter bson.M, update bson.M, idata interface{}) error {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		doc.iLog.PerformanceWithDuration("documents.UpdateCollection", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			doc.iLog.Error(fmt.Sprintf("There is error to documents.UpdateCollection with error: %s", err))
+			return
+		}
+	}()
 
 	MongoDBCollection := doc.MongoDBDatabase.Collection(collectionname)
 
@@ -178,7 +252,18 @@ func (doc *DocDB) UpdateCollection(collectionname string, filter bson.M, update 
 }
 
 func (doc *DocDB) InsertCollection(collectionname string, idata interface{}) (*mongo.InsertOneResult, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		doc.iLog.PerformanceWithDuration("documents.InsertCollection", elapsed)
+	}()
 
+	defer func() {
+		if err := recover(); err != nil {
+			doc.iLog.Error(fmt.Sprintf("There is error to documents.InsertCollection with error: %s", err))
+			return
+		}
+	}()
 	MongoDBCollection := doc.MongoDBDatabase.Collection(collectionname)
 
 	data, err := doc.convertToBsonM(idata)
@@ -197,6 +282,19 @@ func (doc *DocDB) InsertCollection(collectionname string, idata interface{}) (*m
 }
 
 func (doc *DocDB) DeleteItemFromCollection(collectionname string, documentid string) error {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		doc.iLog.PerformanceWithDuration("documents.DeleteItemFromCollection", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			doc.iLog.Error(fmt.Sprintf("There is error to documents.DeleteItemFromCollection with error: %s", err))
+			return
+		}
+	}()
+
 	doc.iLog.Debug(fmt.Sprintf("Delete the item %s from collection %s", documentid, collectionname))
 
 	MongoDBCollection := doc.MongoDBDatabase.Collection(collectionname)
@@ -219,6 +317,18 @@ func (doc *DocDB) DeleteItemFromCollection(collectionname string, documentid str
 }
 
 func (doc *DocDB) convertToBsonM(data interface{}) (bson.M, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		doc.iLog.PerformanceWithDuration("documents.convertToBsonM", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			doc.iLog.Error(fmt.Sprintf("There is error to documents.convertToBsonM with error: %s", err))
+			return
+		}
+	}()
 	dataBytes, err := bson.Marshal(data)
 	if err != nil {
 		doc.iLog.Error(fmt.Sprintf("failed to convert data to bson.M with error: %s", err))

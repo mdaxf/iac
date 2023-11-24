@@ -38,8 +38,25 @@ func (c *CollectionController) GetListofCollectionData(ctx *gin.Context) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "collectionop.GetListofCollectionData", elapsed))
+		iLog.PerformanceWithDuration("collectionop.GetListofCollectionData", elapsed)
 	}()
+
+	defer func() {
+		err := recover()
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error: %v", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
 
 	iLog.Debug(fmt.Sprintf("Get collection list from respository"))
 
@@ -106,8 +123,24 @@ func (c *CollectionController) GetDetailCollectionData(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDetailCollectionData"}
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "collectionop.GetDetailCollectionData", elapsed))
+		iLog.PerformanceWithDuration("collectionop.GetDetailCollectionData", elapsed)
 	}()
+	defer func() {
+		err := recover()
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error: %v", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
 
 	iLog.Debug(fmt.Sprintf("Get collection detail data from respository"))
 
@@ -146,8 +179,24 @@ func (c *CollectionController) GetDetailCollectionDatabyID(ctx *gin.Context) {
 
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "collectionop.GetDetailCollectionDatabyID", elapsed))
+		iLog.PerformanceWithDuration("collectionop.GetDetailCollectionDatabyID", elapsed)
 	}()
+	defer func() {
+		err := recover()
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error: %v", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
 
 	iLog.Debug(fmt.Sprintf("Get collection detail data from respository"))
 
@@ -200,8 +249,24 @@ func (c *CollectionController) GetDetailCollectionDatabyName(ctx *gin.Context) {
 
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "collectionop.GetDetailCollectionDatabyName", elapsed))
+		iLog.PerformanceWithDuration("collectionop.GetDetailCollectionDatabyName", elapsed)
 	}()
+	defer func() {
+		err := recover()
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error: %v", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
 
 	iLog.Debug(fmt.Sprintf("Get default collection detail data from respository"))
 
@@ -239,8 +304,24 @@ func (c *CollectionController) UpdateCollectionData(ctx *gin.Context) {
 
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "collectionop.UpdateCollectionData", elapsed))
+		iLog.PerformanceWithDuration("collectionop.UpdateCollectionData", elapsed)
 	}()
+	defer func() {
+		err := recover()
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error: %v", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
 
 	iLog.Debug(fmt.Sprintf("update collection data to respository"))
 
@@ -385,8 +466,25 @@ func (c *CollectionController) DeleteCollectionDatabyID(ctx *gin.Context) {
 
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "collectionop.DeleteCollectionDatabyID", elapsed))
+		iLog.PerformanceWithDuration("collectionop.DeleteCollectionDatabyID", elapsed)
 	}()
+	defer func() {
+		err := recover()
+		if err != nil {
+			iLog.Error(fmt.Sprintf("collectionop.DeleteCollectionDatabyID Error: %v", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
 	iLog.Debug(fmt.Sprintf("delete collection data to respository"))
 	var data CollectionData
 	if err := ctx.BindJSON(&data); err != nil {
@@ -410,7 +508,7 @@ func (c *CollectionController) DeleteCollectionDatabyID(ctx *gin.Context) {
 		return
 	}
 
-	err := documents.DocDBCon.DeleteItemFromCollection(collectionName, value.(string))
+	err = documents.DocDBCon.DeleteItemFromCollection(collectionName, value.(string))
 
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Delete item from collection error!"})
@@ -434,8 +532,24 @@ func (c *CollectionController) CollectionObjectRevision(ctx *gin.Context) {
 
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "collectionop.CollectionObjectRevision", elapsed))
+		iLog.PerformanceWithDuration("collectionop.CollectionObjectRevision", elapsed)
 	}()
+	defer func() {
+		err := recover()
+		if err != nil {
+			iLog.Error(fmt.Sprintf("collectionop.CollectionObjectRevision Error: %v", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
 
 	iLog.Debug(fmt.Sprintf("Revision collection to respository!"))
 
@@ -485,7 +599,7 @@ func (c *CollectionController) CollectionObjectRevision(ctx *gin.Context) {
 
 	vfilter := bson.M{"name": newname, "version": newvision}
 	iLog.Debug(fmt.Sprintf("Revision collection object to respository with vfilter: %v", vfilter))
-	ifexist, err := ValidateIfObjectExist(collectionname, vfilter)
+	ifexist, err := ValidateIfObjectExist(collectionname, vfilter, user)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Failed to query collection object: %v", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -619,15 +733,20 @@ func (c *CollectionController) buildProjection(jsonMap map[string]interface{}, p
 	}
 }
 
-func ValidateIfObjectExist(collectionname string, filter bson.M) (bool, error) {
-	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "ValidateIfObjectExist"}
+func ValidateIfObjectExist(collectionname string, filter bson.M, User string) (bool, error) {
+	iLog := logger.Log{ModuleName: logger.API, User: User, ControllerName: "ValidateIfObjectExist"}
 	startTime := time.Now()
 
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "collectionop.ValidateIfObjectExist", elapsed))
+		iLog.PerformanceWithDuration("collectionop.ValidateIfObjectExist", elapsed)
 	}()
-
+	defer func() {
+		err := recover()
+		if err != nil {
+			iLog.Error(fmt.Sprintf("collectionop.ValidateIfObjectExist Error: %v", err))
+		}
+	}()
 	iLog.Debug(fmt.Sprintf("Validate if object exist in collection"))
 
 	collectionitems, err := documents.DocDBCon.QueryCollection(collectionname, filter, nil)

@@ -40,7 +40,7 @@ func loadControllers(router *gin.Engine, controllers []config.Controller) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.loadControllers", elapsed))
+		ilog.PerformanceWithDuration("main.loadControllers", elapsed)
 	}()
 
 	for _, controllerConfig := range controllers {
@@ -58,7 +58,7 @@ func getModule(module string) reflect.Value {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.getModule", elapsed))
+		ilog.PerformanceWithDuration("main.getModule", elapsed)
 	}()
 
 	ilog.Info(fmt.Sprintf("loadControllers get controller instance:%s", module))
@@ -101,7 +101,7 @@ func createEndpoints(router *gin.Engine, module string, modulepath string, endpo
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.createEndpoints", elapsed))
+		ilog.PerformanceWithDuration("main.createEndpoints", elapsed)
 	}()
 
 	ilog.Info(fmt.Sprintf("Create the endpoints for the module:%s", module))
@@ -156,7 +156,7 @@ func getHandlerFunc(module reflect.Value, name string) (gin.HandlerFunc, error) 
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.getHandlerFunc", elapsed))
+		ilog.PerformanceWithDuration("main.getHandlerFunc", elapsed)
 	}()
 
 	defer func() {

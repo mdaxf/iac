@@ -39,6 +39,7 @@ import (
 
 var err error
 var ilog logger.Log
+var Initialized bool
 
 func initialize() {
 	ilog = logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Initialization"}
@@ -47,7 +48,11 @@ func initialize() {
 	defer func() {
 		fmt.Println("initialize defer time: %v", time.Now())
 		elapsed := time.Since(startTime)
-		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.initialize", elapsed))
+		if Initialized {
+			ilog.PerformanceWithDuration("main.initialize", elapsed)
+		} else {
+			fmt.Println("initialize defer time: %v, duration: %v", time.Now(), elapsed)
+		}
 	}()
 
 	initializeloger()
@@ -74,6 +79,7 @@ func initialize() {
 	}()
 
 	fmt.Println("initialize end time: %v", time.Now())
+	Initialized = true
 }
 
 func initializeDatabase() {
@@ -82,7 +88,7 @@ func initializeDatabase() {
 	defer func() {
 
 		elapsed := time.Since(startTime)
-		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.initializeDatabase", elapsed))
+		ilog.PerformanceWithDuration("main.initializeDatabase", elapsed)
 	}()
 
 	ilog.Debug("initialize Database")
@@ -131,7 +137,7 @@ func initializecache() {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.initializecache", elapsed))
+		ilog.PerformanceWithDuration("main.initializecache", elapsed)
 	}()
 	/*
 		type cacheconfigstruct struct {
@@ -282,7 +288,7 @@ func initializedDocuments() {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.initializedDocuments", elapsed))
+		ilog.PerformanceWithDuration("main.initializedDocuments", elapsed)
 	}()
 
 	if config.GlobalConfiguration.DocumentConfig == nil {
@@ -319,7 +325,7 @@ func initializeMqttClient() {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.initializeMqttClient", elapsed))
+		ilog.PerformanceWithDuration("main.initializeMqttClient", elapsed)
 	}()
 
 	config.MQTTClients = make(map[string]*mqttclient.MqttClient)
@@ -393,7 +399,7 @@ func initializeIACMessageBus() {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		ilog.Performance(fmt.Sprintf(" %s elapsed time: %v", "main.initializeIACMessageBus", elapsed))
+		ilog.PerformanceWithDuration("main.initializeIACMessageBus", elapsed)
 	}()
 
 	wg.Add(1)

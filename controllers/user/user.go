@@ -17,11 +17,13 @@ package user
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	//"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mdaxf/iac/controllers/common"
 	"github.com/mdaxf/iac/logger"
 )
 
@@ -30,6 +32,19 @@ type UserController struct{}
 func (c *UserController) Login(ctx *gin.Context) {
 	// Retrieve a list of users from the database
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("controllers.user.login", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("login defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
 	log.Debug("Login handle function is called.")
 
 	var user LoginUserData
@@ -96,6 +111,30 @@ func (c *UserController) Login(ctx *gin.Context) {
 
 func (c *UserController) Image(ctx *gin.Context) {
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("controllers.user.Image", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("Image defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
+	_, userno, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		log.Error(fmt.Sprintf("GetRequestUser error: %s", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		return
+	}
+
+	log.User = userno
+	log.ClientID = clientid
+
 	log.Debug("Get User Image handle function is called.")
 
 	log.Debug(fmt.Sprintf("Get User Image:%s", ctx.Param("username")))
@@ -112,7 +151,7 @@ func (c *UserController) Image(ctx *gin.Context) {
 
 	log.Debug(fmt.Sprintf("Get User Image:%s", username))
 
-	PictureUrl, err := getUserImage(username)
+	PictureUrl, err := getUserImage(username, clientid)
 
 	if err != nil {
 		log.Error(fmt.Sprintf("Get User Image error:%s", err.Error()))
@@ -129,6 +168,19 @@ func (c *UserController) Image(ctx *gin.Context) {
 
 func (c *UserController) Logout(ctx *gin.Context) {
 	// Retrieve a list of users from the database
+	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("controllers.user.Logout", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("Logout defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
 
 	// Send the list of users in the response
 	var user LoginUserData
@@ -145,6 +197,28 @@ func (c *UserController) Logout(ctx *gin.Context) {
 
 func (c *UserController) ChangePassword(ctx *gin.Context) {
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("controllers.user.ChangePassword", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("ChangePassword defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+	_, userno, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		log.Error(fmt.Sprintf("GetRequestUser error: %s", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		return
+	}
+
+	log.User = userno
+	log.ClientID = clientid
+
 	log.Debug("Change Password handle function is called.")
 
 	var user ChangePwdData
@@ -160,11 +234,32 @@ func (c *UserController) ChangePassword(ctx *gin.Context) {
 
 	log.Debug(fmt.Sprintf("Change Password:%s  %s  %s", username, oldpassword, newpassword))
 
-	execChangePassword(ctx, username, oldpassword, newpassword)
+	execChangePassword(ctx, username, oldpassword, newpassword, clientid)
 }
 
 func (c *UserController) UserMenus(ctx *gin.Context) {
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("controllers.user.UserMenus", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("UserMenus defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+	_, userno, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		log.Error(fmt.Sprintf("GetRequestUser error: %s", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		return
+	}
+
+	log.User = userno
+	log.ClientID = clientid
 	log.Debug("Get User menus handle function is called.")
 
 	log.Debug(fmt.Sprintf("Get User menus:%s", ctx.Param("username")))
@@ -192,7 +287,7 @@ func (c *UserController) UserMenus(ctx *gin.Context) {
 		num1 = -1
 	}
 
-	jdata, err := getUserMenus(num, isMobile, num1)
+	jdata, err := getUserMenus(num, isMobile, num1, userno, clientid)
 
 	if err != nil {
 		log.Error(fmt.Sprintf("Get User menus error: %s", err.Error()))

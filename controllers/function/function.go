@@ -32,7 +32,7 @@ func (f *FunctionController) TestExecFunction(c *gin.Context) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		iLog.Performance(fmt.Sprintf(" %s elapsed time: %v", "controllers.function.TestExecFunction", elapsed))
+		iLog.PerformanceWithDuration("controllers.function.TestExecFunction", elapsed)
 	}()
 
 	defer func() {
@@ -41,6 +41,15 @@ func (f *FunctionController) TestExecFunction(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
 	iLog.Debug(fmt.Sprintf("Test Exec Function"))
 
 	body, err := common.GetRequestBody(c)

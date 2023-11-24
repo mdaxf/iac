@@ -2,6 +2,7 @@ package funcs
 
 import (
 	"fmt"
+	"time"
 
 	dbconn "github.com/mdaxf/iac/databases"
 )
@@ -10,6 +11,19 @@ type TableInsertFuncs struct {
 }
 
 func (cf *TableInsertFuncs) Execute(f *Funcs) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.TableInsertFuncs.Execute", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.TableInsertFuncs.Execute with error: %s", err))
+			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.TableInsertFuncs.Execute with error: %s", err)
+			return
+		}
+	}()
+
 	f.iLog.Debug(fmt.Sprintf("Start process %s : %s", "TableInsertFuncs.Execute", f.Fobj.Name))
 
 	namelist, valuelist, _ := f.SetInputs()
@@ -81,11 +95,35 @@ func (cf *TableInsertFuncs) Execute(f *Funcs) {
 }
 
 func (cf *TableInsertFuncs) Validate(f *Funcs) (bool, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.TableInsertFuncs.Validate", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.TableInsertFuncs.Validate with error: %s", err))
+			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.TableInsertFuncs.Validate with error: %s", err)
+			return
+		}
+	}()
 
 	return true, nil
 }
 
 func (cf *TableInsertFuncs) Testfunction(f *Funcs) (bool, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.TableInsertFuncs.Testfunction", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.TableInsertFuncs.Testfunction with error: %s", err))
+			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.TableInsertFuncs.Testfunction with error: %s", err)
+			return
+		}
+	}()
 
 	return true, nil
 }

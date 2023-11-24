@@ -35,12 +35,27 @@ type TranFlow struct {
 	ErrorMessage    string
 }
 
-func ExecuteUnitTest(trancode string) (map[string]interface{}, error) {
+func ExecuteUnitTest(trancode string, systemsessions map[string]interface{}) (map[string]interface{}, error) {
+	iLog := logger.Log{ModuleName: logger.TranCode, User: "System", ControllerName: "TransCode"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("engine.TranCode.ExecuteUnitTest", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("There is error to engine.TranCode.ExecuteUnitTest with error: %s", err))
+			//	f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.ThrowErrorFuncs.Execute with error: %s", err)
+
+		}
+	}()
+
 	tranobj, err := getTranCodeData(trancode, documents.DocDBCon)
 	if err != nil {
 		return nil, err
 	}
-	tf := NewTranFlow(tranobj, map[string]interface{}{}, map[string]interface{}{}, nil, nil)
+	tf := NewTranFlow(tranobj, map[string]interface{}{}, systemsessions, nil, nil)
 
 	result, err := tf.UnitTest()
 
@@ -49,12 +64,26 @@ func ExecuteUnitTest(trancode string) (map[string]interface{}, error) {
 	}
 	return result, nil
 }
-func ExecuteUnitTestWithTestData(trancode string, testcase map[string]interface{}) (map[string]interface{}, error) {
+func ExecuteUnitTestWithTestData(trancode string, testcase map[string]interface{}, systemsessions map[string]interface{}) (map[string]interface{}, error) {
+	iLog := logger.Log{ModuleName: logger.TranCode, User: "System", ControllerName: "TransCode"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("engine.TranCode.ExecuteUnitTestWithTestData", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("There is error to engine.TranCode.ExecuteUnitTestWithTestData with error: %s", err))
+			//	f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.ThrowErrorFuncs.Execute with error: %s", err)
+
+		}
+	}()
 	tranobj, err := getTranCodeData(trancode, documents.DocDBCon)
 	if err != nil {
 		return nil, err
 	}
-	tf := NewTranFlow(tranobj, map[string]interface{}{}, map[string]interface{}{}, nil, nil)
+	tf := NewTranFlow(tranobj, map[string]interface{}{}, systemsessions, nil, nil)
 
 	var testdata types.TestData
 
@@ -73,10 +102,18 @@ func ExecuteUnitTestWithTestData(trancode string, testcase map[string]interface{
 }
 
 func ExecutebyExternal(trancode string, data map[string]interface{}, DBTx *sql.Tx, DBCon *documents.DocDB, sc signalr.Client) (map[string]interface{}, error) {
+	iLog := logger.Log{ModuleName: logger.TranCode, User: "System", ControllerName: "TransCode"}
+	startTime := time.Now()
 	defer func() {
-		if r := recover(); r != nil {
-			//outputs := make(map[string]interface{})
-			return
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("engine.TranCode.ExecutebyExternal", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("There is error to engine.TranCode.ExecutebyExternal with error: %s", err))
+			//	f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.ThrowErrorFuncs.Execute with error: %s", err)
+
 		}
 	}()
 
@@ -100,11 +137,25 @@ func NewTranFlow(tcode types.TranCode, externalinputs, systemSession map[string]
 	log := logger.Log{}
 	log.ModuleName = logger.TranCode
 	log.ControllerName = "Trancode"
-	if systemSession["User"] != nil {
-		log.User = systemSession["User"].(string)
+	if systemSession["UserNo"] != nil {
+		log.User = systemSession["UserNo"].(string)
 	} else {
 		log.User = "System"
 	}
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("engine.TranCode.ExecutebyExternal", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("There is error to engine.TranCode.ExecutebyExternal with error: %s", err))
+			//	f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.ThrowErrorFuncs.Execute with error: %s", err)
+
+		}
+	}()
 
 	idbTx := append(dbTx, nil)[0]
 
@@ -127,6 +178,11 @@ func NewTranFlow(tcode types.TranCode, externalinputs, systemSession map[string]
 }
 
 func (t *TranFlow) Execute() (map[string]interface{}, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		t.ilog.PerformanceWithDuration("engine.TranCode.Execute", elapsed)
+	}()
 	defer func() {
 		if r := recover(); r != nil {
 			t.ilog.Error(fmt.Sprintf("Error in Trancode.Execute: %s", r))
@@ -195,6 +251,21 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 }
 
 func (t *TranFlow) getFGbyName(name string) (types.FuncGroup, int) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		t.ilog.PerformanceWithDuration("engine.TranCode.getFGbyName", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			t.ilog.Error(fmt.Sprintf("Error in Trancode.getFGbyName: %s", r))
+			t.ErrorMessage = fmt.Sprintf("Error in Trancode.getFGbyName: %s", r)
+			t.DBTx.Rollback()
+			t.CtxCancel()
+			return
+		}
+	}()
+
 	t.ilog.Debug(fmt.Sprintf("Get the Func group by name: %s", name))
 	for _, fgroup := range t.Tcode.Functiongroups {
 		if fgroup.Name == name {
@@ -211,6 +282,19 @@ func GetTransCode(name string) (types.TranCode, error) {
 	log.ModuleName = logger.TranCode
 	log.ControllerName = "Trancode"
 	log.User = "System"
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("engine.TranCode.GetTranCode", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error(fmt.Sprintf("Error in Trancode.GetTranCode: %s", r))
+			return
+		}
+	}()
+
 	log.Info(fmt.Sprintf("Start get transaction code %s", name))
 
 	log.Info(fmt.Sprintf("./%s/%s%s", "trancodes", name, ".json"))
@@ -229,6 +313,18 @@ func Bytetoobj(config []byte) (types.TranCode, error) {
 	log.ModuleName = logger.TranCode
 	log.ControllerName = "Trancode"
 	log.User = "System"
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("engine.TranCode.Bytetoobj", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error(fmt.Sprintf("Error in Trancode.Byetoobj: %s", r))
+			return
+		}
+	}()
+
 	log.Info(fmt.Sprintf("Start parse transaction code configuration"))
 
 	var tranCode types.TranCode
@@ -253,6 +349,19 @@ type TranFlowstr struct {
 }
 
 func (t *TranFlowstr) Execute(tcode string, inputs map[string]interface{}, sc signalr.Client, docdbconn *documents.DocDB, ctx context.Context, ctxcancel context.CancelFunc, dbTx ...*sql.Tx) (map[string]interface{}, error) {
+	log := logger.Log{ModuleName: logger.TranCode, User: "System", ControllerName: "TransCode.TranFlow"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("engine.TranCode.Tranflow.Execute", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error(fmt.Sprintf("Error in Trancode.TranFLow.Execute: %s", r))
+			return
+		}
+	}()
+
 	tc, err := GetTranCodeDatabyCode(tcode)
 
 	if err != nil {
@@ -271,10 +380,17 @@ func (t *TranFlowstr) Execute(tcode string, inputs map[string]interface{}, sc si
 }
 
 func (t *TranFlow) UnitTestbyTestData(testdata types.TestData) (map[string]interface{}, error) {
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		t.ilog.PerformanceWithDuration("engine.TranCode.Tranflow.UnitTestbyTestData", elapsed)
+	}()
+
 	defer func() {
 		if r := recover(); r != nil {
-			t.ilog.Error(fmt.Sprintf("Error in Trancode.Execute: %s", r))
-			t.ErrorMessage = fmt.Sprintf("Error in Trancode.Execute: %s", r)
+			t.ilog.Error(fmt.Sprintf("Error in Trancode.UnitTestbyTestData: %s", r))
+			t.ErrorMessage = fmt.Sprintf("Error in Trancode.UnitTestbyTestData: %s", r)
 			t.DBTx.Rollback()
 			t.CtxCancel()
 			return
@@ -337,10 +453,16 @@ func (t *TranFlow) UnitTestbyTestData(testdata types.TestData) (map[string]inter
 }
 
 func (t *TranFlow) UnitTest() (map[string]interface{}, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		t.ilog.PerformanceWithDuration("engine.TranCode.Tranflow.UnitTest", elapsed)
+	}()
+
 	defer func() {
 		if r := recover(); r != nil {
-			t.ilog.Error(fmt.Sprintf("Error in Trancode.Execute: %s", r))
-			t.ErrorMessage = fmt.Sprintf("Error in Trancode.Execute: %s", r)
+			t.ilog.Error(fmt.Sprintf("Error in Trancode.UnitTest: %s", r))
+			t.ErrorMessage = fmt.Sprintf("Error in Trancode.UnitTest: %s", r)
 			t.DBTx.Rollback()
 			t.CtxCancel()
 			return
@@ -364,41 +486,19 @@ func (t *TranFlow) UnitTest() (map[string]interface{}, error) {
 }
 
 func GetTranCodeDatabyCode(Code string) (types.TranCode, error) {
-	/*	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
-		iLog.Info(fmt.Sprintf("Get the trancode code for %s ", Code))
-
-		iLog.Info(fmt.Sprintf("Start process transaction code %s's %s ", Code, "Execute"))
-
-		filter := bson.M{"trancodename": Code, "isdefault": true}
-
-		tcode, err := documents.DocDBCon.QueryCollection("Transaction_Code", filter, nil)
-
-		if err != nil {
-			iLog.Error(fmt.Sprintf("Get transaction code %s's error", Code))
-
-			return types.TranCode{}, err
+	log := logger.Log{ModuleName: logger.TranCode, User: "System", ControllerName: "TransCode"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("engine.TranCode.GetTranCodeDatabyCode", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error(fmt.Sprintf("Error in Trancode.GetTranCodeDatabyCode: %s", r))
+			return
 		}
-		iLog.Debug(fmt.Sprintf("transaction code %s's data: %s", Code, tcode))
-		jsonString, err := json.Marshal(tcode[0])
-		if err != nil {
+	}()
 
-			iLog.Error(fmt.Sprintf("Error marshaling json:", err.Error()))
-			return types.TranCode{}, err
-		}
-
-		trancodeobj, err := Configtoobj(string(jsonString))
-		if err != nil {
-			iLog.Error(fmt.Sprintf("Error unmarshaling json:", err.Error()))
-			return types.TranCode{}, err
-		}
-
-		iLog.Debug(fmt.Sprintf("transaction code %s's json: %s", trancodeobj, string(jsonString)))
-
-		if err != nil {
-			iLog.Error(fmt.Sprintf("Error unmarshaling json:", err.Error()))
-			return types.TranCode{}, err
-		}
-	*/
 	trancodeobj, err := getTranCodeData(Code, documents.DocDBCon)
 	if err != nil {
 		return types.TranCode{}, err
@@ -408,6 +508,19 @@ func GetTranCodeDatabyCode(Code string) (types.TranCode, error) {
 
 func getTranCodeData(Code string, DBConn *documents.DocDB) (types.TranCode, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("engine.TranCode.getTranCodeData", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			iLog.Error(fmt.Sprintf("Error in Trancode.getTranCodeData: %s", r))
+			return
+		}
+	}()
+
 	iLog.Info(fmt.Sprintf("Get the trancode code for %s ", Code))
 
 	iLog.Info(fmt.Sprintf("Start process transaction code %s's %s ", Code, "Execute"))
@@ -446,6 +559,20 @@ func getTranCodeData(Code string, DBConn *documents.DocDB) (types.TranCode, erro
 }
 
 func convertInputsToMap(inputs []types.Input) map[string]interface{} {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("engine.TranCode.convertInputsToMap", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			iLog.Error(fmt.Sprintf("Error in Trancode.convertInputsToMap: %s", r))
+			return
+		}
+	}()
+
 	result := map[string]interface{}{}
 
 	for _, input := range inputs {
@@ -456,6 +583,20 @@ func convertInputsToMap(inputs []types.Input) map[string]interface{} {
 }
 
 func convertOutputsToMap(outputs []types.Output) map[string]interface{} {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("engine.TranCode.convertOutputsToMap", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			iLog.Error(fmt.Sprintf("Error in Trancode.convertOutputsToMap: %s", r))
+			return
+		}
+	}()
+
 	result := map[string]interface{}{}
 
 	for _, output := range outputs {
@@ -466,6 +607,20 @@ func convertOutputsToMap(outputs []types.Output) map[string]interface{} {
 }
 
 func compareMap(map1, map2 map[string]interface{}) bool {
+	iLog := logger.Log{ModuleName: logger.TranCode, User: "System", ControllerName: "TranCode"}
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("engine.TranCode.compareMap", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			iLog.Error(fmt.Sprintf("Error in Trancode.compareMap: %s", r))
+			return
+		}
+	}()
+
 	if len(map1) != len(map2) {
 		return false
 	}

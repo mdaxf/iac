@@ -18,6 +18,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/mdaxf/iac/logger"
 
@@ -47,6 +48,18 @@ var (
 
 func ConnectDB() error {
 	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Database"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("database.ConnectDB", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("ConnectDB defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
 	iLog.Info(fmt.Sprintf("Connect Database: %s %s", DatabaseType, DatabaseConnection))
 
 	once.Do(func() {
@@ -70,6 +83,19 @@ func ConnectDB() error {
 }
 
 func DBPing() error {
+	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Database"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("database.DBPing", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("DBPing defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
 
 	return DB.Ping()
 

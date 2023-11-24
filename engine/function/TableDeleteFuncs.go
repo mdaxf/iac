@@ -3,6 +3,7 @@ package funcs
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/engine/types"
@@ -12,6 +13,19 @@ type TableDeleteFuncs struct {
 }
 
 func (cf *TableDeleteFuncs) Execute(f *Funcs) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.TableDeleteFuncs.Execute", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.TableDeleteFuncs.Execute with error: %s", err))
+			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.TableDeleteFuncs.Execute with error: %s", err)
+			return
+		}
+	}()
+
 	f.iLog.Debug(fmt.Sprintf("Start process %s : %s", "TableDeleteFuncs.Execute", f.Fobj.Name))
 
 	namelist, valuelist, _ := f.SetInputs()
@@ -96,11 +110,35 @@ func (cf *TableDeleteFuncs) Execute(f *Funcs) {
 }
 
 func (cf *TableDeleteFuncs) Validate(f *Funcs) (bool, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.TableDeleteFuncs.Validate", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.TableDeleteFuncs.Validate with error: %s", err))
+			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.TableDeleteFuncs.Validate with error: %s", err)
+			return
+		}
+	}()
 
 	return true, nil
 }
 
 func (cf *TableDeleteFuncs) Testfunction(f *Funcs) (bool, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.TableDeleteFuncs.Testfunction", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.TableDeleteFuncs.Testfunction with error: %s", err))
+			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.TableDeleteFuncs.Testfunction with error: %s", err)
+			return
+		}
+	}()
 
 	return true, nil
 }
