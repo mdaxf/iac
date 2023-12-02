@@ -33,10 +33,19 @@
     },
     "webserver":{
         "port": 8080,
-        "path":"../iac-ui/portal",
-        "home":"../iac-ui/portal/uipage.html",
+        "paths":{
+            "portal": {                
+                "path":"../iac-ui/portal",
+                "home":"../iac-ui/portal/uipage.html"},
+            "portal2": {            
+                "path":"../iac-whiteboard/.next",
+                "home":"../iac-whiteboard/.next"}
+        },
+        "proxy":{
+            "draw": "http://localhost:3000"
+        },
         "headers":{
-            "Access-Control-Allow-Origin": "http://127.0.0.1:8080,https://127.0.0.1:8080",
+            "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Credentials": "true",
             "Access-Control-Allow-Methods": "POST, OPTIONS, GET, PUT, DELETE",
             "Access-Control-Allow-Headers": "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization",

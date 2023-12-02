@@ -23,6 +23,8 @@ import (
 
 	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 
 	"plugin"
 	"reflect"
@@ -112,15 +114,42 @@ func main() {
 
 	router = gin.Default()
 
-	router.Static("/portal", portal.Path)
-	router.StaticFile("/portal", portal.Home)
+	//router.Static("/portal", portal.Path)
+	//router.StaticFile("/portal", portal.Home)
 	//	router.StaticFile("/portal", portal.Logon)
 
 	if configuration.GlobalConfiguration.WebServerConfig != nil {
 		webserverconfig := configuration.GlobalConfiguration.WebServerConfig
-		ilog.Debug(fmt.Sprintf("Webserver cross region config: %v", webserverconfig))
+		ilog.Debug(fmt.Sprintf("Webserver cconfig: %v", webserverconfig))
+
+		paths := webserverconfig["paths"].(map[string]interface{})
+
+		for key, value := range paths {
+			ilog.Debug(fmt.Sprintf("Webserver path: %s configuration: %v", key, value))
+			pathstr := value.(map[string]interface{})
+			path := pathstr["path"].(string)
+			home := pathstr["home"].(string)
+
+			if path != "" {
+				router.Static(fmt.Sprintf("/%s", key), path)
+				ilog.Debug(fmt.Sprintf("Webserver path: /%s with %s", key, path))
+			} else {
+				ilog.Error(fmt.Sprintf("there is error in configuration %s, path cannot be empty!", key))
+			}
+			if home != "" {
+				router.StaticFile(fmt.Sprintf("/%s", key), home)
+			}
+		}
+
+		proxy := webserverconfig["proxy"].(map[string]interface{})
+
+		if proxy != nil {
+			go renderproxy(proxy, router)
+		}
+
 		headers := webserverconfig["headers"].(map[string]interface{})
 		router.Use(GinMiddleware(headers))
+
 	}
 
 	// Load controllers dynamically based on the configuration file
@@ -263,8 +292,8 @@ func CORSMiddleware(allowOrigin string) gin.HandlerFunc {
 		//  c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, Origin")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, Content-Length, X-CSRF-Token, Token, session, Origin, Host, Connection, Accept-Encoding, Accept-Language, X-Requested-With")
 
-		ilog.Debug(fmt.Sprintf("CORSMiddleware: %s", allowOrigin))
-		ilog.Debug(fmt.Sprintf("CORSMiddleware header: %s", c.Request.Header))
+		//	ilog.Debug(fmt.Sprintf("CORSMiddleware: %s", allowOrigin))
+		//	ilog.Debug(fmt.Sprintf("CORSMiddleware header: %s", c.Request.Header))
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
@@ -277,8 +306,8 @@ func CORSMiddleware(allowOrigin string) gin.HandlerFunc {
 func GinMiddleware(headers map[string]interface{}) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		ilog.Debug(fmt.Sprintf("GinMiddleware: %v", headers))
-		ilog.Debug(fmt.Sprintf("GinMiddleware header: %s", c.Request.Header))
+		//	ilog.Debug(fmt.Sprintf("GinMiddleware: %v", headers))
+		//	ilog.Debug(fmt.Sprintf("GinMiddleware header: %s", c.Request.Header))
 
 		for key, value := range headers {
 			c.Header(key, value.(string))
@@ -290,5 +319,37 @@ func GinMiddleware(headers map[string]interface{}) gin.HandlerFunc {
 			return
 		}
 		c.Next()
+	}
+}
+
+func renderproxy(proxy map[string]interface{}, router *gin.Engine) {
+	ilog.Debug(fmt.Sprintf("renderproxy: %v", proxy))
+
+	for key, value := range proxy {
+		ilog.Debug(fmt.Sprintf("renderproxy key: %s, value: %s", key, value))
+
+		nextURL, _ := url.Parse((value).(string))
+		ilog.Debug(fmt.Sprintf("renderproxy nextURL: %v", nextURL))
+
+		router.Any(fmt.Sprintf("/%s/*path", key), func(c *gin.Context) {
+
+			ilog.Debug(fmt.Sprintf("renderproxy path: %s, target: %s", c.Request.URL.Path, nextURL))
+
+			proxy := httputil.NewSingleHostReverseProxy(nextURL)
+
+			// Update the headers to allow for SSL redirection
+			//	req := c.Request
+			//	req.URL.Host = nextURL.Host
+			//	req.URL.Scheme = nextURL.Scheme
+			//req.Header["X-Forwarded-Host"] = req.Header["Host"]
+
+			c.Request.URL.Path = c.Param("path")
+
+			ilog.Debug(fmt.Sprintf("request: %v", c.Request))
+			// Note that ServeHttp is non blocking and uses a go routine under the hood
+			proxy.ServeHTTP(c.Writer, c.Request)
+
+		})
+
 	}
 }
