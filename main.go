@@ -231,7 +231,22 @@ func main() {
 
 	 */
 	// Start the server
-	go router.Run(fmt.Sprintf(":%d", config.Port))
+	//go router.Run(fmt.Sprintf(":%d", config.Port))
+
+	server := &http.Server{
+		Addr:         fmt.Sprintf(":%d", config.Port), // Set your desired port
+		Handler:      router,
+		ReadTimeout:  time.Duration(config.Timeout) * time.Millisecond,   // Set read timeout
+		WriteTimeout: time.Duration(2*config.Timeout) * time.Millisecond, // Set write timeout
+		IdleTimeout:  time.Duration(3*config.Timeout) * time.Millisecond, // Set idle timeout
+	}
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			ilog.Error(fmt.Sprintf("Failed to start server: %v", err))
+			panic(err)
+		}
+	}()
 
 	ilog.Info(fmt.Sprintf("Started portal on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
 

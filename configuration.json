@@ -29,7 +29,7 @@
     "documentdb":{
         "type": "mongodb",
         "connection": "mongodb://localhost:27017",
-        "database": "IAC_CFG"
+        "database": "IAC_CFG_NEW"
     },
     "webserver":{
         "port": 8080,

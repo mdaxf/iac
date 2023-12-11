@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	//	"github.com/gin-contrib/timeout"
 	config "github.com/mdaxf/iac/config"
 
 	"github.com/gin-gonic/gin"
@@ -46,7 +47,7 @@ func loadControllers(router *gin.Engine, controllers []config.Controller) {
 	for _, controllerConfig := range controllers {
 		ilog.Info(fmt.Sprintf("loadControllers:%s", controllerConfig.Module))
 
-		err := createEndpoints(router, controllerConfig.Module, controllerConfig.Path, controllerConfig.Endpoints)
+		err := createEndpoints(router, controllerConfig.Module, controllerConfig.Path, controllerConfig.Endpoints, controllerConfig)
 		if err != nil {
 			ilog.Error(fmt.Sprintf("Failed to load controller module %s: %v", controllerConfig.Module, err))
 		}
@@ -96,7 +97,7 @@ func getModule(module string) reflect.Value {
 	return reflect.Value{}
 }
 
-func createEndpoints(router *gin.Engine, module string, modulepath string, endpoints []config.Endpoint) error {
+func createEndpoints(router *gin.Engine, module string, modulepath string, endpoints []config.Endpoint, controllercfg config.Controller) error {
 
 	startTime := time.Now()
 	defer func() {
@@ -115,7 +116,7 @@ func createEndpoints(router *gin.Engine, module string, modulepath string, endpo
 
 		//handlermethod := reflect.ValueOf(moduleValue).MethodByName(endpoint.Handler);
 
-		handler, err := getHandlerFunc(moduleValue, endpoint.Handler)
+		handler, err := getHandlerFunc(moduleValue, endpoint.Handler, controllercfg)
 		if err != nil {
 			return fmt.Errorf("error creating endpoint '%s': %v", endpoint.Path, err)
 		}
@@ -152,7 +153,7 @@ func createEndpoints(router *gin.Engine, module string, modulepath string, endpo
 	return nil
 }
 
-func getHandlerFunc(module reflect.Value, name string) (gin.HandlerFunc, error) {
+func getHandlerFunc(module reflect.Value, name string, controllercfg config.Controller) (gin.HandlerFunc, error) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
@@ -177,29 +178,73 @@ func getHandlerFunc(module reflect.Value, name string) (gin.HandlerFunc, error) 
 		return nil, fmt.Errorf("invalid method name: %s", name)
 	}
 
-	return func(c *gin.Context) {
-
-		defer func() {
-			if r := recover(); r != nil {
-				ilog.Error(fmt.Sprintf("Panic: %s", r))
-				c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("Panic: %s", r))
-				return
-			}
-		}()
-
-		in := make([]reflect.Value, 1)
-		in[0] = reflect.ValueOf(c)
-		out := method.Call(in)
-		if len(out) > 0 {
-			if err, ok := out[0].Interface().(error); ok {
+	if controllercfg.Timeout > 0 {
+		return func(c *gin.Context) {
+			in := make([]reflect.Value, 1)
+			in[0] = reflect.ValueOf(c)
+			out, err := callWithTimeout(method, in, time.Duration(controllercfg.Timeout)*time.Millisecond)
+			if err != nil {
 				c.AbortWithError(http.StatusInternalServerError, err)
 				return
 			}
-			if data, ok := out[0].Interface().([]byte); ok {
-				c.Data(http.StatusOK, "application/json", data)
-				return
+			if len(out) > 0 {
+				if err, ok := out[0].Interface().(error); ok {
+					c.AbortWithError(http.StatusInternalServerError, err)
+					return
+				}
+				if data, ok := out[0].Interface().([]byte); ok {
+					c.Data(http.StatusOK, "application/json", data)
+					return
+				}
 			}
-		}
-		c.Status(http.StatusOK)
-	}, nil
+			c.Status(http.StatusOK)
+		}, nil
+	} else {
+		return func(c *gin.Context) {
+
+			defer func() {
+				if r := recover(); r != nil {
+					ilog.Error(fmt.Sprintf("Panic: %s", r))
+					c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("Panic: %s", r))
+					return
+				}
+			}()
+
+			in := make([]reflect.Value, 1)
+			in[0] = reflect.ValueOf(c)
+			out := method.Call(in)
+			if len(out) > 0 {
+				if err, ok := out[0].Interface().(error); ok {
+					ilog.Error(fmt.Sprintf("%s %s Error: %s", module, name, err))
+					c.AbortWithError(http.StatusInternalServerError, err)
+					return
+				}
+				if data, ok := out[0].Interface().([]byte); ok {
+					ilog.Debug(fmt.Sprintf("%s %s Data: %s", module, name, data))
+					c.Data(http.StatusOK, "application/json", data)
+					return
+				}
+			}
+			c.Status(http.StatusOK)
+		}, nil
+	}
+}
+
+func callWithTimeout(method reflect.Value, args []reflect.Value, timeout time.Duration) ([]reflect.Value, error) {
+	resultChan := make(chan []reflect.Value, 1)
+	//errChan := make(chan error, 1)
+
+	go func() {
+		result := method.Call(args)
+		resultChan <- result
+	}()
+
+	select {
+	case result := <-resultChan:
+		ilog.Debug(fmt.Sprintf("callWithTimeout result: %s", result))
+		return result, nil
+	case <-time.After(timeout):
+		ilog.Error(fmt.Sprintf("callWithTimeout timeout: %s", timeout))
+		return nil, fmt.Errorf("timeout exceeded")
+	}
 }

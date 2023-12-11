@@ -26,6 +26,7 @@ import (
 type Controller struct {
 	Path      string     `json:"path"`
 	Module    string     `json:"module"`
+	Timeout   int        `json:"timeout"`
 	Endpoints []Endpoint `json:"endpoints"`
 }
 
@@ -40,6 +41,7 @@ type Endpoint struct {
 }
 type Config struct {
 	Port              int                `json:"port"`
+	Timeout           int                `json:"timeout"`
 	Controllers       []Controller       `json:"controllers"`
 	PluginControllers []PluginController `json:"plugins"`
 	Portal            Portal             `json:"portal"`

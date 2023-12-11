@@ -1,5 +1,6 @@
 {
   "port": 8080,
+  "timeout": 5000,
   "controllers": [
     {
       "path": "user", 
