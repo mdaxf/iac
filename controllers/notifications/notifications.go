@@ -124,9 +124,9 @@ func (n *Notification) ResponseNotification(ctx *gin.Context) {
 	iLog.User = user
 	ndata := make(map[string]interface{})
 	ndata = requestobj["data"].(map[string]interface{})
-	comments := ndata["comments"].(string)
-
-	err = notif.UpdateNotification(ndata, user, comments)
+	comments := requestobj["comments"].(string)
+	status := requestobj["status"].(int)
+	err = notif.UpdateNotification(ndata, user, comments, status)
 
 	if err != nil {
 

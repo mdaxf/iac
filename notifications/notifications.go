@@ -80,7 +80,7 @@ func (n *Notification) SaveNotification(ndata interface{}, user string) error {
 	return nil
 }
 
-func (n *Notification) UpdateNotification(ndata interface{}, user string, comments string) error {
+func (n *Notification) UpdateNotification(ndata interface{}, user string, comments string, status int) error {
 	iLog := logger.Log{ModuleName: logger.Framework, User: user, ControllerName: "Notifications"}
 
 	startTime := time.Now()
@@ -100,7 +100,7 @@ func (n *Notification) UpdateNotification(ndata interface{}, user string, commen
 	newdata["system.updatedby"] = user
 	newdata["system.updatedon"] = time.Now()
 
-	if newdata["receipts"].(bson.M)["all"] == 1 && (newdata["receipts."+user] == nil || newdata["receipts."+user] == 1) {
+	if newdata["sender"] != user && newdata["receipts"].(bson.M)["all"] == 1 && (newdata["receipts."+user] == nil || newdata["receipts."+user] == 1) {
 		newdata["receipts."+user] = 2
 	}
 	userhisitem := make(map[string]interface{})
@@ -116,6 +116,9 @@ func (n *Notification) UpdateNotification(ndata interface{}, user string, commen
 	} else {
 		userhistory = append(userhistory.([]map[string]interface{}), userhisitem)
 		newdata["histories"] = userhistory
+	}
+	if status != 0 {
+		newdata["status"] = status
 	}
 	var filter bson.M
 	filter = bson.M{"_id": newdata["_id"]}
