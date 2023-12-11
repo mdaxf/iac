@@ -73,6 +73,69 @@ func GetRequestBody(ctx *gin.Context) ([]byte, error) {
 	return body, nil
 }
 
+func GetRequestBodyandUser(ctx *gin.Context) ([]byte, string, string, error) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetRequestBody"}
+	startTime := time.Now()
+
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("controllers.common.GetRequestBody", elapsed)
+	}()
+
+	defer func() {
+		err := recover()
+		if err != nil {
+			iLog.Error(fmt.Sprintf("controllers.common.GetRequestBody error: %s", err))
+		}
+	}()
+
+	_, user, clientid, err := GetRequestUser(ctx)
+
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	iLog.Debug(fmt.Sprintf("GetRequestBody"))
+
+	body, err := ioutil.ReadAll(ctx.Request.Body)
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetRequestBody error: %s", err.Error()))
+		return nil, clientid, user, err
+	}
+	iLog.Debug(fmt.Sprintf("GetRequestBody body: %s", body))
+	return body, clientid, user, nil
+}
+
+func GetRequestBodyandUserbyJson(ctx *gin.Context) (map[string]interface{}, string, string, error) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetRequestBodyandUserbyJson"}
+	startTime := time.Now()
+
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("controllers.common.GetRequestBodyandUserbyJson", elapsed)
+	}()
+	defer func() {
+		err := recover()
+		if err != nil {
+			iLog.Error(fmt.Sprintf("controllers.common.GetRequestBodyandUserbyJson error: %s", err))
+		}
+	}()
+	_, user, clientid, err := GetRequestUser(ctx)
+
+	iLog.ClientID = clientid
+	iLog.User = user
+	iLog.Debug(fmt.Sprintf("GetRequestBodyandUserbyJson"))
+
+	var request map[string]interface{}
+	err = json.NewDecoder(ctx.Request.Body).Decode(&request)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to decode request body: %v", err))
+		return nil, clientid, user, err
+	}
+	iLog.Debug(fmt.Sprintf("GetRequestBodybyJson request: %s", request))
+	return request, clientid, user, nil
+}
+
 func GetRequestBodybyJson(ctx *gin.Context) (map[string]interface{}, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetRequestBodybyJson"}
 	startTime := time.Now()
