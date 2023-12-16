@@ -177,7 +177,25 @@
           "path": "/update",
           "handler": "UpdateLngCode"
         }
-      ]}  
+      ]},
+      {
+        "path": "notification",
+        "module": "NotificationController",    
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/get",
+            "handler": "GetNotificationsbyUser"
+          },{
+            "method": "POST",
+            "path": "/new",
+            "handler": "CreateNotification"
+          },{
+            "method": "POST",
+            "path": "/response",
+            "handler": "ResponseNotification"
+          }
+        ]}  
   ],
   "portal":{
     "port": 8080,

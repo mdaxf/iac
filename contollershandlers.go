@@ -30,6 +30,7 @@ import (
 	"github.com/mdaxf/iac/controllers/function"
 	healthcheck "github.com/mdaxf/iac/controllers/health"
 	"github.com/mdaxf/iac/controllers/lngcodes"
+	"github.com/mdaxf/iac/controllers/notifications"
 	"github.com/mdaxf/iac/controllers/role"
 	"github.com/mdaxf/iac/controllers/trans"
 	"github.com/mdaxf/iac/controllers/user"
@@ -91,6 +92,9 @@ func getModule(module string) reflect.Value {
 		return reflect.ValueOf(moduleInstance)
 	case "HealthController":
 		moduleInstance := &healthcheck.HealthController{}
+		return reflect.ValueOf(moduleInstance)
+	case "NotificationController":
+		moduleInstance := &notifications.NotificationController{}
 		return reflect.ValueOf(moduleInstance)
 	}
 

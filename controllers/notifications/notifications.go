@@ -12,13 +12,13 @@ import (
 	"github.com/mdaxf/iac/logger"
 
 	"github.com/mdaxf/iac/controllers/common"
-	notif "github.com/mdaxf/iac/notification"
+	notif "github.com/mdaxf/iac/notifications"
 )
 
-type Notification struct {
+type NotificationController struct {
 }
 
-func (n *Notification) CreateNotification(ctx *gin.Context) {
+func (n *NotificationController) CreateNotification(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "notifications"}
 
 	startTime := time.Now()
@@ -58,7 +58,7 @@ func (n *Notification) CreateNotification(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"data": ndata})
 }
 
-func (n *Notification) GetNotificationsbyUser(ctx *gin.Context) {
+func (n *NotificationController) GetNotificationsbyUser(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "notifications"}
 
 	startTime := time.Now()
@@ -97,7 +97,7 @@ func (n *Notification) GetNotificationsbyUser(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"data": items})
 }
 
-func (n *Notification) ResponseNotification(ctx *gin.Context) {
+func (n *NotificationController) ResponseNotification(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "notifications"}
 
 	startTime := time.Now()
@@ -125,7 +125,7 @@ func (n *Notification) ResponseNotification(ctx *gin.Context) {
 	ndata := make(map[string]interface{})
 	ndata = requestobj["data"].(map[string]interface{})
 	comments := requestobj["comments"].(string)
-	status := requestobj["status"].(int)
+	status := int(requestobj["status"].(float64))
 	err = notif.UpdateNotification(ndata, user, comments, status)
 
 	if err != nil {
