@@ -13,6 +13,13 @@ import (
 type SendMessageFuncs struct {
 }
 
+// Execute executes the SendMessageFuncs function.
+// It sets the start time, defers the calculation of elapsed time and logging of performance,
+// and recovers from any panics that occur during execution.
+// It retrieves the inputs, sets the topic and data, and marshals the data into JSON format.
+// If the topic is empty, it logs an error and returns.
+// It then invokes the SignalRClient or IACMessageBusClient to send the message.
+// Finally, it sets the outputs of the function.
 func (cf *SendMessageFuncs) Execute(f *Funcs) {
 	startTime := time.Now()
 	defer func() {
@@ -22,6 +29,7 @@ func (cf *SendMessageFuncs) Execute(f *Funcs) {
 	defer func() {
 		if err := recover(); err != nil {
 			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SendEmessage.Execute with error: %s", err))
+			f.CancelExecution(fmt.Sprintf("There is error to engine.funcs.SendEmessage.Execute with error: %s", err))
 			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.SendEmessage.Execute with error: %s", err)
 			return
 		}
@@ -86,20 +94,25 @@ func (cf *SendMessageFuncs) Execute(f *Funcs) {
 	f.SetOutputs(f.convertMap(outputs))
 }
 
+// Validate validates the SendMessageFuncs function.
+// It checks if the namelist and valuelist are empty,
+// and if the "Topic" name is present in the namelist.
+// Returns true if the validation passes, otherwise returns false with an error.
+// It also logs the performance of the function.
 func (cf *SendMessageFuncs) Validate(f *Funcs) (bool, error) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
 		f.iLog.PerformanceWithDuration("engine.funcs.SendEmessage.Validate", elapsed)
 	}()
-	defer func() {
-		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SendEmessage.Validate with error: %s", err))
-			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.SendEmessage.Validate with error: %s", err)
-			return
-		}
-	}()
-
+	/*	defer func() {
+			if err := recover(); err != nil {
+				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SendEmessage.Validate with error: %s", err))
+				f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.SendEmessage.Validate with error: %s", err)
+				return
+			}
+		}()
+	*/
 	f.iLog.Debug(fmt.Sprintf("SendMessageFuncs validate: %v", f))
 	namelist, valuelist, _ := f.SetInputs()
 

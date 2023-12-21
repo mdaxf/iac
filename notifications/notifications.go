@@ -11,6 +11,15 @@ import (
 	"github.com/mdaxf/iac/documents"
 )
 
+// GetNotificationsbyUser retrieves notifications for a specific user.
+// It takes a user string as input and returns a list of notifications and an error.
+// The function first logs the start time and defer logs the performance duration.
+// It also recovers from any panics and logs the error if any.
+// The function constructs a filter using the user parameter and other conditions.
+// It queries the "Notifications" collection using the constructed filter.
+// If there is an error in querying the collection, it logs the error and returns nil and the error.
+// Otherwise, it logs the retrieved notification list and returns it along with nil error.
+
 func GetNotificationsbyUser(user string) (interface{}, error) {
 	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Notifications"}
 
@@ -20,13 +29,13 @@ func GetNotificationsbyUser(user string) (interface{}, error) {
 		iLog.PerformanceWithDuration("notification.GetNotificationsbyUser", elapsed)
 	}()
 
-	defer func() {
-		err := recover()
-		if err != nil {
-			iLog.Error(fmt.Sprintf("Error: %v", err))
-		}
-	}()
-
+	/*	defer func() {
+			err := recover()
+			if err != nil {
+				iLog.Error(fmt.Sprintf("Error: %v", err))
+			}
+		}()
+	*/
 	var filter bson.M
 	filter = bson.M{
 		"$or": []bson.M{
@@ -54,6 +63,10 @@ func GetNotificationsbyUser(user string) (interface{}, error) {
 	return collectionitems, nil
 }
 
+// SaveNotification saves a notification for a specific user.
+// It takes ndata, which is the data of the notification, and user, which is the username of the user.
+// It returns an error if there was a problem saving the notification.
+
 func SaveNotification(ndata interface{}, user string) error {
 	iLog := logger.Log{ModuleName: logger.Framework, User: user, ControllerName: "Notifications"}
 
@@ -63,13 +76,13 @@ func SaveNotification(ndata interface{}, user string) error {
 		iLog.PerformanceWithDuration("notification.GetNotificationsbyUser", elapsed)
 	}()
 
-	defer func() {
-		err := recover()
-		if err != nil {
-			iLog.Error(fmt.Sprintf("Error: %v", err))
-		}
-	}()
-
+	/*	defer func() {
+			err := recover()
+			if err != nil {
+				iLog.Error(fmt.Sprintf("Error: %v", err))
+			}
+		}()
+	*/
 	_, err := documents.DocDBCon.InsertCollection("Notifications", ndata)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("failed to save notification: %v", err))
@@ -137,6 +150,13 @@ func UpdateNotification(ndata interface{}, user string, comments string, status 
 	return nil
 }
 
+// CreateNewNotification creates a new notification with the given notification data and user.
+// It sets various system fields such as created by, created on, updated by, updated on, and status.
+// If receipts are not provided, it sets the receipts to "all".
+// It also adds a history entry with status, updated by, updated on, and comments.
+// The notification data is then inserted into the "Notifications" collection in the database.
+// Returns an error if there was a failure in saving the notification.
+
 func CreateNewNotification(notificationdata interface{}, user string) error {
 	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Notifications"}
 
@@ -146,12 +166,12 @@ func CreateNewNotification(notificationdata interface{}, user string) error {
 		iLog.PerformanceWithDuration("notification.CreateNewNotification", elapsed)
 	}()
 
-	defer func() {
+	/*	defer func() {
 		err := recover()
 		if err != nil {
 			iLog.Error(fmt.Sprintf("Error: %v", err))
 		}
-	}()
+	}()  */
 	ndata := notificationdata.(map[string]interface{})
 	ndata["system.createdby"] = user
 	ndata["system.createdon"] = time.Now()

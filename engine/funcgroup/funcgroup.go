@@ -33,6 +33,10 @@ type FGroup struct {
 	ErrorMessage        string
 }
 
+// NewFGroup creates a new instance of FGroup.
+// It takes various parameters including DocDBCon, SignalRClient, dbTx, fgobj, nextfuncgroup, systemSession, userSession, externalinputs, externaloutputs, ctx, and ctxcancel.
+// It initializes the FGroup struct with the provided values and returns a pointer to the newly created FGroup instance.
+
 func NewFGroup(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sql.Tx, fgobj types.FuncGroup, nextfuncgroup string, systemSession, userSession, externalinputs, externaloutputs map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc) *FGroup {
 	log := logger.Log{}
 	log.ModuleName = logger.TranCode
@@ -47,14 +51,14 @@ func NewFGroup(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sq
 		elapsed := time.Since(startTime)
 		log.PerformanceWithDuration("engine.funcgroup.NewFGroup", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			log.Error(fmt.Sprintf("There is error to engine.funcgroup.NewFGroup with error: %s", err))
-			return
-		}
-	}()
-
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				log.Error(fmt.Sprintf("There is error to engine.funcgroup.NewFGroup with error: %s", err))
+				return
+			}
+		}()
+	*/
 	return &FGroup{
 		FGobj:               fgobj,
 		DBTx:                dbTx,
@@ -73,6 +77,10 @@ func NewFGroup(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sq
 	}
 
 }
+
+// Execute executes the function group by iterating over its functions and executing each one.
+// It also handles error recovery and logs performance metrics.
+// It takes no parameters and returns no values.
 func (c *FGroup) Execute() {
 	startTime := time.Now()
 	defer func() {
@@ -160,6 +168,8 @@ func (c *FGroup) Execute() {
 
 }
 
+// CheckRouter checks the router definition and determines the next function group to execute based on the provided RouterDef.
+// It returns the name of the next function group.
 func (c *FGroup) CheckRouter(RouterDef types.RouterDef) string {
 	startTime := time.Now()
 	defer func() {

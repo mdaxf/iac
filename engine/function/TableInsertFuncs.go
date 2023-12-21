@@ -10,6 +10,13 @@ import (
 type TableInsertFuncs struct {
 }
 
+// Execute executes the TableInsertFuncs function.
+// It retrieves the input values, sets up the necessary variables,
+// and performs the table insert operation using the provided database connection.
+// The execution can be canceled if an error occurs during the process.
+// The function also logs debug and error messages for troubleshooting purposes.
+// Finally, it sets the output values for further processing.
+
 func (cf *TableInsertFuncs) Execute(f *Funcs) {
 	startTime := time.Now()
 	defer func() {
@@ -19,6 +26,7 @@ func (cf *TableInsertFuncs) Execute(f *Funcs) {
 	defer func() {
 		if err := recover(); err != nil {
 			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.TableInsertFuncs.Execute with error: %s", err))
+			f.CancelExecution(fmt.Sprintf("There is error to engine.funcs.TableInsertFuncs.Execute with error: %s", err))
 			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.TableInsertFuncs.Execute with error: %s", err)
 			return
 		}
@@ -94,22 +102,30 @@ func (cf *TableInsertFuncs) Execute(f *Funcs) {
 	f.SetOutputs(outputs)
 }
 
+// Validate validates the TableInsertFuncs.
+// It measures the performance of the function and logs the duration.
+// It returns true if the validation is successful, otherwise it returns an error.
+// It also logs the performance of the function.
 func (cf *TableInsertFuncs) Validate(f *Funcs) (bool, error) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
 		f.iLog.PerformanceWithDuration("engine.funcs.TableInsertFuncs.Validate", elapsed)
 	}()
-	defer func() {
+	/*defer func() {
 		if err := recover(); err != nil {
 			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.TableInsertFuncs.Validate with error: %s", err))
 			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.TableInsertFuncs.Validate with error: %s", err)
 			return
 		}
-	}()
+	}() */
 
 	return true, nil
 }
+
+// Testfunction is a function that performs a test operation.
+// It measures the performance of the function and logs the duration.
+// It returns a boolean value indicating the success of the test and an error if any.
 
 func (cf *TableInsertFuncs) Testfunction(f *Funcs) (bool, error) {
 	startTime := time.Now()
@@ -117,13 +133,13 @@ func (cf *TableInsertFuncs) Testfunction(f *Funcs) (bool, error) {
 		elapsed := time.Since(startTime)
 		f.iLog.PerformanceWithDuration("engine.funcs.TableInsertFuncs.Testfunction", elapsed)
 	}()
-	defer func() {
+	/*defer func() {
 		if err := recover(); err != nil {
 			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.TableInsertFuncs.Testfunction with error: %s", err))
 			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.TableInsertFuncs.Testfunction with error: %s", err)
 			return
 		}
-	}()
+	}() */
 
 	return true, nil
 }

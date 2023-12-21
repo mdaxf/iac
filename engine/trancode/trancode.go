@@ -35,6 +35,18 @@ type TranFlow struct {
 	ErrorMessage    string
 }
 
+// ExecuteUnitTest executes a unit test for a given trancode with the provided systemsessions.
+// It returns a map[string]interface{} containing the result of the unit test and an error, if any.
+// The result contains the following fields:
+// - Name: the name of the unit test
+// - Inputs: the inputs of the unit test
+// - ExpectedOutputs: the expected outputs of the unit test
+// - ExpectError: a boolean value indicating whether the unit test is expected to return an error
+// - ExpectedError: the expected error message
+// - ActualOutputs: the actual outputs of the unit test
+// - ActualError: the actual error message
+// - Result: the result of the unit test, either "Pass" or "Fail"
+
 func ExecuteUnitTest(trancode string, systemsessions map[string]interface{}) (map[string]interface{}, error) {
 	iLog := logger.Log{ModuleName: logger.TranCode, User: "System", ControllerName: "TransCode"}
 	startTime := time.Now()
@@ -64,6 +76,20 @@ func ExecuteUnitTest(trancode string, systemsessions map[string]interface{}) (ma
 	}
 	return result, nil
 }
+
+// ExecuteUnitTestWithTestData executes a unit test with the given test data for a specific trancode.
+// It takes the trancode string, testcase map, and systemsessions map as input parameters.
+// It returns a map[string]interface{} containing the test result and an error if any.
+// The test result contains the following fields:
+// - Name: the name of the unit test
+// - Inputs: the inputs of the unit test
+// - ExpectedOutputs: the expected outputs of the unit test
+// - ExpectError: a boolean value indicating whether the unit test is expected to return an error
+// - ExpectedError: the expected error message
+// - ActualOutputs: the actual outputs of the unit test
+// - ActualError: the actual error message
+// - Result: the result of the unit test, either "Pass" or "Fail"
+
 func ExecuteUnitTestWithTestData(trancode string, testcase map[string]interface{}, systemsessions map[string]interface{}) (map[string]interface{}, error) {
 	iLog := logger.Log{ModuleName: logger.TranCode, User: "System", ControllerName: "TransCode"}
 	startTime := time.Now()
@@ -101,6 +127,14 @@ func ExecuteUnitTestWithTestData(trancode string, testcase map[string]interface{
 	return result, nil
 }
 
+// ExecutebyExternal executes a transaction code by calling an external service.
+// It takes a trancode string, a data map, a DBTx transaction, a DBCon database connection,
+// and a sc signalr client as input parameters.
+// It returns a map of outputs and an error.
+// The outputs map contains the outputs of the transaction code.
+// The error contains the error message if any.
+// The function also logs the performance of the transaction code execution.
+
 func ExecutebyExternal(trancode string, data map[string]interface{}, DBTx *sql.Tx, DBCon *documents.DocDB, sc signalr.Client) (map[string]interface{}, error) {
 	iLog := logger.Log{ModuleName: logger.TranCode, User: "System", ControllerName: "TransCode"}
 	startTime := time.Now()
@@ -133,6 +167,16 @@ func ExecutebyExternal(trancode string, data map[string]interface{}, DBTx *sql.T
 	return outputs, nil
 }
 
+// NewTranFlow creates a new instance of TranFlow.
+// It takes the following parameters:
+// - tcode: the transaction code (types.TranCode)
+// - externalinputs: a map of external inputs (map[string]interface{})
+// - systemSession: a map of system session data (map[string]interface{})
+// - ctx: the context (context.Context)
+// - ctxcancel: the cancel function for the context (context.CancelFunc)
+// - dbTx: optional parameter for the database transaction (*sql.Tx)
+// It returns a pointer to TranFlow.
+
 func NewTranFlow(tcode types.TranCode, externalinputs, systemSession map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc, dbTx ...*sql.Tx) *TranFlow {
 	log := logger.Log{}
 	log.ModuleName = logger.TranCode
@@ -149,14 +193,14 @@ func NewTranFlow(tcode types.TranCode, externalinputs, systemSession map[string]
 		log.PerformanceWithDuration("engine.TranCode.ExecutebyExternal", elapsed)
 	}()
 
-	defer func() {
-		if err := recover(); err != nil {
-			log.Error(fmt.Sprintf("There is error to engine.TranCode.ExecutebyExternal with error: %s", err))
-			//	f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.ThrowErrorFuncs.Execute with error: %s", err)
+	/*	defer func() {
+			if err := recover(); err != nil {
+				log.Error(fmt.Sprintf("There is error to engine.TranCode.ExecutebyExternal with error: %s", err))
+				//	f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.ThrowErrorFuncs.Execute with error: %s", err)
 
-		}
-	}()
-
+			}
+		}()
+	*/
 	idbTx := append(dbTx, nil)[0]
 
 	tfr := TranFlowstr{}
@@ -177,6 +221,15 @@ func NewTranFlow(tcode types.TranCode, externalinputs, systemSession map[string]
 	}
 }
 
+// Execute executes the transaction flow.
+// It starts the timer to measure the execution time and logs the performance duration.
+// It recovers from any panics and logs the error message.
+// It retrieves the system session, external inputs, and external outputs from the transaction flow.
+// It starts a new database transaction if one doesn't exist.
+// It starts a new context with a timeout if one doesn't exist.
+// It executes the first function group of the transaction code and iterates through subsequent function groups until the code is no longer 1.
+// It commits the database transaction if it was started in this function.
+// It returns the external outputs and nil error if successful.
 func (t *TranFlow) Execute() (map[string]interface{}, error) {
 	startTime := time.Now()
 	defer func() {
@@ -250,22 +303,25 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 
 }
 
+// getFGbyName retrieves the FuncGroup by its name from the TranFlow.
+// It returns the found FuncGroup and a flag indicating whether the FuncGroup was found or not.
+
 func (t *TranFlow) getFGbyName(name string) (types.FuncGroup, int) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
 		t.ilog.PerformanceWithDuration("engine.TranCode.getFGbyName", elapsed)
 	}()
-	defer func() {
-		if r := recover(); r != nil {
-			t.ilog.Error(fmt.Sprintf("Error in Trancode.getFGbyName: %s", r))
-			t.ErrorMessage = fmt.Sprintf("Error in Trancode.getFGbyName: %s", r)
-			t.DBTx.Rollback()
-			t.CtxCancel()
-			return
-		}
-	}()
-
+	/*	defer func() {
+			if r := recover(); r != nil {
+				t.ilog.Error(fmt.Sprintf("Error in Trancode.getFGbyName: %s", r))
+				t.ErrorMessage = fmt.Sprintf("Error in Trancode.getFGbyName: %s", r)
+				t.DBTx.Rollback()
+				t.CtxCancel()
+				return
+			}
+		}()
+	*/
 	t.ilog.Debug(fmt.Sprintf("Get the Func group by name: %s", name))
 	for _, fgroup := range t.Tcode.Functiongroups {
 		if fgroup.Name == name {
@@ -277,6 +333,9 @@ func (t *TranFlow) getFGbyName(name string) (types.FuncGroup, int) {
 	return types.FuncGroup{}, 0
 }
 
+// GetTransCode retrieves the transaction code for the given name.
+// It reads the transaction code configuration file and returns the corresponding TranCode object.
+// If an error occurs during the process, it returns an empty TranCode object and an error.
 func GetTransCode(name string) (types.TranCode, error) {
 	log := logger.Log{}
 	log.ModuleName = logger.TranCode
@@ -308,6 +367,10 @@ func GetTransCode(name string) (types.TranCode, error) {
 	return Bytetoobj(data)
 }
 
+// Bytetoobj converts a byte slice to a TranCode object.
+// It parses the transaction code configuration from the provided byte slice and returns a TranCode object.
+// If there is an error during parsing, it returns an empty TranCode object and an error.
+
 func Bytetoobj(config []byte) (types.TranCode, error) {
 	log := logger.Log{}
 	log.ModuleName = logger.TranCode
@@ -318,13 +381,13 @@ func Bytetoobj(config []byte) (types.TranCode, error) {
 		elapsed := time.Since(startTime)
 		log.PerformanceWithDuration("engine.TranCode.Bytetoobj", elapsed)
 	}()
-	defer func() {
-		if r := recover(); r != nil {
-			log.Error(fmt.Sprintf("Error in Trancode.Byetoobj: %s", r))
-			return
-		}
-	}()
-
+	/*	defer func() {
+			if r := recover(); r != nil {
+				log.Error(fmt.Sprintf("Error in Trancode.Byetoobj: %s", r))
+				return
+			}
+		}()
+	*/
 	log.Info(fmt.Sprintf("Start parse transaction code configuration"))
 
 	var tranCode types.TranCode

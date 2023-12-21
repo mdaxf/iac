@@ -21,6 +21,7 @@ func (cf *GoExprFuncs) Execute(f *Funcs) {
 	defer func() {
 		if err := recover(); err != nil {
 			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.GoExprFuncs.Execute with error: %s", err))
+			f.CancelExecution(fmt.Sprintf("There is error to engine.funcs.GoExprFuncs.Execute with error: %s", err))
 			return
 		}
 	}()
@@ -53,12 +54,12 @@ func (cf *GoExprFuncs) Validate(f *Funcs) (bool, error) {
 		elapsed := time.Since(startTime)
 		f.iLog.PerformanceWithDuration("engine.funcs.GoExprFuncs.Validate", elapsed)
 	}()
-	defer func() {
+	/*	defer func() {
 		if err := recover(); err != nil {
 			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.GoExprFuncs.Validate with error: %s", err))
 			return
 		}
-	}()
+	}() */
 
 	return true, nil
 }
@@ -71,13 +72,13 @@ func (cf *GoExprFuncs) Testfunction(content string, inputs interface{}, outputs 
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("engine.funcs.GoExprFuncs.Testfunction", elapsed)
 	}()
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("There is error to engine.funcs.GoExprFuncs.Testfunction with error: %s", err))
-			return
-		}
-	}()
-
+	/*	defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("There is error to engine.funcs.GoExprFuncs.Testfunction with error: %s", err))
+				return
+			}
+		}()
+	*/
 	iLog.Debug(fmt.Sprintf("Test Exec Function"))
 
 	iLog.Debug(fmt.Sprintf("Test Exec Function content: %s", content))

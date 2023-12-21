@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"reflect"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mdaxf/iac/framework/auth"
@@ -13,21 +12,21 @@ import (
 )
 
 func GetRequestUser(ctx *gin.Context) (string, string, string, error) {
-	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetRequestBody"}
-	startTime := time.Now()
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetRequestUser"}
+	/*	startTime := time.Now()
 
-	defer func() {
-		elapsed := time.Since(startTime)
-		iLog.PerformanceWithDuration("controllers.common.GetRequestUser", elapsed)
-	}()
-	defer func() {
-		err := recover()
-		if err != nil {
-			iLog.Error(fmt.Sprintf("controllers.common.GetRequestUser error: %s", err))
-		}
-	}()
-
-	iLog.Debug(fmt.Sprintf("GetRequestUser"))
+		defer func() {
+			elapsed := time.Since(startTime)
+			iLog.PerformanceWithDuration("controllers.common.GetRequestUser", elapsed)
+		}()
+		defer func() {
+			err := recover()
+			if err != nil {
+				iLog.Error(fmt.Sprintf("controllers.common.GetRequestUser error: %s", err))
+			}
+		}()
+	*/
+	//	iLog.Debug("GetRequestUser")
 
 	userid, user, clientid, err := auth.GetUserInformation(ctx)
 
@@ -42,21 +41,21 @@ func GetRequestUser(ctx *gin.Context) (string, string, string, error) {
 
 func GetRequestBody(ctx *gin.Context) ([]byte, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetRequestBody"}
-	startTime := time.Now()
+	/*	startTime := time.Now()
 
-	defer func() {
-		elapsed := time.Since(startTime)
-		iLog.PerformanceWithDuration("controllers.common.GetRequestBody", elapsed)
-	}()
+		defer func() {
+			elapsed := time.Since(startTime)
+			iLog.PerformanceWithDuration("controllers.common.GetRequestBody", elapsed)
+		}()
 
-	defer func() {
-		err := recover()
-		if err != nil {
-			iLog.Error(fmt.Sprintf("controllers.common.GetRequestBody error: %s", err))
-		}
-	}()
-
-	_, user, clientid, err := GetRequestUser(ctx)
+		defer func() {
+			err := recover()
+			if err != nil {
+				iLog.Error(fmt.Sprintf("controllers.common.GetRequestBody error: %s", err))
+			}
+		}()
+	*/
+	_, user, clientid, _ := GetRequestUser(ctx)
 
 	iLog.ClientID = clientid
 	iLog.User = user
@@ -75,26 +74,24 @@ func GetRequestBody(ctx *gin.Context) ([]byte, error) {
 
 func GetRequestBodyandUser(ctx *gin.Context) ([]byte, string, string, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetRequestBody"}
-	startTime := time.Now()
+	/*	startTime := time.Now()
 
-	defer func() {
-		elapsed := time.Since(startTime)
-		iLog.PerformanceWithDuration("controllers.common.GetRequestBody", elapsed)
-	}()
+		defer func() {
+			elapsed := time.Since(startTime)
+			iLog.PerformanceWithDuration("controllers.common.GetRequestBody", elapsed)
+		}()
 
-	defer func() {
-		err := recover()
-		if err != nil {
-			iLog.Error(fmt.Sprintf("controllers.common.GetRequestBody error: %s", err))
-		}
-	}()
-
-	_, user, clientid, err := GetRequestUser(ctx)
+		defer func() {
+			err := recover()
+			if err != nil {
+				iLog.Error(fmt.Sprintf("controllers.common.GetRequestBody error: %s", err))
+			}
+		}()
+	*/
+	_, user, clientid, _ := GetRequestUser(ctx)
 
 	iLog.ClientID = clientid
 	iLog.User = user
-
-	iLog.Debug(fmt.Sprintf("GetRequestBody"))
 
 	body, err := ioutil.ReadAll(ctx.Request.Body)
 
@@ -108,26 +105,27 @@ func GetRequestBodyandUser(ctx *gin.Context) ([]byte, string, string, error) {
 
 func GetRequestBodyandUserbyJson(ctx *gin.Context) (map[string]interface{}, string, string, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetRequestBodyandUserbyJson"}
-	startTime := time.Now()
+	/*	startTime := time.Now()
 
-	defer func() {
-		elapsed := time.Since(startTime)
-		iLog.PerformanceWithDuration("controllers.common.GetRequestBodyandUserbyJson", elapsed)
-	}()
-	defer func() {
-		err := recover()
-		if err != nil {
-			iLog.Error(fmt.Sprintf("controllers.common.GetRequestBodyandUserbyJson error: %s", err))
-		}
-	}()
-	_, user, clientid, err := GetRequestUser(ctx)
+		defer func() {
+			elapsed := time.Since(startTime)
+			iLog.PerformanceWithDuration("controllers.common.GetRequestBodyandUserbyJson", elapsed)
+		}()
+		defer func() {
+			err := recover()
+			if err != nil {
+				iLog.Error(fmt.Sprintf("controllers.common.GetRequestBodyandUserbyJson error: %s", err))
+			}
+		}()
+	*/
+	_, user, clientid, _ := GetRequestUser(ctx)
 
 	iLog.ClientID = clientid
 	iLog.User = user
 	iLog.Debug(fmt.Sprintf("GetRequestBodyandUserbyJson"))
 
 	var request map[string]interface{}
-	err = json.NewDecoder(ctx.Request.Body).Decode(&request)
+	err := json.NewDecoder(ctx.Request.Body).Decode(&request)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Failed to decode request body: %v", err))
 		return nil, clientid, user, err
@@ -138,18 +136,19 @@ func GetRequestBodyandUserbyJson(ctx *gin.Context) (map[string]interface{}, stri
 
 func GetRequestBodybyJson(ctx *gin.Context) (map[string]interface{}, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetRequestBodybyJson"}
-	startTime := time.Now()
+	/*	startTime := time.Now()
 
-	defer func() {
-		elapsed := time.Since(startTime)
-		iLog.PerformanceWithDuration("controllers.common.GetRequestBodybyJson", elapsed)
-	}()
-	defer func() {
-		err := recover()
-		if err != nil {
-			iLog.Error(fmt.Sprintf("controllers.common.GetRequestBodybyJson error: %s", err))
-		}
-	}()
+		defer func() {
+			elapsed := time.Since(startTime)
+			iLog.PerformanceWithDuration("controllers.common.GetRequestBodybyJson", elapsed)
+		}()
+		defer func() {
+			err := recover()
+			if err != nil {
+				iLog.Error(fmt.Sprintf("controllers.common.GetRequestBodybyJson error: %s", err))
+			}
+		}()
+	*/
 	_, user, clientid, err := GetRequestUser(ctx)
 
 	iLog.ClientID = clientid

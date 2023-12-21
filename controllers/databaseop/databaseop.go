@@ -34,37 +34,56 @@ type QueryInput struct {
 	QueryStr string `json."querystr"` // query string for query
 }
 
+// GetDatabyQuery retrieves data from the database based on the provided query.
+// It expects a JSON request body containing the query information.
+// The function returns the retrieved data as a JSON response.
+
 func (db *DBController) GetDatabyQuery(ctx *gin.Context) {
-	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromTable"}
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDatabyQuery"}
 	startTime := time.Now()
 
 	defer func() {
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("controllers.databaseop.GetDatabyQuery", elapsed)
 	}()
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("Get data by query error: %s", err))
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()
 
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("Get data by query error: %s", err))
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		_, user, clientid, err := common.GetRequestUser(ctx)
+		if err != nil {
+			iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		}
-	}()
-	_, user, clientid, err := common.GetRequestUser(ctx)
-	if err != nil {
-		iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	}
 
-	iLog.ClientID = clientid
-	iLog.User = user
-	iLog.Debug(fmt.Sprintf("Get data by query"))
+		iLog.ClientID = clientid
+		iLog.User = user
+		iLog.Debug(fmt.Sprintf("Get data by query"))
 
-	var data QueryInput
-	body, err := common.GetRequestBody(ctx)
+		var data QueryInput
+		body, err := common.GetRequestBody(ctx)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	*/
+	body, clientid, user, err := common.GetRequestBodyandUser(ctx)
 	if err != nil {
+		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	var data QueryInput
+
+	iLog.Debug(fmt.Sprintf("GetDatabyQuery from respository with body: %s", body))
+
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("GetDataFromRequest Unmarshal error: %s", err.Error()))
@@ -123,6 +142,13 @@ func (db *DBController) GetDatabyQuery(ctx *gin.Context) {
 	    }
 	}
 */
+
+// GetDataFromTables retrieves data from tables based on the request parameters.
+// It first extracts the user and client ID from the request context.
+// Then it calls GetDataFromRequest to get the data structure from the request body.
+// It constructs a query based on the data structure, user, client ID, and where conditions.
+// Finally, it executes the query and returns the result as JSON.
+
 func (db *DBController) GetDataFromTables(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromTable"}
 	startTime := time.Now()
@@ -132,12 +158,12 @@ func (db *DBController) GetDataFromTables(ctx *gin.Context) {
 		iLog.PerformanceWithDuration("controllers.databaseop.GetDataFromTables", elapsed)
 	}()
 
-	defer func() {
+	/*	defer func() {
 		if err := recover(); err != nil {
 			iLog.Error(fmt.Sprintf("Get data from tables error: %s", err))
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
-	}()
+	}()  */
 	_, user, clientid, err := common.GetRequestUser(ctx)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
@@ -189,20 +215,24 @@ func (db *DBController) GetDataFromTables(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"data": result})
 }
 
+// getDataStructForQuery retrieves the data structure and table name for a given query.
+// It takes a map of data, user string, and client ID string as input parameters.
+// It returns the query string, table name string, and an error if any.
+
 func (db *DBController) getDataStructForQuery(data map[string]interface{}, user string, clientid string) (string, string, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: user, ClientID: clientid, ControllerName: "GetDataFromTable"}
-	startTime := time.Now()
-	defer func() {
-		elapsed := time.Since(startTime)
-		iLog.PerformanceWithDuration("controllers.databaseop.getDataStructForQuery", elapsed)
-	}()
+	/*	startTime := time.Now()
+		defer func() {
+			elapsed := time.Since(startTime)
+			iLog.PerformanceWithDuration("controllers.databaseop.getDataStructForQuery", elapsed)
+		}()
 
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("Get data struct for query error: %s", err))
-		}
-	}()
-
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("Get data struct for query error: %s", err))
+			}
+		}()
+	*/
 	iLog.Debug(fmt.Sprintf("get data struct for query"))
 	Query := ""
 	TableName := ""
@@ -248,6 +278,15 @@ func (db *DBController) getDataStructForQuery(data map[string]interface{}, user 
 	iLog.Debug(fmt.Sprintf("getDataStructForQuery Query: %s, %s", Query, TableName))
 	return strings.TrimRight(Query, ","), strings.TrimRight(TableName, ","), nil
 }
+
+// getmysqlsubtabls is a function that retrieves data from a MySQL table and its subtables.
+// It takes the following parameters:
+// - tablename: the name of the table to retrieve data from.
+// - data: a map containing additional data for the query, such as fields, subtables, and links.
+// - markasJson: a boolean indicating whether the result should be marked as JSON.
+// - user: the user performing the operation.
+// - clientid: the client ID associated with the operation.
+// The function returns the query string, table links, and an error (if any).
 
 func (db *DBController) getmysqlsubtabls(tablename string, data map[string]interface{}, markasJson bool, user string, clientid string) (string, string, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: user, ClientID: clientid, ControllerName: "GetDataFromTable"}
@@ -322,6 +361,13 @@ func (db *DBController) getmysqlsubtabls(tablename string, data map[string]inter
 	return Query, TableLinks, nil
 
 }
+
+// getsubtabls is a recursive function that generates a SQL query for retrieving data from a table and its subtables.
+// It takes the table name, data map, markasJson flag, user, and clientid as parameters.
+// The function iterates over the data map and constructs the query based on the fields, subtables, and links specified.
+// If markasJson is true, the query is formatted to return the result as JSON.
+// The function returns the generated SQL query and any error encountered during the process.
+
 func (db *DBController) getsubtabls(tablename string, data map[string]interface{}, markasJson bool, user string, clientid string) (string, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: user, ClientID: clientid, ControllerName: "GetDataFromTable"}
 	/*
@@ -396,6 +442,11 @@ func (db *DBController) getsubtabls(tablename string, data map[string]interface{
 	return Query, nil
 }
 
+// InsertDataToTable inserts data into a table.
+// It retrieves the data from the request context and validates it.
+// If the table name is empty or there is no data to insert, it returns an error.
+// Otherwise, it performs the table insert operation and returns the ID of the inserted data.
+
 func (db *DBController) InsertDataToTable(ctx *gin.Context) error {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "InsertDataToTables"}
 	startTime := time.Now()
@@ -403,13 +454,14 @@ func (db *DBController) InsertDataToTable(ctx *gin.Context) error {
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("controllers.databaseop.InsertDataToTable", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("InsertDataToTable error: %s", err))
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
-		}
-	}()
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("InsertDataToTable error: %s", err))
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()
+	*/
 	_, user, clientid, err := common.GetRequestUser(ctx)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
@@ -420,6 +472,7 @@ func (db *DBController) InsertDataToTable(ctx *gin.Context) error {
 	iLog.User = user
 	iLog.Debug(fmt.Sprintf("Insert data to table"))
 	data, err := db.GetDataFromRequest(ctx)
+
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Insert data to table error: %s", err.Error()))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -495,6 +548,11 @@ func (db *DBController) InsertDataToTable(ctx *gin.Context) error {
 	return nil
 }
 
+// UpdateDataToTable updates data in a table based on the request received.
+// It retrieves the data from the request, validates it, and performs the update operation.
+// If any errors occur during the process, it returns the error and sends an appropriate response to the client.
+// The function also logs the performance duration of the operation.
+
 func (db *DBController) UpdateDataToTable(ctx *gin.Context) error {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UpdateDataToTables"}
 	startTime := time.Now()
@@ -502,13 +560,13 @@ func (db *DBController) UpdateDataToTable(ctx *gin.Context) error {
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("controllers.databaseop.UpdateDataToTable", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("UpdateDataToTable error: %s", err))
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
-		}
-	}()
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("UpdateDataToTable error: %s", err))
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()  */
 	_, user, clientid, err := common.GetRequestUser(ctx)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
@@ -608,6 +666,14 @@ func (db *DBController) UpdateDataToTable(ctx *gin.Context) error {
 	return nil
 }
 
+// DeleteDataFromTable deletes data from a table based on the provided conditions.
+// It takes a gin.Context as input and returns an error if any.
+// The function retrieves the user and client ID from the request context and logs the operation.
+// It then gets the data from the request and checks if the table name is empty.
+// If the table name is empty, it returns an error.
+// Otherwise, it constructs the WHERE condition based on the provided data and deletes the matching rows from the table.
+// The function returns the number of rows deleted as a JSON response.
+
 func (db *DBController) DeleteDataFromTable(ctx *gin.Context) error {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "DeleteDataFromTable"}
 	startTime := time.Now()
@@ -615,13 +681,13 @@ func (db *DBController) DeleteDataFromTable(ctx *gin.Context) error {
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("controllers.databaseop.DeleteDataFromTable", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("DeleteDataFromTable error: %s", err))
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
-		}
-	}()
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("DeleteDataFromTable error: %s", err))
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()  */
 	_, user, clientid, err := common.GetRequestUser(ctx)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
@@ -677,6 +743,10 @@ func (db *DBController) DeleteDataFromTable(ctx *gin.Context) error {
 	return nil
 
 }
+
+// GetDataFromRequest retrieves data from the request body and returns it as a DBData struct.
+// It also logs the performance duration of the function.
+// If there is an error during the process, it logs the error and returns an empty DBData struct.
 
 func (db *DBController) GetDataFromRequest(ctx *gin.Context) (DBData, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromRequest"}

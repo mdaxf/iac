@@ -3,6 +3,7 @@ package callback_mgr
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/mdaxf/iac/logger"
 )
@@ -23,6 +24,19 @@ func RegisterCallBack(key string, callBack interface{}) {
 
 func CallBackFunc(key string, args ...interface{}) []interface{} {
 	log := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "CallbackExecution"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("CallbackExecution", elapsed)
+	}()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error(fmt.Sprintf("CallbackExecution error: %v", r))
+			return
+
+		}
+	}()
+
 	log.Debug(fmt.Sprintf("CallBackFunc: %s with %v", key, args))
 	log.Debug(fmt.Sprintf("callBackMap: %s", callBackMap))
 	if callBack, ok := callBackMap[key]; ok {

@@ -34,14 +34,18 @@ import (
 	dbconn "github.com/mdaxf/iac/databases"
 	mongodb "github.com/mdaxf/iac/documents"
 
-	//	kitlog "github.com/go-kit/log"
 	"github.com/mdaxf/iac/com"
-	//	msgbus "github.com/mdaxf/integration/signalr"
-	//	"github.com/philippseith/signalr"
 )
 
 var wg sync.WaitGroup
 var router *gin.Engine
+
+// main is the entry point of the program.
+// It loads the configuration file, initializes the database connection, and starts the server.
+// It also loads controllers dynamically and statically based on the configuration file.
+// The server is started on the port specified in the configuration file.
+// The server serves static files from the portal directory.
+// The server also serves static files from the plugins directory.
 
 func main() {
 	Initialized = false
@@ -52,16 +56,16 @@ func main() {
 			ilog.PerformanceWithDuration("main.initializeIACMessageBus", elapsed)
 		}
 	}()
-
-	defer func() {
-		if r := recover(); r != nil {
-			if Initialized {
-				ilog.Error(fmt.Sprintf("Panic: %v", r))
-			} else {
-				log.Fatalf("Panic: %v", r)
+	/*
+		defer func() {
+			if r := recover(); r != nil {
+				if Initialized {
+					ilog.Error(fmt.Sprintf("Panic: %v", r))
+				} else {
+					log.Fatalf("Panic: %v", r)
+				}
 			}
-		}
-	}()
+		}()  */
 	// Load configuration from the file
 
 	config, err := configuration.LoadConfig()
@@ -256,6 +260,9 @@ func main() {
 	wg.Wait()
 }
 
+// loadpluginControllerModule loads a plugin controller module from the specified controllerPath.
+// It returns the loaded module as an interface{} and an error if any.
+// The module is loaded from the plugins directory.
 func loadpluginControllerModule(controllerPath string) (interface{}, error) {
 
 	ilog.Info(fmt.Sprintf("Loading plugin controllers %s", controllerPath))
@@ -274,6 +281,14 @@ func loadpluginControllerModule(controllerPath string) (interface{}, error) {
 	return sym, nil
 }
 
+// getpluginHandlerFunc is a function that returns a gin.HandlerFunc for loading and executing a plugin handler function.
+// It takes a module reflect.Value and the name of the handler function as parameters.
+// The function loads the plugin handler function from the module using reflection and returns a gin.HandlerFunc.
+// The returned handler function takes a *gin.Context as a parameter and executes the plugin handler function with the context.
+// If the plugin handler function returns an error, the handler function aborts the request with a 500 Internal Server Error.
+// If the plugin handler function returns a []byte, the handler function sends the data as a JSON response with a 200 OK status code.
+// If the plugin handler function does not return an error or []byte, the handler function sends a 200 OK status code.
+// If the plugin handler function does not exist, the function returns nil.
 func getpluginHandlerFunc(module reflect.Value, name string) gin.HandlerFunc {
 
 	ilog.Info(fmt.Sprintf("Loading plugin handler function: %s", name))
@@ -300,6 +315,12 @@ func getpluginHandlerFunc(module reflect.Value, name string) gin.HandlerFunc {
 		c.Status(http.StatusOK)
 	}
 }
+
+// CORSMiddleware is a middleware function that adds Cross-Origin Resource Sharing (CORS) headers to the HTTP response.
+// It allows requests from a specified origin and supports various HTTP methods.
+// The allowOrigin parameter specifies the allowed origin for CORS requests.
+// This middleware function also handles preflight requests by responding with appropriate headers.
+
 func CORSMiddleware(allowOrigin string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", allowOrigin)
@@ -318,6 +339,13 @@ func CORSMiddleware(allowOrigin string) gin.HandlerFunc {
 	}
 }
 
+// GinMiddleware is a middleware function that sets the specified headers in the HTTP response.
+// It takes a map of headers as input and returns a gin.HandlerFunc.
+// The middleware sets the headers in the response using the values provided in the headers map.
+// If the HTTP request method is OPTIONS, it aborts the request with a status code of 204 (No Content).
+// After setting the headers, it calls the next handler in the chain.
+// The next handler can be a controller function or another middleware function.
+// The next handler can also be a gin.HandlerFunc.
 func GinMiddleware(headers map[string]interface{}) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
@@ -336,6 +364,14 @@ func GinMiddleware(headers map[string]interface{}) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// renderproxy is a function that renders a proxy configuration by creating routes in a gin.Engine instance.
+// It takes a map of proxy configurations and a pointer to a gin.Engine as parameters.
+// Each key-value pair in the proxy map represents a route path and its corresponding target URL.
+// The function iterates over the proxy map and creates a route for each key-value pair in the gin.Engine instance.
+// When a request matches a route, the function sets up a reverse proxy to forward the request to the target URL.
+// The function also updates the request URL path based on the "path" parameter in the route.
+// Note that the ServeHTTP method of the reverse proxy is non-blocking and uses a goroutine under the hood.
 
 func renderproxy(proxy map[string]interface{}, router *gin.Engine) {
 	ilog.Debug(fmt.Sprintf("renderproxy: %v", proxy))

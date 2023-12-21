@@ -11,6 +11,11 @@ type StoreProcFuncs struct {
 }
 
 func (cf *StoreProcFuncs) Execute(f *Funcs) {
+	// Execute executes the store procedure function.
+	// It measures the performance duration and handles any panics that occur during execution.
+	// It also sets the inputs, retrieves the user from the system session, and creates a SELECT clause with aliases.
+	// Then, it performs the query operation and sets the outputs.
+
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
@@ -19,6 +24,7 @@ func (cf *StoreProcFuncs) Execute(f *Funcs) {
 	defer func() {
 		if err := recover(); err != nil {
 			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.StoreProcedure.Execute with error: %s", err))
+			f.CancelExecution(fmt.Sprintf("There is error to engine.funcs.StoreProcedure.Execute with error: %s", err))
 			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.StoreProcedure.Execute with error: %s", err)
 			return
 		}
@@ -66,19 +72,23 @@ func (cf *StoreProcFuncs) Validate(f *Funcs) (bool, error) {
 	return true, nil
 }
 
+// Testfunction is a function that performs a test operation.
+// It measures the performance of the function and handles any errors that occur.
+// It returns a boolean value indicating the success of the test and an error if any.
+
 func (cf *StoreProcFuncs) Testfunction(f *Funcs) (bool, error) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
 		f.iLog.PerformanceWithDuration("engine.funcs.StoreProcedure.Testfunction", elapsed)
 	}()
-	defer func() {
+	/*defer func() {
 		if err := recover(); err != nil {
 			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.StoreProcedure.Testfunction with error: %s", err))
 			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.StoreProcedure.Testfunction with error: %s", err)
 			return
 		}
-	}()
+	}() */
 
 	return true, nil
 }

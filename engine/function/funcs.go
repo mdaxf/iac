@@ -38,6 +38,24 @@ type Funcs struct {
 	ErrorMessage         string
 }
 
+// NewFuncs creates a new instance of the Funcs struct.
+// It initializes the Funcs struct with the provided parameters and returns a pointer to the created instance.
+// The Funcs struct represents a collection of functions and their associated data for execution.
+// Parameters:
+// - DocDBCon: A pointer to the DocDB connection object.
+// - SignalRClient: The SignalR client object.
+// - dbTx: A pointer to the SQL transaction object.
+// - fobj: The function object.
+// - systemSession: A map containing system session data.
+// - userSession: A map containing user session data.
+// - externalinputs: A map containing external input data.
+// - externaloutputs: A map containing external output data.
+// - funcCachedVariables: A map containing cached variables for the function.
+// - ctx: The context object.
+// - ctxcancel: The cancel function for the context.
+// Returns:
+// - A pointer to the created Funcs instance.
+
 func NewFuncs(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sql.Tx, fobj types.Function, systemSession, userSession, externalinputs, externaloutputs, funcCachedVariables map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc) *Funcs {
 	log := logger.Log{}
 	log.ModuleName = logger.TranCode
@@ -51,12 +69,6 @@ func NewFuncs(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sql
 	defer func() {
 		elapsed := time.Since(startTime)
 		log.PerformanceWithDuration("engine.funcs.NewFuncs", elapsed)
-	}()
-	defer func() {
-		if err := recover(); err != nil {
-			log.Error(fmt.Sprintf("There is error to engine.funcs.NewFuncs with error: %s", err))
-			return
-		}
 	}()
 
 	var newdata []map[string]interface{}
@@ -95,15 +107,26 @@ func NewFuncs(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sql
 	}
 }
 
+// HandleInputs handles the inputs for the Funcs struct.
+// It retrieves the inputs from various sources such as system session, user session, pre-function, and external inputs.
+// The retrieved inputs are then converted to the appropriate data types and stored in the newinputs map.
+// Finally, it returns the list of input names, input values, and the newinputs map.
+// Returns:
+// - A list of input names.
+// - A list of input values.
+// - A map containing the new inputs.
+// - An error if there was an error in the process.
+
 func (f *Funcs) HandleInputs() ([]string, []string, map[string]interface{}, error) {
-	startTime := time.Now()
-	defer func() {
-		elapsed := time.Since(startTime)
-		f.iLog.PerformanceWithDuration("engine.funcs.HandleInputs", elapsed)
-	}()
-	defer func() {
+	/*	startTime := time.Now()
+		defer func() {
+			elapsed := time.Since(startTime)
+			f.iLog.PerformanceWithDuration("engine.funcs.HandleInputs", elapsed)
+		}()
+	*/defer func() {
 		if err := recover(); err != nil {
 			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.HandleInputs with error: %s", err))
+			f.CancelExecution(fmt.Sprintf("There is error to engine.funcs.HandleInputs with error: %s", err))
 			return
 		}
 	}()
@@ -388,15 +411,20 @@ func (f *Funcs) HandleInputs() ([]string, []string, map[string]interface{}, erro
 	return namelist, valuelist, newinputs, nil
 }
 
+// SetInputs sets the inputs for the Funcs object.
+// It handles the mapping of inputs and prepares them for execution.
+// It returns the list of input names, the list of input values, and a map of new inputs.
+
 func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
-	startTime := time.Now()
-	defer func() {
-		elapsed := time.Since(startTime)
-		f.iLog.PerformanceWithDuration("engine.funcs.SetInputs", elapsed)
-	}()
-	defer func() {
+	/*	startTime := time.Now()
+		defer func() {
+			elapsed := time.Since(startTime)
+			f.iLog.PerformanceWithDuration("engine.funcs.SetInputs", elapsed)
+		}()
+	*/defer func() {
 		if err := recover(); err != nil {
 			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SetInputs with error: %s", err))
+			f.CancelExecution(fmt.Sprintf("There is error to engine.funcs.HandleInputs with error: %s", err))
 			return
 		}
 	}()
@@ -458,6 +486,9 @@ func (f *Funcs) SetInputs() ([]string, []string, map[string]interface{}) {
 	return namelist, valuelist, newinputs
 }
 
+// isArray checks if the given value is an array or a slice.
+// It uses reflection to determine the kind of the value.
+// Returns true if the value is an array or a slice, false otherwise.
 func isArray(value interface{}) bool {
 	// Use reflection to check if the value's kind is an array
 
@@ -465,19 +496,25 @@ func isArray(value interface{}) bool {
 	return val.Kind() == reflect.Array || val.Kind() == reflect.Slice
 }
 
-func (f *Funcs) checkifRepeatExecution() (int, error) {
-	startTime := time.Now()
-	defer func() {
-		elapsed := time.Since(startTime)
-		f.iLog.PerformanceWithDuration("engine.funcs.checkifRepeatExecution", elapsed)
-	}()
-	defer func() {
-		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.checkifRepeatExecution with error: %s", err))
-			return
-		}
-	}()
+// checkifRepeatExecution checks if the function should be repeated execution based on the inputs.
+// It returns the count of repetitions and an error if any.
+// Returns:
+// - The count of repetitions.
+// - An error if there was an error in the process.
 
+func (f *Funcs) checkifRepeatExecution() (int, error) {
+	/*	startTime := time.Now()
+		defer func() {
+			elapsed := time.Since(startTime)
+			f.iLog.PerformanceWithDuration("engine.funcs.checkifRepeatExecution", elapsed)
+		}()
+		defer func() {
+			if err := recover(); err != nil {
+				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.checkifRepeatExecution with error: %s", err))
+				return
+			}
+		}()
+	*/
 	inputs := f.Fobj.Inputs
 	lastcount := -2
 
@@ -529,18 +566,26 @@ func (f *Funcs) checkifRepeatExecution() (int, error) {
 	}
 }
 
+// checkinputvalue is a function that checks the input value for a given alias name and variables.
+// It returns the result as a string and an error if any.
+// Parameters:
+// - Aliasname: The alias name of the input.
+// - variables: A map containing the variables.
+// Returns:
+// - The result as a string.
+// - An error if there was an error in the process.
 func (f *Funcs) checkinputvalue(Aliasname string, variables map[string]interface{}) (string, error) {
-	startTime := time.Now()
-	defer func() {
-		elapsed := time.Since(startTime)
-		f.iLog.PerformanceWithDuration("engine.funcs.checkinputvalue", elapsed)
-	}()
-	defer func() {
-		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.checkinputvalue with error: %s", err))
-			return
-		}
-	}()
+	/*	startTime := time.Now()
+		defer func() {
+			elapsed := time.Since(startTime)
+			f.iLog.PerformanceWithDuration("engine.funcs.checkinputvalue", elapsed)
+		}()
+		defer func() {
+			if err := recover(); err != nil {
+				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.checkinputvalue with error: %s", err))
+				return
+			}
+		}()  */
 
 	var err error
 	err = nil
@@ -620,6 +665,15 @@ func (f *Funcs) checkinputvalue(Aliasname string, variables map[string]interface
 	return Result, err
 }
 
+// customMarshal is a function that takes an interface{} as input and returns a string representation of the input object in JSON format.
+// The function uses reflection to iterate over the fields of the input object and constructs a JSON string by concatenating the field names and values.
+// The field names are obtained from the "json" tag of the struct fields.
+// If the input object is not a struct, the function returns an empty string.
+// Parameters:
+// - v: The input object.
+// Returns:
+// - A string representation of the input object in JSON format.
+
 func customMarshal(v interface{}) string {
 
 	var jsonStr string
@@ -639,19 +693,27 @@ func customMarshal(v interface{}) string {
 	return jsonStr
 }
 
-func (f *Funcs) ConverttoInt(str string) int {
-	startTime := time.Now()
-	defer func() {
-		elapsed := time.Since(startTime)
-		f.iLog.PerformanceWithDuration("engine.funcs.ConverttoInt", elapsed)
-	}()
-	defer func() {
-		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoInt with error: %s", err))
-			return
-		}
-	}()
+// ConverttoInt converts a string to an integer.
+// It measures the performance of the conversion and logs any errors that occur.
+// If an error occurs during the conversion, it returns 0.
+// Parameters:
+// - str: The string to be converted.
+// Returns:
+// - The converted integer value.
 
+func (f *Funcs) ConverttoInt(str string) int {
+	/*	startTime := time.Now()
+		defer func() {
+			elapsed := time.Since(startTime)
+			f.iLog.PerformanceWithDuration("engine.funcs.ConverttoInt", elapsed)
+		}()
+		defer func() {
+			if err := recover(); err != nil {
+				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoInt with error: %s", err))
+				return
+			}
+		}()
+	*/
 	temp, err := strconv.Atoi(str)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Convert %s to int error: %s", str, err.Error()))
@@ -660,19 +722,28 @@ func (f *Funcs) ConverttoInt(str string) int {
 	return temp
 }
 
-func (f *Funcs) ConverttoFloat(str string) float64 {
-	startTime := time.Now()
-	defer func() {
-		elapsed := time.Since(startTime)
-		f.iLog.PerformanceWithDuration("engine.funcs.ConverttoFloat", elapsed)
-	}()
-	defer func() {
-		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoFloat with error: %s", err))
-			return
-		}
-	}()
+// ConverttoFloat converts a string to a float64 value.
+// It uses the strconv.ParseFloat function to perform the conversion.
+// If the conversion fails, an error is logged and the function returns 0.
+// The performance of this function is logged using the provided iLog instance.
+// Parameters:
+// - str: The string to be converted.
+// Returns:
+// - The converted float64 value.
 
+func (f *Funcs) ConverttoFloat(str string) float64 {
+	/*	startTime := time.Now()
+		defer func() {
+			elapsed := time.Since(startTime)
+			f.iLog.PerformanceWithDuration("engine.funcs.ConverttoFloat", elapsed)
+		}()
+		defer func() {
+			if err := recover(); err != nil {
+				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoFloat with error: %s", err))
+				return
+			}
+		}()
+	*/
 	temp, err := strconv.ParseFloat(str, 64)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Convert %s to float error: %s", str, err.Error()))
@@ -681,19 +752,29 @@ func (f *Funcs) ConverttoFloat(str string) float64 {
 	return temp
 }
 
-func (f *Funcs) ConverttoBool(str string) bool {
-	startTime := time.Now()
-	defer func() {
-		elapsed := time.Since(startTime)
-		f.iLog.PerformanceWithDuration("engine.funcs.ConverttoBool", elapsed)
-	}()
-	defer func() {
-		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoBool with error: %s", err))
-			return
-		}
-	}()
+// ConverttoBool converts a string to a boolean value.
+// It uses the strconv.ParseBool function to parse the string.
+// If the string cannot be parsed, an error is logged and false is returned.
+// The performance of this function is logged using the iLog.PerformanceWithDuration method.
+// If a panic occurs during the execution of this function, the panic is recovered and logged as an error.
+// Parameters:
+// - str: The string to be converted to a boolean value.
+// Returns:
+// - bool: The boolean value parsed from the string.
 
+func (f *Funcs) ConverttoBool(str string) bool {
+	/*	startTime := time.Now()
+		defer func() {
+			elapsed := time.Since(startTime)
+			f.iLog.PerformanceWithDuration("engine.funcs.ConverttoBool", elapsed)
+		}()
+		defer func() {
+			if err := recover(); err != nil {
+				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoBool with error: %s", err))
+				return
+			}
+		}()
+	*/
 	temp, err := strconv.ParseBool(str)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Convert %s to bool error: %s", str, err.Error()))
@@ -702,19 +783,29 @@ func (f *Funcs) ConverttoBool(str string) bool {
 	return temp
 }
 
-func (f *Funcs) ConverttoDateTime(str string) time.Time {
-	startTime := time.Now()
-	defer func() {
-		elapsed := time.Since(startTime)
-		f.iLog.PerformanceWithDuration("engine.funcs.ConverttoDatTime", elapsed)
-	}()
-	defer func() {
-		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoDateTime with error: %s", err))
-			return
-		}
-	}()
+// ConverttoDateTime converts a string to a time.Time value.
+// It uses the specified DateTimeFormat to parse the string.
+// If the string cannot be parsed, an error is logged and the zero time value is returned.
+// The function also logs the performance duration of the conversion.
+// If a panic occurs during the execution of this function, the panic is recovered and logged as an error.
+// Parameters:
+// - str: The string to be converted to a time.Time value.
+// Returns:
+// - time.Time: The time.Time value parsed from the string.
 
+func (f *Funcs) ConverttoDateTime(str string) time.Time {
+	/*	startTime := time.Now()
+		defer func() {
+			elapsed := time.Since(startTime)
+			f.iLog.PerformanceWithDuration("engine.funcs.ConverttoDatTime", elapsed)
+		}()
+		defer func() {
+			if err := recover(); err != nil {
+				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoDateTime with error: %s", err))
+				return
+			}
+		}()
+	*/
 	temp, err := time.Parse(types.DateTimeFormat, str)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Convert %s to time error: %s", str, err.Error()))
@@ -723,38 +814,54 @@ func (f *Funcs) ConverttoDateTime(str string) time.Time {
 	return temp
 }
 
-func (f *Funcs) SetOutputs(outputs map[string]interface{}) {
-	startTime := time.Now()
-	defer func() {
-		elapsed := time.Since(startTime)
-		f.iLog.PerformanceWithDuration("engine.funcs.SetOutputs", elapsed)
-	}()
-	defer func() {
-		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SetOutputs with error: %s", err))
-			return
-		}
-	}()
+// SetOutputs sets the outputs of the function.
+// It takes a map of string keys and interface{} values representing the outputs.
+// The function logs the performance duration and any errors that occur during execution.
+// It also appends the outputs to the FunctionOutputs slice.
+// Parameters:
+// - outputs: A map of string keys and interface{} values representing the outputs.
 
+func (f *Funcs) SetOutputs(outputs map[string]interface{}) {
+	/*	startTime := time.Now()
+		defer func() {
+			elapsed := time.Since(startTime)
+			f.iLog.PerformanceWithDuration("engine.funcs.SetOutputs", elapsed)
+		}()
+		defer func() {
+			if err := recover(); err != nil {
+				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SetOutputs with error: %s", err))
+				return
+			}
+		}()
+	*/
 	f.iLog.Debug(fmt.Sprintf("function's ouputs: %s", logger.ConvertJson(outputs)))
 
 	f.FunctionOutputs = append(f.FunctionOutputs, outputs)
 
 }
 
-func (f *Funcs) SetfuncOutputs() {
-	startTime := time.Now()
-	defer func() {
-		elapsed := time.Since(startTime)
-		f.iLog.PerformanceWithDuration("engine.funcs.SetfuncOutputs", elapsed)
-	}()
-	defer func() {
-		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SetfuncOutputs with error: %s", err))
-			return
-		}
-	}()
+// SetfuncOutputs sets the function outputs for the Funcs struct.
+// It combines the outputs from multiple function executions into a single output map.
+// If the execution number is greater than 1, it iterates over the function outputs and combines them.
+// Otherwise, it sets the single function output.
+// The function also measures the performance duration and logs any errors that occur during execution.
+// If a panic occurs during the execution of this function, the panic is recovered and logged as an error.
+// Parameters:
+// - outputs: A map of string keys and interface{} values representing the outputs.
 
+func (f *Funcs) SetfuncOutputs() {
+	/*	startTime := time.Now()
+		defer func() {
+			elapsed := time.Since(startTime)
+			f.iLog.PerformanceWithDuration("engine.funcs.SetfuncOutputs", elapsed)
+		}()
+		defer func() {
+			if err := recover(); err != nil {
+				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SetfuncOutputs with error: %s", err))
+				return
+			}
+		}()
+	*/
 	newoutputs := make(map[string]interface{})
 	if f.ExecutionNumber > 1 {
 		for index, outputs := range f.FunctionOutputs {
@@ -773,19 +880,28 @@ func (f *Funcs) SetfuncOutputs() {
 
 }
 
+// SetfuncSingleOutputs sets the single outputs of the Funcs object based on the provided map of outputs.
+// It iterates through the outputs of the Funcs object and assigns the corresponding values from the map to the appropriate destinations.
+// The UserSession, Externaloutputs, and FuncCachedVariables are updated accordingly.
+// If an error occurs during the process, it is recovered and logged.
+// The performance duration of the function is also logged.
+// Parameters:
+// - outputs: A map of string keys and interface{} values representing the outputs.
+// Returns:
+// - An error if there was an error in the process.
 func (f *Funcs) SetfuncSingleOutputs(outputs map[string]interface{}) {
-	startTime := time.Now()
-	defer func() {
-		elapsed := time.Since(startTime)
-		f.iLog.PerformanceWithDuration("engine.funcs.SetfuncSingleOutputs", elapsed)
-	}()
-	defer func() {
-		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SetfuncSingleOutputs with error: %s", err))
-			return
-		}
-	}()
-
+	/*	startTime := time.Now()
+		defer func() {
+			elapsed := time.Since(startTime)
+			f.iLog.PerformanceWithDuration("engine.funcs.SetfuncSingleOutputs", elapsed)
+		}()
+		defer func() {
+			if err := recover(); err != nil {
+				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.SetfuncSingleOutputs with error: %s", err))
+				return
+			}
+		}()
+	*/
 	for i := 0; i < len(f.Fobj.Outputs); i++ {
 		if outputs[f.Fobj.Outputs[i].Name] == nil {
 			continue
@@ -811,19 +927,24 @@ func (f *Funcs) SetfuncSingleOutputs(outputs map[string]interface{}) {
 
 }
 
-func (f *Funcs) ConvertfromBytes(bytesbuffer []byte) map[string]interface{} {
-	startTime := time.Now()
-	defer func() {
-		elapsed := time.Since(startTime)
-		f.iLog.PerformanceWithDuration("engine.funcs.ConvertfromBytes", elapsed)
-	}()
-	defer func() {
-		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConvertfromBytes with error: %s", err))
-			return
-		}
-	}()
+// ConvertfromBytes converts a byte buffer into a map[string]interface{}.
+// It takes a byte buffer as input and returns a map containing the converted data.
+// The function also logs the performance duration and handles any panics that occur during execution.
+// If there is an error during the JSON unmarshaling process, it is logged as well.
 
+func (f *Funcs) ConvertfromBytes(bytesbuffer []byte) map[string]interface{} {
+	/*	startTime := time.Now()
+		defer func() {
+			elapsed := time.Since(startTime)
+			f.iLog.PerformanceWithDuration("engine.funcs.ConvertfromBytes", elapsed)
+		}()
+		defer func() {
+			if err := recover(); err != nil {
+				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConvertfromBytes with error: %s", err))
+				return
+			}
+		}()
+	*/
 	f.iLog.Debug(fmt.Sprintf("Start process %s", reflect.ValueOf(f.ConvertfromBytes).Kind().String()))
 
 	temobj := make(map[string]interface{})
@@ -838,6 +959,9 @@ func (f *Funcs) ConvertfromBytes(bytesbuffer []byte) map[string]interface{} {
 	return temobj
 }
 
+// Execute executes the function.
+// It measures the execution time, handles panics, and executes the appropriate function based on the function type.
+// It also sets the function outputs and updates the execution count.
 func (f *Funcs) Execute() {
 	startTime := time.Now()
 	defer func() {
@@ -950,29 +1074,32 @@ func (f *Funcs) Validate() (bool, error) {
 		elapsed := time.Since(startTime)
 		f.iLog.PerformanceWithDuration("engine.funcs.Validate", elapsed)
 	}()
-	defer func() {
-		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.Validate with error: %s", err))
-			return
-		}
-	}()
-
+	/*	defer func() {
+			if err := recover(); err != nil {
+				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.Validate with error: %s", err))
+				return
+			}
+		}()
+	*/
 	return true, nil
 }
 
+// CancelExecution cancels the execution of the function and rolls back any database transaction.
+// It takes an error message as input and logs the error message along with the function name.
+// It also cancels the context and returns.
 func (f *Funcs) CancelExecution(errormessage string) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
 		f.iLog.PerformanceWithDuration("engine.funcs.CancelExecution", elapsed)
 	}()
-	defer func() {
-		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.CancelExecution with error: %s", err))
-			return
-		}
-	}()
-
+	/*	defer func() {
+			if err := recover(); err != nil {
+				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.CancelExecution with error: %s", err))
+				return
+			}
+		}()
+	*/
 	f.iLog.Error(fmt.Sprintf("There is error during functoin %s execution: %s", f.Fobj.Name, errormessage))
 	f.DBTx.Rollback()
 	f.CtxCancel()
@@ -980,19 +1107,26 @@ func (f *Funcs) CancelExecution(errormessage string) {
 	return
 }
 
-func (f *Funcs) convertMap(m map[string][]interface{}) map[string]interface{} {
-	startTime := time.Now()
-	defer func() {
-		elapsed := time.Since(startTime)
-		f.iLog.PerformanceWithDuration("engine.funcs.convertMap", elapsed)
-	}()
-	defer func() {
-		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.convertMap with error: %s", err))
-			return
-		}
-	}()
+// convertMap converts a map[string][]interface{} to a map[string]interface{}.
+// It iterates over the input map and assigns the first value of each key's slice
+// to the corresponding key in the output map. If a key's slice has more than one
+// value, the entire slice is assigned to the key in the output map.
+// The function also logs the performance duration and debug information.
+// It returns the converted map[string]interface{}.
 
+func (f *Funcs) convertMap(m map[string][]interface{}) map[string]interface{} {
+	/*	startTime := time.Now()
+		defer func() {
+			elapsed := time.Since(startTime)
+			f.iLog.PerformanceWithDuration("engine.funcs.convertMap", elapsed)
+		}()
+		defer func() {
+			if err := recover(); err != nil {
+				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.convertMap with error: %s", err))
+				return
+			}
+		}()
+	*/
 	f.iLog.Debug(fmt.Sprintf("Convert Map to Json Objects: %s", m))
 
 	result := make(map[string]interface{})
@@ -1010,19 +1144,23 @@ func (f *Funcs) convertMap(m map[string][]interface{}) map[string]interface{} {
 	return result
 }
 
+// revertMap reverts a map[string]interface{} to a map[string][]interface{}.
+// It converts each value in the input map to an array, preserving the original key-value pairs.
+// If the value is already an array, it is preserved as is. Otherwise, it is converted to a single-element array.
+// The reverted map is returned as the result.
 func (f *Funcs) revertMap(m map[string]interface{}) map[string][]interface{} {
-	startTime := time.Now()
-	defer func() {
-		elapsed := time.Since(startTime)
-		f.iLog.PerformanceWithDuration("engine.funcs.revertMap", elapsed)
-	}()
-	defer func() {
-		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.revertMap with error: %s", err))
-			return
-		}
-	}()
-
+	/*	startTime := time.Now()
+		defer func() {
+			elapsed := time.Since(startTime)
+			f.iLog.PerformanceWithDuration("engine.funcs.revertMap", elapsed)
+		}()
+		defer func() {
+			if err := recover(); err != nil {
+				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.revertMap with error: %s", err))
+				return
+			}
+		}()
+	*/
 	f.iLog.Debug(fmt.Sprintf("Revert Json Objects to array: %s", m))
 	reverted := make(map[string][]interface{})
 

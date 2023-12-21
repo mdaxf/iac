@@ -19,6 +19,15 @@ func init() {
 	callBackMap = make(map[string]interface{})
 }
 
+// RegisterCallBack registers a callback function with the specified key.
+// The callback function will be associated with the key in the callBackMap.
+// The key is used to identify the callback function when it needs to be invoked.
+// The callBack parameter should be a function or a method that matches the signature of the callback.
+// Example usage:
+//   RegisterCallBack("key", func() {
+//     // callback logic here
+//   })
+
 func RegisterCallBack(key string, callBack interface{}) {
 	log := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "CallbackRegister"}
 	startTime := time.Now()
@@ -26,20 +35,29 @@ func RegisterCallBack(key string, callBack interface{}) {
 		elapsed := time.Since(startTime)
 		log.PerformanceWithDuration("engine.callback.RegisterCallBack", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			log.Error(fmt.Sprintf("There is error to engine.callback.RegisterCallBack with error: %s", err))
-			return
-		}
-	}()
-
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				log.Error(fmt.Sprintf("There is error to engine.callback.RegisterCallBack with error: %s", err))
+				return
+			}
+		}()
+	*/
 	log.Debug(fmt.Sprintf("RegisterCallBack: %s with %v", key, callBack))
 	callBackMap[key] = callBack
 
 	log.Debug(fmt.Sprintf("callBackMap: %s", callBackMap))
 }
 
+// ExecuteTranCode executes a transaction code callback function.
+// It takes a key string, tcode string, inputs map[string]interface{}, ctx context.Context,
+// ctxcancel context.CancelFunc, dbTx *sql.Tx, DBCon *documents.DocDB, and sc signalr.Client as input parameters.
+// It returns a slice of interface{} as the result of the callback function.
+// Example usage:
+//
+//	ExecuteTranCode("key", "tcode", map[string]interface{}{"key": "value"}, context.Background(), context.CancelFunc, sql.Tx, documents.DocDB, signalr.Client)
+//	ExecuteTranCode("key", "tcode", map[string]interface{}{"key": "value"}, nil, nil, nil, nil, nil)
+//	ExecuteTranCode("key", "tcode", nil, nil, nil, nil, nil, nil)
 func ExecuteTranCode(key string, tcode string, inputs map[string]interface{}, ctx context.Context, ctxcancel context.CancelFunc, dbTx *sql.Tx, DBCon *documents.DocDB, sc signalr.Client) []interface{} {
 	log := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "CallbackExecution"}
 

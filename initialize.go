@@ -41,17 +41,23 @@ var err error
 var ilog logger.Log
 var Initialized bool
 
+// initialize is a function that performs the initialization process of the application.
+// It sets up the logger, initializes the cache, database, documents, MQTT client, and IAC message bus.
+// It also connects to the IAC Message Bus using SignalR.
+// The function measures the performance duration and logs any errors that occur during the initialization process.
+// Finally, it sets the Initialized flag to true.
+
 func initialize() {
 	ilog = logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Initialization"}
 	startTime := time.Now()
-	fmt.Println("initialize starttime: %v", startTime)
+	fmt.Printf("initialize starttime: %v", startTime)
 	defer func() {
-		fmt.Println("initialize defer time: %v", time.Now())
+		fmt.Printf("initialize defer time: %v", time.Now())
 		elapsed := time.Since(startTime)
 		if Initialized {
 			ilog.PerformanceWithDuration("main.initialize", elapsed)
 		} else {
-			fmt.Println("initialize defer time: %v, duration: %v", time.Now(), elapsed)
+			fmt.Printf("initialize defer time: %v, duration: %v", time.Now(), elapsed)
 		}
 	}()
 
@@ -74,19 +80,23 @@ func initialize() {
 			//	fmt.Errorf("Failed to connect to IAC Message Bus: %v", err)
 			ilog.Error(fmt.Sprintf("Failed to connect to IAC Message Bus: %v", err))
 		}
-		fmt.Println("IAC Message Bus: ", com.IACMessageBusClient)
+		fmt.Printf("IAC Message Bus: %v", com.IACMessageBusClient)
 		ilog.Debug(fmt.Sprintf("IAC Message Bus: %v", com.IACMessageBusClient))
 	}()
 
-	fmt.Println("initialize end time: %v", time.Now())
+	fmt.Printf("initialize end time: %v", time.Now())
 	Initialized = true
 }
 
+// initializeDatabase initializes the database connection based on the configuration provided in the global configuration.
+// It sets the database type, connection string, maximum idle connections, and maximum open connections.
+// If any required configuration is missing or if there is an error connecting to the database, an error is logged.
 func initializeDatabase() {
+	// function execution start time
 	startTime := time.Now()
 
+	// defer function to log the performance duration of initializeDatabase
 	defer func() {
-
 		elapsed := time.Since(startTime)
 		ilog.PerformanceWithDuration("main.initializeDatabase", elapsed)
 	}()
@@ -94,18 +104,23 @@ func initializeDatabase() {
 	ilog.Debug("initialize Database")
 	databaseconfig := config.GlobalConfiguration.DatabaseConfig
 
+	// check if database type is missing
 	if databaseconfig["type"] == nil {
 		ilog.Error(fmt.Sprintf("initialize Database error: %s", "DatabaseType is missing"))
 		return
 	}
+
+	// check if database connection is missing
 	if databaseconfig["connection"] == nil {
 		ilog.Error(fmt.Sprintf("initialize Database error: %s", "DatabaseConnection is missing"))
 		return
 	}
 
+	// set the database type and connection string
 	dbconn.DatabaseType = databaseconfig["type"].(string)
 	dbconn.DatabaseConnection = databaseconfig["connection"].(string)
 
+	// set the maximum idle connections, default to 5 if not provided or if the value is not a float64
 	if databaseconfig["maxidleconns"] == nil {
 		dbconn.MaxIdleConns = 5
 	} else {
@@ -116,6 +131,7 @@ func initializeDatabase() {
 		}
 	}
 
+	// set the maximum open connections, default to 10 if not provided or if the value is not a float64
 	if databaseconfig["maxopenconns"] == nil {
 		dbconn.MaxOpenConns = 10
 	} else {
@@ -126,13 +142,18 @@ func initializeDatabase() {
 		}
 	}
 
+	// connect to the database
 	err := dbconn.ConnectDB()
 	if err != nil {
 		ilog.Error(fmt.Sprintf("initialize Database error: %s", err.Error()))
 	}
-
 }
 
+// initializecache initializes the cache based on the configuration provided in the global configuration.
+// It checks the cache adapter and interval in the configuration and sets the session cache timeout accordingly.
+// Depending on the cache adapter, it creates a new cache instance with the corresponding configuration.
+// If the cache adapter is not recognized, it falls back to the default cache adapter with the session cache timeout.
+// If there is an error initializing the cache, an error is logged.
 func initializecache() {
 	startTime := time.Now()
 	defer func() {
@@ -275,14 +296,21 @@ func initializecache() {
 
 }
 
-func initializeloger() {
+// initializeloger initializes the logger based on the global configuration.
+// It checks if the log configuration is missing and prints the log configuration.
+// Then, it calls the logger.Init function with the log configuration.
+func initializeloger() error {
 	if config.GlobalConfiguration.LogConfig == nil {
-		fmt.Errorf("log configuration is missing")
+		return fmt.Errorf("log configuration is missing")
 	}
-	fmt.Println("log configuration", config.GlobalConfiguration.LogConfig)
+	fmt.Printf("log configuration: %v", config.GlobalConfiguration.LogConfig)
 	logger.Init(config.GlobalConfiguration.LogConfig)
-
+	return nil
 }
+
+// initializedDocuments initializes the documents for the application.
+// It retrieves the document configuration from the global configuration and connects to the specified database.
+// If any required configuration is missing, it logs an error and returns.
 
 func initializedDocuments() {
 	startTime := time.Now()
@@ -320,6 +348,11 @@ func initializedDocuments() {
 	documents.ConnectDB(DatabaseType, DatabaseConnection, DatabaseName)
 
 }
+
+// initializeMqttClient initializes the MQTT clients by reading the configuration file "mqttconfig.json" and creating MqttClient instances based on the configuration.
+// It populates the config.MQTTClients map with the created MqttClient instances.
+// The function also logs debug information about the configuration and created MQTT clients.
+// It measures the performance duration of the function using the ilog.PerformanceWithDuration function.
 
 func initializeMqttClient() {
 	startTime := time.Now()
@@ -395,6 +428,10 @@ func initializeOPCClient() {
 	}()
 } */
 
+// initializeIACMessageBus initializes the IAC message bus.
+// It starts a goroutine to handle the initialization process.
+// The function measures the performance duration and logs it using ilog.PerformanceWithDuration.
+// The function also logs debug information about the IAC message bus configuration and channel.
 func initializeIACMessageBus() {
 	startTime := time.Now()
 	defer func() {

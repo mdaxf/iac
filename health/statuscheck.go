@@ -11,9 +11,23 @@ import (
 	"github.com/mdaxf/iac/config"
 	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/health/checks"
+	"github.com/mdaxf/iac/logger"
 )
 
+// CheckSystemHealth is a function that checks the health of the system.
+// It takes a gin.Context as input and returns a map[string]interface{} and an error.
+// The function registers various health checks for different components of the system,
+// such as HTTP, MongoDB, MySQL, MQTT, and SignalR.
+// It measures the health of the system and returns the result as a JSON-encoded map.
+
 func CheckSystemHealth(c *gin.Context) (map[string]interface{}, error) {
+	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "System Status Check"}
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("framework.health.CheckSystemHealth", elapsed)
+	}()
 
 	defer func() {
 		if r := recover(); r != nil {

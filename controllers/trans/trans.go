@@ -26,6 +26,9 @@ import (
 type TranCodeController struct {
 }
 
+// ExecuteTranCode executes the transaction code based on the request context.
+// It retrieves the user information from the request, fetches the transaction code data,
+// and executes the transaction flow. The outputs of the transaction are returned in the response.
 func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 	/*	jsonString, err := json.Marshal(ctx.Request)
 		if err != nil {
@@ -39,14 +42,14 @@ func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("controllers.trans.ExecuteTranCode", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("ExecuteTranCode defer error: %s", err))
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
-		}
-	}()
-
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("ExecuteTranCode defer error: %s", err))
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()
+	*/
 	_, userno, clientid, err := common.GetRequestUser(ctx)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("GetRequestUser error: %s", err))
@@ -117,6 +120,10 @@ func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 	}
 }
 
+// UnitTest is a handler function for performing unit tests on transaction codes.
+// It retrieves the user information from the request context, gets the transaction code data,
+// and executes the unit test using the transaction code and system sessions.
+// The outputs of the unit test are returned in the response.
 func (e *TranCodeController) UnitTest(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
 	startTime := time.Now()
@@ -125,12 +132,13 @@ func (e *TranCodeController) UnitTest(ctx *gin.Context) {
 		iLog.PerformanceWithDuration("controllers.trans.UnitTest", elapsed)
 	}()
 
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("UnitTest defer error: %s", err))
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
-		}
-	}()
+	/*	defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("UnitTest defer error: %s", err))
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()
+	*/
 	_, userno, clientid, err := common.GetRequestUser(ctx)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("GetRequestUser error: %s", err))
@@ -167,6 +175,12 @@ func (e *TranCodeController) UnitTest(ctx *gin.Context) {
 
 }
 
+// TestbyTestData is a function that handles the testing of transaction codes using test data.
+// It receives a gin.Context object as a parameter.
+// The function retrieves the user information from the request context and logs it.
+// It then retrieves the transaction code data from the request and performs unit testing using the provided test data.
+// The function returns the outputs of the unit testing or an error if the execution fails.
+
 func (e *TranCodeController) TestbyTestData(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCode"}
 	startTime := time.Now()
@@ -174,13 +188,14 @@ func (e *TranCodeController) TestbyTestData(ctx *gin.Context) {
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("controllers.trans.TestbyTestData", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("TestbyTestData defer error: %s", err))
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
-		}
-	}()
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("TestbyTestData defer error: %s", err))
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()
+	*/
 	_, userno, clientid, err := common.GetRequestUser(ctx)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("GetRequestUser error: %s", err))
@@ -215,6 +230,9 @@ func (e *TranCodeController) TestbyTestData(ctx *gin.Context) {
 	}
 }
 
+// Execute executes the transaction code with the given inputs, user, and client ID.
+// It returns the outputs of the transaction code and any error that occurred during execution.
+
 func (e *TranCodeController) Execute(Code string, externalinputs map[string]interface{}, user string, clientid string) (map[string]interface{}, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: user, ClientID: clientid, ControllerName: "TranCode"}
 	startTime := time.Now()
@@ -222,14 +240,14 @@ func (e *TranCodeController) Execute(Code string, externalinputs map[string]inte
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("controllers.trans.Execute", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("Execute defer error: %s", err))
-			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
-		}
-	}()
-
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("Execute defer error: %s", err))
+				//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()
+	*/
 	iLog.Info(fmt.Sprintf("Start process transaction code %s with inputs: %s ", Code, externalinputs))
 
 	iLog.Info(fmt.Sprintf("Start process transaction code %s's %s ", Code, "Execute"))
@@ -287,6 +305,17 @@ func (e *TranCodeController) Execute(Code string, externalinputs map[string]inte
 	}
 }
 
+// getTransCode retrieves the transaction code for a given name, user, and client ID.
+// It reads the transaction code data from a JSON file and converts it into a TranCode object.
+// The function logs debug, error, and performance information using the logger package.
+// Parameters:
+// - name: the name of the transaction code
+// - user: the user associated with the transaction code
+// - clientid: the client ID associated with the transaction code
+// Returns:
+// - types.TranCode: the retrieved transaction code
+// - error: any error that occurred during the retrieval process
+
 func (e *TranCodeController) getTransCode(name string, user string, clientid string) (types.TranCode, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: user, ClientID: clientid, ControllerName: "TranCode"}
 	startTime := time.Now()
@@ -294,14 +323,14 @@ func (e *TranCodeController) getTransCode(name string, user string, clientid str
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("controllers.trans.getTransCode", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("getTransCode defer error: %s", err))
-			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
-		}
-	}()
-
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("getTransCode defer error: %s", err))
+				//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()
+	*/
 	iLog.Debug(fmt.Sprintf("Get transaction code /%s/%s%s", "trancodes", name, ".json"))
 
 	data, err := ioutil.ReadFile(fmt.Sprintf("./%s/%s%s", "trancodes", name, ".json"))
@@ -319,6 +348,10 @@ func (e *TranCodeController) getTransCode(name string, user string, clientid str
 	return trancode.Bytetoobj(data)
 }
 
+// GetTranCodeListFromRespository retrieves the transaction code list from the repository.
+// It requires a valid gin.Context as input.
+// It returns the transaction code list as JSON data in the gin.Context response.
+
 func (e *TranCodeController) GetTranCodeListFromRespository(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetTranCodeListFromRespository"}
 
@@ -327,13 +360,14 @@ func (e *TranCodeController) GetTranCodeListFromRespository(ctx *gin.Context) {
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("controllers.trans.GetTranCodeListFromRespository", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("GetTranCodeListFromRespository defer error: %s", err))
-			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
-		}
-	}()
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("GetTranCodeListFromRespository defer error: %s", err))
+				//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()
+	*/
 	_, userno, clientid, err := common.GetRequestUser(ctx)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("GetRequestUser error: %s", err))
@@ -373,6 +407,14 @@ func (e *TranCodeController) GetTranCodeListFromRespository(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"data": tcitems})
 }
 
+// GetTranCodeDetailFromRespository retrieves transaction code details from the repository.
+// It expects a JSON payload containing the transaction code data.
+// The function first extracts the user information from the request context.
+// Then, it binds the JSON payload to the TranCodeData struct.
+// Next, it constructs a filter based on the TranCodeData.TranCode field.
+// Finally, it queries the "Transaction_Code" collection in the database using the filter and returns the results as JSON.
+// If any error occurs during the process, it returns an error response.
+
 func (e *TranCodeController) GetTranCodeDetailFromRespository(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetTranCodeDetailFromRespository"}
 	startTime := time.Now()
@@ -380,14 +422,14 @@ func (e *TranCodeController) GetTranCodeDetailFromRespository(ctx *gin.Context) 
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("controllers.trans.GetTranCodeDetailFromRespository", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("GetTranCodeDetailFromRespository defer error: %s", err))
-			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
-		}
-	}()
-	_, userno, clientid, err := common.GetRequestUser(ctx)
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("GetTranCodeDetailFromRespository defer error: %s", err))
+				//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()
+	*/_, userno, clientid, err := common.GetRequestUser(ctx)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("GetRequestUser error: %s", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
@@ -424,6 +466,20 @@ func (e *TranCodeController) GetTranCodeDetailFromRespository(ctx *gin.Context) 
 	ctx.JSON(http.StatusOK, gin.H{"Outputs": tcitems})
 }
 
+// UpdateTranCodeToRespository updates the transaction code in the repository.
+// It receives a gin.Context object as a parameter and returns no values.
+// The function first logs the start time and defer logs the elapsed time.
+// It then retrieves the user information from the request using common.GetRequestUser.
+// If there is an error retrieving the user information, it logs the error and returns a JSON response with the error message.
+// The function then binds the JSON data from the request to a TranCodeData struct.
+// It logs the transaction code, UUID, and data.
+// The function marshals the data to JSON and unmarshals it into a TranCode struct.
+// If the name or UUID is empty in the request data but not in the TranCode struct, it updates the name or UUID accordingly.
+// If the isdefault flag is true, it updates the existing transaction code with the same name to set isdefault to false.
+// If there is no ID in the request data, it inserts a new transaction code with the provided data.
+// If there is an ID in the request data, it updates the existing transaction code with the provided data.
+// Finally, it returns a JSON response with the ID and status.
+
 func (e *TranCodeController) UpdateTranCodeToRespository(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCodeController"}
 	startTime := time.Now()
@@ -431,14 +487,14 @@ func (e *TranCodeController) UpdateTranCodeToRespository(ctx *gin.Context) {
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("controllers.trans.UpdateTranCodeToRespository", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("UpdateTranCodeToRespository defer error: %s", err))
-			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
-		}
-	}()
-	_, userno, clientid, err := common.GetRequestUser(ctx)
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("UpdateTranCodeToRespository defer error: %s", err))
+				//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()
+	*/_, userno, clientid, err := common.GetRequestUser(ctx)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("GetRequestUser error: %s", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
@@ -563,6 +619,22 @@ func (e *TranCodeController) UpdateTranCodeToRespository(ctx *gin.Context) {
 
 }
 
+// TranCodeRevision is a function that handles the revision of transaction codes.
+// It receives a gin.Context object as a parameter and returns no values.
+// The function performs the following steps:
+// 1. Logs the start time of the function execution.
+// 2. Defer a function to log the performance duration of the function.
+// 3. Retrieves the user information from the request context.
+// 4. Sets the user and client ID in the logger.
+// 5. Retrieves the request body from the JSON request.
+// 6. Validates and extracts the necessary fields from the request body.
+// 7. Checks if the transaction code already exists.
+// 8. Queries the transaction code from the database.
+// 9. Updates the existing transaction code if the isdefault flag is set.
+// 10. Prepares the new transaction code object with the revised information.
+// 11. Inserts the new transaction code into the database.
+// 12. Returns the ID and status of the inserted transaction code as a JSON response.
+
 func (e *TranCodeController) TranCodeRevision(ctx *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TranCodeController"}
 	startTime := time.Now()
@@ -570,14 +642,14 @@ func (e *TranCodeController) TranCodeRevision(ctx *gin.Context) {
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("controllers.trans.TranCodeRevision", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("TranCodeRevision defer error: %s", err))
-			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
-		}
-	}()
-	_, userno, clientid, err := common.GetRequestUser(ctx)
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("TranCodeRevision defer error: %s", err))
+				//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()
+	*/_, userno, clientid, err := common.GetRequestUser(ctx)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("GetRequestUser error: %s", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
@@ -706,6 +778,11 @@ func (e *TranCodeController) TranCodeRevision(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"Outputs": result})
 
 }
+
+// ValidateIfObjectExist checks if an object exists in the collection based on the provided filter.
+// It takes the filter, user number, and client ID as parameters.
+// It returns a boolean indicating whether the object exists and an error if any.
+
 func ValidateIfObjectExist(filter bson.M, userno string, clientid string) (bool, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "ValidateIfObjectExist"}
 	startTime := time.Now()
@@ -713,14 +790,14 @@ func ValidateIfObjectExist(filter bson.M, userno string, clientid string) (bool,
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("controllers.trans.ValidateIfObjectExist", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("ValidateIfObjectExist defer error: %s", err))
-			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
-		}
-	}()
-
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("ValidateIfObjectExist defer error: %s", err))
+				//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()
+	*/
 	iLog.User = userno
 	iLog.ClientID = clientid
 	iLog.Debug(fmt.Sprintf("Validate if object exist in collection"))
@@ -735,6 +812,11 @@ func ValidateIfObjectExist(filter bson.M, userno string, clientid string) (bool,
 	}
 	return true, nil
 }
+
+// getDataFromRequest is a function that retrieves data from the request context and returns it as a TranCodeData struct.
+// It also logs performance metrics and any errors encountered during the process.
+// The function takes a gin.Context parameter and returns a TranCodeData struct and an error.
+
 func getDataFromRequest(ctx *gin.Context) (TranCodeData, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromRequest"}
 	startTime := time.Now()
@@ -742,13 +824,13 @@ func getDataFromRequest(ctx *gin.Context) (TranCodeData, error) {
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("controllers.trans.getDataFromRequest", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("getDataFromRequest defer error: %s", err))
-			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
-		}
-	}()
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("getDataFromRequest defer error: %s", err))
+				//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()  */
 	_, userno, clientid, err := common.GetRequestUser(ctx)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("GetRequestUser error: %s", err))

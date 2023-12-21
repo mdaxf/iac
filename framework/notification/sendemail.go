@@ -17,6 +17,9 @@ type EmailConfiguration struct {
 	From     string
 }
 
+// SendEmail sends an email using the provided email configuration, recipient(s), subject, and body.
+// It returns an error if the email sending fails.
+// The email body is expected to be in HTML format.
 func SendEmail(emailConfig EmailConfiguration, to []string, subject string, body string) error {
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "Notification"}
 	startTime := time.Now()
@@ -47,6 +50,15 @@ func SendEmail(emailConfig EmailConfiguration, to []string, subject string, body
 	}
 	return nil
 }
+
+// SendEmailWithAttachment sends an email with an attachment.
+// It takes the following parameters:
+// - emailConfig: EmailConfiguration struct containing email server configuration details.
+// - to: a slice of strings representing the email recipients.
+// - subject: a string representing the email subject.
+// - body: a string representing the email body in HTML format.
+// - attachment: a string representing the file path of the attachment.
+// It returns an error if the email fails to send.
 
 func SendEmailWithAttachment(emailConfig EmailConfiguration, to []string, subject string, body string, attachment string) error {
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "Notification"}

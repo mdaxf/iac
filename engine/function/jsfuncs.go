@@ -12,6 +12,10 @@ import (
 type JSFuncs struct {
 }
 
+// Execute executes the JavaScript function defined in the Funcs object.
+// It sets the inputs, runs the JavaScript code, and sets the outputs.
+// If there is an error during execution, it logs the error and returns.
+// The execution time is also logged.
 func (cf *JSFuncs) Execute(f *Funcs) {
 	startTime := time.Now()
 	defer func() {
@@ -20,8 +24,10 @@ func (cf *JSFuncs) Execute(f *Funcs) {
 	}()
 	defer func() {
 		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.JSFuncs.Execute with error: %s", err))
-			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.JSFuncs.Execute with error: %s", err)
+			errmsg := fmt.Sprintf("There is error to engine.funcs.JSFuncs.Execute with error: %s", err)
+			f.iLog.Error(errmsg)
+			f.CancelExecution(errmsg)
+			f.ErrorMessage = errmsg
 			return
 		}
 	}()
@@ -55,20 +61,25 @@ func (cf *JSFuncs) Execute(f *Funcs) {
 	f.SetOutputs(outputs)
 }
 
+// Validate validates the given Funcs object using JavaScript functions.
+// It executes the JavaScript code stored in the Content field of the Funcs object using the goja VM.
+// If the JavaScript code throws an error, it returns false and the error.
+// Otherwise, it returns true and nil.
+
 func (cf *JSFuncs) Validate(f *Funcs) (bool, error) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
 		f.iLog.PerformanceWithDuration("engine.funcs.JSFuncs.Validate", elapsed)
 	}()
-	defer func() {
-		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.JSFuncs.Validate with error: %s", err))
-			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.JSFuncs.Validate with error: %s", err)
-			return
-		}
-	}()
-
+	/*	defer func() {
+			if err := recover(); err != nil {
+				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.JSFuncs.Validate with error: %s", err))
+				f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.JSFuncs.Validate with error: %s", err)
+				return
+			}
+		}()
+	*/
 	vm := goja.New()
 	_, err := vm.RunString(f.Fobj.Content)
 	if err != nil {
@@ -78,6 +89,11 @@ func (cf *JSFuncs) Validate(f *Funcs) (bool, error) {
 	return true, nil
 }
 
+// Testfunction is a function that executes JavaScript code using the goja VM.
+// It takes a content string, inputs interface{}, and outputs []string as parameters.
+// The function returns a map[string]interface{} containing the values of the specified outputs,
+// and an error if there was an error during execution.
+// The execution time is also logged.
 func (cf *JSFuncs) Testfunction(content string, inputs interface{}, outputs []string) (map[string]interface{}, error) {
 	iLog := logger.Log{ModuleName: logger.TranCode, User: "System", ControllerName: "JSFuncs"}
 	startTime := time.Now()

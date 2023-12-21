@@ -11,6 +11,11 @@ import (
 type TableUpdateFuncs struct {
 }
 
+// Execute executes the TableUpdateFuncs function.
+// It retrieves the inputs, sets up the necessary variables, and performs the table update operation.
+// If any errors occur during the execution, it logs the error and returns.
+// Finally, it sets the output values and returns.
+
 func (cf *TableUpdateFuncs) Execute(f *Funcs) {
 	startTime := time.Now()
 	defer func() {
@@ -20,6 +25,7 @@ func (cf *TableUpdateFuncs) Execute(f *Funcs) {
 	defer func() {
 		if err := recover(); err != nil {
 			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.TableUpdateFuncs.Execute with error: %s", err))
+			f.CancelExecution(fmt.Sprintf("There is error to engine.funcs.TableUpdateFuncs.Execute with error: %s", err))
 			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.TableUpdateFuncs.Execute with error: %s", err)
 			return
 		}
@@ -118,22 +124,30 @@ func (cf *TableUpdateFuncs) Execute(f *Funcs) {
 	f.SetOutputs(outputs)
 }
 
+// Validate is a method of the TableUpdateFuncs struct that validates the function.
+// It measures the performance of the function and logs the duration.
+// It returns a boolean value indicating the validation result and an error if any.
+
 func (cf *TableUpdateFuncs) Validate(f *Funcs) (bool, error) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
 		f.iLog.PerformanceWithDuration("engine.funcs.TableUpdateFuncs.Validate", elapsed)
 	}()
-	defer func() {
+	/*defer func() {
 		if err := recover(); err != nil {
 			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.TableUpdateFuncs.Validate with error: %s", err))
 			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.TableUpdateFuncs.Validate with error: %s", err)
 			return
 		}
-	}()
+	}() */
 
 	return true, nil
 }
+
+// Testfunction is a function that performs a test operation.
+// It measures the performance of the function and handles any errors that occur.
+// It returns a boolean value indicating the success of the test and an error if any.
 
 func (cf *TableUpdateFuncs) Testfunction(f *Funcs) (bool, error) {
 	startTime := time.Now()

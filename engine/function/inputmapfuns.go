@@ -9,6 +9,12 @@ import (
 
 type InputMapFuncs struct{}
 
+// Execute executes the input mapping functions.
+// It retrieves the input values from the Funcs object, maps them to the corresponding keys in the map data,
+// and sets the output values in the Funcs object.
+// If there is an error during execution, it logs the error, cancels the execution, and sets the error message.
+// It also logs the performance of the function.
+
 func (cf *InputMapFuncs) Execute(f *Funcs) {
 	startTime := time.Now()
 	defer func() {
@@ -17,8 +23,10 @@ func (cf *InputMapFuncs) Execute(f *Funcs) {
 	}()
 	defer func() {
 		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.InputMapFuncs.Execute with error: %s", err))
-			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.InputMapFuncs.Execute with error: %s", err)
+			errormsg := fmt.Sprintf("There is error to engine.funcs.InputMapFuncs.Execute with error: %s", err)
+			f.iLog.Error(errormsg)
+			f.CancelExecution(errormsg)
+			f.ErrorMessage = errormsg
 			return
 		}
 	}()
@@ -47,19 +55,25 @@ func (cf *InputMapFuncs) Execute(f *Funcs) {
 	f.SetOutputs(outputs)
 }
 
+// Validate validates the input map functions.
+// It checks if the inputs and outputs in the map are valid and compatible.
+// If any error is encountered, it logs the error and returns false.
+// Otherwise, it returns true.
+// It also logs the performance of the function.
+
 func (cf *InputMapFuncs) Validate(f *Funcs) bool {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
 		f.iLog.PerformanceWithDuration("engine.funcs.InputMapFuncs.Validate", elapsed)
 	}()
-	defer func() {
+	/*	defer func() {
 		if err := recover(); err != nil {
 			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.InputMapFuncs.Validate with error: %s", err))
 			f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.InputMapFuncs.Validate with error: %s", err)
 			return
 		}
-	}()
+	}() */
 
 	data := f.Fobj.Mapdata
 

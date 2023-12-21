@@ -37,14 +37,14 @@ func (c *UserController) Login(ctx *gin.Context) {
 		elapsed := time.Since(startTime)
 		log.PerformanceWithDuration("controllers.user.login", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			log.Error(fmt.Sprintf("login defer error: %s", err))
-			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
-		}
-	}()
-
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				log.Error(fmt.Sprintf("login defer error: %s", err))
+				//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()
+	*/
 	log.Debug("Login handle function is called.")
 
 	var user LoginUserData

@@ -15,6 +15,13 @@ import (
 type HealthController struct {
 }
 
+// CheckHealth is a function that handles the health check request.
+// It retrieves user information from the request context, logs the health check activity,
+// and calls the CheckSystemHealth function to get the system health data.
+// If there is an error retrieving user information or checking the system health,
+// it returns an error response with the corresponding status code.
+// Otherwise, it returns a success response with the system health data.
+
 func (f *HealthController) CheckHealth(c *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "health"}
 	startTime := time.Now()
@@ -22,13 +29,14 @@ func (f *HealthController) CheckHealth(c *gin.Context) {
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("controllers.health.CheckHealth", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("Health Check error: %s", err))
-			c.JSON(http.StatusBadRequest, gin.H{"error": err})
-		}
-	}()
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("Health Check error: %s", err))
+				c.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()
+	*/
 	_, user, clientid, err := common.GetRequestUser(c)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))

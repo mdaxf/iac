@@ -19,6 +19,9 @@ package job
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"html/template"
 	"log"
 	"math"
 	"sort"
@@ -45,6 +48,9 @@ type jobManager struct {
 	wait         sync.WaitGroup
 }
 
+// newJobManager creates a new instance of jobManager.
+// It initializes the adminJobList, jobLock, stop, changed, and started fields.
+// Returns a pointer to the newly created jobManager.
 func newJobManager() *jobManager {
 	return &jobManager{
 		adminJobList: make(map[string]Jober),

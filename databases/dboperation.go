@@ -36,6 +36,17 @@ type DBOperation struct {
 	User       string
 }
 
+// NewDBOperation creates a new instance of DBOperation.
+// It takes the following parameters:
+// - User: the name of the user performing the database operation.
+// - DBTx: the SQL transaction object.
+// - moduleName: the name of the module associated with the database operation.
+// If moduleName is empty, it defaults to logger.Database.
+// It returns a pointer to the newly created DBOperation instance.
+// The function also logs the performance duration of the operation.
+// If there is an error during the operation, it is recovered and logged as an error.
+// The function returns a pointer to the newly created DBOperation instance.
+
 func NewDBOperation(User string, DBTx *sql.Tx, moduleName string) *DBOperation {
 	startTime := time.Now()
 	if moduleName == "" {
@@ -47,12 +58,6 @@ func NewDBOperation(User string, DBTx *sql.Tx, moduleName string) *DBOperation {
 		iLog.PerformanceWithDuration("dbconn.NewDBOperation", elapsed)
 	}()
 
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("There is error to query database with error: %s", err))
-			return
-		}
-	}()
 	return &DBOperation{
 		DBTx:       DBTx,
 		ModuleName: moduleName,
@@ -60,6 +65,18 @@ func NewDBOperation(User string, DBTx *sql.Tx, moduleName string) *DBOperation {
 		User:       User,
 	}
 }
+
+// Query executes a SQL query with optional arguments and returns the resulting rows.
+// It measures the performance of the query and logs any errors that occur.
+// If a database transaction is not already in progress, it begins a new transaction.
+// The transaction is committed if it was started locally.
+// The returned rows must be closed after use to release associated resources.
+// The function returns the following parameters:
+// - rows: the resulting rows.
+// - err: the error that occurred during the operation.
+// If there is an error during the operation, it is recovered and logged as an error.
+// The function returns the resulting rows and any error that occurred during the operation.
+// The function also logs the performance duration of the operation.
 
 func (db *DBOperation) Query(querystr string, args ...interface{}) (*sql.Rows, error) {
 
@@ -115,6 +132,12 @@ func (db *DBOperation) Query(querystr string, args ...interface{}) (*sql.Rows, e
 
 	return rows, nil
 }
+
+// QuerybyList executes a database query with a list of parameters.
+// It takes a query string, a list of parameter names, a map of parameter values, and a list of input types.
+// The function returns a map of query results, the number of rows affected, the number of rows returned, and an error (if any).
+// The function also logs the performance duration of the operation.
+// If there is an error during the operation, it is recovered and logged as an error.
 
 func (db *DBOperation) QuerybyList(querystr string, namelist []string, inputs map[string]interface{}, finputs []types.Input) (map[string][]interface{}, int, int, error) {
 	startTime := time.Now()
@@ -193,6 +216,20 @@ func (db *DBOperation) QuerybyList(querystr string, namelist []string, inputs ma
 	return db.Conto_JsonbyList(rows)
 }
 
+// Query_Json executes a database query with the provided query string and arguments,
+// and returns the result as a slice of maps, where each map represents a row of the result set.
+// The query is executed within a transaction, and the transaction is automatically committed
+// if it was initiated locally. If an error occurs during the query or conversion to JSON,
+// the transaction is rolled back and the error is returned.
+//
+// Parameters:
+// - querystr: The query string to execute.
+// - args: Optional arguments to be passed to the query.
+//
+// Returns:
+// - []map[string]interface{}: The result set as a slice of maps.
+// - error: Any error that occurred during the query or conversion to JSON.
+
 func (db *DBOperation) Query_Json(querystr string, args ...interface{}) ([]map[string]interface{}, error) {
 	startTime := time.Now()
 	defer func() {
@@ -257,6 +294,16 @@ func (db *DBOperation) Query_Json(querystr string, args ...interface{}) ([]map[s
 	return jsondata, nil
 }
 
+// ExecSP executes a stored procedure with the given procedureName and arguments.
+// It measures the execution time and logs the performance.
+// If an error occurs during execution, it logs the error and rolls back the transaction.
+// If a local transaction is used, it commits the transaction at the end.
+// Parameters:
+//   - procedureName: the name of the stored procedure to execute
+//   - args: the arguments to pass to the stored procedure
+// Returns:
+//   - error: an error if there was a problem executing the stored procedure
+
 func (db *DBOperation) ExecSP(procedureName string, args ...interface{}) error {
 	startTime := time.Now()
 	defer func() {
@@ -312,6 +359,17 @@ func (db *DBOperation) ExecSP(procedureName string, args ...interface{}) error {
 
 	return nil
 }
+
+// ExeSPwithRow executes a stored procedure and returns the result set as a *sql.Rows object.
+// It takes the procedureName as a string and the args as variadic parameters.
+// The function measures the execution time and logs it using the PerformanceWithDuration method of the db.iLog object.
+// If there is an error during execution, it logs the error using the Error method of the db.iLog object.
+// The function handles panics and recovers from them, logging the error if any.
+// If a database transaction is not already in progress, it begins a new transaction and commits it at the end.
+// The function constructs the stored procedure call with placeholders for each parameter and the output parameter.
+// It checks if any of the parameters are output parameters and stores their names in the outputparameters slice.
+// The function uses the call string to call the stored procedure with the dynamic parameters and the output parameter.
+// It returns the result set as a *sql.Rows object and nil error if successful, otherwise it returns nil and the error.
 
 func (db *DBOperation) ExeSPwithRow(procedureName string, args ...interface{}) (*sql.Rows, error) {
 	startTime := time.Now()
@@ -376,20 +434,41 @@ func (db *DBOperation) ExeSPwithRow(procedureName string, args ...interface{}) (
 	return rows, nil
 }
 
+// ExecSP_Json executes a stored procedure with the given name and arguments,
+// and returns the result as a slice of maps, where each map represents a row
+// of the result set. If an error occurs during execution, it returns nil and
+// the error.
+//
+// The execution time of the stored procedure is logged using the PerformanceWithDuration
+// method of the associated logger.
+//
+// If a panic occurs during execution, it is recovered and logged as an error.
+//
+// The execution of the stored procedure is logged using the Debug method of the
+// associated logger.
+//
+// The result set is obtained by calling the ExeSPwithRow method of the DBOperation
+// instance, and the rows are closed before returning.
+//
+// If an error occurs during execution, it is logged as an error and returned.
+//
+// The result set is converted to a JSON representation using the Conto_Json method
+// of the DBOperation instance, and returned.
+
 func (db *DBOperation) ExecSP_Json(procedureName string, args ...interface{}) ([]map[string]interface{}, error) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
 		db.iLog.PerformanceWithDuration("dbconn.ExecSP_Json", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			db.iLog.Error(fmt.Sprintf("There is error to execute store procedure %s in database with error: %s", procedureName, err))
-			return
-		}
-	}()
-
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				db.iLog.Error(fmt.Sprintf("There is error to execute store procedure %s in database with error: %s", procedureName, err))
+				return
+			}
+		}()
+	*/
 	db.iLog.Debug(fmt.Sprintf("start execute the Store procedure: %s with parameters %s...", procedureName, args))
 	rows, err := db.ExeSPwithRow(procedureName, args...)
 	defer rows.Close()
@@ -400,20 +479,29 @@ func (db *DBOperation) ExecSP_Json(procedureName string, args ...interface{}) ([
 	return db.Conto_Json(rows)
 }
 
+// chechoutputparameter checks the output parameter of a given string.
+// It splits the string by space and determines if it contains the word "output".
+// If it does, it sets the output flag to true and returns the parameter without the word "output".
+// The function also logs debug messages for the start and result of the check.
+// It measures the performance duration of the function using the iLog.PerformanceWithDuration method.
+// If there is a panic during the execution, it logs an error message with the error details.
+// The function returns a boolean value indicating if the string contains an output parameter,
+// and the parameter itself without the word "output".
+
 func (db *DBOperation) chechoutputparameter(str string) (bool, string) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
 		db.iLog.PerformanceWithDuration("dbconn.chechoutputparameter", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			db.iLog.Error(fmt.Sprintf("There is error to chechoutputparameter with error: %s", err))
-			return
-		}
-	}()
-
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				db.iLog.Error(fmt.Sprintf("There is error to chechoutputparameter with error: %s", err))
+				return
+			}
+		}()
+	*/
 	db.iLog.Debug(fmt.Sprintf("start to check the output parameter: %s...", str))
 	output := false
 	parameter := str
@@ -428,6 +516,10 @@ func (db *DBOperation) chechoutputparameter(str string) (bool, string) {
 
 }
 
+// TableInsert inserts data into a specified table in the database.
+// It takes the table name, column names, and corresponding values as input.
+// It returns the last insert ID and any error encountered during the operation.
+// The function measures the performance duration of the operation using the PerformanceWithDuration method of the db.iLog object.
 func (db *DBOperation) TableInsert(TableName string, Columns []string, Values []string) (int64, error) {
 	startTime := time.Now()
 	defer func() {
@@ -499,6 +591,10 @@ func (db *DBOperation) TableInsert(TableName string, Columns []string, Values []
 	return lastId, err
 }
 
+// TableUpdate updates the specified table with the given columns, values, data types, and WHERE clause.
+// It returns the number of rows affected and any error encountered during the update operation.
+// The function measures the performance duration of the operation using the PerformanceWithDuration method of the db.iLog object.
+// If there is a panic during the execution, it logs an error message with the error details.
 func (db *DBOperation) TableUpdate(TableName string, Columns []string, Values []string, datatypes []int, Where string) (int64, error) {
 	startTime := time.Now()
 	defer func() {
@@ -512,7 +608,7 @@ func (db *DBOperation) TableUpdate(TableName string, Columns []string, Values []
 			return
 		}
 	}()
-	db.iLog.Debug(fmt.Sprintf("start to update the table: %s with columns: %s and values: %s data type: %s", TableName, Columns, Values, datatypes))
+	db.iLog.Debug(fmt.Sprintf("start to update the table: %s with columns: %s and values: %s data type: %v", TableName, Columns, Values, datatypes))
 
 	//fmt.Println(WhereArgs)
 	//fmt.Println(Values)
@@ -632,6 +728,9 @@ func (db *DBOperation) TableUpdate(TableName string, Columns []string, Values []
 
 }
 
+// TableDelete deletes records from a table based on the provided WHERE clause.
+// It returns the number of affected rows and an error, if any.
+// The function measures the performance duration of the operation using the PerformanceWithDuration method of the db.iLog object.
 func (db *DBOperation) TableDelete(TableName string, Where string) (int64, error) {
 	startTime := time.Now()
 	defer func() {
@@ -706,14 +805,14 @@ func (db *DBOperation) Conto_JsonbyList(rows *sql.Rows) (map[string][]interface{
 		elapsed := time.Since(startTime)
 		db.iLog.PerformanceWithDuration("dbconn.Conto_JsonbyList", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			db.iLog.Error(fmt.Sprintf("There is error to Conto_JsonbyList with error: %s", err))
-			return
-		}
-	}()
-
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				db.iLog.Error(fmt.Sprintf("There is error to Conto_JsonbyList with error: %s", err))
+				return
+			}
+		}()
+	*/
 	db.iLog.Debug(fmt.Sprintf("Start to convert the rows to json...%s", rows))
 	cols, err := rows.ColumnTypes()
 	if err != nil {
@@ -777,14 +876,14 @@ func (db *DBOperation) Conto_Json(rows *sql.Rows) ([]map[string]interface{}, err
 		elapsed := time.Since(startTime)
 		db.iLog.PerformanceWithDuration("dbconn.Conto_Json", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			db.iLog.Error(fmt.Sprintf("There is error to Conto_Json with error: %s", err))
-			return
-		}
-	}()
-
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				db.iLog.Error(fmt.Sprintf("There is error to Conto_Json with error: %s", err))
+				return
+			}
+		}()
+	*/
 	db.iLog.Debug(fmt.Sprintf("Start to convert the rows to json...%s", rows))
 
 	cols, err := rows.ColumnTypes()

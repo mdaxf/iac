@@ -37,6 +37,15 @@ type Log struct {
 	ClientID       string
 }
 
+// Init initializes the logger with the provided configuration.
+// The configuration is a map[string]interface{} containing the following optional keys:
+// - "performance": a boolean indicating whether performance logging should be enabled (default: false)
+// - "performancethread": an integer specifying the performance threshold (default: 10)
+// The logger is initialized with different loggers for different components, such as "Framework", "Portal", "API", etc.
+// Each logger is configured using the setLogger function with the corresponding component name.
+// The logger's performance and threshold settings are also set based on the configuration.
+// Note: This function assumes that the logs package is imported as "logs" and the com package is imported as "com".
+
 func Init(config map[string]interface{}) {
 
 	performance := false
@@ -108,6 +117,15 @@ func Init(config map[string]interface{}) {
 	//logs.SetLogger(logs.AdapterMultiFile, ``{"filename":"test.log","separate":["emergency", "alert", "critical", "error", "warning", "notice", "info", "debug"]}``)
 }
 
+// setLogger sets the logger configuration based on the provided parameters.
+// It takes in a loger pointer, a config map, and a logtype string.
+// The function determines the log adapter, log level, performance settings, and other parameters based on the config map.
+// It then sets the logger accordingly using the loger.SetLogger() function.
+// If the log adapter is "documentdb", it sets the logger to use the DocumentDB adapter with the specified connection, database, and collection.
+// If the log adapter is "console", "file", "multifile", "smtp", or "conn", it sets the logger to use the corresponding adapter with the specified configuration.
+// If the log adapter is not recognized, it sets the logger to use the Console adapter as a fallback.
+// The function returns nothing.
+// Note: This function assumes that the logs package is imported as "logs" and the com package is imported as "com".
 func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype string) {
 	logadapter := config["adapter"]
 	if logadapter == nil {

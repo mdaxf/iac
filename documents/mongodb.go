@@ -31,6 +31,11 @@ var DatabaseConnection = "mongodb://localhost:27017"
 var DatabaseName       = "IAC_CFG"
 */
 
+// InitMongoDB initializes a MongoDB connection and returns a DocDB object.
+// It takes two parameters: DatabaseConnection (the MongoDB connection string) and DatabaseName (the name of the database).
+// It returns a pointer to a DocDB object and an error if any.
+// The function logs the performance duration and recovers from any panics.
+
 func InitMongoDB(DatabaseConnection string, DatabaseName string) (*DocDB, error) {
 	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "MongoDB Connection"}
 	startTime := time.Now()
@@ -38,14 +43,14 @@ func InitMongoDB(DatabaseConnection string, DatabaseName string) (*DocDB, error)
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("documents.InitMongoDB", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			iLog.Error(fmt.Sprintf("There is error to documents.InitMongoDB with error: %s", err))
-			return
-		}
-	}()
-
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("There is error to documents.InitMongoDB with error: %s", err))
+				return
+			}
+		}()
+	*/
 	doc := &DocDB{
 		DatabaseConnection: DatabaseConnection,
 		DatabaseName:       DatabaseName,
@@ -56,13 +61,17 @@ func InitMongoDB(DatabaseConnection string, DatabaseName string) (*DocDB, error)
 
 }
 
+// ConnectMongoDB establishes a connection to the MongoDB database.
+// It returns a pointer to the DocDB struct and an error if any.
 func (doc *DocDB) ConnectMongoDB() (*DocDB, error) {
+	// Measure the execution time of the function
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
 		doc.iLog.PerformanceWithDuration("documents.ConnectMongoDB", elapsed)
 	}()
 
+	// Recover from any panics and log the error
 	defer func() {
 		if err := recover(); err != nil {
 			doc.iLog.Error(fmt.Sprintf("There is error to documents.ConnectMongoDB with error: %s", err))
@@ -70,29 +79,37 @@ func (doc *DocDB) ConnectMongoDB() (*DocDB, error) {
 		}
 	}()
 
+	// Log the database connection details
 	doc.iLog.Info(fmt.Sprintf("Connect Database: %s %s", doc.DatabaseType, doc.DatabaseConnection))
 
 	var err error
 
+	// Create a new MongoDB client
 	doc.MongoDBClient, err = mongo.NewClient(options.Client().ApplyURI(doc.DatabaseConnection))
 	if err != nil {
 		doc.iLog.Critical(fmt.Sprintf("failed to connect mongodb with error: %s", err))
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
+	// Create a context with a timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Connect to the MongoDB server
 	err = doc.MongoDBClient.Connect(ctx)
-
 	if err != nil {
 		doc.iLog.Critical(fmt.Sprintf("failed to connect mongodb with error: %s", err))
 	}
 
+	// Set the MongoDB database
 	doc.MongoDBDatabase = doc.MongoDBClient.Database(doc.DatabaseName)
 
 	return doc, err
 }
 
+// QueryCollection queries a MongoDB collection with the specified filter and projection.
+// It returns an array of documents that match the filter, along with any error that occurred.
+// The function logs the performance duration and recovers from any panics.
+// The function uses the MongoDB Go driver to query the collection.
 func (doc *DocDB) QueryCollection(collectionname string, filter bson.M, projection bson.M) ([]bson.M, error) {
 	startTime := time.Now()
 	defer func() {
@@ -139,6 +156,12 @@ func (doc *DocDB) QueryCollection(collectionname string, filter bson.M, projecti
 
 	return results, nil
 }
+
+// GetDefaultItembyName retrieves the default item from the specified collection by name.
+// It takes the collection name and the name of the item as input parameters.
+// It returns the retrieved item as a bson.M object and an error if any.
+// The function logs the performance duration and recovers from any panics.
+// The function uses the MongoDB Go driver to query the collection.
 func (doc *DocDB) GetDefaultItembyName(collectionname string, name string) (bson.M, error) {
 	startTime := time.Now()
 	defer func() {
@@ -169,6 +192,12 @@ func (doc *DocDB) GetDefaultItembyName(collectionname string, name string) (bson
 
 	return result, err
 }
+
+// GetItembyID retrieves an item from the specified collection by its ID.
+// It takes the collection name and the ID as parameters.
+// It returns the item as a bson.M object and an error if any.
+// The function logs the performance duration and recovers from any panics.
+// The function uses the MongoDB Go driver to query the collection.
 
 func (doc *DocDB) GetItembyID(collectionname string, id string) (bson.M, error) {
 	startTime := time.Now()
@@ -212,6 +241,12 @@ func (doc *DocDB) GetItembyID(collectionname string, id string) (bson.M, error) 
 	*/
 	return result, err
 }
+
+// GetItembyName retrieves an item from the specified collection by its name.
+// It takes the collection name and the name as parameters.
+// It returns the item as a bson.M object and an error if any.
+// The function logs the performance duration and recovers from any panics.
+// The function uses the MongoDB Go driver to query the collection.
 func (doc *DocDB) UpdateCollection(collectionname string, filter bson.M, update bson.M, idata interface{}) error {
 	startTime := time.Now()
 	defer func() {
@@ -251,6 +286,12 @@ func (doc *DocDB) UpdateCollection(collectionname string, filter bson.M, update 
 
 }
 
+// InsertCollection inserts a new item into the specified collection.
+// It takes the collection name and the item as parameters.
+// It returns the result of the insert operation and an error if any.
+// The function logs the performance duration and recovers from any panics.
+// The function uses the MongoDB Go driver to insert the item into the collection.
+
 func (doc *DocDB) InsertCollection(collectionname string, idata interface{}) (*mongo.InsertOneResult, error) {
 	startTime := time.Now()
 	defer func() {
@@ -281,6 +322,11 @@ func (doc *DocDB) InsertCollection(collectionname string, idata interface{}) (*m
 	return insertResult, err
 }
 
+// DeleteItemFromCollection deletes an item from the specified collection by its ID.
+// It takes the collection name and the ID as parameters.
+// It returns an error if any.
+// The function logs the performance duration and recovers from any panics.
+// The function uses the MongoDB Go driver to delete the item from the collection.
 func (doc *DocDB) DeleteItemFromCollection(collectionname string, documentid string) error {
 	startTime := time.Now()
 	defer func() {
@@ -316,20 +362,26 @@ func (doc *DocDB) DeleteItemFromCollection(collectionname string, documentid str
 	return nil
 }
 
+// DeleteCollection deletes a collection from the MongoDB database.
+// It takes the collection name as a parameter.
+// It returns an error if any.
+// The function logs the performance duration and recovers from any panics.
+// The function uses the MongoDB Go driver to delete the collection.
+
 func (doc *DocDB) convertToBsonM(data interface{}) (bson.M, error) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
 		doc.iLog.PerformanceWithDuration("documents.convertToBsonM", elapsed)
 	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			doc.iLog.Error(fmt.Sprintf("There is error to documents.convertToBsonM with error: %s", err))
-			return
-		}
-	}()
-	dataBytes, err := bson.Marshal(data)
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				doc.iLog.Error(fmt.Sprintf("There is error to documents.convertToBsonM with error: %s", err))
+				return
+			}
+		}()
+	*/dataBytes, err := bson.Marshal(data)
 	if err != nil {
 		doc.iLog.Error(fmt.Sprintf("failed to convert data to bson.M with error: %s", err))
 		return nil, err

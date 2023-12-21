@@ -65,6 +65,19 @@ type MqttClient struct {
 	SignalRClient  signalr.Client
 }
 
+// NewMqttClient creates a new instance of MqttClient with the given configurations.
+// It initializes the MqttClient with the provided configurations and returns a pointer to the created MqttClient.
+// The MqttClient is initialized with the following parameters:
+// - mqttBrokertype: a string representing the type of the MQTT broker (tcp, ws, wss).
+// - mqttBroker: a string representing the MQTT broker address.
+// - mqttPort: a string representing the MQTT broker port.
+// - certFile: a string representing the certificate file path.
+// - keyFile: a string representing the key file path.
+// - caCertFile: a string representing the CA certificate file path.
+// - mqttClientID: a string representing the MQTT client ID.
+// - mqttTopics: a slice of MqttTopic structs representing the MQTT topics to subscribe to.
+// - iLog: a logger.Log struct representing the logger.
+// - Client: a mqtt.Client struct representing the MQTT client.
 func NewMqttClient(configurations Mqtt) *MqttClient {
 	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "MqttClient"}
 
@@ -97,6 +110,18 @@ func NewMqttClient(configurations Mqtt) *MqttClient {
 	return mqttclient
 }
 
+// NewMqttClientbyExternal creates a new instance of MqttClient with the provided configurations, database connection, document database connection, and SignalR client.
+// It initializes the MqttClient with the given configurations and returns the created MqttClient instance.
+// The MqttClient is initialized with the following parameters:
+// - mqttBrokertype: a string representing the type of the MQTT broker (tcp, ws, wss).
+// - mqttBroker: a string representing the MQTT broker address.
+// - mqttPort: a string representing the MQTT broker port.
+// - certFile: a string representing the certificate file path.
+// - keyFile: a string representing the key file path.
+// - caCertFile: a string representing the CA certificate file path.
+// - mqttClientID: a string representing the MQTT client ID.
+// - mqttTopics: a slice of MqttTopic structs representing the MQTT topics to subscribe to.
+// - iLog: a logger.Log struct representing the logger.
 func NewMqttClientbyExternal(configurations Mqtt, DB *sql.DB, DocDBconn *documents.DocDB, SignalRClient signalr.Client) *MqttClient {
 	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "MqttClient"}
 
@@ -124,6 +149,11 @@ func NewMqttClientbyExternal(configurations Mqtt, DB *sql.DB, DocDBconn *documen
 	mqttclient.Initialize_mqttClient()
 	return mqttclient
 }
+
+// Initialize_mqttClient initializes the MQTT client by setting up the client options,
+// connecting to the MQTT broker, subscribing to the desired MQTT topics,
+// and starting a goroutine to handle incoming MQTT messages.
+// It takes no parameters and returns nothing.
 
 func (mqttClient *MqttClient) Initialize_mqttClient() {
 	// Create an MQTT client options
@@ -222,7 +252,7 @@ func (mqttClient *MqttClient) Initialize_mqttClient() {
 					Handler:   handler,
 					CreatedOn: time.Now().UTC(),
 				}
-				mqttClient.iLog.Debug(fmt.Sprintf("Push message %s to queue: %s", message, mqttClient.Queue.QueueID))
+				mqttClient.iLog.Debug(fmt.Sprintf("Push message %v to queue: %s", message, mqttClient.Queue.QueueID))
 				mqttClient.Queue.Push(message)
 
 			}
@@ -232,6 +262,14 @@ func (mqttClient *MqttClient) Initialize_mqttClient() {
 	// Wait for termination signal to gracefully shutdown
 	mqttClient.waitForTerminationSignal()
 }
+
+// Publish publishes a message to the MQTT broker with the specified topic and payload.
+// It waits for the operation to complete and logs the result.
+// It takes two parameters:
+// - topic: a string representing the MQTT topic to publish to.
+// - payload: a string representing the MQTT message payload.
+// It returns nothing.
+
 func (mqttClient *MqttClient) Publish(topic string, payload string) {
 
 	token := mqttClient.Client.Publish(topic, 0, false, payload)
@@ -243,6 +281,13 @@ func (mqttClient *MqttClient) Publish(topic string, payload string) {
 	}
 }
 
+// loadCACert loads the CA certificate from the specified file and returns a *x509.CertPool.
+// It reads the contents of the file using ioutil.ReadFile and appends the certificate to a new CertPool.
+// If there is an error reading the file, it logs an error message and returns nil.
+// It takes one parameter:
+// - caCertFile: a string representing the CA certificate file path.
+// It returns a *x509.CertPool.
+
 func (mqttClient *MqttClient) loadCACert(caCertFile string) *x509.CertPool {
 	caCert, err := ioutil.ReadFile(caCertFile)
 	if err != nil {
@@ -253,6 +298,8 @@ func (mqttClient *MqttClient) loadCACert(caCertFile string) *x509.CertPool {
 	return caCertPool
 }
 
+// waitForTerminationSignal waits for an interrupt signal or a termination signal and performs a graceful shutdown of the MQTT client.
+// It listens for the os.Interrupt and syscall.SIGTERM signals and upon receiving the signal, it disconnects the MQTT client, performs any necessary cleanup or graceful shutdown logic, and exits the program.
 func (mqttClient *MqttClient) waitForTerminationSignal() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)

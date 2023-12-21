@@ -28,6 +28,12 @@ import (
 	"github.com/mdaxf/signalrsrv/signalr"
 )
 
+// Connect establishes a connection to a SignalR server using the provided configuration.
+// It returns a signalr.Client and an error if any.
+// The config parameter is a map containing the server and hub information.
+// The server key should be a string representing the server address.
+// The hub key should be a string representing the hub name.
+
 func Connect(config map[string]interface{}) (signalr.Client, error) {
 	ilog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "SignalR Server connection"}
 
@@ -57,6 +63,8 @@ type IACMessageBus struct {
 
 var groupname = "IAC_Internal_MessageBus"
 
+// Receive receives a message from the SignalR client and logs it.
+// It takes a string parameter 'message' which represents the received message.
 func (c *IACMessageBus) Receive(message string) {
 	ilog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "SignalR Client Receive message"}
 	//	fmt.Printf("Receive message: %s \n", message)
