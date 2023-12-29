@@ -6,6 +6,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 
+	"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/logger"
 
 	"github.com/mdaxf/iac/documents"
@@ -147,6 +148,60 @@ func UpdateNotification(ndata interface{}, user string, comments string, status 
 		iLog.Error(fmt.Sprintf("failed to update notification: %v", err))
 		return err
 	}
+
+	go com.IACMessageBusClient.Invoke("send", "IAC_SERVER_NOTIICATION_UPDATE", newdata, "")
+
+	return nil
+}
+
+func UpdateNotificationbyUUID(uuid string, user string, comments string) error {
+	iLog := logger.Log{ModuleName: logger.Framework, User: user, ControllerName: "Notifications"}
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("notification.UpdateNotificationbyUUID", elapsed)
+	}()
+
+	defer func() {
+		err := recover()
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error: %v", err))
+		}
+	}()
+
+	var filter bson.M
+	filter = bson.M{"uuid": uuid}
+
+	update := bson.M{
+		"$set": bson.M{
+			"system.updatedby": user,
+			"system.updatedon": time.Now(),
+			"receipts." + user: 2,
+			"histories": bson.M{
+				"$push": bson.M{
+					"status":    1,
+					"updatedby": user,
+					"updatedon": time.Now(),
+					"comments":  comments,
+				},
+			},
+		},
+	}
+
+	err := documents.DocDBCon.UpdateCollection("Notifications", filter, nil, update)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("failed to update notification: %v", err))
+		return err
+	}
+
+	data := make(map[string]interface{})
+	data["uuid"] = uuid
+	data["comments"] = comments
+	data["user"] = user
+
+	go com.IACMessageBusClient.Invoke("send", "IAC_SERVER_NOTIICATION_REPLY", data, "")
+
 	return nil
 }
 
@@ -194,5 +249,8 @@ func CreateNewNotification(notificationdata interface{}, user string) error {
 		iLog.Error(fmt.Sprintf("failed to save notification: %v", err))
 		return err
 	}
+
+	go com.IACMessageBusClient.Invoke("send", "IAC_SERVER_NOTIICATION", ndata, "")
+
 	return nil
 }
