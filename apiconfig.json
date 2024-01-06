@@ -195,7 +195,37 @@
             "path": "/response",
             "handler": "ResponseNotification"
           }
-        ]}  
+        ]},
+        {
+          "path": "workflow",
+          "module": "WorkFlowController",    
+          "endpoints": [
+            {
+              "method": "POST",
+              "path": "/tasksbyuser",
+              "handler": "GetTasksbyUser"
+            },{
+              "method": "POST",
+              "path": "/tasksbyentity",
+              "handler": "GetWorkFlowTasks"
+            },{
+              "method": "POST",
+              "path": "/uuid",
+              "handler": "GetWorkFlowbyUUID"
+            },{
+              "method": "POST",
+              "path": "/explode",
+              "handler": "ExplodeWorkFlow"
+            },{
+              "method": "POST",
+              "path": "/starttask",
+              "handler": "StartTask"
+            },{
+              "method": "POST",
+              "path": "/completetask",
+              "handler": "CompleteTask"
+            }
+          ]}   
   ],
   "portal":{
     "port": 8080,

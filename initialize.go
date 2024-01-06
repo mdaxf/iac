@@ -35,6 +35,9 @@ import (
 	"github.com/mdaxf/iac/integration/signalr"
 
 	"github.com/mdaxf/iac/logger"
+
+	"github.com/mdaxf/iac/engine/trancode"
+	"github.com/mdaxf/iac/framework/callback_mgr"
 )
 
 var err error
@@ -82,6 +85,14 @@ func initialize() {
 		}
 		fmt.Printf("IAC Message Bus: %v", com.IACMessageBusClient)
 		ilog.Debug(fmt.Sprintf("IAC Message Bus: %v", com.IACMessageBusClient))
+	}()
+
+	go func() {
+
+		ilog.Debug("Register the trancode execution interface")
+		tfr := trancode.TranFlowstr{}
+		callback_mgr.RegisterCallBack("TranCode_Execute", tfr.Execute)
+
 	}()
 
 	fmt.Printf("initialize end time: %v", time.Now())

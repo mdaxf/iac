@@ -13,12 +13,12 @@ import (
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/logger"
 
-	"github.com/mdaxf/iac/engine/trancode"
-
 	"github.com/mdaxf/iac/com"
 	wftype "github.com/mdaxf/iac/workflow/types"
 
 	"github.com/mdaxf/iac/notifications"
+
+	"github.com/mdaxf/iac/framework/callback_mgr"
 )
 
 type WorkFlowTask struct {
@@ -138,7 +138,7 @@ func (wft *WorkFlowTask) StartTask() error {
 	}
 	dbop := dbconn.NewDBOperation(wft.UserName, DBTx, logger.Framework)
 
-	rows, err := dbop.Query_Json("select WorkflowEntityID, WorkflowNodeID, NotificationUUID from workflow_tasks where ID = $1", wft.WorkFlowTaskID)
+	rows, err := dbop.Query_Json(fmt.Sprintf("select WorkflowEntityID, WorkflowNodeID, NotificationUUID from workflow_tasks where ID = %d", wft.WorkFlowTaskID))
 	if err != nil {
 		wft.iLog.Error(fmt.Sprintf("Error in getting workflow entity id: %s", err))
 		return err
@@ -149,21 +149,24 @@ func (wft *WorkFlowTask) StartTask() error {
 		return err
 	}
 
-	NotificationUUID := rows[0]["NotificationUUID"].(string)
-
 	err = wft.UpdateTaskStatus(2)
 
 	if err != nil {
 		wft.iLog.Error(fmt.Sprintf("Update the task status to %d error!", 2))
 	}
 
-	if internaltransaction == true {
+	if internaltransaction {
 		DBTx.Commit()
 	}
 
-	go func() {
-		notifications.UpdateNotificationbyUUID(NotificationUUID, wft.UserName, "Task Started")
-	}()
+	if rows[0]["NotificationUUID"] != nil {
+		go func() {
+
+			NotificationUUID := rows[0]["NotificationUUID"].(string)
+			notifications.UpdateNotificationbyUUID(NotificationUUID, wft.UserName, "Task Started")
+
+		}()
+	}
 
 	return nil
 
@@ -215,7 +218,7 @@ func (wft *WorkFlowTask) CompleteTask() error {
 		return err
 	}
 
-	rows, err := dbop.Query_Json("select WorkflowEntityID, WorkflowNodeID, ProcessData, NotificationUUID from workflow_tasks where ID = $1", wft.WorkFlowTaskID)
+	rows, err := dbop.Query_Json(fmt.Sprintf("select WorkflowEntityID, WorkflowNodeID, ProcessData, NotificationUUID from workflow_tasks where ID = %d", wft.WorkFlowTaskID))
 	if err != nil {
 		wft.iLog.Error(fmt.Sprintf("Error in getting workflow entity id: %s", err))
 		return err
@@ -226,29 +229,66 @@ func (wft *WorkFlowTask) CompleteTask() error {
 		return err
 	}
 
-	WorkflowEntityID := rows[0]["WorkflowEntityID"].(int64)
-	WorkflowNodeID := rows[0]["WorkflowNodeID"].(string)
-	ProcessData := rows[0]["ProcessData"].(map[string]interface{})
-	NotificationUUID := rows[0]["NotificationUUID"].(string)
+	var WorkflowEntityID int64 = 0
+	WorkflowNodeID := ""
+	ProcessData := map[string]interface{}{}
+	NotificationUUID := ""
 
-	rows, err = dbop.Query_Json("select WorkflowUUID. WorkFlow from workflow_entities where ID = $1", WorkflowEntityID)
+	if rows[0]["WorkflowEntityID"] != nil {
+		WorkflowEntityID = rows[0]["WorkflowEntityID"].(int64)
+	}
+
+	if rows[0]["WorkflowNodeID"] != nil {
+		WorkflowNodeID = rows[0]["WorkflowNodeID"].(string)
+	}
+
+	if rows[0]["ProcessData"] != nil {
+		err := json.Unmarshal([]byte(rows[0]["ProcessData"].(string)), &ProcessData)
+		if err != nil {
+			wft.iLog.Error(fmt.Sprintf("Error in getting process data: %s", err))
+			return err
+		}
+	}
+
+	if rows[0]["NotificationUUID"] != nil {
+		NotificationUUID = rows[0]["NotificationUUID"].(string)
+	}
+
+	if WorkflowEntityID == 0 || WorkflowNodeID == "" {
+		err = fmt.Errorf("Error in getting workflow entity id: %s", err)
+		wft.iLog.Error(fmt.Sprintf("Error in getting workflow entity id: %s", err))
+		return err
+	}
+
+	rows, err = dbop.Query_Json(fmt.Sprintf("select WorkflowUUID from workflow_entities where ID = %d", WorkflowEntityID))
 	if err != nil {
 		wft.iLog.Error(fmt.Sprintf("Error in getting workflow uuid: %s", err))
 		return err
 	}
 
 	if len(rows) == 0 {
-		wft.iLog.Error(fmt.Sprintf("Error in getting workflow uuid: %s", err))
+		wft.iLog.Error(fmt.Sprintf("Error in getting workflow uuid: %s length of result is 0", err))
 		return err
 	}
 
 	var WorkFlow wftype.WorkFlow
-	//WorkflowUUID := rows[0]["WorkflowUUID"].(string)
-	WorkFlowSchema := rows[0]["WorkFlow"].([]byte)
 
-	err = json.Unmarshal(WorkFlowSchema, &WorkFlow)
+	WorkflowUUID := ""
+	if rows[0]["WorkflowUUID"] != nil {
+		WorkflowUUID = rows[0]["WorkflowUUID"].(string)
+	}
+	//WorkFlowSchema := rows[0]["WorkFlow"].([]byte)
+
+	if WorkflowUUID == "" {
+		err = fmt.Errorf("Error in getting workflow uuid: %s", err)
+		wft.iLog.Error(fmt.Sprintf("Error in getting workflow uuid: %s", err))
+		return err
+	}
+
+	WorkFlow, _, err = GetWorkFlowbyUUID(WorkflowUUID, wft.UserName, *wft.DocDBCon)
+	//err = json.Unmarshal(WorkFlowSchema, &WorkFlow)
 	if err != nil {
-		wft.iLog.Error(fmt.Sprintf("Error in unmarshalling workflow schema: %s", err))
+		wft.iLog.Error(fmt.Sprintf("Error in getting workflow schema: %s", err))
 		return err
 	}
 
@@ -273,6 +313,7 @@ func (wft *WorkFlowTask) CompleteTask() error {
 			"data": "Status",
 			"operator": "eq",
 			"value": "Approved",
+			"target": "nodeid"
 		}
 
 
@@ -385,7 +426,7 @@ func ExplodeNextNodes(wg *sync.WaitGroup, WorkflowEntityID int64, nextNodes []wf
 	defer idbTx.Rollback()
 
 	DocDBCon := documents.DocDBCon
-	defer DocDBCon.MongoDBClient.Disconnect(context.Background())
+	//	defer DocDBCon.MongoDBClient.Disconnect(context.Background())
 
 	wfexplode := NewExplosion("", "", "", UserName, "")
 	for _, node := range nextNodes {
@@ -432,12 +473,12 @@ func ValidateAndCompleteWorkFlow(WorkFlowEntityID int64, idbTx *sql.Tx, DocDBCon
 
 	if DocDBCon == nil {
 		DocDBCon = documents.DocDBCon
-		defer DocDBCon.MongoDBClient.Disconnect(context.Background())
+		//		defer DocDBCon.MongoDBClient.Disconnect(context.Background())
 	}
 
 	dbop := dbconn.NewDBOperation(UserName, idbTx, logger.Framework)
 
-	tasks, err := dbop.Query_Json("select * from workflow_tasks where WorkflowEntityID = $1 AND Status != $2", WorkFlowEntityID, 5)
+	tasks, err := dbop.Query_Json(fmt.Sprintf("select * from workflow_tasks where WorkflowEntityID = %d AND Status != %d", WorkFlowEntityID, 5))
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error in getting workflow tasks: %s", err))
 
@@ -490,7 +531,7 @@ func CheckRoutingCondition(Routing wftype.RoutingTable, ProcessData map[string]i
 		iLog.PerformanceWithDuration("CheckRoutingCondition", elapsed)
 	}()
 
-	iLog.Debug(fmt.Sprintf("CheckRoutingCondition by routing: %v", Routing))
+	iLog.Debug(fmt.Sprintf("CheckRoutingCondition by routing: %v with data %v", Routing, ProcessData))
 
 	if Routing.Default {
 		return true
@@ -569,13 +610,17 @@ func ExecuteTask(workflowtaskid int64, NodeData wftype.Node, idbTx *sql.Tx, DocD
 
 		wft.UpdateTaskStatus(2) // In Progress / started
 
-		_, err = ExecuteTaskTranCode(workflowtaskid, NodeData.TranCode, NodeData.ProcessData, idbTx, DocDBCon, UserName)
+		if NodeData.TranCode != "" {
 
-		if err != nil {
-			wft.UpdateTaskStatus(4) // executed with Error
-			return nil, err
+			//_, err = callback_mgr.CallBackFunc("TranCode_Execute", workflowtaskid, NodeData.TranCode, NodeData.ProcessData, idbTx, DocDBCon, UserName)
+
+			_, err = ExecuteTaskTranCode(workflowtaskid, NodeData.TranCode, NodeData.ProcessData, idbTx, DocDBCon, UserName)
+
+			if err != nil {
+				wft.UpdateTaskStatus(4) // executed with Error
+				return nil, err
+			}
 		}
-
 		wft.CompleteTask()
 
 		if internaltransaction {
@@ -629,8 +674,8 @@ func ExecuteTaskTranCode(workflowtaskid int64, TranCodeName string, data map[str
 	data["WorkFlowTaskID"] = workflowtaskid
 	sc := com.IACMessageBusClient
 
-	result, err := trancode.ExecutebyExternal(TranCodeName, data, idbTx, DocDBCon, sc)
-
+	//result, err := trancode.ExecutebyExternal(TranCodeName, data, idbTx, DocDBCon, sc)
+	result, err := callback_mgr.CallBackFunc("TranCode_Execute", TranCodeName, data, idbTx, DocDBCon, sc)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error in executing tran code: %s", err))
 		return nil, err
@@ -638,7 +683,7 @@ func ExecuteTaskTranCode(workflowtaskid int64, TranCodeName string, data map[str
 
 	dbop := dbconn.NewDBOperation(UserName, idbTx, logger.Framework)
 
-	rows, err := dbop.Query_Json("select WorkflowEntityID, WorkflowNodeID, ProcessData from workflow_tasks where ID = $1", workflowtaskid)
+	rows, err := dbop.Query_Json(fmt.Sprintf("select WorkflowEntityID, WorkflowNodeID, ProcessData from workflow_tasks where ID = %d", workflowtaskid))
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error in getting workflow entity id: %s", err))
 		return nil, err
@@ -651,7 +696,8 @@ func ExecuteTaskTranCode(workflowtaskid int64, TranCodeName string, data map[str
 
 	ProcessData := rows[0]["ProcessData"].(map[string]interface{})
 
-	for key, value := range result {
+	outputs := callback_mgr.ConvertSliceToMap(result)
+	for key, value := range outputs {
 		ProcessData[key] = value
 	}
 
@@ -673,7 +719,7 @@ func ExecuteTaskTranCode(workflowtaskid int64, TranCodeName string, data map[str
 	//	DocDBCon.Commit()
 	//}
 
-	return result, nil
+	return outputs, nil
 }
 
 // GetWorkFlowTasks retrieves the workflow tasks associated with a given workflow entity ID and user name.
@@ -712,7 +758,41 @@ func GetWorkFlowTasks(workflowentityid int64, UserName string) ([]map[string]int
 	dbop := dbconn.NewDBOperation(UserName, DBTx, logger.Framework)
 
 	// Get workflow entity
-	result, err := dbop.Query_Json("select * from workflow_tasks where WorkflowEntityID = $1", workflowentityid)
+	result, err := dbop.Query_Json(fmt.Sprintf("select * from workflow_tasks where WorkflowEntityID = %d", workflowentityid))
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error in getting workflow tasks: %s", err))
+		return nil, err
+	}
+
+	DBTx.Commit()
+
+	return result, nil
+}
+
+func GetTasksbyUser(UserName string) ([]map[string]interface{}, error) {
+	iLog := logger.Log{ModuleName: logger.Framework, ControllerName: "workflow tasks"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("GetTasksbyUser", elapsed)
+	}()
+
+	iLog.Debug(fmt.Sprintf("GetTasksbyUser by username: %s", UserName))
+
+	DBTx, err := dbconn.DB.Begin()
+
+	defer DBTx.Rollback()
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error in creating DB connection: %s", err))
+		return nil, err
+	}
+
+	dbop := dbconn.NewDBOperation(UserName, DBTx, logger.Framework)
+
+	// Get workflow entity
+	result, err := dbop.Query_Json(fmt.Sprintf("SELECT * FROM workflow_tasks wt WHERE exists (Select 1 FROM workflow_task_assignments wts LEFT JOIN user_roles ur on ur.RoleID = wts.RoleID INNER JOIN users u on u.ID = wts.UserID OR ur.UserID = u.ID where wts.workflowTaskID = wt.ID AND u.LoginName = '%s')", UserName))
 
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error in getting workflow tasks: %s", err))

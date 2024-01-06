@@ -34,6 +34,7 @@ import (
 	"github.com/mdaxf/iac/controllers/role"
 	"github.com/mdaxf/iac/controllers/trans"
 	"github.com/mdaxf/iac/controllers/user"
+	"github.com/mdaxf/iac/controllers/workflow"
 	"github.com/mdaxf/iac/framework/auth"
 )
 
@@ -107,6 +108,10 @@ func getModule(module string) reflect.Value {
 		return reflect.ValueOf(moduleInstance)
 	case "NotificationController":
 		moduleInstance := &notifications.NotificationController{}
+		return reflect.ValueOf(moduleInstance)
+
+	case "WorkFlowController":
+		moduleInstance := &workflow.WorkFlowController{}
 		return reflect.ValueOf(moduleInstance)
 	}
 

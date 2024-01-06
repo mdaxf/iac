@@ -395,6 +395,82 @@ func (c *CollectionController) GetDetailCollectionDatabyName(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"data": collectionitems})
 }
 
+func (c *CollectionController) GetDetailCollectionDatabyUUID(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDetailCollectionDatabyName"}
+	startTime := time.Now()
+
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("collectionop.GetDetailCollectionDatabyName", elapsed)
+	}()
+	/*	defer func() {
+			err := recover()
+			if err != nil {
+				iLog.Error(fmt.Sprintf("Error: %v", err))
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()
+
+		_, user, clientid, err := common.GetRequestUser(ctx)
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		iLog.ClientID = clientid
+		iLog.User = user
+
+		iLog.Debug(fmt.Sprintf("Get default collection detail data from respository"))
+
+		var data CollectionData
+		if err := ctx.BindJSON(&data); err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	*/
+	body, clientid, user, err := common.GetRequestBodyandUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	var data CollectionData
+
+	iLog.Debug(fmt.Sprintf("GetDetailCollectionDatabyName from respository with body: %s", body))
+
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error umarshal body: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	collectionName := data.CollectionName
+
+	list := data.Data
+	value := list["uuid"]
+
+	iLog.Debug(fmt.Sprintf("Collection Name: %s, data: %s", collectionName, list))
+	if collectionName == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid collection name"})
+		return
+	}
+
+	collectionitems, err := documents.DocDBCon.GetItembyUUID(collectionName, value.(string))
+
+	if err != nil {
+
+		iLog.Error(fmt.Sprintf("failed to retrieve the detail data from collection: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": collectionitems})
+}
+
 // UpdateCollectionData updates the collection data in the repository.
 // It retrieves the user information from the request context and binds the JSON data.
 // If the collection name is invalid, it returns an error response.

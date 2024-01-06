@@ -43,7 +43,7 @@ func NewExplosion(WorkFlowName string, EntityName string, Type string, UserName 
 	log.ClientID = ClientID
 
 	DBConn := documents.DocDBCon
-
+	fmt.Print(log)
 	return &ExplodionEngine{
 		WorkflowName: WorkFlowName,
 		EntityName:   EntityName,
@@ -56,7 +56,10 @@ func NewExplosion(WorkFlowName string, EntityName string, Type string, UserName 
 
 }
 
-func (e *ExplodionEngine) Explode() {
+func (e *ExplodionEngine) Explode() error {
+	/*if e.Log.ModuleName == "" {
+		e.Log = logger.Log{ModuleName: logger.Framework, User: e.UserName, ControllerName: "workflow"}
+	} */
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
@@ -70,30 +73,30 @@ func (e *ExplodionEngine) Explode() {
 		}
 	}()
 
-	e.Log.Info(fmt.Sprintf("Start to explode workflow data %s's %s", e.WorkflowName, "Retrieven"))
+	e.Log.Debug(fmt.Sprintf("Start to explode workflow data %s's %s", e.WorkflowName, "Retrieven"))
 
 	workflowM, err := e.getWorkFlowbyName()
 	if err != nil {
 		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", err))
-		return
+		return err
 	}
 
 	if workflowM == nil {
 		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", "Workflow not found"))
-		return
+		return err
 	}
 
 	jsonString, err := json.Marshal(workflowM)
 	if err != nil {
 		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", err))
-		return
+		return err
 	}
 
 	var workflow wftype.WorkFlow
 	err = json.Unmarshal(jsonString, &workflow)
 	if err != nil {
 		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", err))
-		return
+		return err
 	}
 	e.workflow = workflow
 
@@ -113,8 +116,9 @@ func (e *ExplodionEngine) Explode() {
 	}
 
 	if startNode.ID == "" {
-		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", "Start node not found"))
-		return
+		err = fmt.Errorf("start node not found")
+		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", "start node not found"))
+		return err
 	}
 
 	e.Log.Debug(fmt.Sprintf("Workflow %s start node %s is %s ", e.WorkflowName, startNode.ID, e.Type))
@@ -132,15 +136,16 @@ func (e *ExplodionEngine) Explode() {
 	}
 
 	if len(firstNodes) == 0 {
+		err = fmt.Errorf("the first node not found")
 		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", "First node not found"))
-		return
+		return err
 	}
 
 	if e.DBTx == nil {
 		e.DBTx, err = dbconn.DB.Begin()
 		if err != nil {
 			e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", err))
-			return
+			return err
 		}
 		defer e.DBTx.Rollback()
 	}
@@ -149,14 +154,14 @@ func (e *ExplodionEngine) Explode() {
 
 	dbop := dbconn.NewDBOperation(e.UserName, e.DBTx, "Workflow.Explosion")
 
-	columns := []string{"Type", "Entity", "Data", "Status", "WorkflowUUID", "Workflow", "createdby", "createddate", "updatedby", "updateddate"}
-	values := []string{e.Type, e.EntityName, "", "1", workflow.UUID, fmt.Sprintf("%v", workflowM), e.UserName, fmt.Sprintf("%s", time.Now().UTC().String()), e.UserName, fmt.Sprintf("%s", time.Now().UTC().String())}
+	columns := []string{"Type", "Entity", "Status", "WorkflowUUID", "Workflow", "createdby", "createdon", "updatedby", "updatedon"}
+	values := []string{e.Type, e.EntityName, "1", workflow.UUID, string(jsonString), e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05"), e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05")}
 
 	wfentityid, err := dbop.TableInsert("workflow_entities", columns, values)
 
 	if err != nil {
 		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", err))
-		return
+		return err
 	}
 
 	for _, node := range firstNodes {
@@ -167,8 +172,9 @@ func (e *ExplodionEngine) Explode() {
 	err = e.DBTx.Commit()
 	if err != nil {
 		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", err))
-		return
+		return err
 	}
+	return nil
 
 }
 
@@ -186,10 +192,16 @@ func (e *ExplodionEngine) explodeNode(node wftype.Node, workflowentityid int64, 
 		}
 	}()
 
+	jsonData, err := json.Marshal(node.ProcessData)
+	if err != nil {
+		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.explodeNode: %s", err))
+		return
+	}
+
 	dbop := dbconn.NewDBOperation(e.UserName, DBTx, "Workflow.Explosion")
 
-	columns := []string{"WorkflowEntityID", "Type", "Data", "Status", "WorkflowNodeID", "WorkflowNodeSchema", "Page", "TranCode", "createdby", "createddate", "updatedby", "updateddate"}
-	values := []string{fmt.Sprintf("%d", workflowentityid), node.Type, "", "1", node.ID, fmt.Sprintf("%v", node), node.Page, node.TranCode, e.UserName, fmt.Sprintf("%s", time.Now().UTC().String()), e.UserName, fmt.Sprintf("%s", time.Now().UTC().String())}
+	columns := []string{"WorkflowEntityID", "Type", "Status", "WorkflowNodeID", "ProcessData", "Page", "TranCode", "createdby", "createdon", "updatedby", "updatedon"}
+	values := []string{fmt.Sprintf("%d", workflowentityid), node.Type, "1", node.ID, string(jsonData), node.Page, node.TranCode, e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05"), e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05")}
 
 	taskid, err := dbop.TableInsert("workflow_tasks", columns, values)
 
@@ -207,53 +219,56 @@ func (e *ExplodionEngine) explodeNode(node wftype.Node, workflowentityid int64, 
 
 	for _, role := range node.Roles {
 
-		rows, err := dbop.Query_Json("select id from roles where Name = $1", role)
-
-		if err != nil {
-			e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.explodeNode to get the role assignment: %s", err))
-
-		} else if len(rows) == 0 {
-			e.Log.Error(fmt.Sprintf("System does not find the role: %s", role))
-		} else {
-			roleid := rows[0]["id"].(int64)
-			roleids = append(roleids, roleid)
-			columns = []string{"WorkflowTaskID", "RoleID", "createdby", "createddate", "updatedby", "updateddate"}
-			values = []string{fmt.Sprintf("%d", taskid), fmt.Sprintf("%d", roleid), e.UserName, fmt.Sprintf("%s", time.Now().UTC().String()), e.UserName, fmt.Sprintf("%s", time.Now().UTC().String())}
-
-			_, err = dbop.TableInsert("workflow_task_assignments", columns, values)
+		if role != "" {
+			rows, err := dbop.Query_Json(fmt.Sprintf("select id from roles where Name = '%s'", role))
 
 			if err != nil {
-				e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.explodeNode during adding assignment: %s", err))
-				return
-			}
+				e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.explodeNode to get the role assignment: %s", err))
 
-			notroles[role] = 1
+			} else if len(rows) == 0 {
+				e.Log.Error(fmt.Sprintf("System does not find the role: %s", role))
+			} else {
+				roleid := rows[0]["id"].(int64)
+				roleids = append(roleids, roleid)
+				columns = []string{"WorkflowTaskID", "RoleID", "createdby", "createdon", "updatedby", "updatedon"}
+				values = []string{fmt.Sprintf("%d", taskid), fmt.Sprintf("%d", roleid), e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05"), e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05")}
+
+				_, err = dbop.TableInsert("workflow_task_assignments", columns, values)
+
+				if err != nil {
+					e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.explodeNode during adding assignment: %s", err))
+					return
+				}
+
+				notroles[role] = 1
+			}
 		}
 	}
 
 	userids := []int64{}
 
 	for _, user := range node.Users {
-
-		rows, err := dbop.Query_Json("select id from users where Name = $1", user)
-
-		if err != nil {
-			e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.explodeNode during gettign userid: %s", err))
-		} else if len(rows) == 0 {
-			e.Log.Error(fmt.Sprintf("System does not find the user: %s", user))
-		} else {
-			userid := rows[0]["id"].(int64)
-			userids = append(userids, userid)
-			columns = []string{"WorkflowTaskID", "UserID", "createdby", "createddate", "updatedby", "updateddate"}
-			values = []string{fmt.Sprintf("%d", taskid), fmt.Sprintf("%d", userid), e.UserName, fmt.Sprintf("%s", time.Now().UTC().String()), e.UserName, fmt.Sprintf("%s", time.Now().UTC().String())}
-
-			_, err = dbop.TableInsert("workflow_task_assignments", columns, values)
+		if user != "" {
+			rows, err := dbop.Query_Json(fmt.Sprintf("select id from users where Name = '%s'", user))
 
 			if err != nil {
-				e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.explodeNode during adding assignment: %s", err))
-				return
+				e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.explodeNode during gettign userid: %s", err))
+			} else if len(rows) == 0 {
+				e.Log.Error(fmt.Sprintf("System does not find the user: %s", user))
+			} else {
+				userid := rows[0]["id"].(int64)
+				userids = append(userids, userid)
+				columns = []string{"WorkflowTaskID", "UserID", "createdby", "createdon", "updatedby", "updatedon"}
+				values = []string{fmt.Sprintf("%d", taskid), fmt.Sprintf("%d", userid), e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05"), e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05")}
+
+				_, err = dbop.TableInsert("workflow_task_assignments", columns, values)
+
+				if err != nil {
+					e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.explodeNode during adding assignment: %s", err))
+					return
+				}
+				notusers[user] = 1
 			}
-			notusers[user] = 1
 		}
 	}
 	node.Roleids = roleids
@@ -293,8 +308,8 @@ func (e *ExplodionEngine) explodeNode(node wftype.Node, workflowentityid int64, 
 
 	}
 
-	columns = []string{"WorkflowEntityID", "WorkflowTaskID", "Type", "Data", "Status", "createdby", "createddate", "updatedby", "updateddate"}
-	values = []string{fmt.Sprintf("%d", workflowentityid), fmt.Sprintf("%d", taskid), "create task", fmt.Sprintf("%v", node), "1", e.UserName, fmt.Sprintf("%s", time.Now().UTC().String()), e.UserName, fmt.Sprintf("%s", time.Now().UTC().String())}
+	columns = []string{"WorkflowEntityID", "WorkflowTaskID", "Type", "Status", "createdby", "createdon", "updatedby", "updatedon"}
+	values = []string{fmt.Sprintf("%d", workflowentityid), fmt.Sprintf("%d", taskid), "create task", "1", e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05"), e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05")}
 
 	_, err = dbop.TableInsert("workflow_task_histories", columns, values)
 
@@ -388,4 +403,51 @@ func convertWorkFlowNodeToJson(node wftype.Node) []byte {
 		}
 	*/
 	return result
+}
+
+func GetWorkFlowbyUUID(uuid string, UserName string, DocDBCon documents.DocDB) (wftype.WorkFlow, primitive.M, error) {
+	log := logger.Log{}
+	log.ModuleName = logger.Framework
+	log.ControllerName = "workflow"
+	log.User = UserName
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("engine.funcs.NewFuncs", elapsed)
+	}()
+
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", r))
+			return
+		}
+	}()
+
+	filter := bson.M{"uuid": uuid}
+
+	workflowM, err := DocDBCon.QueryCollection("WorkFlow", filter, nil)
+	if err != nil {
+		log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.getWorkFlowbyUUID: %s", err))
+		return wftype.WorkFlow{}, nil, err
+	}
+
+	if workflowM == nil {
+		log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", "Workflow not found"))
+		return wftype.WorkFlow{}, nil, err
+	}
+
+	jsonString, err := json.Marshal(workflowM[0])
+	if err != nil {
+		log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", err))
+		return wftype.WorkFlow{}, nil, err
+	}
+
+	var workflow wftype.WorkFlow
+	err = json.Unmarshal(jsonString, &workflow)
+	if err != nil {
+		log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", err))
+		return wftype.WorkFlow{}, nil, err
+	}
+	return workflow, workflowM[0], nil
 }

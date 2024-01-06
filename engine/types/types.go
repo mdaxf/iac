@@ -122,6 +122,9 @@ const (
 	ThrowError
 	SendMessage
 	SendEmail
+	ExplodeWorkFlow
+	StartWorkFlowTask
+	CompleteWorkFlowTask
 )
 
 type Status int

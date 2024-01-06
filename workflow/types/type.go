@@ -44,6 +44,6 @@ type RoutingTable struct {
 	Default  bool   `json:"default"`
 	Sequence int    `json:"sequence"`
 	Data     string `json:"data"`
-	Value    string `json:"values"`
+	Value    string `json:"value"`
 	Target   string `json:"target"`
 }

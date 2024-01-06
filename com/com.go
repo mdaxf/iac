@@ -35,6 +35,12 @@ func ConverttoIntwithDefault(value interface{}, defaultvalue int) int {
 		return value.(int)
 	case float64:
 		return int(value.(float64))
+	case string:
+		temp, err := strconv.Atoi(value.(string))
+		if err != nil {
+			return defaultvalue
+		}
+		return temp
 	default:
 		return defaultvalue
 	}

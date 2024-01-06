@@ -37,7 +37,7 @@ func TestCallBackFunc(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := CallBackFunc(tt.args.key, tt.args.args...); !reflect.DeepEqual(got, tt.want) {
+			if got, _ := CallBackFunc(tt.args.key, tt.args.args...); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("CallBackFunc() = %v, want %v", got, tt.want)
 			}
 		})

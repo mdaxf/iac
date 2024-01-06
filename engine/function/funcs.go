@@ -1059,6 +1059,19 @@ func (f *Funcs) Execute() {
 		case types.SendEmail:
 			se := EmailFuncs{}
 			se.Execute(f)
+
+		case types.ExplodeWorkFlow:
+			wf := WorkFlowFunc{}
+			wf.Execute_Explode(f)
+
+		case types.StartWorkFlowTask:
+			wf := WorkFlowFunc{}
+			wf.Execute_StartTask(f)
+
+		case types.CompleteWorkFlowTask:
+			wf := WorkFlowFunc{}
+			wf.Execute_CompleteTask(f)
+
 		}
 
 		f.iLog.Debug(fmt.Sprintf("executed function %s with outputs: %s", f.Fobj.Name, logger.ConvertJson(f.FunctionOutputs)))

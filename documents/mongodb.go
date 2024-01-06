@@ -157,6 +157,37 @@ func (doc *DocDB) QueryCollection(collectionname string, filter bson.M, projecti
 	return results, nil
 }
 
+func (doc *DocDB) GetItembyUUID(collectionname string, uuid string) (bson.M, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		doc.iLog.PerformanceWithDuration("documents.GetDefaultItembyName", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			doc.iLog.Error(fmt.Sprintf("There is error to documents.GetDefaultItembyName with error: %s", err))
+			return
+		}
+	}()
+
+	MongoDBCollection := doc.MongoDBDatabase.Collection(collectionname)
+
+	filter := bson.M{"uuid": uuid}
+
+	doc.iLog.Debug(fmt.Sprintf("GetDefaultItembyName: %s from collection:%s", filter, collectionname))
+	//var result bson.Raw
+	var result bson.M
+	err := MongoDBCollection.FindOne(context.Background(), filter).Decode(&result)
+
+	if err != nil {
+		doc.iLog.Error(fmt.Sprintf("failed to get data from collection with error: %s", err))
+	}
+	doc.iLog.Debug(fmt.Sprintf("GetDefaultItembyName: %s", result))
+
+	return result, err
+}
+
 // GetDefaultItembyName retrieves the default item from the specified collection by name.
 // It takes the collection name and the name of the item as input parameters.
 // It returns the retrieved item as a bson.M object and an error if any.
