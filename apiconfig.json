@@ -222,8 +222,20 @@
               "handler": "StartTask"
             },{
               "method": "POST",
+              "path": "/updatedatacomplete",
+              "handler": "UpdateProcessDataAndComplete"
+            },{
+              "method": "POST",
+              "path": "/executecomplete",
+              "handler": "ExecuteTaskTranCodeAndComplete"
+            },{
+              "method": "POST",
               "path": "/completetask",
               "handler": "CompleteTask"
+            },{
+              "method": "POST",
+              "path": "/pretaskdata",
+              "handler": "GetPreTaskData"
             }
           ]}   
   ],

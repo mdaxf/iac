@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mdaxf/iac/engine/callback"
+	//	"github.com/mdaxf/iac/engine/callback"
+	"github.com/mdaxf/iac/framework/callback_mgr"
 )
 
 type TranFlow interface {
@@ -65,12 +66,13 @@ func (cf *SubTranCodeFuncs) Execute(f *Funcs) {
 
 	f.iLog.Debug(fmt.Sprintf("Executing subtran function to call transaction code: %v with inputs %s", tcode, mappedinputs))
 
-	outputs := callback.ExecuteTranCode("TranFlowstr_Execute", tcode, mappedinputs, nil, nil, f.DBTx, f.DocDBCon, f.SignalRClient)
+	outputs, err := callback_mgr.CallBackFunc("TranCode_Execute", tcode, mappedinputs, nil, nil, f.DBTx, f.DocDBCon, f.SignalRClient)
+	//outputs := callback.ExecuteTranCode("TranFlowstr_Execute", tcode, mappedinputs, nil, nil, f.DBTx, f.DocDBCon, f.SignalRClient)
 	//outputs, err := cf.TranFlowstr.Execute(tcode, mappedinputs, f.Ctx, f.CtxCancel, f.DBTx)
-	/*if err != nil {
+	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Error executing transaction code: %v", err))
 		return
-	}  */
+	}
 	f.SetOutputs(convertSliceToMap(outputs))
 }
 

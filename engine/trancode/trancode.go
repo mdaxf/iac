@@ -17,7 +17,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 
 	"github.com/mdaxf/iac/com"
-	"github.com/mdaxf/iac/engine/callback"
 	"github.com/mdaxf/signalrsrv/signalr"
 )
 
@@ -203,9 +202,10 @@ func NewTranFlow(tcode types.TranCode, externalinputs, systemSession map[string]
 	*/
 	idbTx := append(dbTx, nil)[0]
 
-	tfr := TranFlowstr{}
-	callback.RegisterCallBack("TranFlowstr_Execute", tfr.Execute)
-
+	/*
+		tfr := TranFlowstr{}
+		callback.RegisterCallBack("TranFlowstr_Execute", tfr.Execute)
+	*/
 	return &TranFlow{
 		Tcode:           tcode,
 		DBTx:            idbTx,

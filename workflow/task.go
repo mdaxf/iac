@@ -172,6 +172,156 @@ func (wft *WorkFlowTask) StartTask() error {
 
 }
 
+func (wft *WorkFlowTask) UpdateProcessData(extprocessdata map[string]interface{}) error {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		wft.iLog.PerformanceWithDuration("UpdateProcessData", elapsed)
+	}()
+
+	wft.iLog.Debug(fmt.Sprintf("UpdateProcessData by workflowtaskid: %d with new process data: %v", wft.WorkFlowTaskID, extprocessdata))
+
+	DBTx := wft.DBTx
+	err := error(nil)
+	internaltransaction := false
+
+	if DBTx == nil {
+		DBTx, err = dbconn.DB.Begin()
+		internaltransaction = true
+		defer DBTx.Rollback()
+
+		if err != nil {
+			wft.iLog.Error(fmt.Sprintf("Error in creating DB connection: %s", err))
+			return err
+		}
+	}
+	dbop := dbconn.NewDBOperation(wft.UserName, DBTx, logger.Framework)
+
+	rows, err := dbop.Query_Json(fmt.Sprintf("select WorkflowEntityID, WorkflowNodeID, ProcessData, NotificationUUID from workflow_tasks where ID = %d", wft.WorkFlowTaskID))
+	if err != nil {
+		wft.iLog.Error(fmt.Sprintf("Error in getting cureent process data: %s", err))
+		return err
+	}
+
+	if len(rows) == 0 {
+		wft.iLog.Error(fmt.Sprintf("Error in getting cureent process data %s", err))
+		return err
+	}
+	ProcessData := map[string]interface{}{}
+
+	if rows[0]["ProcessData"] != nil {
+		err := json.Unmarshal([]byte(rows[0]["ProcessData"].(string)), &ProcessData)
+		if err != nil {
+			wft.iLog.Error(fmt.Sprintf("Error in getting process data: %s", err))
+			return err
+		}
+	}
+
+	wft.iLog.Debug(fmt.Sprintf("the current process data: %v", ProcessData))
+	for key, value := range extprocessdata {
+		ProcessData[key] = value
+	}
+
+	wft.iLog.Debug(fmt.Sprintf("the new process data: %v", ProcessData))
+
+	jsonData, err := json.Marshal(ProcessData)
+	if err != nil {
+		wft.iLog.Error(fmt.Sprintf("Error in WorkFlow.Explosion.explodeNode: %s", err))
+		return err
+	}
+
+	Columns := []string{"ProcessData"}
+	Values := []string{string(jsonData)}
+	datatypes := []int{int(0)}
+	Where := fmt.Sprintf("ID = %d", wft.WorkFlowTaskID)
+	_, err = dbop.TableUpdate("workflow_tasks", Columns, Values, datatypes, Where)
+	if err != nil {
+		wft.iLog.Error(fmt.Sprintf("Error in updating workflow tasks: %s", err))
+		return err
+	}
+
+	if internaltransaction {
+		DBTx.Commit()
+	}
+	return nil
+
+}
+
+func (wft *WorkFlowTask) ExecuteTaskTranCode(TranCode string) error {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		wft.iLog.PerformanceWithDuration("ExecuteTaskTranCode", elapsed)
+	}()
+
+	wft.iLog.Debug(fmt.Sprintf("ExecuteTaskTranCode by workflowtaskid: %d", wft.WorkFlowTaskID))
+
+	if TranCode == "" {
+		wft.iLog.Debug("Trancode canot be empty!")
+		return fmt.Errorf("Trancode is empty!")
+	}
+
+	DBTx := wft.DBTx
+	err := error(nil)
+	internaltransaction := false
+
+	if DBTx == nil {
+		DBTx, err = dbconn.DB.Begin()
+		internaltransaction = true
+		defer DBTx.Rollback()
+
+		if err != nil {
+			wft.iLog.Error(fmt.Sprintf("Error in creating DB connection: %s", err))
+			return err
+		}
+	}
+	dbop := dbconn.NewDBOperation(wft.UserName, DBTx, logger.Framework)
+
+	rows, err := dbop.Query_Json(fmt.Sprintf("select WorkflowEntityID, WorkflowNodeID, ProcessData, NotificationUUID from workflow_tasks where ID = %d", wft.WorkFlowTaskID))
+	if err != nil {
+		wft.iLog.Error(fmt.Sprintf("Error in getting workflow entity id: %s", err))
+		return err
+	}
+
+	if len(rows) == 0 {
+		wft.iLog.Error(fmt.Sprintf("Error in getting workflow entity id: %s", err))
+		return err
+	}
+
+	//	var WorkflowEntityID int64 = 0
+	//	WorkflowNodeID := ""
+	ProcessData := map[string]interface{}{}
+	//	NotificationUUID := ""
+	/*
+		if rows[0]["WorkflowEntityID"] != nil {
+			WorkflowEntityID = rows[0]["WorkflowEntityID"].(int64)
+		}
+
+		if rows[0]["WorkflowNodeID"] != nil {
+			WorkflowNodeID = rows[0]["WorkflowNodeID"].(string)
+		}
+	*/
+	if rows[0]["ProcessData"] != nil {
+		err := json.Unmarshal([]byte(rows[0]["ProcessData"].(string)), &ProcessData)
+		if err != nil {
+			wft.iLog.Error(fmt.Sprintf("Error in getting process data: %s", err))
+			return err
+		}
+	}
+
+	_, err = ExecuteTaskTranCode(wft.WorkFlowTaskID, TranCode, ProcessData, DBTx, wft.DocDBCon, wft.UserName)
+
+	if err != nil {
+		wft.iLog.Error(fmt.Sprintf("Error during executing the trancode with error: %v", err))
+		return err
+	}
+
+	if internaltransaction {
+		DBTx.Commit()
+	}
+	return nil
+}
+
 // CompleteTask completes the workflow task.
 // It updates the status and completed date of the task in the database.
 // If the task is a gateway, it checks the routing table to determine the next nodes.
@@ -371,9 +521,6 @@ func (wft *WorkFlowTask) CompleteTask() error {
 		notifications.UpdateNotificationbyUUID(NotificationUUID, wft.UserName, "Task Completed")
 	}()
 
-	if internaltransaction {
-		DBTx.Commit()
-	}
 	if len(nextNodes) > 0 {
 
 		var wg sync.WaitGroup
@@ -381,9 +528,13 @@ func (wft *WorkFlowTask) CompleteTask() error {
 		// Add 1 to the wait group
 		wg.Add(1)
 
-		go ExplodeNextNodes(&wg, WorkflowEntityID, nextNodes, wft.UserName)
+		go ExplodeNextNodes(&wg, WorkflowEntityID, nextNodes, wft.UserName, ProcessData)
 
 		wg.Wait()
+	}
+
+	if internaltransaction {
+		DBTx.Commit()
 	}
 
 	return nil
@@ -402,7 +553,7 @@ func (wft *WorkFlowTask) CompleteTask() error {
 //
 // Returns:
 // - An error if any error occurs during the process, otherwise nil.
-func ExplodeNextNodes(wg *sync.WaitGroup, WorkflowEntityID int64, nextNodes []wftype.Node, UserName string) error {
+func ExplodeNextNodes(wg *sync.WaitGroup, WorkflowEntityID int64, nextNodes []wftype.Node, UserName string, ProcessData map[string]interface{}) error {
 
 	defer wg.Done()
 
@@ -431,7 +582,7 @@ func ExplodeNextNodes(wg *sync.WaitGroup, WorkflowEntityID int64, nextNodes []wf
 	wfexplode := NewExplosion("", "", "", UserName, "")
 	for _, node := range nextNodes {
 		// create new workflow task
-		wfexplode.explodeNode(node, WorkflowEntityID, DocDBCon, idbTx)
+		wfexplode.explodeNode(node, WorkflowEntityID, DocDBCon, idbTx, ProcessData)
 	}
 
 	idbTx.Commit()
@@ -582,7 +733,7 @@ func ExecuteTask(workflowtaskid int64, NodeData wftype.Node, idbTx *sql.Tx, DocD
 		return nil, nil
 	}
 
-	if NodeData.TranCode != "" && NodeData.Page == "" {
+	if NodeData.Page == "" {
 
 		internaltransaction := false
 		err := error(nil)
@@ -671,7 +822,8 @@ func ExecuteTaskTranCode(workflowtaskid int64, TranCodeName string, data map[str
 		defer DocDBCon.MongoDBClient.Disconnect(context.Background())
 	}
 
-	data["WorkFlowTaskID"] = workflowtaskid
+	//data["WorkFlowTaskID"] = workflowtaskid
+	data["workflow_taskid"] = workflowtaskid
 	sc := com.IACMessageBusClient
 
 	//result, err := trancode.ExecutebyExternal(TranCodeName, data, idbTx, DocDBCon, sc)
@@ -802,4 +954,55 @@ func GetTasksbyUser(UserName string) ([]map[string]interface{}, error) {
 	DBTx.Commit()
 
 	return result, nil
+}
+
+func GetTaskPreTaskData(taskid int64, UserName string) (map[string]interface{}, error) {
+
+	iLog := logger.Log{ModuleName: logger.Framework, ControllerName: "GetTaskPreTaskData"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("GetTaskPreTaskData", elapsed)
+	}()
+
+	iLog.Debug(fmt.Sprintf("GetTaskPreTaskData by username: %s", UserName))
+
+	DBTx, err := dbconn.DB.Begin()
+
+	defer DBTx.Rollback()
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error in creating DB connection: %s", err))
+		return nil, err
+	}
+
+	dbop := dbconn.NewDBOperation(UserName, DBTx, logger.Framework)
+
+	// Get workflow entity
+	rows, err := dbop.Query_Json(fmt.Sprintf("SELECT PreTaskData FROM workflow_tasks WHERE id = %d", taskid))
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error in getting workflow task's PreTaskData: %s", err))
+		return nil, err
+	}
+
+	if len(rows) == 0 {
+		iLog.Error(fmt.Sprintf("Error in getting workflow uuid: %s length of result is 0", err))
+		return nil, err
+	}
+
+	PreTaskData := make(map[string]interface{})
+
+	if rows[0]["PreTaskData"] != nil {
+		err := json.Unmarshal([]byte(rows[0]["PreTaskData"].(string)), &PreTaskData)
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error in getting pretask data: %s", err))
+			return nil, err
+		}
+	}
+
+	DBTx.Commit()
+
+	return PreTaskData, nil
+
 }

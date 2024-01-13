@@ -37,8 +37,11 @@ func (w *WorkFlowFunc) Execute_Explode(f *Funcs) {
 	EntityType := ""
 	WorkFlowName := ""
 	Description := ""
+	Data := make(map[string]interface{})
 
 	for i, name := range namelist {
+		Data[name] = valuelist[i]
+
 		if name == "EntityName" {
 			EntityName = valuelist[i]
 		} else if name == "EntityType" {
@@ -59,7 +62,7 @@ func (w *WorkFlowFunc) Execute_Explode(f *Funcs) {
 	f.iLog.Debug(fmt.Sprintf("%s, %s", Description, EntityType))
 
 	wfe := workflow.NewExplosion(WorkFlowName, EntityName, EntityType, f.SystemSession["UserName"].(string), "")
-	err := wfe.Explode()
+	err := wfe.Explode(Description, Data)
 
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("failed to create the notification: %v", err))
