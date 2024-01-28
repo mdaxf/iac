@@ -14,6 +14,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/mdaxf/iac/config"
 	"github.com/mdaxf/iac/engine/trancode"
 	"github.com/mdaxf/iac/engine/types"
 	"github.com/mdaxf/iac/logger"
@@ -118,6 +119,188 @@ func (e *TranCodeController) ExecuteTranCode(ctx *gin.Context) {
 		iLog.Error(fmt.Sprintf("End process transaction code %s's %s with error %s", tcdata.TranCode, "Execute", err.Error()))
 		ctx.JSON(http.StatusBadRequest, gin.H{"execution failed": err.Error()})
 	}
+}
+
+func (e *TranCodeController) TestTranCode(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TestTranCode"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("controllers.trans.TestTranCode", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("ExecuteTranCode defer error: %s", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
+	requestobj, clientid, user, err := common.GetRequestBodyandUserbyJson(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get request information Error: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	iLog.Debug(fmt.Sprintf("Test transaction code with request: %s", logger.ConvertJson(requestobj)))
+
+	tcobj := requestobj["trancodeobj"].(map[string]interface{})
+
+	iLog.Debug(fmt.Sprintf("Test transaction code with tcobj: %s", logger.ConvertJson(tcobj)))
+
+	inputs := requestobj["inputs"].(map[string]interface{})
+
+	iLog.Debug(fmt.Sprintf("Test transaction code with inputs: %s", logger.ConvertJson(inputs)))
+
+	remotedebug := requestobj["remote"].(bool)
+
+	iLog.Debug(fmt.Sprintf("Remote Debug available? %v", remotedebug))
+	/*
+		data:{
+			"trancodeobj": tccode,
+			"inputs": inputs,
+		}
+
+
+	*/
+
+	iLog.Info(fmt.Sprintf("Start process transaction code %s's %s: %s", tcobj["TranCodeName"], "Test", inputs))
+
+	tcobjJSON, err := json.Marshal(tcobj)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error marshaling json:", err.Error()))
+		return
+	}
+	code, err := trancode.Configtoobj(string(tcobjJSON))
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error unmarshaling json:", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	systemsessions := make(map[string]interface{})
+	systemsessions["UserNo"] = user
+	systemsessions["ClientID"] = clientid
+	tf := trancode.NewTranFlow(code, inputs, systemsessions, nil, nil, nil)
+
+	tf.TestwithSc = true
+
+	_, err = tf.Execute()
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("End process transaction code %s's %s with error %s", code.Name, "Test", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"Test failed": err.Error()})
+		return
+	}
+
+	TestResults := tf.TestResults
+
+	//	TestSessionID,err := uuid.NewUUID();
+
+	if remotedebug {
+		TestSessionID := fmt.Sprintf("%s/%s", clientid, code.UUID)
+		TestResults["SessionID"] = TestSessionID
+
+		isexist, err := config.TestSessionCache.IsExist(ctx, TestSessionID)
+
+		if err != nil {
+			iLog.Error(fmt.Sprintf("End process transaction code %s's %s with error %s", code.Name, "Test", err.Error()))
+			ctx.JSON(http.StatusBadRequest, gin.H{"Test failed": err.Error()})
+			return
+		}
+
+		if isexist {
+			config.TestSessionCache.Delete(ctx, TestSessionID)
+		}
+
+		config.TestSessionCache.Put(ctx, TestSessionID, TestResults, time.Duration(time.Duration(config.ObjectCacheTimeout).Seconds()))
+	}
+
+	iLog.Debug(fmt.Sprintf("End process transaction code %s's %s ", code.Name, "Test"))
+	ctx.JSON(http.StatusOK, gin.H{"results": TestResults})
+
+}
+
+func (e *TranCodeController) RemoteTestTranCode(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TestTranCode"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("controllers.trans.TestTranCode", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("ExecuteTranCode defer error: %s", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
+	requestobj, clientid, user, err := common.GetRequestBodyandUserbyJson(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get request information Error: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	iLog.Debug(fmt.Sprintf("Test transaction code with request: %s", logger.ConvertJson(requestobj)))
+
+	TestSessionID := requestobj["testsessionid"].(string)
+
+	iLog.Debug(fmt.Sprintf("Test SessionID: %s", TestSessionID))
+
+	TestResults, err := config.TestSessionCache.Get(ctx, TestSessionID)
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("There is error to get the remote test result by testsessionid %s with error: %v", TestSessionID, err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"results": TestResults})
+}
+
+func (e *TranCodeController) DeleteRemoteTestCache(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "TestTranCode"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("controllers.trans.TestTranCode", elapsed)
+	}()
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("ExecuteTranCode defer error: %s", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+
+	requestobj, clientid, user, err := common.GetRequestBodyandUserbyJson(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get request information Error: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	iLog.Debug(fmt.Sprintf("Test transaction code with request: %s", logger.ConvertJson(requestobj)))
+
+	TestSessionID := requestobj["testsessionid"].(string)
+
+	iLog.Debug(fmt.Sprintf("Test SessionID: %s", TestSessionID))
+
+	config.TestSessionCache.Delete(ctx, TestSessionID)
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("There is error to delete the remote test result by testsessionid %s with error: %v", TestSessionID, err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"status": "Success"})
 }
 
 // UnitTest is a handler function for performing unit tests on transaction codes.

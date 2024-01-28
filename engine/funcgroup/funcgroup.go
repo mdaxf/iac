@@ -10,6 +10,7 @@ import (
 	"database/sql"
 
 	"github.com/mdaxf/iac/documents"
+	tcom "github.com/mdaxf/iac/engine/com"
 	funcs "github.com/mdaxf/iac/engine/function"
 	"github.com/mdaxf/iac/engine/types"
 	"github.com/mdaxf/iac/logger"
@@ -31,6 +32,8 @@ type FGroup struct {
 	DocDBCon            *documents.DocDB
 	SignalRClient       signalr.Client
 	ErrorMessage        string
+	TestwithSc          bool
+	TestResults         map[string]interface{}
 }
 
 // NewFGroup creates a new instance of FGroup.
@@ -74,6 +77,8 @@ func NewFGroup(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sq
 		DocDBCon:            DocDBCon,
 		SignalRClient:       SignalRClient,
 		ErrorMessage:        "",
+		TestwithSc:          false,
+		TestResults:         map[string]interface{}{},
 	}
 
 }
@@ -90,10 +95,15 @@ func (c *FGroup) Execute() {
 
 	defer func() {
 		if r := recover(); r != nil {
+
 			c.iLog.Error(fmt.Sprintf("Panic: %s", r))
 			c.ErrorMessage = fmt.Sprintf("Panic: %s", r)
 			c.DBTx.Rollback()
 			c.CtxCancel()
+			if c.TestwithSc {
+				tcom.SendTestResultMessageBus("", c.FGobj.ID, "", "End", "",
+					c.Externalinputs, c.Externaloutputs, c.SystemSession, c.UserSession, fmt.Errorf(c.ErrorMessage), c.SystemSession["ClientID"].(string), c.SystemSession["UserNo"].(string))
+			}
 			return
 		}
 	}()
@@ -109,6 +119,21 @@ func (c *FGroup) Execute() {
 	funcCachedVariables := map[string]interface{}{}
 	externalinputs := c.Externalinputs
 	externaloutputs := c.Externaloutputs
+
+	if c.TestwithSc {
+
+		c.TestResults["Name"] = c.FGobj.Name
+		c.TestResults["Type"] = "FunctionGroup"
+		c.TestResults["Inputs"] = c.Externalinputs
+		c.TestResults["Outputs"] = c.Externaloutputs
+		c.TestResults["UserSession"] = c.UserSession
+		c.TestResults["SystemSession"] = systemSession
+		c.TestResults["StartTime"] = time.Now()
+		c.TestResults["Functions"] = []map[string]interface{}{}
+
+		tcom.SendTestResultMessageBus("", c.FGobj.ID, "", "Start", "",
+			externalinputs, externaloutputs, systemSession, userSession, nil, c.SystemSession["ClientID"].(string), c.SystemSession["UserNo"].(string))
+	}
 
 	for _, fobj := range c.FGobj.Functions {
 		//	f := *(funcs.NewFuncs(fobj, systemSession, userSession, externalinputs, externaloutputs, funcCachedVariables))
@@ -131,15 +156,33 @@ func (c *FGroup) Execute() {
 			Externalinputs:      externalinputs,
 			Externaloutputs:     externaloutputs,
 			FuncCachedVariables: funcCachedVariables,
+			ErrorMessage:        "",
+			TestwithSc:          c.TestwithSc,
+			TestResults:         make([]map[string]interface{}, 0),
 		}
 
 		f.Execute()
+
+		if c.TestwithSc {
+			funcTestResults := c.TestResults["Functions"].([]map[string]interface{})
+
+			for _, ft := range f.TestResults {
+				funcTestResults = append(funcTestResults, ft)
+			}
+
+			c.TestResults["Functions"] = funcTestResults
+
+			tcom.SendTestResultMessageBus("", c.FGobj.ID, fobj.ID, "End", "",
+				f.Externalinputs, f.Externaloutputs, f.SystemSession, f.UserSession, fmt.Errorf(f.ErrorMessage), c.SystemSession["ClientID"].(string), c.SystemSession["UserNo"].(string))
+		}
+
 		if f.ErrorMessage != "" {
 			c.ErrorMessage = f.ErrorMessage
 			c.iLog.Error(fmt.Sprintf("Error: %s", c.ErrorMessage))
 			c.CtxCancel()
 			return
 		}
+
 		c.iLog.Info(fmt.Sprintf("End process function %s", fobj.Name))
 		//c.iLog.Debug(fmt.Sprintf("systemSession: %s", logger.ConvertJson(systemSession)))
 		c.iLog.Debug(fmt.Sprintf("funcCachedVariables: %s", logger.ConvertJson(funcCachedVariables)))
@@ -158,6 +201,14 @@ func (c *FGroup) Execute() {
 	c.funcCachedVariables = funcCachedVariables
 	c.Nextfuncgroup = c.CheckRouter(c.FGobj.RouterDef)
 
+	if c.TestwithSc {
+		c.TestResults["EndTime"] = time.Now()
+		c.TestResults["Outputs"] = c.Externaloutputs
+
+		tcom.SendTestResultMessageBus("", c.FGobj.ID, "", "End", "",
+			externalinputs, externaloutputs, systemSession, userSession, nil, c.SystemSession["ClientID"].(string), c.SystemSession["UserNo"].(string))
+
+	}
 	c.iLog.Info(fmt.Sprintf("End process function group %s's %s ", c.FGobj.Name, reflect.ValueOf(c.Execute).Kind().String()))
 	c.iLog.Debug(fmt.Sprintf("systemSession: %s", logger.ConvertJson(c.SystemSession)))
 	c.iLog.Debug(fmt.Sprintf("funcCachedVariables: %s", logger.ConvertJson(c.funcCachedVariables)))

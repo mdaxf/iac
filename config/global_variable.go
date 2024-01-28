@@ -21,7 +21,15 @@ import (
 var (
 	SessionCache        cache.Cache
 	SessionCacheTimeout float64
+
+	ObjectCache        cache.Cache
+	ObjectCacheTimeout float64
+
+	TestSessionCache        cache.Cache
+	TestSessionCacheTimeout float64
 )
+
+var ApiKey string
 
 var GlobalConfiguration *GlobalConfig
 

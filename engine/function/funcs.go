@@ -36,6 +36,8 @@ type Funcs struct {
 	DocDBCon             *documents.DocDB
 	SignalRClient        signalr.Client
 	ErrorMessage         string
+	TestwithSc           bool
+	TestResults          []map[string]interface{}
 }
 
 // NewFuncs creates a new instance of the Funcs struct.
@@ -104,6 +106,8 @@ func NewFuncs(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sql
 		DocDBCon:            DocDBCon,
 		SignalRClient:       SignalRClient,
 		ErrorMessage:        "",
+		TestwithSc:          false,
+		TestResults:         newdata,
 	}
 }
 
@@ -1077,6 +1081,28 @@ func (f *Funcs) Execute() {
 		f.iLog.Debug(fmt.Sprintf("executed function %s with outputs: %s", f.Fobj.Name, logger.ConvertJson(f.FunctionOutputs)))
 
 		f.ExecutionCount = i + 1
+
+		if f.TestwithSc == true {
+			functioninputs := map[string]interface{}{}
+
+			for _, input := range f.Fobj.Inputs {
+				functioninputs[input.Name] = input.Value
+			}
+
+			TestResult := make(map[string]interface{})
+			TestResult["Name"] = f.Fobj.Name
+			TestResult["Type"] = "Function"
+			TestResult["FunctionType"] = f.Fobj.Functype
+			TestResult["Inputs"] = functioninputs
+			TestResult["Outputs"] = f.FunctionOutputs
+			TestResult["UserSession"] = f.UserSession
+			TestResult["SystemSession"] = f.SystemSession
+			TestResult["ExecutionCount"] = f.ExecutionCount
+			TestResult["ExecutionNumber"] = f.ExecutionNumber
+			TestResult["ExecutionTime"] = time.Since(startTime)
+			f.TestResults = append(f.TestResults, TestResult)
+		}
+
 	}
 	f.SetfuncOutputs()
 }

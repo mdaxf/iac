@@ -251,18 +251,25 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		bearerToken := strings.Split(authHeader, " ")
 		//	log.Debug(fmt.Sprintf("Authorization Header:%s", bearerToken))
-		if len(bearerToken) != 2 || strings.ToLower(bearerToken[0]) != "bearer" {
+		if len(bearerToken) != 2 || (strings.ToLower(bearerToken[0]) != "bearer" && strings.ToLower(bearerToken[0]) != "apikey") {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token format"})
 			return
 		}
-
+		authtype := strings.ToLower(bearerToken[0])
 		tokenString := bearerToken[1]
 
-		ok, err := ValidateToken(tokenString)
+		if authtype == "apikey" {
+			if tokenString != config.ApiKey {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid APIKey"})
+				return
+			}
+		} else {
+			ok, err := ValidateToken(tokenString)
 
-		if err != nil || !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
-			return
+			if err != nil || !ok {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+				return
+			}
 		}
 		/*
 			// Parse the JWT token

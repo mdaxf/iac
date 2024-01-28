@@ -1,6 +1,7 @@
 {
   "port": 8080,
   "timeout": 5000,
+  "apikey":"ahbcgj",
   "controllers": [
     {
       "path": "user", 
@@ -150,6 +151,19 @@
           "method": "POST",
           "path": "/test",
           "handler": "TestbyTestData"
+        },
+        {
+          "method": "POST",
+          "path": "/uitest",
+          "handler": "TestTranCode"
+        },{
+          "method": "POST",
+          "path": "/remotetest",
+          "handler": "RemoteTestTranCode"
+        },{
+          "method": "POST",
+          "path": "/deletets",
+          "handler": "DeleteRemoteTestCache"
         }
       ]
     },
@@ -238,11 +252,5 @@
               "handler": "GetPreTaskData"
             }
           ]}   
-  ],
-  "portal":{
-    "port": 8080,
-    "path":"../iac-ui/portal",
-    "home":"../iac-ui/portal/uipage.html",
-    "logon":"../iac-ui/portal/login.html"
-  }
+  ]
 }

@@ -166,3 +166,6 @@ const (
 )
 
 var DateTimeFormat string = "2006-01-02 15:04:05"
+
+const TranCodeTestProcessMessageBus string = "IAC_TRANCODE_TEST_PROCESS"
+const TranCodeTestResultMessageBus string = "IAC_TRANCODE_TEST_RESULT"

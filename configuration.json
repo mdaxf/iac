@@ -78,8 +78,10 @@
         }
     },
     "cache":{
-        "adapter": "documentdb",
-        "interval": 7200,        
+        "adapter": "memory",
+        "interval": 7200, 
+        "objectinterval": 1800,
+        "testsessiontimeout": 900,       
         "redis":{
             "key": "collectionname",
             "conn": 6379,
@@ -101,10 +103,6 @@
             "db": "IAC_CACHE",
             "collection": "cache"
         }
-    },
-    "authorization":{
-        "adapter": "memory",
-        "timeout": 3600
     },
     "translation":{
         "autopopulate": true,

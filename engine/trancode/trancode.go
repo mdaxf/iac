@@ -11,12 +11,15 @@ import (
 
 	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/documents"
+
 	funcgroup "github.com/mdaxf/iac/engine/funcgroup"
+
 	"github.com/mdaxf/iac/engine/types"
 	"github.com/mdaxf/iac/logger"
 	"go.mongodb.org/mongo-driver/bson"
 
 	"github.com/mdaxf/iac/com"
+	tcom "github.com/mdaxf/iac/engine/com"
 	"github.com/mdaxf/signalrsrv/signalr"
 )
 
@@ -32,6 +35,8 @@ type TranFlow struct {
 	DocDBCon        *documents.DocDB
 	SignalRClient   signalr.Client
 	ErrorMessage    string
+	TestwithSc      bool
+	TestResults     map[string]interface{}
 }
 
 // ExecuteUnitTest executes a unit test for a given trancode with the provided systemsessions.
@@ -67,6 +72,7 @@ func ExecuteUnitTest(trancode string, systemsessions map[string]interface{}) (ma
 		return nil, err
 	}
 	tf := NewTranFlow(tranobj, map[string]interface{}{}, systemsessions, nil, nil)
+	tf.TestwithSc = true
 
 	result, err := tf.UnitTest()
 
@@ -109,6 +115,7 @@ func ExecuteUnitTestWithTestData(trancode string, testcase map[string]interface{
 		return nil, err
 	}
 	tf := NewTranFlow(tranobj, map[string]interface{}{}, systemsessions, nil, nil)
+	tf.TestwithSc = true
 
 	var testdata types.TestData
 
@@ -218,6 +225,8 @@ func NewTranFlow(tcode types.TranCode, externalinputs, systemSession map[string]
 		DocDBCon:        documents.DocDBCon,
 		SignalRClient:   com.IACMessageBusClient,
 		ErrorMessage:    "",
+		TestwithSc:      false,
+		TestResults:     map[string]interface{}{},
 	}
 }
 
@@ -275,19 +284,46 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 		defer t.CtxCancel()
 	}
 
+	if t.TestwithSc {
+		t.TestResults = map[string]interface{}{}
+		t.TestResults["Name"] = t.Tcode.Name
+		t.TestResults["Version"] = t.Tcode.Version
+		t.TestResults["Inputs"] = t.Externalinputs
+		t.TestResults["SystemSession"] = t.SystemSession
+		t.TestResults["UserSession"] = userSession
+		t.TestResults["Outputs"] = t.externaloutputs
+		t.TestResults["FunctionGroups"] = []map[string]interface{}{}
+
+		tcom.SendTestResultMessageBus(t.Tcode.Name, "", "", "UnitTest", "Start",
+			t.Externalinputs, t.externaloutputs, t.SystemSession, map[string]interface{}{}, nil, t.SystemSession["ClientID"].(string), t.SystemSession["UserNo"].(string))
+	}
+
 	t.ilog.Debug(fmt.Sprintf("Start process transaction code %s's first func group: %s ", t.Tcode.Name, t.Tcode.Firstfuncgroup))
 	fgroup, code := t.getFGbyName(t.Tcode.Firstfuncgroup)
 	t.ilog.Debug(fmt.Sprintf("start first function group:", logger.ConvertJson(fgroup)))
 
 	for code == 1 {
 		fg := funcgroup.NewFGroup(t.DocDBCon, t.SignalRClient, t.DBTx, fgroup, "", systemSession, userSession, externalinputs, externaloutputs, t.Ctx, t.CtxCancel)
+
+		fg.TestwithSc = t.TestwithSc
+
 		fg.Execute()
+
+		if t.TestwithSc {
+			t.TestResults["FunctionGroups"] = append(t.TestResults["FunctionGroups"].([]map[string]interface{}), fg.TestResults)
+		}
+
 		externalinputs = fg.Externalinputs
 		externaloutputs = fg.Externaloutputs
 		userSession = fg.UserSession
 
-		fgroup, code = t.getFGbyName(fg.Nextfuncgroup)
-		t.ilog.Debug(fmt.Sprintf("function group:%s, Code:%d", logger.ConvertJson(fgroup), code))
+		if fg.Nextfuncgroup == "" {
+			code = 0
+			break
+		} else {
+			fgroup, code = t.getFGbyName(fg.Nextfuncgroup)
+			t.ilog.Debug(fmt.Sprintf("function group:%s, Code:%d", logger.ConvertJson(fgroup), code))
+		}
 	}
 
 	if newTransaction {
@@ -299,6 +335,9 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 		}
 	}
 
+	if t.TestwithSc {
+		t.TestResults["Outputs"] = externaloutputs
+	}
 	return externaloutputs, nil
 
 }
@@ -409,6 +448,7 @@ type TranCodeData struct {
 }
 
 type TranFlowstr struct {
+	TestwithSc bool `json:"TestwithSc,omitempty"`
 }
 
 func (t *TranFlowstr) Execute(tcode string, inputs map[string]interface{}, sc signalr.Client, docdbconn *documents.DocDB, ctx context.Context, ctxcancel context.CancelFunc, dbTx ...*sql.Tx) (map[string]interface{}, error) {
@@ -437,6 +477,8 @@ func (t *TranFlowstr) Execute(tcode string, inputs map[string]interface{}, sc si
 
 	tf := NewTranFlow(tc, externalinputs, systemSession, ctx, ctxcancel, idbTx)
 	tf.SignalRClient = sc
+	tf.TestwithSc = t.TestwithSc
+
 	tf.DocDBCon = docdbconn
 
 	return tf.Execute()
@@ -472,7 +514,15 @@ func (t *TranFlow) UnitTestbyTestData(testdata types.TestData) (map[string]inter
 	testresult["ExpectedOutputs"] = testdata.Outputs
 	testresult["ExpectError"] = testdata.WantErr
 	testresult["ExpectedError"] = testdata.WantedErr
+
+	tcom.SendTestResultMessageBus(t.Tcode.Name, "", "", "UnitTest", "Start",
+		t.Externalinputs, t.externaloutputs, t.SystemSession, map[string]interface{}{}, nil, t.SystemSession["ClientID"].(string), t.SystemSession["UserNo"].(string))
+
 	outputs, err := t.Execute()
+
+	tcom.SendTestResultMessageBus(t.Tcode.Name, "", "", "UnitTest", "Complete",
+		t.Externalinputs, outputs, t.SystemSession, map[string]interface{}{}, err, t.SystemSession["ClientID"].(string), t.SystemSession["UserNo"].(string))
+
 	t.ilog.Debug(fmt.Sprintf("actual externaloutputs: %v, expected outputs: %v", outputs, testdata.Outputs))
 	if err != nil {
 		t.ilog.Error(fmt.Sprintf("Error in Trancode.Execute: %s", err.Error()))

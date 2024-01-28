@@ -204,8 +204,32 @@ func initializecache() {
 		config.SessionCacheTimeout = 3600
 	}
 
+	if cacheConfig["objectinterval"] == nil {
+		ilog.Error(fmt.Sprintf("initialize cache error: %s", "CacheTTL is missing"))
+		cacheConfig["objectinterval"] = 3600
+	}
+
+	if v, ok := cacheConfig["objectinterval"].(float64); ok {
+
+		config.ObjectCacheTimeout = v
+	} else {
+		config.ObjectCacheTimeout = 3600
+	}
+
+	if cacheConfig["testsessiontimeout"] == nil {
+		ilog.Error(fmt.Sprintf("initialize testsessiontimeout cache error: %s", "CacheTTL is missing"))
+		cacheConfig["testsessiontimeout"] = 1800
+	}
+
+	if v, ok := cacheConfig["testsessiontimeout"].(float64); ok {
+
+		config.TestSessionCacheTimeout = v
+	} else {
+		config.TestSessionCacheTimeout = 1800
+	}
 	//	fmt.Printf("CacheType: %s, CacheTTL: %d", cacheConfig["adapter"], config.SessionCacheTimeout)
 	ilog.Debug(fmt.Sprintf("initialize cache with the configuration, %v", cacheConfig))
+	ilog.Debug(fmt.Sprintf("SessionCacheinterval: %v, ObjectCacheTimeOut: %v, TestSessionCacheTimeOut: %v", config.SessionCacheTimeout, config.ObjectCacheTimeout, config.TestSessionCacheTimeout))
 
 	switch cacheConfig["adapter"] {
 	case "memcache":
@@ -218,8 +242,9 @@ func initializecache() {
 		}
 		config.SessionCache, err = cache.NewCache(cacheConfig["adapter"].(string), fmt.Sprintf(`{"conn":"%s"}`, conn))
 		if err != nil {
-			ilog.Error(fmt.Sprintf("initialize cache error: %s", err.Error()))
+			ilog.Error(fmt.Sprintf("initialize Session cache error: %s", err.Error()))
 		}
+
 	case "redis":
 		key := "IAC_Cache"
 		conn := "6379"
@@ -242,8 +267,9 @@ func initializecache() {
 		}
 		config.SessionCache, err = cache.NewCache(cacheConfig["adapter"].(string), fmt.Sprintf(`{"key":"%s","conn":"%s","dbNum":%d,"password":"%s"}`, key, conn, dbNum, password))
 		if err != nil {
-			ilog.Error(fmt.Sprintf("initialize cache error: %s", err.Error()))
+			ilog.Error(fmt.Sprintf("initialize Session cache error: %s", err.Error()))
 		}
+
 	case "file":
 		CachePath := ""
 		DirectoryLevel := 2
@@ -294,17 +320,26 @@ func initializecache() {
 		//cachedb.Initalize()
 		config.SessionCache, err = cache.NewCache(cacheConfig["adapter"].(string), fmt.Sprintf(`{"conn":"%s","db":"%s","collection":"%s"}`, conn, db, collection))
 		if err != nil {
-			ilog.Error(fmt.Sprintf("initialize cache error: %s", err.Error()))
+			ilog.Error(fmt.Sprintf("initialize Session cache error: %s", err.Error()))
 		}
 
-	default:
+	case "memory":
 		interval := config.SessionCacheTimeout
 		config.SessionCache, err = cache.NewCache(cacheConfig["adapter"].(string), fmt.Sprintf(`{"interval":%v}`, interval))
 		if err != nil {
 			ilog.Error(fmt.Sprintf("initialize cache error: %s", err.Error()))
 		}
-	}
 
+	default:
+		interval := config.SessionCacheTimeout
+		config.SessionCache, err = cache.NewCache("memory", fmt.Sprintf(`{"interval":%v}`, interval))
+		if err != nil {
+			ilog.Error(fmt.Sprintf("initialize cache error: %s", err.Error()))
+		}
+
+	}
+	config.ObjectCache = config.SessionCache
+	config.TestSessionCache = config.SessionCache
 }
 
 // initializeloger initializes the logger based on the global configuration.

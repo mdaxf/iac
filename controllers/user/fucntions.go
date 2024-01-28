@@ -74,7 +74,7 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 
 	//	log.Debug("Login execution function is called.")
 	log.Debug(fmt.Sprintf("login parameters:%s  %s  token: %s  renew:%s", username, password, clienttoken, Renew))
-	fmt.Println("Session Timeout:", config.SessionCacheTimeout)
+	//	fmt.Println("Session Timeout:", config.SessionCacheTimeout)
 	if Renew {
 
 		user, err := config.SessionCache.Get(ctx, clienttoken)

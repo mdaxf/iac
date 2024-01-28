@@ -45,6 +45,7 @@ type Config struct {
 	Controllers       []Controller       `json:"controllers"`
 	PluginControllers []PluginController `json:"plugins"`
 	Portal            Portal             `json:"portal"`
+	ApiKey            string             `json:"apikey"`
 }
 
 type Portal struct {
@@ -69,6 +70,9 @@ func LoadConfig() (*Config, error) {
 	if err := json.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse configuration file: %v", err)
 	}
+
+	ApiKey = config.ApiKey
+
 	fmt.Println("loaded portal and api configuration:", config)
 	return &config, nil
 }
