@@ -204,7 +204,7 @@ func (c *FGroup) Execute() {
 	if c.TestwithSc {
 		c.TestResults["EndTime"] = time.Now()
 		c.TestResults["Outputs"] = c.Externaloutputs
-
+		c.TestResults["Error"] = c.ErrorMessage
 		tcom.SendTestResultMessageBus("", c.FGobj.ID, "", "End", "",
 			externalinputs, externaloutputs, systemSession, userSession, nil, c.SystemSession["ClientID"].(string), c.SystemSession["UserNo"].(string))
 

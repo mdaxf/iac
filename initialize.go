@@ -28,6 +28,7 @@ import (
 	//	iacmb "github.com/mdaxf/iac/framework/messagebus"
 
 	//	"github.com/mdaxf/iac/integration/messagebus/nats"
+
 	"github.com/mdaxf/iac/integration/mqttclient"
 
 	//	"github.com/mdaxf/iac/integration/opcclient"
@@ -38,6 +39,9 @@ import (
 
 	"github.com/mdaxf/iac/engine/trancode"
 	"github.com/mdaxf/iac/framework/callback_mgr"
+
+	"github.com/mdaxf/iac/integration/activemq"
+	"github.com/mdaxf/iac/integration/kafka"
 )
 
 var err error
@@ -72,8 +76,7 @@ func initialize() {
 	//	nats.MB_NATS_CONN, err = nats.ConnectNATSServer()
 
 	initializedDocuments()
-	initializeMqttClient()
-	//	initializeOPCClient()
+
 	//	initializeIACMessageBus()
 	wg.Add(1)
 	go func() {
@@ -94,6 +97,15 @@ func initialize() {
 		callback_mgr.RegisterCallBack("TranCode_Execute", tfr.Execute)
 
 	}()
+
+	// integration point
+
+	initializeMqttClient()
+	//	initializeOPCClient()
+
+	initializeKafka()
+
+	initializeActiveMQConnection()
 
 	fmt.Printf("initialize end time: %v", time.Now())
 	Initialized = true
@@ -506,4 +518,91 @@ func initializeIACMessageBus() {
 			iacmb.IACMB.Channel.Write(logger.ConvertJson(data))
 			iacmb.IACMB.Channel.Write("Start the Message bus channel IAC") */
 	}()
+}
+
+func initializeKafka() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		ilog.PerformanceWithDuration("main.initializeKafka", elapsed)
+	}()
+
+	config.Kakfas = make(map[string]*kafka.KafkaConsumer)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		ilog.Debug("initialize Kafka Connection")
+
+		data, err := ioutil.ReadFile("kafkaconfig.json")
+		if err != nil {
+			ilog.Debug(fmt.Sprintf("failed to read configuration file: %v", err))
+			return
+		}
+		ilog.Debug(fmt.Sprintf("Kafka conenction configuration file: %s", string(data)))
+		var kafkacfgs kafka.KafkasConfig
+
+		err = json.Unmarshal(data, &kafkacfgs)
+		if err != nil {
+			ilog.Debug(fmt.Sprintf("failed to unmarshal the configuration file: %v", err))
+
+		}
+		ilog.Debug(fmt.Sprintf("Kafka Connection configuration: %v", logger.ConvertJson(kafkacfgs)))
+		i := 1
+		for _, kafakacfg := range kafkacfgs.Kafkas {
+			ilog.Debug(fmt.Sprintf("Single Kafka Connection configuration: %s", logger.ConvertJson(kafakacfg)))
+			kafkacon := kafka.NewKafkaConsumer(kafakacfg)
+
+			config.Kakfas[fmt.Sprintf("activemq_%d", i)] = kafkacon
+
+			i++
+		}
+
+		ilog.Debug(fmt.Sprintf("Kafka Connections: %v, %d", config.Kakfas, i))
+	}()
+
+}
+
+func initializeActiveMQConnection() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		ilog.PerformanceWithDuration("main.initializeActiveMQConnection", elapsed)
+	}()
+
+	config.ActiveMQs = make(map[string]*activemq.ActiveMQ)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		ilog.Debug("initialize ActiveMQ Connection")
+
+		data, err := ioutil.ReadFile("activemqconfig.json")
+		if err != nil {
+			ilog.Debug(fmt.Sprintf("failed to read configuration file: %v", err))
+			return
+		}
+		ilog.Debug(fmt.Sprintf("ActiveMQ conenction configuration file: %s", string(data)))
+		var activemqconfigs activemq.ActiveMQconfigs
+
+		err = json.Unmarshal(data, &activemqconfigs)
+		if err != nil {
+			ilog.Debug(fmt.Sprintf("failed to unmarshal the configuration file: %v", err))
+
+		}
+		ilog.Debug(fmt.Sprintf("ActiveMQ Connection configuration: %v", logger.ConvertJson(activemqconfigs)))
+		i := 1
+		for _, activemqcfg := range activemqconfigs.ActiveMQs {
+			ilog.Debug(fmt.Sprintf("Single ActiveMQ Connection configuration: %s", logger.ConvertJson(activemqcfg)))
+			activemqconn := activemq.NewActiveMQConnection(activemqcfg)
+
+			config.ActiveMQs[fmt.Sprintf("activemq_%d", i)] = activemqconn
+			i++
+		}
+
+		ilog.Debug(fmt.Sprintf("ActiveMQ Connections: %v, %d", config.ActiveMQs, i))
+	}()
+
 }

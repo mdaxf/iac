@@ -293,6 +293,7 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 		t.TestResults["UserSession"] = userSession
 		t.TestResults["Outputs"] = t.externaloutputs
 		t.TestResults["FunctionGroups"] = []map[string]interface{}{}
+		t.TestResults["Error"] = t.ErrorMessage
 
 		tcom.SendTestResultMessageBus(t.Tcode.Name, "", "", "UnitTest", "Start",
 			t.Externalinputs, t.externaloutputs, t.SystemSession, map[string]interface{}{}, nil, t.SystemSession["ClientID"].(string), t.SystemSession["UserNo"].(string))
@@ -337,6 +338,7 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 
 	if t.TestwithSc {
 		t.TestResults["Outputs"] = externaloutputs
+		t.TestResults["Error"] = t.ErrorMessage
 	}
 	return externaloutputs, nil
 

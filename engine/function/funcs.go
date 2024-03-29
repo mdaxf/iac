@@ -1002,6 +1002,7 @@ func (f *Funcs) Execute() {
 	f.ExecutionCount = 0
 
 	for i := 0; i < f.ExecutionNumber; i++ {
+		f.ErrorMessage = ""
 		f.iLog.Debug(fmt.Sprintf("Execute the function: %s, execution count: %d / %d", f.Fobj.Name, i+1, f.ExecutionNumber))
 		switch f.Fobj.Functype {
 		case types.InputMap:
@@ -1076,6 +1077,10 @@ func (f *Funcs) Execute() {
 			wf := WorkFlowFunc{}
 			wf.Execute_CompleteTask(f)
 
+		case types.SendMessagebyKafka:
+			sm := SendMessagebyKafka{}
+			sm.Execute(f)
+
 		}
 
 		f.iLog.Debug(fmt.Sprintf("executed function %s with outputs: %s", f.Fobj.Name, logger.ConvertJson(f.FunctionOutputs)))
@@ -1100,6 +1105,7 @@ func (f *Funcs) Execute() {
 			TestResult["ExecutionCount"] = f.ExecutionCount
 			TestResult["ExecutionNumber"] = f.ExecutionNumber
 			TestResult["ExecutionTime"] = time.Since(startTime)
+			TestResult["Error"] = f.ErrorMessage
 			f.TestResults = append(f.TestResults, TestResult)
 		}
 

@@ -20,6 +20,8 @@ import (
 	"io/ioutil"
 
 	"github.com/mdaxf/iac/com"
+	"github.com/mdaxf/iac/integration/activemq"
+	"github.com/mdaxf/iac/integration/kafka"
 	"github.com/mdaxf/iac/integration/mqttclient"
 )
 
@@ -59,6 +61,8 @@ var apiconfig = "apiconfig.json"
 var gconfig = "configuration.json"
 
 var MQTTClients map[string]*mqttclient.MqttClient
+var Kakfas map[string]*kafka.KafkaConsumer
+var ActiveMQs map[string]*activemq.ActiveMQ
 
 func LoadConfig() (*Config, error) {
 	data, err := ioutil.ReadFile(apiconfig)

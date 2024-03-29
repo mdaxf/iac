@@ -125,6 +125,7 @@ const (
 	ExplodeWorkFlow
 	StartWorkFlowTask
 	CompleteWorkFlowTask
+	SendMessagebyKafka
 )
 
 type Status int
