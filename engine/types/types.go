@@ -126,6 +126,9 @@ const (
 	StartWorkFlowTask
 	CompleteWorkFlowTask
 	SendMessagebyKafka
+	SendMessagebyMQTT
+	SendMessagebyAQMP
+	WebServiceCall
 )
 
 type Status int

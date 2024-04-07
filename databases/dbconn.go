@@ -20,7 +20,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/logger"
+
+	"github.com/mdaxf/iac/framework/sqldb/mysql/mysqldb"
 
 	_ "github.com/denisenkom/go-mssqldb"
 	_ "github.com/go-sql-driver/mysql"
@@ -72,21 +75,44 @@ func ConnectDB() error {
 		}
 	}()
 
-	// Log the database connection details
-	iLog.Info(fmt.Sprintf("Connect Database: %s %s", DatabaseType, DatabaseConnection))
+	dbconn := &com.DBConn{
+		DBType:       DatabaseType,
+		DBConnection: DatabaseConnection,
+		MaxIdleConns: MaxIdleConns,
+		MaxOpenConns: MaxOpenConns,
+	}
 
-	// Establish the database connection if it hasn't been done before
-	once.Do(func() {
-		DB, err = sql.Open(DatabaseType, DatabaseConnection)
-		if err != nil {
-			iLog.Error(fmt.Sprintf("Connect Database Error: %s", err.Error()))
-			return
-		}
-		DB.SetMaxIdleConns(MaxIdleConns)
-		DB.SetMaxOpenConns(MaxOpenConns)
-	})
+	mydbconn := &mysqldb.MyDBConn{
+		DBConn: *dbconn}
+
+	err := mydbconn.Connect()
+	if err != nil {
+		iLog.Error(fmt.Sprintf("initialize Database (MySQL) error: %s", err.Error()))
+		return err
+	}
+
+	DB = dbconn.DB
+	com.IACDBConn = dbconn
 
 	return nil
+	/*
+		// Log the database connection details
+		iLog.Info(fmt.Sprintf("Connect Database: %s %s", DatabaseType, DatabaseConnection))
+
+
+		// Establish the database connection if it hasn't been done before
+		once.Do(func() {
+			DB, err = sql.Open(DatabaseType, DatabaseConnection)
+			if err != nil {
+				iLog.Error(fmt.Sprintf("Connect Database Error: %s", err.Error()))
+				return
+			}
+			DB.SetMaxIdleConns(MaxIdleConns)
+			DB.SetMaxOpenConns(MaxOpenConns)
+		})
+
+		return nil
+	*/
 }
 
 // DBPing pings the database to check if it is still alive.
@@ -109,4 +135,12 @@ func DBPing() error {
 
 	return DB.Ping()
 
+}
+
+func Ping() error {
+	return DBPing()
+}
+
+func Reconnect() error {
+	return ConnectDB()
 }

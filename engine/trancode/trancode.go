@@ -39,6 +39,32 @@ type TranFlow struct {
 	TestResults     map[string]interface{}
 }
 
+func Execute(trancode string, data map[string]interface{}, systemsessions map[string]interface{}) (map[string]interface{}, error) {
+	iLog := logger.Log{ModuleName: logger.TranCode, User: "System", ControllerName: "TransCode"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("engine.TranCode.Execute", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("There is error to engine.TranCode.Execute with error: %s", err))
+			//	f.ErrorMessage = fmt.Sprintf("There is error to engine.funcs.ThrowErrorFuncs.Execute with error: %s", err)
+
+		}
+	}()
+
+	tranobj, err := getTranCodeData(trancode, documents.DocDBCon)
+	if err != nil {
+		return nil, err
+	}
+	tf := NewTranFlow(tranobj, data, systemsessions, nil, nil)
+
+	return tf.Execute()
+
+}
+
 // ExecuteUnitTest executes a unit test for a given trancode with the provided systemsessions.
 // It returns a map[string]interface{} containing the result of the unit test and an error, if any.
 // The result contains the following fields:

@@ -25,6 +25,7 @@ import (
 	config "github.com/mdaxf/iac/config"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mdaxf/iac/controllers/bpmcontroller"
 	"github.com/mdaxf/iac/controllers/collectionop"
 	"github.com/mdaxf/iac/controllers/databaseop"
 	"github.com/mdaxf/iac/controllers/function"
@@ -112,6 +113,10 @@ func getModule(module string) reflect.Value {
 
 	case "WorkFlowController":
 		moduleInstance := &workflow.WorkFlowController{}
+		return reflect.ValueOf(moduleInstance)
+
+	case "BPMController":
+		moduleInstance := &bpmcontroller.BPMController{}
 		return reflect.ValueOf(moduleInstance)
 	}
 

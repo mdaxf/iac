@@ -35,6 +35,8 @@ import (
 	mongodb "github.com/mdaxf/iac/documents"
 
 	"github.com/mdaxf/iac/com"
+
+	"github.com/go-co-op/gocron"
 )
 
 var wg sync.WaitGroup
@@ -53,7 +55,7 @@ func main() {
 	defer func() {
 		elapsed := time.Since(startTime)
 		if Initialized {
-			ilog.PerformanceWithDuration("main.initializeIACMessageBus", elapsed)
+			ilog.PerformanceWithDuration("main", elapsed)
 		}
 	}()
 	/*
@@ -257,7 +259,10 @@ func main() {
 	elapsed := time.Since(startTime)
 	ilog.PerformanceWithDuration("main.main", elapsed)
 
+	HeartbeatExecutor()
+
 	wg.Wait()
+
 }
 
 // loadpluginControllerModule loads a plugin controller module from the specified controllerPath.
@@ -403,4 +408,18 @@ func renderproxy(proxy map[string]interface{}, router *gin.Engine) {
 		})
 
 	}
+}
+
+func HeartbeatExecutor() {
+	wg.Add(1)
+
+	s := gocron.NewScheduler(time.UTC)
+
+	s.Every(5).Seconds().Do(checkconnection)
+
+	s.Every(10).Seconds().Do(checkservices)
+
+	s.StartAsync()
+
+	wg.Done()
 }

@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strconv"
 
+	"database/sql"
+
 	"github.com/mdaxf/signalrsrv/signalr"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -18,9 +20,48 @@ var SingalRConfig map[string]interface{}
 var TransactionTimeout int
 var DBTransactionTimeout int
 
-var MongoDBClients []*mongo.Client
+var IACDBConn *DBConn
+var IACDocDBConn *DocDB
 
+var MongoDBClients []*mongo.Client
 var IACMessageBusClient signalr.Client
+
+// HeartbeatChecker is an interface that defines the required methods
+// for performing heartbeat checks on various services.
+type HeartbeatChecker interface {
+	// Ping checks the health or connectivity of the service.
+	// It returns an error if the service is unhealthy or disconnected.
+	Ping() error
+
+	// Connect establishes a connection to the service.
+	Connect() error
+
+	// Disconnect closes the connection to the service.
+	Disconnect() error
+
+	// Reconnect attempts to reconnect to the service.
+	ReConnect() error
+}
+
+type DocDB struct {
+	MongoDBClient        *mongo.Client
+	MongoDBDatabase      *mongo.Database
+	MongoDBCollection_TC *mongo.Collection
+	/*
+	 */
+	DatabaseType       string
+	DatabaseConnection string
+	DatabaseName       string
+}
+
+type DBConn struct {
+	DBType       string
+	DBConnection string
+	DBName       string
+	DB           *sql.DB
+	MaxIdleConns int
+	MaxOpenConns int
+}
 
 func ConverttoInt(value interface{}) int {
 	return ConverttoIntwithDefault(value, 0)

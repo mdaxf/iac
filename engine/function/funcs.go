@@ -1081,6 +1081,9 @@ func (f *Funcs) Execute() {
 			sm := SendMessagebyKafka{}
 			sm.Execute(f)
 
+		case types.WebServiceCall:
+			ws := WebServiceCallFunc{}
+			ws.Execute(f)
 		}
 
 		f.iLog.Debug(fmt.Sprintf("executed function %s with outputs: %s", f.Fobj.Name, logger.ConvertJson(f.FunctionOutputs)))
