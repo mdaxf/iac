@@ -62,6 +62,13 @@ func Execute(trancode string, data map[string]interface{}, systemsessions map[st
 	}
 	tf := NewTranFlow(tranobj, data, systemsessions, nil, nil)
 
+	if callback_mgr.CallBackMap["TranCode_Execute"] == nil {
+		iLog.Debug("Register the trancode execution interface")
+		tfr := TranFlowstr{}
+		callback_mgr.RegisterCallBack("TranCode_Execute", tfr.Execute)
+
+	}
+
 	return tf.Execute()
 
 }
@@ -192,7 +199,7 @@ func ExecutebyExternal(trancode string, data map[string]interface{}, DBTx *sql.T
 	tf.DocDBCon = DBCon
 	tf.SignalRClient = sc
 
-	if callback_mgr.CallBackMap["TranCode_Execute"] != nil {
+	if callback_mgr.CallBackMap["TranCode_Execute"] == nil {
 		iLog.Debug("Register the trancode execution interface")
 		tfr := TranFlowstr{}
 		callback_mgr.RegisterCallBack("TranCode_Execute", tfr.Execute)
@@ -242,7 +249,12 @@ func NewTranFlow(tcode types.TranCode, externalinputs, systemSession map[string]
 		}()
 	*/
 	idbTx := append(dbTx, nil)[0]
+	if callback_mgr.CallBackMap["TranCode_Execute"] == nil {
+		log.Debug("Register the trancode execution interface")
+		tfr := TranFlowstr{}
+		callback_mgr.RegisterCallBack("TranCode_Execute", tfr.Execute)
 
+	}
 	/*
 		tfr := TranFlowstr{}
 		callback.RegisterCallBack("TranFlowstr_Execute", tfr.Execute)
