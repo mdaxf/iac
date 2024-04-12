@@ -48,6 +48,221 @@ var router *gin.Engine
 // The server also serves static files from the plugins directory.
 
 func main() {
+
+	Initialized = false
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		if Initialized {
+			ilog.PerformanceWithDuration("main", elapsed)
+		}
+	}()
+	/*
+		defer func() {
+			if r := recover(); r != nil {
+				if Initialized {
+					ilog.Error(fmt.Sprintf("Panic: %v", r))
+				} else {
+					log.Fatalf("Panic: %v", r)
+				}
+			}
+		}()  */
+	// Load configuration from the file
+
+	config, err := configuration.LoadConfig()
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+		//	ilog.Error("Failed to load configuration: %v", err)
+	}
+
+	configuration.GlobalConfiguration, err = configuration.LoadGlobalConfig()
+
+	if err != nil {
+		log.Fatalf("Failed to load global configuration: %v", err)
+		//	ilog.Error("Failed to load global configuration: %v", err)
+	}
+
+	initialize()
+
+	if dbconn.DB != nil {
+		defer dbconn.DB.Close()
+	} else {
+		//log.Fatalf("Failed to connect to database")
+		ilog.Error("Failed to connect to database")
+	}
+
+	if mongodb.DocDBCon.MongoDBClient != nil {
+		defer mongodb.DocDBCon.MongoDBClient.Disconnect(context.Background())
+	} else {
+		//log.Fatalf("Failed to connect to database")
+		ilog.Error("Failed to connect to document database")
+	}
+	// Initialize the Gin router
+
+	for _, dbclient := range com.MongoDBClients {
+		if dbclient != nil {
+			defer dbclient.Disconnect(context.Background())
+		} else {
+			//log.Fatalf("Failed to connect to database")
+			ilog.Error("Failed to connect to the configured document database")
+		}
+
+	}
+
+	if com.IACMessageBusClient != nil {
+		defer com.IACMessageBusClient.Stop()
+	} else {
+		//log.Fatalf("Failed to connect to database")
+		ilog.Error("Failed to connect to the configured message bus")
+	}
+	portal := config.Portal
+
+	router = gin.Default()
+
+	//router.Static("/portal", portal.Path)
+	//router.StaticFile("/portal", portal.Home)
+	//	router.StaticFile("/portal", portal.Logon)
+	/*
+		if configuration.GlobalConfiguration.WebServerConfig != nil {
+			webserverconfig := configuration.GlobalConfiguration.WebServerConfig
+			ilog.Debug(fmt.Sprintf("Webserver cconfig: %v", webserverconfig))
+
+			paths := webserverconfig["paths"].(map[string]interface{})
+
+			for key, value := range paths {
+				ilog.Debug(fmt.Sprintf("Webserver path: %s configuration: %v", key, value))
+				pathstr := value.(map[string]interface{})
+				path := pathstr["path"].(string)
+				home := pathstr["home"].(string)
+
+				if path != "" {
+					router.Static(fmt.Sprintf("/%s", key), path)
+					ilog.Debug(fmt.Sprintf("Webserver path: /%s with %s", key, path))
+				} else {
+					ilog.Error(fmt.Sprintf("there is error in configuration %s, path cannot be empty!", key))
+				}
+				if home != "" {
+					router.StaticFile(fmt.Sprintf("/%s", key), home)
+				}
+			}
+
+			proxy := webserverconfig["proxy"].(map[string]interface{})
+
+			if proxy != nil {
+				go renderproxy(proxy, router)
+			}
+
+			headers := webserverconfig["headers"].(map[string]interface{})
+			router.Use(GinMiddleware(headers))
+
+		}
+	*/
+	// Load controllers dynamically based on the configuration file
+	plugincontrollers := make(map[string]interface{})
+	for _, controllerConfig := range config.PluginControllers {
+
+		jsonString, err := json.Marshal(controllerConfig)
+		if err != nil {
+
+			ilog.Error(fmt.Sprintf("Error marshaling json: %v", err))
+			return
+		}
+		fmt.Println(string(jsonString))
+		controllerModule, err := loadpluginControllerModule(controllerConfig.Path)
+		if err != nil {
+			ilog.Error(fmt.Sprintf("Failed to load controller module %s: %v", controllerConfig.Path, err))
+		}
+		plugincontrollers[controllerConfig.Path] = controllerModule
+	}
+
+	go func() {
+		// Create endpoints dynamically based on the configuration file
+		for _, controllerConfig := range config.PluginControllers {
+			for _, endpointConfig := range controllerConfig.Endpoints {
+				method := endpointConfig.Method
+				path := fmt.Sprintf("/%s%s", controllerConfig.Path, endpointConfig.Path)
+				handler := plugincontrollers[controllerConfig.Path].(map[string]interface{})[endpointConfig.Handler].(func(*gin.Context))
+				router.Handle(method, path, handler)
+			}
+		}
+	}()
+	// Load controllers statically based on the configuration file
+	ilog.Info("Loading controllers")
+
+	go func() {
+		loadControllers(router, config.Controllers)
+	}()
+	// Start the portals
+	ilog.Info("Starting portals")
+
+	jsonString, err := json.Marshal(config.Portal)
+	if err != nil {
+		ilog.Error(fmt.Sprintf("Error marshaling json: %v", err))
+		return
+	}
+	fmt.Println(string(jsonString))
+
+	ilog.Info(fmt.Sprintf("Starting portal on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
+
+	clientconfig := make(map[string]interface{})
+	clientconfig["signalrconfig"] = com.SingalRConfig
+	clientconfig["instance"] = com.Instance
+	clientconfig["instanceType"] = com.InstanceType
+	clientconfig["instanceName"] = com.InstanceName
+
+	router.GET("/api/config", func(c *gin.Context) {
+		c.JSON(http.StatusOK, clientconfig)
+	})
+
+	router.GET("/api/debug", func(c *gin.Context) {
+		headers := c.Request.Header
+		useragent := c.Request.Header.Get("User-Agent")
+		ilog.Debug(fmt.Sprintf("User-Agent: %s, headers: %v", useragent, headers))
+		debugInfo := map[string]interface{}{
+			"Route":          c.FullPath(),
+			"requestheader":  headers,
+			"User-Agent":     useragent,
+			"requestbody":    c.Request.Body,
+			"responseheader": c.Writer.Header(),
+			"Method":         c.Request.Method,
+		}
+
+		c.JSON(http.StatusOK, debugInfo)
+	})
+	/*
+		router.Use(static.Serve("/portal", static.LocalFile("./portal", true)))
+		router.Use(static.Serve("/portal/scripts", static.LocalFile("./portal/scripts", true)))*/
+	/*
+
+	 */
+	// Start the server
+	//go router.Run(fmt.Sprintf(":%d", config.Port))
+
+	server := &http.Server{
+		Addr:         fmt.Sprintf(":%d", config.Port), // Set your desired port
+		Handler:      router,
+		ReadTimeout:  time.Duration(config.Timeout) * time.Millisecond,   // Set read timeout
+		WriteTimeout: time.Duration(2*config.Timeout) * time.Millisecond, // Set write timeout
+		IdleTimeout:  time.Duration(3*config.Timeout) * time.Millisecond, // Set idle timeout
+	}
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			ilog.Error(fmt.Sprintf("Failed to start server: %v", err))
+			panic(err)
+		}
+	}()
+
+	ilog.Info(fmt.Sprintf("Started portal on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
+
+	elapsed := time.Since(startTime)
+	ilog.PerformanceWithDuration("main.main", elapsed)
+
+	wg.Wait()
+
+}
+
+func main_old() {
 	Initialized = false
 	startTime := time.Now()
 	defer func() {
