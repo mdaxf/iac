@@ -1,6 +1,7 @@
 package mqttclient
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
@@ -11,6 +12,8 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	"net/http"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -43,6 +46,8 @@ type MqttTopic struct {
 	Topic   string `json:"topic"`
 	Qos     byte   `json:"qos"`
 	Handler string `json:"handler"`
+	Mode    string `json:"mode"`
+	Type    string `json:"type"`
 }
 
 type MqttClient struct {
@@ -64,6 +69,7 @@ type MqttClient struct {
 	DB             *sql.DB
 	SignalRClient  signalr.Client
 	monitoring     bool
+	AppServer      string
 }
 
 // NewMqttClient creates a new instance of MqttClient with the given configurations.
@@ -234,6 +240,7 @@ func (mqttClient *MqttClient) SubscribeTopics() {
 
 		topic := data.Topic
 		qos := data.Qos
+
 		if token := mqttClient.Client.Subscribe(topic, qos, messageHandler); token.Wait() && token.Error() != nil {
 			mqttClient.iLog.Error(fmt.Sprintf("Failed to subscribe to MQTT topic: %v", token.Error()))
 		}
@@ -248,36 +255,57 @@ func (mqttClient *MqttClient) SubscribeTopics() {
 				// Process the received MQTT message
 				mqttClient.iLog.Debug(fmt.Sprintf("Received message: %s from topic: %s , %d ,%d", msg.Payload(), msg.Topic(), msg.MessageID(), msg.Qos()))
 				handler := ""
+				mode := ""
+				executetype := ""
 				for _, data := range mqttClient.mqttTopics {
 					if data.Topic == msg.Topic() {
 						handler = data.Handler
+						mode = data.Mode
+						executetype = data.Type
+
+						mqttClient.iLog.Debug(fmt.Sprintf("topic: %s handler: %s mode: %s type: %s", data.Topic, handler, mode, executetype))
+
 						break
 					}
 				}
-				/*			data := map[string]interface{}{"Topic": msg.Topic(), "Payload": msg.Payload()}
-							jsonData, err := json.Marshal(data)
-							if err != nil {
-								mqttClient.iLog.Error(fmt.Sprintf("Failed to marshal data: %v", err))
-							}
-							rawMessage := json.RawMessage(jsonData)  */
-				/*var jsonData interface{}
-				err := json.Unmarshal(msg.Payload(), &jsonData)
-				if err != nil {
-					mqttClient.iLog.Error(fmt.Sprintf("Failed to unmarshal data: %v", err))
-					return
-				} */
-				message := queue.Message{
-					Id:        strconv.FormatUint(uint64(msg.MessageID()), 10),
-					UUID:      uuid.New().String(),
-					Retry:     3,
-					Execute:   0,
-					Topic:     msg.Topic(),
-					PayLoad:   msg.Payload(),
-					Handler:   handler,
-					CreatedOn: time.Now().UTC(),
+				if executetype == "local" {
+					message := queue.Message{
+						Id:        strconv.FormatUint(uint64(msg.MessageID()), 10),
+						UUID:      uuid.New().String(),
+						Retry:     3,
+						Execute:   0,
+						Topic:     msg.Topic(),
+						PayLoad:   msg.Payload(),
+						Handler:   handler,
+						CreatedOn: time.Now().UTC(),
+					}
+					mqttClient.iLog.Debug(fmt.Sprintf("Push message %v to queue: %s", message, mqttClient.Queue.QueueID))
+					mqttClient.Queue.Push(message)
+				} else {
+					method := "POST"
+					url := mqttClient.AppServer + "/trancode/execute"
+
+					client := &http.Client{}
+					req, err := http.NewRequest(method, url, bytes.NewBuffer(msg.Payload()))
+
+					if err != nil {
+						mqttClient.iLog.Error(fmt.Sprintf("Error in WebServiceCallFunc.Execute: %s", err))
+						break
+					}
+					req.Header.Set("Content-Type", "application/json")
+
+					resp, err := client.Do(req)
+					if err != nil {
+						mqttClient.iLog.Error(fmt.Sprintf("Error in WebServiceCallFunc.Execute: %s", err))
+						break
+					}
+					respBody, err := ioutil.ReadAll(resp.Body)
+
+					mqttClient.iLog.Debug(fmt.Sprintf("Response data: %v", respBody))
+
+					resp.Body.Close()
+
 				}
-				mqttClient.iLog.Debug(fmt.Sprintf("Push message %v to queue: %s", message, mqttClient.Queue.QueueID))
-				mqttClient.Queue.Push(message)
 
 			}
 		}

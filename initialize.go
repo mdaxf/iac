@@ -89,9 +89,9 @@ func initialize() {
 		fmt.Printf("IAC Message Bus: %v", com.IACMessageBusClient)
 		ilog.Debug(fmt.Sprintf("IAC Message Bus: %v", com.IACMessageBusClient))
 	}()
-
+	wg.Add(1)
 	go func() {
-
+		defer wg.Done()
 		ilog.Debug("Register the trancode execution interface")
 		tfr := trancode.TranFlowstr{}
 		callback_mgr.RegisterCallBack("TranCode_Execute", tfr.Execute)
@@ -100,12 +100,12 @@ func initialize() {
 
 	// integration point
 
-	initializeMqttClient()
+	//initializeMqttClient()
 	//	initializeOPCClient()
 
-	initializeKafka()
+	//initializeKafka()
 
-	initializeActiveMQConnection()
+	//initializeActiveMQConnection()
 
 	fmt.Printf("initialize end time: %v", time.Now())
 	Initialized = true
