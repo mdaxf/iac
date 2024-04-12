@@ -253,7 +253,7 @@ func main() {
 		}
 	}()
 
-	ilog.Info(fmt.Sprintf("Started portal on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
+	ilog.Info(fmt.Sprintf("Started iac endpoint server on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
 
 	elapsed := time.Since(startTime)
 	ilog.PerformanceWithDuration("main.main", elapsed)
