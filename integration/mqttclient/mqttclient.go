@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -286,7 +287,31 @@ func (mqttClient *MqttClient) SubscribeTopics() {
 					url := mqttClient.AppServer + "/trancode/execute"
 
 					client := &http.Client{}
-					req, err := http.NewRequest(method, url, bytes.NewBuffer(msg.Payload()))
+
+					type MSGData struct {
+						TranCode string                 `json:"code"`
+						Inputs   map[string]interface{} `json:"inputs"`
+					}
+
+					var result map[string]interface{}
+					err := json.Unmarshal(msg.Payload(), &result)
+					if err != nil {
+						mqttClient.iLog.Error(fmt.Sprintf("Error:", err))
+						break
+					}
+
+					msgdata := &MSGData{
+						TranCode: handler,
+						Inputs:   result,
+					}
+
+					bytesdata, err := json.Marshal(msgdata)
+					if err != nil {
+						mqttClient.iLog.Error(fmt.Sprintf("Error:", err))
+						break
+					}
+
+					req, err := http.NewRequest(method, url, bytes.NewBuffer(bytesdata))
 
 					if err != nil {
 						mqttClient.iLog.Error(fmt.Sprintf("Error in WebServiceCallFunc.Execute: %s", err))
