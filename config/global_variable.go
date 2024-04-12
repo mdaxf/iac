@@ -46,4 +46,5 @@ type GlobalConfig struct {
 	TranslationConfig  map[string]interface{}   `json:"translation"`
 	WebServerConfig    map[string]interface{}   `json:"webserver"`
 	Transaction        map[string]interface{}   `json:"transaction"`
+	AppServer          map[string]interface{}   `json:"appserver"`
 }

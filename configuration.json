@@ -53,6 +53,9 @@
             "Content-Type": "application/json; charset=utf-8"            
         }
     },
+    "appserver":{
+        "url": "http://127.0.0.1:8008"
+    },
     "log":{
         "adapter": "console", 
         "level": "performance",

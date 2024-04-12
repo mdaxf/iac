@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
+	//	cluster "github.com/bsm/sarama-cluster"
 	"github.com/google/uuid"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/framework/queue"
@@ -80,6 +81,8 @@ func (KafkaConsumer *KafkaConsumer) BuildKafkaConsumer() {
 
 	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
+	config.Consumer.Offsets.AutoCommit.Enable = true
+	config.Consumer.Offsets.AutoCommit.Interval = 1 * time.Second
 
 	consumer, err := sarama.NewConsumer([]string{KafkaConsumer.Config.Server}, config)
 	if err != nil {
@@ -89,14 +92,87 @@ func (KafkaConsumer *KafkaConsumer) BuildKafkaConsumer() {
 
 	KafkaConsumer.Consumer = consumer
 
+	KafkaConsumer.PartitionTopics()
+
+}
+
+/*
+func (KafkaConsumer *KafkaConsumer) ClusterGroup() {
+
+		config := sarama.NewConfig()
+		config.Consumer.Return.Errors = true
+		config.Consumer.Offsets.AutoCommit.Enable = true
+		config.Consumer.Offsets.AutoCommit.Interval = 1 * time.Second
+
+		group := uuid.New().String()
+		topics := []string{}
+		for _, data := range KafkaConsumer.Config.Topics {
+			topics.append(data.Topic)
+		}
+
+		consumerGroup, err := cluster.NewConsumer(
+			[]string{KafkaConsumer.Config.Server},
+			group,
+			topics,
+			config,
+		)
+
+		KafkaConsumer.Consumer = consumerGroup
+
+		if err != nil {
+			KafkaConsumer.iLog.Error(fmt.Sprintf("Failed to create consumer group: %v", err))
+		}
+		defer consumerGroup.Close()
+
+		signals := make(chan os.Signal, 1)
+		signal.Notify(signals, syscall.SIGINT)
+
+		q := KafkaConsumer.Queue
+		go func() {
+			for message := range consumerGroup.Messages() {
+				KafkaConsumer.iLog.Debug(fmt.Sprintf("Received message: %s", message.Value))
+				for _, data := range KafkaConsumer.Config.Topics {
+					if message.Topic == data.Topic {
+						handler = data.Handler
+						if Handler != "" {
+							ID := uuid.New().String()
+							msg := queue.Message{
+								Id:        ID,
+								UUID:      ID,
+								Retry:     3,
+								Execute:   0,
+								Topic:     message.Topic,
+								PayLoad:   []byte(message.Value),
+								Handler:   handler,
+								CreatedOn: time.Now(),
+							}
+							iLog.Debug(fmt.Sprintf("Push message %s to queue: %s", msg, q.QueueID))
+							q.Push(msg)
+						}
+						break
+					}
+				}
+
+				consumerGroup.MarkMessage(message, "") // Mark the message as processed
+			}
+		}()
+		KafkaConsumer.waitForTerminationSignal()
+	}
+*/
+func (KafkaConsumer *KafkaConsumer) PartitionTopics() {
+
 	for _, data := range KafkaConsumer.Config.Topics {
 		topic := data.Topic
 		handler := data.Handler
-		KafkaConsumer.initKafkaConsumerbyTopic(consumer, topic, handler, KafkaConsumer.iLog, KafkaConsumer.Queue)
+		KafkaConsumer.initKafkaConsumerbyTopic(topic, handler)
 	}
 }
 
-func (KafkaConsumer *KafkaConsumer) initKafkaConsumerbyTopic(consumer sarama.Consumer, topic string, handler string, iLog logger.Log, q *queue.MessageQueue) {
+func (KafkaConsumer *KafkaConsumer) initKafkaConsumerbyTopic(topic string, handler string) {
+
+	consumer := KafkaConsumer.Consumer
+	iLog := KafkaConsumer.iLog
+	q := KafkaConsumer.Queue
 
 	partitionConsumer, err := consumer.ConsumePartition(topic, 0, sarama.OffsetOldest)
 	if err != nil {

@@ -63,6 +63,7 @@ type MqttClient struct {
 	DocDBconn      *documents.DocDB
 	DB             *sql.DB
 	SignalRClient  signalr.Client
+	monitoring     bool
 }
 
 // NewMqttClient creates a new instance of MqttClient with the given configurations.
@@ -94,6 +95,7 @@ func NewMqttClient(configurations Mqtt) *MqttClient {
 		mqttClientID:   (uuid.New()).String(),
 		mqttTopics:     configurations.Topics,
 		iLog:           iLog,
+		monitoring:     false,
 	}
 	iLog.Debug(fmt.Sprintf(("Create MqttClient: %s"), logger.ConvertJson(mqttclient)))
 	uuid := uuid.New().String()
@@ -140,6 +142,7 @@ func NewMqttClientbyExternal(configurations Mqtt, DB *sql.DB, DocDBconn *documen
 		DocDBconn:      DocDBconn,
 		DB:             DB,
 		SignalRClient:  SignalRClient,
+		monitoring:     false,
 	}
 	iLog.Debug(fmt.Sprintf(("Create MqttClient: %s"), logger.ConvertJson(mqttclient)))
 	uuid := uuid.New().String()
@@ -187,6 +190,36 @@ func (mqttClient *MqttClient) Initialize_mqttClient() {
 	client := mqtt.NewClient(opts)
 	mqttClient.Client = client
 
+	// Set the message handler
+	//client.SetDefaultPublishHandler(messageHandler)
+	// Connect to the MQTT broker
+
+	err := mqttClient.Connect()
+
+	if err != nil {
+		return
+	}
+
+	if !mqttClient.monitoring {
+		go func() {
+			mqttClient.MonitorAndReconnect()
+		}()
+	}
+
+}
+
+func (mqttClient *MqttClient) Connect() error {
+	if token := mqttClient.Client.Connect(); token.Wait() && token.Error() != nil {
+		mqttClient.iLog.Critical(fmt.Sprintf("Failed to connect to MQTT broker: %v", token.Error()))
+		return token.Error()
+	}
+
+	mqttClient.SubscribeTopics()
+
+	return nil
+}
+
+func (mqttClient *MqttClient) SubscribeTopics() {
 	// Create a channel to receive MQTT messages
 	messageChannel := make(chan mqtt.Message)
 
@@ -195,22 +228,13 @@ func (mqttClient *MqttClient) Initialize_mqttClient() {
 		messageChannel <- msg
 	}
 
-	// Set the message handler
-	//client.SetDefaultPublishHandler(messageHandler)
-
-	// Connect to the MQTT broker
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		mqttClient.iLog.Critical(fmt.Sprintf("Failed to connect to MQTT broker: %v", token.Error()))
-
-	}
-
 	// Subscribe to the desired MQTT topic(s)
 	for _, data := range mqttClient.mqttTopics {
 		//topic := data["topic"].(string)
 
 		topic := data.Topic
 		qos := data.Qos
-		if token := client.Subscribe(topic, qos, messageHandler); token.Wait() && token.Error() != nil {
+		if token := mqttClient.Client.Subscribe(topic, qos, messageHandler); token.Wait() && token.Error() != nil {
 			mqttClient.iLog.Error(fmt.Sprintf("Failed to subscribe to MQTT topic: %v", token.Error()))
 		}
 		mqttClient.iLog.Debug(fmt.Sprintf("Subscribed to topic: %s", topic))
@@ -261,6 +285,44 @@ func (mqttClient *MqttClient) Initialize_mqttClient() {
 
 	// Wait for termination signal to gracefully shutdown
 	mqttClient.waitForTerminationSignal()
+}
+
+func (mqttClient *MqttClient) MonitorAndReconnect() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		mqttClient.iLog.PerformanceWithDuration("MQTTClient.monitorAndReconnect", elapsed)
+	}()
+
+	// Recover from any panics and log the error
+	defer func() {
+		if err := recover(); err != nil {
+			mqttClient.iLog.Error(fmt.Sprintf("MQTTClient.monitorAndReconnect defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+	mqttClient.iLog.Debug(fmt.Sprintf("Start the mqttclient connection monitoring for %s", mqttClient.mqttBroker))
+	mqttClient.monitoring = true
+
+	for {
+		isconnected := mqttClient.Client.IsConnected()
+		if !isconnected {
+			mqttClient.iLog.Error(fmt.Sprintf("Mqttclient connection lost, %v %v", mqttClient.mqttBroker, mqttClient.mqttPort))
+
+			err := mqttClient.Connect()
+
+			if err != nil {
+				mqttClient.iLog.Error("Reconnect to mqtt broker fail!")
+				time.Sleep(5 * time.Second)
+			} else {
+				time.Sleep(10 * time.Second)
+			}
+
+		} else {
+			time.Sleep(10 * time.Second)
+		}
+	}
+
 }
 
 // Publish publishes a message to the MQTT broker with the specified topic and payload.

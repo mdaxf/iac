@@ -20,10 +20,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mdaxf/iac/com"
+	//	"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/logger"
-
-	"github.com/mdaxf/iac/framework/sqldb/mysql/mysqldb"
 
 	_ "github.com/denisenkom/go-mssqldb"
 	_ "github.com/go-sql-driver/mysql"
@@ -31,6 +29,8 @@ import (
 
 // DB is the interface for database connection
 var DB *sql.DB
+var monitoring = false
+var connectionerr error
 
 // ConnectDB is the function to connect to database
 // DatabaseType: mysql
@@ -60,6 +60,7 @@ var (
 
 func ConnectDB() error {
 	// Function execution logging
+	connectionerr = nil
 	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Database"}
 	startTime := time.Now()
 	defer func() {
@@ -71,48 +72,65 @@ func ConnectDB() error {
 	defer func() {
 		if err := recover(); err != nil {
 			iLog.Error(fmt.Sprintf("ConnectDB defer error: %s", err))
+			connectionerr = err.(error)
+			return
 			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		}
 	}()
+	/*
+		dbconn := &com.DBConn{
+			DBType:       DatabaseType,
+			DBConnection: DatabaseConnection,
+			DBName:       "",
+			MaxIdleConns: MaxIdleConns,
+			MaxOpenConns: MaxOpenConns,
+		}
 
-	dbconn := &com.DBConn{
-		DBType:       DatabaseType,
-		DBConnection: DatabaseConnection,
-		MaxIdleConns: MaxIdleConns,
-		MaxOpenConns: MaxOpenConns,
+		mydbconn := &DBConn{
+			DBType:       DatabaseType,
+			DBConnection: DatabaseConnection,
+			DBName:       "",
+			DB:           nil,
+			MaxIdleConns: MaxIdleConns,
+			MaxOpenConns: MaxOpenConns,
+		}
+
+		err := mydbconn.Connect()
+		if err != nil {
+			iLog.Error(fmt.Sprintf("initialize Database (MySQL) error: %s", err.Error()))
+			return err
+		}
+
+		DB = mydbconn.DB
+		dbconn.DB = DB
+		iLog.Debug(fmt.Sprintf("Connect to database:%v", DB))
+		com.IACDBConn = dbconn
+
+		return nil */
+
+	// Log the database connection details
+	iLog.Info(fmt.Sprintf("Connect Database: %s %s", DatabaseType, DatabaseConnection))
+
+	// Establish the database connection if it hasn't been done before
+	once.Do(func() {
+		DB, err = sql.Open(DatabaseType, DatabaseConnection)
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Connect Database Error: %v", err))
+			connectionerr = err
+			return
+		}
+		DB.SetMaxIdleConns(MaxIdleConns)
+		DB.SetMaxOpenConns(MaxOpenConns)
+	})
+
+	if monitoring == false {
+		go func() {
+			monitorAndReconnectMySQL()
+		}()
 	}
-
-	mydbconn := &mysqldb.MyDBConn{
-		DBConn: *dbconn}
-
-	err := mydbconn.Connect()
-	if err != nil {
-		iLog.Error(fmt.Sprintf("initialize Database (MySQL) error: %s", err.Error()))
-		return err
-	}
-
-	DB = dbconn.DB
-	com.IACDBConn = dbconn
 
 	return nil
-	/*
-		// Log the database connection details
-		iLog.Info(fmt.Sprintf("Connect Database: %s %s", DatabaseType, DatabaseConnection))
 
-
-		// Establish the database connection if it hasn't been done before
-		once.Do(func() {
-			DB, err = sql.Open(DatabaseType, DatabaseConnection)
-			if err != nil {
-				iLog.Error(fmt.Sprintf("Connect Database Error: %s", err.Error()))
-				return
-			}
-			DB.SetMaxIdleConns(MaxIdleConns)
-			DB.SetMaxOpenConns(MaxOpenConns)
-		})
-
-		return nil
-	*/
 }
 
 // DBPing pings the database to check if it is still alive.
@@ -137,10 +155,41 @@ func DBPing() error {
 
 }
 
-func Ping() error {
-	return DBPing()
-}
+func monitorAndReconnectMySQL() {
+	// Function execution logging
+	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Database.monitorAndReconnectMySQL"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("database.monitorAndReconnectMySQL", elapsed)
+	}()
 
-func Reconnect() error {
-	return ConnectDB()
+	// Recover from any panics and log the error
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("monitorAndReconnectMySQL defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+	monitoring = true
+	for {
+		err := DB.Ping()
+		if err != nil {
+			iLog.Error(fmt.Sprintf("MySQL connection lost, reconnecting..."))
+
+			ConnectDB()
+
+			if connectionerr != nil {
+				iLog.Error(fmt.Sprintf("Failed to reconnect to MySQL:%v", connectionerr))
+				time.Sleep(5 * time.Second) // Wait before retrying
+				continue
+			} else {
+				time.Sleep(1 * time.Second)
+				iLog.Debug(fmt.Sprintf("MySQL reconnected successfully"))
+			}
+		} else {
+			time.Sleep(1 * time.Second) // Check connection every 60 seconds
+		}
+	}
+
 }

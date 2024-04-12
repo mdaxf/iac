@@ -28,6 +28,10 @@ type docdbLogWriter struct {
 
 	logFormatter LogFormatter
 	Formatter    string `json:"formatter"`
+
+	DatabaseConnection string
+	DatabaseName       string
+	monitoring         bool
 }
 
 // newDocDBLogger creates a documentLogWriter returning as LoggerInterface.
@@ -64,7 +68,41 @@ func (doc *docdbLogWriter) Init(config string) error {
 		return fmt.Errorf(`config must contains "conn" field: %s`, config)
 	}
 
-	doc.MongoDBClient, err = mongo.NewClient(options.Client().ApplyURI(cf["conn"]))
+	if _, ok := cf["db"]; !ok {
+		fmt.Errorf(`config must contains "db" field: %s`, config)
+		return err
+	}
+
+	if _, ok := cf["collection"]; !ok {
+		fmt.Errorf(`config must contains "collection" field: %s`, config)
+		return fmt.Errorf(`config must contains "collection" field: %s`, config)
+	}
+
+	doc.DatabaseConnection = cf["conn"]
+	doc.DatabaseName = cf["db"]
+	doc.CollectionName = cf["collection"]
+	doc.monitoring = false
+
+	err = doc.ConnectMongoDB()
+
+	if err != nil {
+		fmt.Errorf("There is error to connect to Mongodb for logger")
+		return err
+	}
+
+	if doc.monitoring == false {
+		go func() {
+			doc.MonitorAndReconnect()
+		}()
+
+	}
+	return nil
+}
+
+func (doc *docdbLogWriter) ConnectMongoDB() error {
+
+	var err error
+	doc.MongoDBClient, err = mongo.NewClient(options.Client().ApplyURI(doc.DatabaseConnection))
 
 	if err != nil {
 		fmt.Errorf(fmt.Sprintf("failed to connect mongodb with error: %s", err))
@@ -87,20 +125,50 @@ func (doc *docdbLogWriter) Init(config string) error {
 		fmt.Errorf("failed to connect mongodb with error: %s", err)
 		return err
 	}
-	if _, ok := cf["db"]; !ok {
-		fmt.Errorf(`config must contains "db" field: %s`, config)
-		return err
-	}
-	doc.MongoDBDatabase = doc.MongoDBClient.Database(cf["db"])
-	if _, ok := cf["collection"]; !ok {
-		fmt.Errorf(`config must contains "collection" field: %s`, config)
-		return fmt.Errorf(`config must contains "collection" field: %s`, config)
-	}
 
-	doc.CollectionName = cf["collection"]
+	doc.MongoDBDatabase = doc.MongoDBClient.Database(doc.DatabaseName)
+
 	doc.MongoDBCollection_TC = doc.MongoDBDatabase.Collection(doc.CollectionName)
 
-	return err
+	err = doc.MongoDBClient.Ping(context.Background(), nil)
+
+	if err != nil {
+		fmt.Errorf("failed to connect mongodb with error: %s", err)
+		return err
+	}
+
+	return nil
+}
+
+func (doc *docdbLogWriter) MonitorAndReconnect() {
+	// Recover from any panics and log the error
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Errorf("monitorAndReconnect defer error: %s", err)
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+	doc.monitoring = true
+	for {
+		err := doc.MongoDBClient.Ping(context.Background(), nil)
+		if err != nil {
+			fmt.Errorf("MongoDB connection lost, reconnecting...")
+
+			err := doc.ConnectMongoDB()
+
+			if err != nil {
+				fmt.Errorf("Failed to reconnect to MongoDB %s with err :%v", doc.DatabaseConnection, err)
+				time.Sleep(5 * time.Second) // Wait before retrying
+				continue
+			} else {
+				time.Sleep(1 * time.Second)
+				fmt.Errorf("MongoDB reconnected successfully")
+			}
+		} else {
+			time.Sleep(1 * time.Second) // Check connection every 60 seconds
+		}
+	}
+
 }
 
 // WriteMsg writes logger message into file.

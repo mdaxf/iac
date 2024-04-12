@@ -16,9 +16,7 @@ import (
 )
 
 // DocDB is the interface for document database
-type MyDocDB struct {
-	com.DocDB
-}
+type MyDocDB com.DocDB
 
 var once sync.Once
 
@@ -63,6 +61,8 @@ func (db *MyDocDB) Connect() error {
 		}
 
 		db.MongoDBClient = client
+		db.MongoDBDatabase = db.MongoDBClient.Database(db.DatabaseName)
+
 	})
 
 	return nil

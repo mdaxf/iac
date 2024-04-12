@@ -10,7 +10,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	//	"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/logger"
+	//	"github.com/mdaxf/iac/framework/documentdb/mongodb"
 )
 
 type DocDB struct {
@@ -23,6 +25,7 @@ type DocDB struct {
 	DatabaseConnection string
 	DatabaseName       string
 	iLog               logger.Log
+	monitoring         bool
 }
 
 /*
@@ -43,22 +46,35 @@ func InitMongoDB(DatabaseConnection string, DatabaseName string) (*DocDB, error)
 		elapsed := time.Since(startTime)
 		iLog.PerformanceWithDuration("documents.InitMongoDB", elapsed)
 	}()
-	/*
-		defer func() {
-			if err := recover(); err != nil {
-				iLog.Error(fmt.Sprintf("There is error to documents.InitMongoDB with error: %s", err))
-				return
-			}
-		}()
-	*/
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("There is error to documents.InitMongoDB with error: %s", err))
+			return
+		}
+	}()
+
 	doc := &DocDB{
 		DatabaseConnection: DatabaseConnection,
 		DatabaseName:       DatabaseName,
 		iLog:               iLog,
+		monitoring:         false,
 	}
 
-	return doc.ConnectMongoDB()
+	_, err := doc.ConnectMongoDB()
 
+	if err != nil {
+		iLog.Error(fmt.Sprintf("There is error to connect to MongoDB with error: %s", err))
+		return doc, err
+	}
+
+	if doc.monitoring == false {
+		go func() {
+			doc.MonitorAndReconnect()
+		}()
+
+	}
+
+	return doc, nil
 }
 
 // ConnectMongoDB establishes a connection to the MongoDB database.
@@ -78,7 +94,29 @@ func (doc *DocDB) ConnectMongoDB() (*DocDB, error) {
 			return
 		}
 	}()
+	/*
+		myMongodb := &mongodb.MyDocDB{
+			DatabaseConnection: doc.DatabaseConnection,
+			DatabaseName:       doc.DatabaseName,
+		}
 
+		err := myMongodb.Connect()
+
+		if err != nil {
+			doc.iLog.Error(fmt.Sprintf("There os error to connect to MongoDB %s %s", doc.DatabaseConnection, doc.DatabaseName))
+			return nil, err
+		}
+
+		doc.MongoDBClient = myMongodb.MongoDBClient
+		doc.MongoDBDatabase = myMongodb.MongoDBDatabase
+
+		com.IACDocDBConn = &com.DocDB{
+			DatabaseConnection: myMongodb.DatabaseConnection,
+			DatabaseName:       myMongodb.DatabaseName,
+			MongoDBClient:      myMongodb.MongoDBClient,
+			MongoDBDatabase:    myMongodb.MongoDBDatabase}
+
+		return doc, nil  */
 	// Log the database connection details
 	doc.iLog.Info(fmt.Sprintf("Connect Database: %s %s", doc.DatabaseType, doc.DatabaseConnection))
 
@@ -88,6 +126,7 @@ func (doc *DocDB) ConnectMongoDB() (*DocDB, error) {
 	doc.MongoDBClient, err = mongo.NewClient(options.Client().ApplyURI(doc.DatabaseConnection))
 	if err != nil {
 		doc.iLog.Critical(fmt.Sprintf("failed to connect mongodb with error: %s", err))
+		return doc, err
 	}
 
 	// Create a context with a timeout
@@ -98,12 +137,64 @@ func (doc *DocDB) ConnectMongoDB() (*DocDB, error) {
 	err = doc.MongoDBClient.Connect(ctx)
 	if err != nil {
 		doc.iLog.Critical(fmt.Sprintf("failed to connect mongodb with error: %s", err))
+		return doc, err
 	}
 
 	// Set the MongoDB database
 	doc.MongoDBDatabase = doc.MongoDBClient.Database(doc.DatabaseName)
 
+	//	if doc.monitoring == false {
+	//		doc.monitorAndReconnect()
+	//	}
+
+	err = doc.MongoDBClient.Ping(context.Background(), nil)
+	if err != nil {
+		doc.iLog.Critical(fmt.Sprintf("failed to connect mongodb with error: %s", err))
+		return doc, err
+	}
 	return doc, err
+}
+
+func (doc *DocDB) MonitorAndReconnect() {
+	// Function execution logging
+	//	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "MongoDB.monitorAndReconnect"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		doc.iLog.PerformanceWithDuration("MongoDB.monitorAndReconnect", elapsed)
+	}()
+
+	// Recover from any panics and log the error
+	defer func() {
+		if err := recover(); err != nil {
+			doc.iLog.Error(fmt.Sprintf("monitorAndReconnect defer error: %s", err))
+			//	ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()
+	doc.monitoring = true
+	for {
+
+		err := doc.MongoDBClient.Ping(context.Background(), nil)
+		if err != nil {
+			doc.iLog.Error(fmt.Sprintf("MongoDB connection lost with ping error %v, reconnecting...", err))
+
+			_, err := doc.ConnectMongoDB()
+
+			if err != nil {
+				doc.iLog.Error(fmt.Sprintf("Failed to reconnect to MongoDB %s with error:%v", doc.DatabaseConnection, err))
+				time.Sleep(5 * time.Second) // Wait before retrying
+				continue
+			} else {
+				time.Sleep(1 * time.Second)
+				doc.iLog.Debug(fmt.Sprintf("MongoDB reconnected successfully"))
+				continue
+			}
+		} else {
+			time.Sleep(1 * time.Second) // Check connection every 60 seconds
+			continue
+		}
+	}
+
 }
 
 // QueryCollection queries a MongoDB collection with the specified filter and projection.

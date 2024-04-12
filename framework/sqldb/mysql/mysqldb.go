@@ -20,22 +20,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mdaxf/iac/com"
+	com "github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/logger"
 
 	_ "github.com/denisenkom/go-mssqldb"
 	_ "github.com/go-sql-driver/mysql"
 )
 
+type DBConn com.DBConn
+
 var once sync.Once
 
-// DB is the interface for database connection
-
-type MyDBConn struct {
-	com.DBConn
-}
-
-func (db *MyDBConn) Connect() error {
+func (db *DBConn) Connect() error {
 	// Function execution logging
 	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Database.Connect"}
 	startTime := time.Now()
@@ -70,7 +66,7 @@ func (db *MyDBConn) Connect() error {
 	return nil
 }
 
-func (db *MyDBConn) Disconnect() error {
+func (db *DBConn) Disconnect() error {
 	// Function execution logging
 	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Database.Close"}
 	startTime := time.Now()
@@ -97,7 +93,7 @@ func (db *MyDBConn) Disconnect() error {
 	return nil
 }
 
-func (db *MyDBConn) ReConnect() error {
+func (db *DBConn) ReConnect() error {
 	// Function execution logging
 	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Database.ReConnect"}
 	startTime := time.Now()
@@ -124,7 +120,7 @@ func (db *MyDBConn) ReConnect() error {
 	return nil
 }
 
-func (db *MyDBConn) Ping() error {
+func (db *DBConn) Ping() error {
 	// Function execution logging
 	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Database.Ping"}
 	startTime := time.Now()
@@ -141,6 +137,7 @@ func (db *MyDBConn) Ping() error {
 		}
 	}()
 
+	iLog.Debug(fmt.Sprintf("Database.Ping: %v", db))
 	// Ping the database to check if it is still alive
 	err := db.DB.Ping()
 	if err != nil {
