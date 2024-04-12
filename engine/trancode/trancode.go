@@ -20,6 +20,7 @@ import (
 
 	"github.com/mdaxf/iac/com"
 	tcom "github.com/mdaxf/iac/engine/com"
+	"github.com/mdaxf/iac/framework/callback_mgr"
 	"github.com/mdaxf/signalrsrv/signalr"
 )
 
@@ -190,6 +191,13 @@ func ExecutebyExternal(trancode string, data map[string]interface{}, DBTx *sql.T
 	tf := NewTranFlow(tranobj, data, map[string]interface{}{}, nil, nil, DBTx)
 	tf.DocDBCon = DBCon
 	tf.SignalRClient = sc
+
+	if callback_mgr.CallBackMap["TranCode_Execute"] != nil {
+		iLog.Debug("Register the trancode execution interface")
+		tfr := TranFlowstr{}
+		callback_mgr.RegisterCallBack("TranCode_Execute", tfr.Execute)
+
+	}
 
 	outputs, err := tf.Execute()
 
