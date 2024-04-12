@@ -104,7 +104,7 @@ func NewMqttClient(configurations Mqtt) *MqttClient {
 		mqttTopics:     configurations.Topics,
 		iLog:           iLog,
 		monitoring:     false,
-		ApiKey:         "",
+		ApiKey:         com.ApiKey,
 	}
 	iLog.Debug(fmt.Sprintf(("Create MqttClient: %s"), logger.ConvertJson(mqttclient)))
 	uuid := uuid.New().String()

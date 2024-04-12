@@ -68,6 +68,8 @@ func initialize() {
 		}
 	}()
 
+	com.ApiKey = config.ApiKey
+
 	initializeloger()
 	ilog.Debug("initialize logger")
 	config.SessionCacheTimeout = 1800
@@ -419,7 +421,7 @@ func initializeMqttClient() {
 		ilog.PerformanceWithDuration("main.initializeMqttClient", elapsed)
 	}()
 
-	config.MQTTClients = make(map[string]*mqttclient.MqttClient)
+	//	config.MQTTClients = make(map[string]*mqttclient.MqttClient)
 
 	wg.Add(1)
 	go func() {
@@ -446,7 +448,7 @@ func initializeMqttClient() {
 			mqtc := mqttclient.NewMqttClient(mqttcfg)
 			//	fmt.Println("MQTT Client: %v", mqtc)
 			//	ilog.Debug(fmt.Sprintf("MQTT Client: %v", mqtc))
-			config.MQTTClients[fmt.Sprintf("mqttclient_%d", i)] = mqtc
+			//	config.MQTTClients[fmt.Sprintf("mqttclient_%d", i)] = mqtc
 			mqtc.Initialize_mqttClient()
 			//	fmt.Sprintln("MQTT Client: %v", config.MQTTClients)
 			//	ilog.Debug(fmt.Sprintf("MQTT Client: %v", config.MQTTClients))

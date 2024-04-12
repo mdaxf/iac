@@ -63,6 +63,8 @@ type DBConn struct {
 	MaxOpenConns int
 }
 
+var ApiKey string
+
 func ConverttoInt(value interface{}) int {
 	return ConverttoIntwithDefault(value, 0)
 }
