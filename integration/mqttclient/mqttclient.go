@@ -71,6 +71,7 @@ type MqttClient struct {
 	SignalRClient  signalr.Client
 	monitoring     bool
 	AppServer      string
+	ApiKey         string
 }
 
 // NewMqttClient creates a new instance of MqttClient with the given configurations.
@@ -103,6 +104,7 @@ func NewMqttClient(configurations Mqtt) *MqttClient {
 		mqttTopics:     configurations.Topics,
 		iLog:           iLog,
 		monitoring:     false,
+		ApiKey:         "",
 	}
 	iLog.Debug(fmt.Sprintf(("Create MqttClient: %s"), logger.ConvertJson(mqttclient)))
 	uuid := uuid.New().String()
@@ -318,6 +320,7 @@ func (mqttClient *MqttClient) SubscribeTopics() {
 						break
 					}
 					req.Header.Set("Content-Type", "application/json")
+					req.Header.Set("Authorization", "apikey "+mqttClient.ApiKey)
 
 					resp, err := client.Do(req)
 					if err != nil {
