@@ -26,6 +26,7 @@ import (
 
 type ActiveMQconfigs struct {
 	ActiveMQs []ActiveMQconfig `json:"activemqs"`
+	ApiKey    string           `json:"apikey"`
 }
 
 // ActiveMQ struct
@@ -86,12 +87,12 @@ func NewActiveMQConnection(config ActiveMQconfig) *ActiveMQ {
 	}
 	activeMQ.iLog.Debug(fmt.Sprintf("Create ActiveMQ connection successful!"))
 
-	uuid := uuid.New().String()
+	uuid_ := uuid.New().String()
 
 	activeMQ.DocDBconn = documents.DocDBCon
 	activeMQ.DB = dbconn.DB
 	activeMQ.SignalRClient = com.IACMessageBusClient
-	activeMQ.Queue = queue.NewMessageQueue(uuid, "ActiveMQ")
+	activeMQ.Queue = queue.NewMessageQueue(uuid_, "ActiveMQ")
 	activeMQ.Queue.DocDBconn = documents.DocDBCon
 	activeMQ.Queue.DB = dbconn.DB
 	activeMQ.Queue.SignalRClient = com.IACMessageBusClient
@@ -101,7 +102,7 @@ func NewActiveMQConnection(config ActiveMQconfig) *ActiveMQ {
 	return activeMQ
 }
 
-func NewActiveMQConnectionExternal(config ActiveMQconfig, q *queue.MessageQueue, docDBconn *documents.DocDB, db *sql.DB, signalRClient signalr.Client) *ActiveMQ {
+func NewActiveMQConnectionExternal(config ActiveMQconfig, docDBconn *documents.DocDB, db *sql.DB, signalRClient signalr.Client) *ActiveMQ {
 
 	activeMQ := connectActiveMQ(config)
 
@@ -114,13 +115,15 @@ func NewActiveMQConnectionExternal(config ActiveMQconfig, q *queue.MessageQueue,
 	}
 	activeMQ.iLog.Debug(fmt.Sprintf("Create ActiveMQ connection successful!"))
 
-	activeMQ.DocDBconn = docDBconn
-	activeMQ.DB = db
-	activeMQ.SignalRClient = signalRClient
-	activeMQ.Queue = q
+	uuid_ := uuid.New().String()
+	activeMQ.Queue = queue.NewMessageQueue(uuid_, "ActiveMQ")
 	activeMQ.Queue.DocDBconn = docDBconn
 	activeMQ.Queue.DB = db
 	activeMQ.Queue.SignalRClient = signalRClient
+
+	activeMQ.DocDBconn = docDBconn
+	activeMQ.DB = db
+	activeMQ.SignalRClient = signalRClient
 
 	activeMQ.Subscribes()
 
