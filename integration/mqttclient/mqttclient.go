@@ -317,10 +317,14 @@ func (mqttClient *MqttClient) CallWebService(msg mqtt.Message, topic string, han
 		mqttClient.iLog.Error(fmt.Sprintf("Error:", err))
 		return
 	}
+	var inputs map[string]interface{}
+
+	inputs["Payload"] = result
+	inputs["Topic"] = topic
 
 	msgdata := &MSGData{
 		TranCode: handler,
-		Inputs:   result,
+		Inputs:   inputs,
 	}
 
 	bytesdata, err := json.Marshal(msgdata)
@@ -351,7 +355,7 @@ func (mqttClient *MqttClient) CallWebService(msg mqtt.Message, topic string, han
 		mqttClient.iLog.Error(fmt.Sprintf("Error:", err))
 		return
 	}
-	mqttClient.iLog.Debug(fmt.Sprintf("Response data: %v", respBody))
+	mqttClient.iLog.Debug(fmt.Sprintf("Response data: %v", result))
 
 }
 

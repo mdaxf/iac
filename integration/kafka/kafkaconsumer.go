@@ -1,8 +1,12 @@
 package kafka
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,6 +23,7 @@ import (
 
 type KafkasConfig struct {
 	Kafkas []KafkaConfig `json:"kafkas"`
+	ApiKey string        `json:"apikey"`
 }
 
 type KafkaConfig struct {
@@ -29,13 +34,20 @@ type KafkaConfig struct {
 type KafkaTopic struct {
 	Topic   string `json:"topic"`
 	Handler string `json:"handler"`
+	Mode    string `json:"mode"`
+	Type    string `json:"type"`
 }
 
 type KafkaConsumer struct {
-	Config   KafkaConfig
-	Queue    *queue.MessageQueue
-	iLog     logger.Log
-	Consumer sarama.Consumer
+	Config        KafkaConfig
+	Queue         *queue.MessageQueue
+	iLog          logger.Log
+	Consumer      sarama.Consumer
+	DocDBconn     *documents.DocDB
+	DB            *sql.DB
+	SignalRClient signalr.Client
+	AppServer     string
+	ApiKey        string
 }
 
 func NewKafkaConsumer(config KafkaConfig) *KafkaConsumer {
@@ -57,10 +69,12 @@ func NewKafkaConsumer(config KafkaConfig) *KafkaConsumer {
 	return Kafkaconsumer
 }
 
-func NewKafkaConsumerExternal(config KafkaConfig, q *queue.MessageQueue, docDBconn *documents.DocDB, db *sql.DB, signalRClient signalr.Client) *KafkaConsumer {
+func NewKafkaConsumerExternal(config KafkaConfig, docDBconn *documents.DocDB, db *sql.DB, signalRClient signalr.Client) *KafkaConsumer {
 	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "KafkaConsumer"}
 
 	iLog.Debug(fmt.Sprintf(("Create Kafkaconsumer with configuration : %s"), logger.ConvertJson(config)))
+	uuid := uuid.New().String()
+	q := queue.NewMessageQueue(uuid, "Kafkaconsumer")
 
 	Kafkaconsumer := &KafkaConsumer{
 		Config: config,
@@ -164,11 +178,11 @@ func (KafkaConsumer *KafkaConsumer) PartitionTopics() {
 	for _, data := range KafkaConsumer.Config.Topics {
 		topic := data.Topic
 		handler := data.Handler
-		KafkaConsumer.initKafkaConsumerbyTopic(topic, handler)
+		KafkaConsumer.initKafkaConsumerbyTopic(topic, handler, data)
 	}
 }
 
-func (KafkaConsumer *KafkaConsumer) initKafkaConsumerbyTopic(topic string, handler string) {
+func (KafkaConsumer *KafkaConsumer) initKafkaConsumerbyTopic(topic string, handler string, data KafkaTopic) {
 
 	consumer := KafkaConsumer.Consumer
 	iLog := KafkaConsumer.iLog
@@ -195,26 +209,89 @@ func (KafkaConsumer *KafkaConsumer) initKafkaConsumerbyTopic(topic string, handl
 
 			case message := <-partitionConsumer.Messages():
 				iLog.Info(fmt.Sprintf("Consumed message offset %d: %s", message.Offset, string(message.Value)))
-				ID := uuid.New().String()
-				msg := queue.Message{
-					Id:        ID,
-					UUID:      ID,
-					Retry:     3,
-					Execute:   0,
-					Topic:     topic,
-					PayLoad:   []byte(message.Value),
-					Handler:   handler,
-					CreatedOn: time.Now(),
+				if data.Type == "local" {
+					ID := uuid.New().String()
+					msg := queue.Message{
+						Id:        ID,
+						UUID:      ID,
+						Retry:     3,
+						Execute:   0,
+						Topic:     topic,
+						PayLoad:   []byte(message.Value),
+						Handler:   handler,
+						CreatedOn: time.Now(),
+					}
+					iLog.Debug(fmt.Sprintf("Push message %s to queue: %s", msg, q.QueueID))
+					q.Push(msg)
+				} else {
+					iLog.Debug(fmt.Sprintf("Call IAC Endpoint to handle the message %s with: %s", message.Value, handler))
+					KafkaConsumer.CallWebService(message, topic, handler)
 				}
-				iLog.Debug(fmt.Sprintf("Push message %s to queue: %s", msg, q.QueueID))
-				q.Push(msg)
 			}
 		}
 	}()
 
 	KafkaConsumer.waitForTerminationSignal()
 }
+func (KafkaConsumer *KafkaConsumer) CallWebService(msg *sarama.ConsumerMessage, topic string, handler string) {
 
+	method := "POST"
+	url := KafkaConsumer.AppServer + "/trancode/execute"
+
+	client := &http.Client{}
+
+	type MSGData struct {
+		TranCode string                 `json:"code"`
+		Inputs   map[string]interface{} `json:"inputs"`
+	}
+
+	var result map[string]interface{}
+	err := json.Unmarshal(msg.Value, &result)
+	if err != nil {
+		KafkaConsumer.iLog.Error(fmt.Sprintf("Error:", err))
+		return
+	}
+	var inputs map[string]interface{}
+
+	inputs["Payload"] = result
+	inputs["Topic"] = topic
+
+	msgdata := &MSGData{
+		TranCode: handler,
+		Inputs:   inputs,
+	}
+
+	bytesdata, err := json.Marshal(msgdata)
+	if err != nil {
+		KafkaConsumer.iLog.Error(fmt.Sprintf("Error:", err))
+		return
+	}
+
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(bytesdata))
+
+	if err != nil {
+		KafkaConsumer.iLog.Error(fmt.Sprintf("Error in WebServiceCallFunc.Execute: %s", err))
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "apikey "+KafkaConsumer.ApiKey)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		KafkaConsumer.iLog.Error(fmt.Sprintf("Error in WebServiceCallFunc.Execute: %s", err))
+		return
+	}
+	defer resp.Body.Close()
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+	err = json.Unmarshal(respBody, &result)
+	if err != nil {
+		KafkaConsumer.iLog.Error(fmt.Sprintf("Error:", err))
+		return
+	}
+	KafkaConsumer.iLog.Debug(fmt.Sprintf("Response data: %v", result))
+
+}
 func (KafkaConsumer *KafkaConsumer) waitForTerminationSignal() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)

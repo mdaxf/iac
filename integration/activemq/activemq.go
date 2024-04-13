@@ -1,10 +1,13 @@
 package activemq
 
 import (
+	"bytes"
 	"crypto/x509"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -43,6 +46,8 @@ type ActiveMQtopic struct {
 	Topic    string `json:"topic"`
 	Handler  string `json:"handler"`
 	SQLQuery string `json:"sqlquery"`
+	Mode     string `json:"mode"`
+	Type     string `json:"type"`
 }
 
 // ActiveMQ struct
@@ -57,6 +62,8 @@ type ActiveMQ struct {
 	DocDBconn     *documents.DocDB
 	DB            *sql.DB
 	SignalRClient signalr.Client
+	AppServer     string
+	ApiKey        string
 }
 
 /*
@@ -241,6 +248,8 @@ func (a *ActiveMQ) Subscribes() {
 	for _, item := range a.Config.Topics {
 		topic := item.Topic
 		handler := item.Handler
+		//	mode := item.Mode
+		executetype := item.Type
 
 		sub, err := a.Conn.Subscribe(topic, stomp.AckAuto)
 		if err != nil {
@@ -248,29 +257,97 @@ func (a *ActiveMQ) Subscribes() {
 		}
 		a.Subs = append(a.Subs, sub)
 		go func() {
-			msgID := 0
-			for {
-				msg := <-sub.C
-				msgID += 1
-				fmt.Println("Received message", string(msg.Body))
-				message := queue.Message{
-					Id:        strconv.FormatUint(uint64(msgID), 10),
-					UUID:      uuid.New().String(),
-					Retry:     3,
-					Execute:   0,
-					Topic:     topic,
-					PayLoad:   msg.Body,
-					Handler:   handler,
-					CreatedOn: time.Now().UTC(),
-				}
+			if executetype == "local" {
+				msgID := 0
+				for {
+					msg := <-sub.C
+					msgID += 1
+					fmt.Println("Received message", string(msg.Body))
+					message := queue.Message{
+						Id:        strconv.FormatUint(uint64(msgID), 10),
+						UUID:      uuid.New().String(),
+						Retry:     3,
+						Execute:   0,
+						Topic:     topic,
+						PayLoad:   msg.Body,
+						Handler:   handler,
+						CreatedOn: time.Now().UTC(),
+					}
 
-				a.iLog.Debug(fmt.Sprintf("Push message %v to queue: %s", message, a.Queue.QueueID))
-				a.Queue.Push(message)
+					a.iLog.Debug(fmt.Sprintf("Push message %v to queue: %s", message, a.Queue.QueueID))
+					a.Queue.Push(message)
+				}
+			} else {
+				for {
+					msg := <-sub.C
+					fmt.Println("Received message", string(msg.Body))
+					a.CallWebService(msg, topic, handler)
+				}
 			}
 		}()
 	}
 
 	a.waitForTerminationSignal()
+
+}
+
+func (a *ActiveMQ) CallWebService(msg *stomp.Message, topic string, handler string) {
+
+	method := "POST"
+	url := a.AppServer + "/trancode/execute"
+
+	client := &http.Client{}
+
+	type MSGData struct {
+		TranCode string                 `json:"code"`
+		Inputs   map[string]interface{} `json:"inputs"`
+	}
+
+	var result map[string]interface{}
+	err := json.Unmarshal(msg.Body, &result)
+	if err != nil {
+		a.iLog.Error(fmt.Sprintf("Error:", err))
+		return
+	}
+	var inputs map[string]interface{}
+
+	inputs["Payload"] = result
+	inputs["Topic"] = topic
+
+	msgdata := &MSGData{
+		TranCode: handler,
+		Inputs:   inputs,
+	}
+
+	bytesdata, err := json.Marshal(msgdata)
+	if err != nil {
+		a.iLog.Error(fmt.Sprintf("Error:", err))
+		return
+	}
+
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(bytesdata))
+
+	if err != nil {
+		a.iLog.Error(fmt.Sprintf("Error in WebServiceCallFunc.Execute: %s", err))
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "apikey "+a.ApiKey)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		a.iLog.Error(fmt.Sprintf("Error in WebServiceCallFunc.Execute: %s", err))
+		return
+	}
+	defer resp.Body.Close()
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+	err = json.Unmarshal(respBody, &result)
+	if err != nil {
+		a.iLog.Error(fmt.Sprintf("Error:", err))
+		return
+	}
+	a.iLog.Debug(fmt.Sprintf("Response data: %v", result))
 
 }
 
