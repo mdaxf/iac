@@ -639,14 +639,30 @@ func (f *Funcs) checkinputvalue(Aliasname string, variables map[string]interface
 			f.iLog.Debug(fmt.Sprintf("checkinputvalue %s temp: %s", variables[Aliasname], temp))  */
 			switch variables[Aliasname].(type) {
 			case int:
-				Result = strconv.Itoa(variables[Aliasname].(int))
+				if variables[Aliasname] == "" {
+					Result = strconv.Itoa(0)
+				} else {
+					Result = strconv.Itoa(variables[Aliasname].(int))
+				}
 			case int64:
-				value := int(variables[Aliasname].(int64))
-				Result = strconv.Itoa(value)
+				if variables[Aliasname] == "" {
+					Result = strconv.Itoa(0)
+				} else {
+					value := int(variables[Aliasname].(int64))
+					Result = strconv.Itoa(value)
+				}
 			case float64:
-				Result = strconv.FormatFloat(variables[Aliasname].(float64), 'f', -1, 64)
+				if variables[Aliasname] == "" {
+					Result = strconv.FormatFloat(0.0, 'f', -1, 64)
+				} else {
+					Result = strconv.FormatFloat(variables[Aliasname].(float64), 'f', -1, 64)
+				}
 			case bool:
-				Result = strconv.FormatBool(variables[Aliasname].(bool))
+				if variables[Aliasname] == "" {
+					Result = strconv.FormatBool(false)
+				} else {
+					Result = strconv.FormatBool(variables[Aliasname].(bool))
+				}
 			case string:
 				Result = variables[Aliasname].(string)
 			case time.Time:

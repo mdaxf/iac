@@ -66,7 +66,7 @@ func (cf *SubTranCodeFuncs) Execute(f *Funcs) {
 
 	f.iLog.Debug(fmt.Sprintf("Executing subtran function to call transaction code: %v with inputs %s", tcode, mappedinputs))
 
-	outputs, err := callback_mgr.CallBackFunc("TranCode_Execute", tcode, mappedinputs, nil, nil, f.DBTx, f.DocDBCon, f.SignalRClient)
+	outputs, err := callback_mgr.CallBackFunc("TranCode_Execute", tcode, mappedinputs, f.SignalRClient, f.DocDBCon, f.Ctx, f.CtxCancel, f.DBTx)
 	//outputs := callback.ExecuteTranCode("TranFlowstr_Execute", tcode, mappedinputs, nil, nil, f.DBTx, f.DocDBCon, f.SignalRClient)
 	//outputs, err := cf.TranFlowstr.Execute(tcode, mappedinputs, f.Ctx, f.CtxCancel, f.DBTx)
 	if err != nil {
