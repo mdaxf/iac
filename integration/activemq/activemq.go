@@ -128,7 +128,13 @@ func NewActiveMQConnectionExternal(config ActiveMQconfig, docDBconn *documents.D
 	return activeMQ
 
 }
+func CheckConnection(activemq ActiveMQ) bool {
+	if activemq.Conn == nil {
+		return false
+	}
 
+	return true
+}
 func connectActiveMQ(config ActiveMQconfig) *ActiveMQ {
 
 	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "ActiveMQConnection"}
@@ -152,6 +158,7 @@ func connectActiveMQ(config ActiveMQconfig) *ActiveMQ {
 		conn, err = stomp.Dial(
 			"tcp",
 			config.Host+":"+config.Port,
+			stomp.ConnOpt.AcceptVersion(stomp.V12),
 		)
 	} else if config.Username != "" && config.TLS == "" {
 		conn, err = stomp.Dial(

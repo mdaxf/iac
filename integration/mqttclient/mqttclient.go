@@ -1,7 +1,6 @@
 package mqttclient
 
 import (
-	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
@@ -13,8 +12,6 @@ import (
 	"strconv"
 	"syscall"
 	"time"
-
-	"net/http"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -304,57 +301,87 @@ func (mqttClient *MqttClient) CallWebService(msg mqtt.Message, topic string, han
 	method := "POST"
 	url := mqttClient.AppServer + "/trancode/execute"
 
-	client := &http.Client{}
-
-	type MSGData struct {
-		TranCode string                 `json:"code"`
-		Inputs   map[string]interface{} `json:"inputs"`
-	}
-
 	var result map[string]interface{}
 	err := json.Unmarshal(msg.Payload(), &result)
 	if err != nil {
 		mqttClient.iLog.Error(fmt.Sprintf("Error:", err))
 		return
 	}
+
 	var inputs map[string]interface{}
 
 	inputs["Payload"] = result
 	inputs["Topic"] = topic
 
-	msgdata := &MSGData{
-		TranCode: handler,
-		Inputs:   inputs,
-	}
+	data := make(map[string]interface{})
+	data["TranCode"] = handler
+	data["Inputs"] = inputs
 
-	bytesdata, err := json.Marshal(msgdata)
-	if err != nil {
-		mqttClient.iLog.Error(fmt.Sprintf("Error:", err))
-		return
-	}
+	headers := make(map[string]string)
+	headers["Content-Type"] = "application/json"
+	headers["Authorization"] = "apikey " + mqttClient.ApiKey
 
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(bytesdata))
+	result, err = com.CallWebService(url, method, data, headers)
 
 	if err != nil {
 		mqttClient.iLog.Error(fmt.Sprintf("Error in WebServiceCallFunc.Execute: %s", err))
 		return
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "apikey "+mqttClient.ApiKey)
 
-	resp, err := client.Do(req)
-	if err != nil {
-		mqttClient.iLog.Error(fmt.Sprintf("Error in WebServiceCallFunc.Execute: %s", err))
-		return
-	}
-	defer resp.Body.Close()
+	/*
 
-	respBody, err := ioutil.ReadAll(resp.Body)
-	err = json.Unmarshal(respBody, &result)
-	if err != nil {
-		mqttClient.iLog.Error(fmt.Sprintf("Error:", err))
-		return
-	}
+		client := &http.Client{}
+
+		type MSGData struct {
+			TranCode string                 `json:"code"`
+			Inputs   map[string]interface{} `json:"inputs"`
+		}
+
+		var result map[string]interface{}
+		err := json.Unmarshal(msg.Payload(), &result)
+		if err != nil {
+			mqttClient.iLog.Error(fmt.Sprintf("Error:", err))
+			return
+		}
+		var inputs map[string]interface{}
+
+		inputs["Payload"] = result
+		inputs["Topic"] = topic
+
+		msgdata := &MSGData{
+			TranCode: handler,
+			Inputs:   inputs,
+		}
+
+		bytesdata, err := json.Marshal(msgdata)
+		if err != nil {
+			mqttClient.iLog.Error(fmt.Sprintf("Error:", err))
+			return
+		}
+
+		req, err := http.NewRequest(method, url, bytes.NewBuffer(bytesdata))
+
+		if err != nil {
+			mqttClient.iLog.Error(fmt.Sprintf("Error in WebServiceCallFunc.Execute: %s", err))
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "apikey "+mqttClient.ApiKey)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			mqttClient.iLog.Error(fmt.Sprintf("Error in WebServiceCallFunc.Execute: %s", err))
+			return
+		}
+		defer resp.Body.Close()
+
+		respBody, err := ioutil.ReadAll(resp.Body)
+		err = json.Unmarshal(respBody, &result)
+		if err != nil {
+			mqttClient.iLog.Error(fmt.Sprintf("Error:", err))
+			return
+		}
+	*/
 	mqttClient.iLog.Debug(fmt.Sprintf("Response data: %v", result))
 
 }

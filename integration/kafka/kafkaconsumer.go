@@ -1,12 +1,9 @@
 package kafka
 
 import (
-	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,6 +12,7 @@ import (
 	"github.com/IBM/sarama"
 	//	cluster "github.com/bsm/sarama-cluster"
 	"github.com/google/uuid"
+	"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/framework/queue"
 	"github.com/mdaxf/iac/logger"
@@ -238,57 +236,84 @@ func (KafkaConsumer *KafkaConsumer) CallWebService(msg *sarama.ConsumerMessage, 
 	method := "POST"
 	url := KafkaConsumer.AppServer + "/trancode/execute"
 
-	client := &http.Client{}
-
-	type MSGData struct {
-		TranCode string                 `json:"code"`
-		Inputs   map[string]interface{} `json:"inputs"`
-	}
-
 	var result map[string]interface{}
 	err := json.Unmarshal(msg.Value, &result)
 	if err != nil {
 		KafkaConsumer.iLog.Error(fmt.Sprintf("Error:", err))
 		return
 	}
+
 	var inputs map[string]interface{}
 
 	inputs["Payload"] = result
 	inputs["Topic"] = topic
 
-	msgdata := &MSGData{
-		TranCode: handler,
-		Inputs:   inputs,
-	}
+	data := make(map[string]interface{})
+	data["TranCode"] = handler
+	data["Inputs"] = inputs
 
-	bytesdata, err := json.Marshal(msgdata)
-	if err != nil {
-		KafkaConsumer.iLog.Error(fmt.Sprintf("Error:", err))
-		return
-	}
+	headers := make(map[string]string)
+	headers["Content-Type"] = "application/json"
+	headers["Authorization"] = "apikey " + KafkaConsumer.ApiKey
 
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(bytesdata))
+	result, err = com.CallWebService(url, method, data, headers)
 
 	if err != nil {
 		KafkaConsumer.iLog.Error(fmt.Sprintf("Error in WebServiceCallFunc.Execute: %s", err))
 		return
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "apikey "+KafkaConsumer.ApiKey)
+	/*
+		client := &http.Client{}
 
-	resp, err := client.Do(req)
-	if err != nil {
-		KafkaConsumer.iLog.Error(fmt.Sprintf("Error in WebServiceCallFunc.Execute: %s", err))
-		return
-	}
-	defer resp.Body.Close()
+		type MSGData struct {
+			TranCode string                 `json:"code"`
+			Inputs   map[string]interface{} `json:"inputs"`
+		}
 
-	respBody, err := ioutil.ReadAll(resp.Body)
-	err = json.Unmarshal(respBody, &result)
-	if err != nil {
-		KafkaConsumer.iLog.Error(fmt.Sprintf("Error:", err))
-		return
-	}
+		var result map[string]interface{}
+		err := json.Unmarshal(msg.Value, &result)
+		if err != nil {
+			KafkaConsumer.iLog.Error(fmt.Sprintf("Error:", err))
+			return
+		}
+		var inputs map[string]interface{}
+
+		inputs["Payload"] = result
+		inputs["Topic"] = topic
+
+		msgdata := &MSGData{
+			TranCode: handler,
+			Inputs:   inputs,
+		}
+
+		bytesdata, err := json.Marshal(msgdata)
+		if err != nil {
+			KafkaConsumer.iLog.Error(fmt.Sprintf("Error:", err))
+			return
+		}
+
+		req, err := http.NewRequest(method, url, bytes.NewBuffer(bytesdata))
+
+		if err != nil {
+			KafkaConsumer.iLog.Error(fmt.Sprintf("Error in WebServiceCallFunc.Execute: %s", err))
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "apikey "+KafkaConsumer.ApiKey)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			KafkaConsumer.iLog.Error(fmt.Sprintf("Error in WebServiceCallFunc.Execute: %s", err))
+			return
+		}
+		defer resp.Body.Close()
+
+		respBody, err := ioutil.ReadAll(resp.Body)
+		err = json.Unmarshal(respBody, &result)
+		if err != nil {
+			KafkaConsumer.iLog.Error(fmt.Sprintf("Error:", err))
+			return
+		} */
 	KafkaConsumer.iLog.Debug(fmt.Sprintf("Response data: %v", result))
 
 }
