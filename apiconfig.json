@@ -4,6 +4,22 @@
   "apikey":"ahbcgj",
   "controllers": [
     {
+      "path": "IACComponents", 
+      "module": "IACComponentController",    
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/heartbeat",
+          "handler": "ComponentHeartbeat"
+        },
+        {
+          "method": "POST",
+          "path": "/close",
+          "handler": "ComponentClose"
+        }
+      ]
+    },
+    {
       "path": "user", 
       "module": "UserController",    
       "endpoints": [

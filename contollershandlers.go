@@ -27,6 +27,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mdaxf/iac/controllers/bpmcontroller"
 	"github.com/mdaxf/iac/controllers/collectionop"
+	"github.com/mdaxf/iac/controllers/component"
 	"github.com/mdaxf/iac/controllers/databaseop"
 	"github.com/mdaxf/iac/controllers/function"
 	healthcheck "github.com/mdaxf/iac/controllers/health"
@@ -117,6 +118,10 @@ func getModule(module string) reflect.Value {
 
 	case "BPMController":
 		moduleInstance := &bpmcontroller.BPMController{}
+		return reflect.ValueOf(moduleInstance)
+
+	case "IACComponentController":
+		moduleInstance := &component.IACComponentController{}
 		return reflect.ValueOf(moduleInstance)
 	}
 
