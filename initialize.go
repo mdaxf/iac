@@ -24,6 +24,7 @@ import (
 	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/framework/cache"
+	"github.com/mdaxf/iac/vendor_skip/github.com/google/uuid"
 
 	//	iacmb "github.com/mdaxf/iac/framework/messagebus"
 
@@ -67,10 +68,13 @@ func initialize() {
 			fmt.Printf("initialize defer time: %v, duration: %v", time.Now(), elapsed)
 		}
 	}()
+	com.NodeHeartBeats = make(map[string]interface{})
+	com.InstanceID = uuid.New().String()
 
 	com.ApiKey = config.ApiKey
 
 	initializeloger()
+
 	ilog.Debug("initialize logger")
 	config.SessionCacheTimeout = 1800
 	initializecache()

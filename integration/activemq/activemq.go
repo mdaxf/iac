@@ -123,7 +123,7 @@ func NewActiveMQConnectionExternal(config ActiveMQconfig, docDBconn *documents.D
 	activeMQ.DB = db
 	activeMQ.SignalRClient = signalRClient
 
-	activeMQ.Subscribes()
+	//	activeMQ.Subscribes()
 
 	return activeMQ
 

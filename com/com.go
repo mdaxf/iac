@@ -19,6 +19,7 @@ import (
 var Instance string
 var InstanceType string
 var InstanceName string
+var InstanceID string
 var SingalRConfig map[string]interface{}
 var TransactionTimeout int
 var DBTransactionTimeout int
@@ -28,6 +29,8 @@ var IACDocDBConn *DocDB
 
 var MongoDBClients []*mongo.Client
 var IACMessageBusClient signalr.Client
+
+var NodeHeartBeats map[string]interface{}
 
 // HeartbeatChecker is an interface that defines the required methods
 // for performing heartbeat checks on various services.

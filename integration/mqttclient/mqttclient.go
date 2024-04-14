@@ -156,7 +156,7 @@ func NewMqttClientbyExternal(configurations Mqtt, DB *sql.DB, DocDBconn *documen
 
 	mqttclient.Queue = queue.NewMessageQueuebyExternal(uuid, "mqttclient", DB, DocDBconn, SignalRClient)
 
-	mqttclient.Initialize_mqttClient()
+	//	mqttclient.Initialize_mqttClient()
 	return mqttclient
 }
 
@@ -221,7 +221,9 @@ func (mqttClient *MqttClient) Connect() error {
 		return token.Error()
 	}
 
-	mqttClient.SubscribeTopics()
+	go func() {
+		mqttClient.SubscribeTopics()
+	}()
 
 	return nil
 }

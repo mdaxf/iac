@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/controllers/common"
 	"github.com/mdaxf/iac/logger"
 )
@@ -46,9 +47,15 @@ func (f *IACComponentController) ComponentHeartbeat(c *gin.Context) {
 		return
 	}
 	// update the component status dataset
-	iLog.Debug(fmt.Sprintf("Component.heartbeat: %v", data))
-	c.JSON(http.StatusOK, gin.H{"data": data})
+	//iLog.Debug(fmt.Sprintf("Component.heartbeat: %v", data))
+	if com.NodeHeartBeats[data.Node["AppID"].(string)] == nil {
+		data.ServiceStatus["StartTime"] = data.time
+		data.ServiceStatus["Status"] = "Started"
+	}
 
+	com.NodeHeartBeats[data.Node["AppID"].(string)] = data
+
+	c.JSON(http.StatusOK, gin.H{"Status": "Success"})
 }
 
 func (f *IACComponentController) ComponentClose(c *gin.Context) {
@@ -77,6 +84,12 @@ func (f *IACComponentController) ComponentClose(c *gin.Context) {
 	}
 	// update the component status dataset
 	iLog.Debug("Component close")
+
+	if com.NodeHeartBeats[data.Node["AppID"].(string)] != nil {
+		data.ServiceStatus["CloseTime"] = data.time
+		data.ServiceStatus["Status"] = "Closed"
+	}
+
 	c.JSON(http.StatusOK, gin.H{"data": "Component closed"})
 
 }

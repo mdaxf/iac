@@ -85,7 +85,7 @@ func NewKafkaConsumerExternal(config KafkaConfig, docDBconn *documents.DocDB, db
 	Kafkaconsumer.Queue.SignalRClient = signalRClient
 
 	iLog.Debug(fmt.Sprintf(("Create Kafkaconsumer: %s"), logger.ConvertJson(Kafkaconsumer)))
-	Kafkaconsumer.BuildKafkaConsumer()
+	//	Kafkaconsumer.BuildKafkaConsumer()
 	return Kafkaconsumer
 }
 
