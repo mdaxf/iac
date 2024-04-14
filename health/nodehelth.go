@@ -8,6 +8,9 @@ import (
 
 	"database/sql"
 
+	"github.com/mdaxf/signalrsrv/signalr"
+	"go.mongodb.org/mongo-driver/mongo"
+
 	"github.com/mdaxf/iac/com"
 
 	"github.com/mdaxf/iac/health/checks"
@@ -20,7 +23,7 @@ import (
 // such as HTTP, MongoDB, MySQL, MQTT, and SignalR.
 // It measures the health of the system and returns the result as a JSON-encoded map.
 
-func CheckNodeHealth(Node map[string]interface{}, db *sql.DB, DocDBConn, documentsConfig map[string]interface{}, signalrcfg map[string]interface{} ) (map[string]interface{}, error) {
+func CheckNodeHealth(Node map[string]interface{}, db *sql.DB, mongoClient *mongo.Client, signalRClient signalr.Client) (map[string]interface{}, error) {
 	iLog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "Node Status Check"}
 
 	startTime := time.Now()
@@ -35,31 +38,24 @@ func CheckNodeHealth(Node map[string]interface{}, db *sql.DB, DocDBConn, documen
 		}
 	}()
 
-
 	h, _ := New(WithComponent(Component{
-		Name:      Node["Name"].(string),
-		AppID:     Node["AppID"].(string),
-		Description: Node["Description"].(string),
+		Name:         Node["Name"].(string),
+		Instance:     Node["AppID"].(string),
+		InstanceName: Node["Description"].(string),
+		InstanceType: Node["Type"].(string),
+		Version:      Node["Version"].(string),
 	}))
 
 	h.systemInfoEnabled = true
 
-	if documentsConfig != nil {
-
-		var DatabaseType = documentsConfig["type"].(string)             // "mongodb"
-		var DatabaseConnection = documentsConfig["connection"].(string) //"mongodb://localhost:27017"
-		var DatabaseName = documentsConfig["database"].(string)         //"IAC_CFG"
-
-		if DatabaseType == "mongodb" && DatabaseConnection != "" && DatabaseName != "" {
-			h.Register(Config{
-				Name: "mongodb",
-				Check: func(ctx context.Context) error {
-					return checks.CheckMongoDBStatus(ctx, DatabaseConnection, time.Second*5, time.Second*5, time.Second*5)
-				},
-			})
-		}
+	if mongoClient != nil {
+		h.Register(Config{
+			Name: "mongoDB",
+			Check: func(ctx context.Context) error {
+				return checks.CheckMongoClientStatus(ctx, mongoClient)
+			},
+		})
 	}
-
 	if db != nil {
 		h.Register(Config{
 			Name: "mysql",
@@ -68,33 +64,16 @@ func CheckNodeHealth(Node map[string]interface{}, db *sql.DB, DocDBConn, documen
 			},
 		})
 	}
-
-	if signalrcfg != nil {
-		SAddress := signalrcfg["server"].(string)
-		WcAddress := signalrcfg["serverwc"].(string)
-		fmt.Println("SignalR Address:", SAddress)
-		fmt.Println("SignalR Websocket Address:", WcAddress)
-
-		if WcAddress != "" {
-
-			h.Register(Config{
-				Name: "signalr Websocket Server",
-				Check: func(ctx context.Context) error {
-					return checks.CheckSignalRSrvStatus(ctx, SAddress, WcAddress)
-				},
-			})
-		}
-		if SAddress != "" {
-			h.Register(Config{
-				Name: "signalr Http Server",
-				Check: func(ctx context.Context) error {
-					return checks.CheckSignalRSrvHttpStatus(ctx, SAddress, WcAddress)
-				},
-			})
-		}
+	if signalRClient != nil {
+		h.Register(Config{
+			Name: "signalR",
+			Check: func(ctx context.Context) error {
+				return checks.CheckSignalClientStatus(ctx, signalRClient)
+			},
+		})
 	}
 
-	m := h.Measure(ctx)
+	m := h.Measure(context.Background())
 	data, err := json.Marshal(m)
 	if err != nil {
 		return make(map[string]interface{}), err

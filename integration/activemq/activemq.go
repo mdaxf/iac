@@ -1,13 +1,11 @@
 package activemq
 
 import (
-	"bytes"
 	"crypto/x509"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -299,13 +297,6 @@ func (a *ActiveMQ) CallWebService(msg *stomp.Message, topic string, handler stri
 	method := "POST"
 	url := a.AppServer + "/trancode/execute"
 
-	client := &http.Client{}
-
-	type MSGData struct {
-		TranCode string                 `json:"code"`
-		Inputs   map[string]interface{} `json:"inputs"`
-	}
-
 	var result map[string]interface{}
 	err := json.Unmarshal(msg.Body, &result)
 	if err != nil {
@@ -317,39 +308,21 @@ func (a *ActiveMQ) CallWebService(msg *stomp.Message, topic string, handler stri
 	inputs["Payload"] = result
 	inputs["Topic"] = topic
 
-	msgdata := &MSGData{
-		TranCode: handler,
-		Inputs:   inputs,
-	}
+	msgdata := make(map[string]interface{})
+	msgdata["TranCode"] = handler
+	msgdata["Inputs"] = inputs
 
-	bytesdata, err := json.Marshal(msgdata)
-	if err != nil {
-		a.iLog.Error(fmt.Sprintf("Error:", err))
-		return
-	}
+	headers := make(map[string]string)
+	headers["Content-Type"] = "application/json"
+	headers["Authorization"] = "apikey " + a.ApiKey
 
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(bytesdata))
+	result, err = com.CallWebService(url, method, msgdata, headers)
 
 	if err != nil {
 		a.iLog.Error(fmt.Sprintf("Error in WebServiceCallFunc.Execute: %s", err))
 		return
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "apikey "+a.ApiKey)
 
-	resp, err := client.Do(req)
-	if err != nil {
-		a.iLog.Error(fmt.Sprintf("Error in WebServiceCallFunc.Execute: %s", err))
-		return
-	}
-	defer resp.Body.Close()
-
-	respBody, err := ioutil.ReadAll(resp.Body)
-	err = json.Unmarshal(respBody, &result)
-	if err != nil {
-		a.iLog.Error(fmt.Sprintf("Error:", err))
-		return
-	}
 	a.iLog.Debug(fmt.Sprintf("Response data: %v", result))
 
 }

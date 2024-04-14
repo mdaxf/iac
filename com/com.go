@@ -1,9 +1,12 @@
 package com
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"reflect"
 	"strconv"
 
@@ -232,4 +235,44 @@ func ConvertMapToString(data map[string]interface{}) (string, error) {
 	// Convert the byte slice to a string
 	jsonString := string(jsonBytes)
 	return jsonString, nil
+}
+
+func CallWebService(url string, method string, data map[string]interface{}, headers map[string]string) (map[string]interface{}, error) {
+	var result map[string]interface{}
+	// Create a new HTTP client
+	client := &http.Client{}
+
+	bytesdata, err := json.Marshal(data)
+	if err != nil {
+		//	fmt.Error(fmt.Sprintf("Error:", err))
+		return nil, err
+	}
+
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(bytesdata))
+
+	if err != nil {
+		//	fmt.Error("Error in WebServiceCallFunc.Execute: %s", err)
+		return nil, err
+	}
+	if headers != nil {
+		for key, value := range headers {
+			req.Header.Set(key, value)
+		}
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		//	fmt.Error("Error in WebServiceCallFunc.Execute: %s", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+	err = json.Unmarshal(respBody, &result)
+	if err != nil {
+		//	fmt.Error(fmt.Sprintf("Error:", err))
+		return nil, err
+	}
+	//	fmt.printf("Response data: %v", result)
+	return result, nil
 }

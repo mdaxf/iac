@@ -19,6 +19,8 @@ const (
 // Config is the MongoDB checker configuration settings container.
 type MongoDbCheck struct {
 	Ctx context.Context
+
+	MongoDBClient *mongo.Client
 	// DSN is the MongoDB instance connection DSN. Required.
 	ConnectionString string
 
