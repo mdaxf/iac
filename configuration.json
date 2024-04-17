@@ -54,7 +54,8 @@
         }
     },
     "appserver":{
-        "url": "http://127.0.0.1:8008"
+        "url": "http://127.0.0.1:8008",
+        "apikey": "ahbcgj"
     },
     "log":{
         "adapter": "console", 

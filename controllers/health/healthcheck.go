@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/controllers/common"
 	"github.com/mdaxf/iac/health"
 	"github.com/mdaxf/iac/logger"
@@ -49,11 +50,15 @@ func (f *HealthController) CheckHealth(c *gin.Context) {
 	iLog.Debug("Health Check")
 	data, err := health.CheckSystemHealth(c)
 
+	nodehealth := com.NodeHeartBeats[com.IACNode["AppID"].(string)].(map[string]interface{})
+	nodehealth["Result"] = data
+	com.NodeHeartBeats[com.IACNode["AppID"].(string)] = nodehealth
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": data})
+	c.JSON(http.StatusOK, gin.H{"data": com.NodeHeartBeats})
 
 }

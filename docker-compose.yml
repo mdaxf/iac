@@ -1,0 +1,78 @@
+version: '3'
+
+services:
+
+  mysql:
+    image: mysql:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: iacf12345678
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ../dump/iac.sql:/docker-entrypoint-initdb.d/dump.sql
+      - ../dump/create-user.sql:/docker-entrypoint-initdb.d/create-user.sql
+   # command:
+   #   - init-file=/docker-entrypoint-initdb.d/create-user.sql
+   #   - mysql -u root -p"$${MYSQL_ROOT_PASSWORD}" iac < /docker-entrypoint-initdb.d/dump.sql     
+    ports:
+      - "3306:3306"
+    networks:
+      - backend
+
+  mongodb:
+    image: mongo:latest
+    volumes:
+      - mongodb-data:/data/db
+      - ../dump/IAC_CFG:/docker-entrypoint-initdb.d/dump
+    #command: mongod --bind_ip_all --replSet rs0
+    #    echo "Restoring MongoDB dump..."
+    #    mongorestore /db:IAC_CFG /uri:mongodb://localhost:27017 /docker-entrypoint-initdb.d/dump
+    ports:
+      - "27017:27017"
+    networks:
+      - backend
+
+  app-server:
+    image: iac
+    depends_on:
+      - mysql
+      - mongodb
+    ports:
+      - "8080:8080"
+    networks:
+      - backend
+
+  web-server:
+    image: iac-ui
+    depends_on:
+      - app-server
+    ports:
+      - "8000:8000"
+    networks:
+      - backend
+      - frontend
+
+  signalr-server:
+    image: iac-signalrsrv
+    ports:
+      - "8222:8222"
+    networks:
+      - backend
+      - frontend
+
+  mqtt-client:
+    image: iac-mqtt
+    depends_on:
+      - mysql
+      - mongodb
+      - app-server
+    networks:
+      - backend
+
+volumes:
+  mysql-data: 
+  mongodb-data: 
+
+networks:
+  backend: 
+  frontend: 
+    driver: bridge

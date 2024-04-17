@@ -32,6 +32,8 @@ var IACMessageBusClient signalr.Client
 
 var NodeHeartBeats map[string]interface{}
 
+var IACNode map[string]interface{}
+
 // HeartbeatChecker is an interface that defines the required methods
 // for performing heartbeat checks on various services.
 type HeartbeatChecker interface {

@@ -181,14 +181,16 @@ func monitorAndReconnectMySQL() {
 
 			if connectionerr != nil {
 				iLog.Error(fmt.Sprintf("Failed to reconnect to MySQL:%v", connectionerr))
-				time.Sleep(5 * time.Second) // Wait before retrying
+				time.Sleep(60 * time.Second) // Wait before retrying
 				continue
 			} else {
-				time.Sleep(1 * time.Second)
+				time.Sleep(5 * 60 * time.Second)
 				iLog.Debug(fmt.Sprintf("MySQL reconnected successfully"))
+				continue
 			}
 		} else {
-			time.Sleep(1 * time.Second) // Check connection every 60 seconds
+			time.Sleep(5 * 60 * time.Second) // Check connection every 60 seconds
+			continue
 		}
 	}
 
