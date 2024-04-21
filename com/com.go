@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
+	"os"
 	"reflect"
+	"runtime"
 	"strconv"
 
 	"database/sql"
@@ -280,4 +283,39 @@ func CallWebService(url string, method string, data map[string]interface{}, head
 	}
 	//	fmt.printf("Response data: %v", result)
 	return result, nil
+}
+
+func GetHostandIPAddress() (map[string]interface{}, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		fmt.Println("Error getting hostname:", err)
+		return nil, err
+	}
+	fmt.Println("Hostname: %s", hostname)
+
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		fmt.Println("Error getting IP addresses:", err)
+		return nil, err
+	}
+	var ipnet *net.IPNet
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				fmt.Println("IPv4 address:", ipnet.IP.String())
+			} else {
+				fmt.Println("IPv6 address:", ipnet.IP.String())
+			}
+		}
+	}
+
+	osName := runtime.GOOS
+
+	nodedata := make(map[string]interface{})
+	nodedata["Host"] = hostname
+	nodedata["OS"] = osName
+	nodedata["IPAddress"] = ipnet.IP.String()
+
+	return nodedata, nil
 }

@@ -1,0 +1,113 @@
+{
+    "instance":"IAC_Instance",
+    "name":"IAC",
+    "version":"1.0.0",
+    "description":"IAC is a framework for building web applications with Go.",
+    "author":"IAC",
+    "singalrconfig":{
+        "serverwc": "ws://iac-signalrsrv:8222",
+        "server": "http://iac-signalrsrv:8222",
+        "hub": "/iacmessagebus"
+    },
+    "transaction":{
+        "timeout": 30
+    },
+    "database":{
+        "type":"mysql",        
+        "connection": "user:iacf12345678@tcp(mysql:3306)/iac?timeout=5s",
+        "maxidleconns":5,
+        "maxopenconns":10,
+        "timeout": 5
+    },
+    "altdatabases":[
+        {
+            "name": "conn1",
+            "type":"mysql",
+            "connection":"user:iacf12345678@tcp(mysql:3306)/iac"
+        }
+    ],
+    "documentdb":{
+        "type": "mongodb",
+        "connection": "mongodb://mongodb:27017",
+        "database": "IAC_CFG"
+    },
+    "webserver":{
+        "port": 8000,
+        "timeout": 30,
+        "paths":{
+            "portal": {                
+                "path":"portal",
+                "home":"portal/uipage.html"}
+        },
+        "proxy":{
+            "draw": "http://localhost:3000"
+        },
+        "headers":{
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "POST, OPTIONS, GET, PUT, DELETE",
+            "Access-Control-Allow-Headers": "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization",
+            "Access-Control-Expose-Headers": "Content-Length",
+            "Content-Type": "application/json; charset=utf-8"            
+        }
+    },
+    "appserver":{
+        "url": "http://app-server:8080",
+        "apikey": "ahbcgj"
+    },
+    "log":{
+        "adapter": "console", 
+        "level": "performance",
+        "performance": true,
+        "performancethread": 1,
+        "file":{
+            "folder": "/docker-entrypoint-log/", 
+            "file": "iac.log",
+            "maxlines":10000,
+            "maxsize": 1024},
+        "console":{},
+        "multiplefile":{
+            "folder": "/docker-entrypoint-log/", 
+            "file": "iac.log",
+            "maxlines":10000,
+            "maxsize": 1024,
+            "maxfiles": 10
+        },
+        "documentdb":{
+            "conn": "mongodb://localhost:27017",
+            "db": "IAC_CACHE",
+            "collection": "logger"
+        }
+    },
+    "cache":{
+        "adapter": "memory",
+        "interval": 7200, 
+        "objectinterval": 1800,
+        "testsessiontimeout": 900,       
+        "redis":{
+            "key": "collectionname",
+            "conn": 6379,
+            "password": "",
+            "dbNum": 0,
+            "thePassWord": 3600
+        },
+        "memcache":{
+            "conn": "127.0.0.1:11211"
+        },
+        "file":{
+            "CachePath": "./cache",
+            "FileSuffix": ".cache",
+            "DirectoryLevel": 2,
+            "EmbedExpiry": 120
+        },
+        "documentdb":{
+            "conn": "mongodb://mongodb:27017",
+            "db": "IAC_CACHE",
+            "collection": "cache"
+        }
+    },
+    "translation":{
+        "autopopulate": true,
+        "cache": true
+    }
+}

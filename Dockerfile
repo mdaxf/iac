@@ -24,7 +24,7 @@ WORKDIR /app
 
 COPY --from=builder /build/iac-linux /app/iac-linux
 COPY --from=builder /build/apiconfig.json /app/apiconfig.json
-COPY --from=builder /build/configuration.json /app/configuration.json
+COPY --from=builder /build/dockerconfiguration.json /app/configuration.json
 
 # Copy the compiled Go application into the container
 #COPY iac-linux /app/    

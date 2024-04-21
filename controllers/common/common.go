@@ -68,7 +68,7 @@ func GetRequestBody(ctx *gin.Context) ([]byte, error) {
 		iLog.Error(fmt.Sprintf("GetRequestBody error: %s", err.Error()))
 		return nil, err
 	}
-	iLog.Debug(fmt.Sprintf("GetRequestBody body: %s", body))
+	//	iLog.Debug(fmt.Sprintf("GetRequestBody body: %s", body))
 	return body, nil
 }
 

@@ -49,9 +49,15 @@ func (f *HealthController) CheckHealth(c *gin.Context) {
 
 	iLog.Debug("Health Check")
 	data, err := health.CheckSystemHealth(c)
+	iLog.Debug(fmt.Sprintf("Health Check Result: %v", data))
 
-	nodehealth := com.NodeHeartBeats[com.IACNode["AppID"].(string)].(map[string]interface{})
+	iLog.Debug(fmt.Sprintf("all node health data: %v", com.NodeHeartBeats))
+
+	nodehealth := make(map[string]interface{})
 	nodehealth["Result"] = data
+	nodehealth["Node"] = com.IACNode
+	nodehealth["timestamp"] = time.Now().UTC()
+	//nodehealth["ServiceStatus"] = (com.NodeHeartBeats[com.IACNode["AppID"].(string)].(map[string]interface{}))["ServiceStatus"]
 	com.NodeHeartBeats[com.IACNode["AppID"].(string)] = nodehealth
 
 	if err != nil {

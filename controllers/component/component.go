@@ -48,12 +48,10 @@ func (f *IACComponentController) ComponentHeartbeat(c *gin.Context) {
 	}
 	// update the component status dataset
 	//iLog.Debug(fmt.Sprintf("Component.heartbeat: %v", data))
-	if com.NodeHeartBeats[data.Node["AppID"].(string)] == nil {
-		data.ServiceStatus["StartTime"] = data.time
-		data.ServiceStatus["Status"] = "Started"
-	}
 
 	com.NodeHeartBeats[data.Node["AppID"].(string)] = data
+
+	removeNotResponseComponentNodeHeartBeats(iLog)
 
 	c.JSON(http.StatusOK, gin.H{"Status": "Success"})
 }
@@ -86,10 +84,52 @@ func (f *IACComponentController) ComponentClose(c *gin.Context) {
 	iLog.Debug("Component close")
 
 	if com.NodeHeartBeats[data.Node["AppID"].(string)] != nil {
-		data.ServiceStatus["CloseTime"] = data.time
-		data.ServiceStatus["Status"] = "Closed"
+		data.Node["CloseTime"] = data.time
+		data.Node["Status"] = "Closed"
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": "Component closed"})
 
+}
+
+func removeNotResponseComponentNodeHeartBeats(iLog logger.Log) {
+	for key, value := range com.NodeHeartBeats {
+		node := value.(map[string]interface{})
+		if node == nil {
+			iLog.Error(fmt.Sprintf("NodeHeartBeats[%s] is nil", key))
+			delete(com.NodeHeartBeats, key)
+			continue
+		}
+		nodeTimestamp, ok := node["timestamp"]
+
+		if !ok {
+			iLog.Error(fmt.Sprintf("NodeHeartBeats[%s][timestamp] is nil", key))
+			delete(com.NodeHeartBeats, key)
+			continue
+		}
+
+		lasteHeartBeatTime, ok := nodeTimestamp.(time.Time)
+
+		if !ok {
+			iLog.Error(fmt.Sprintf("NodeHeartBeats[%s][timestamp] is not time.Time", key))
+			delete(com.NodeHeartBeats, key)
+			continue
+		}
+
+		if lasteHeartBeatTime.IsZero() {
+			iLog.Error(fmt.Sprintf("NodeHeartBeats[%s][timestamp] is zero", key))
+			delete(com.NodeHeartBeats, key)
+			continue
+		}
+
+		if lasteHeartBeatTime.Add(time.Minute * 30).Before(time.Now().UTC()) {
+			iLog.Debug(fmt.Sprintf("NodeHeartBeats[%s][timestamp] is not response", key))
+			delete(com.NodeHeartBeats, key)
+		}
+
+		if node["Status"] == "Closed" {
+			iLog.Debug(fmt.Sprintf("NodeHeartBeats[%s][Status] is Closed", key))
+			delete(com.NodeHeartBeats, key)
+		}
+	}
 }

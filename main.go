@@ -88,22 +88,19 @@ func main() {
 	com.NodeHeartBeats = make(map[string]interface{})
 
 	com.IACNode = make(map[string]interface{})
-
+	appid := uuid.New().String()
 	com.IACNode["Name"] = "iac"
-	com.IACNode["AppID"] = uuid.New().String()
+	com.IACNode["AppID"] = appid
 	com.IACNode["Type"] = "Application Server"
 	com.IACNode["Version"] = "1.0.0"
 	com.IACNode["Description"] = "IAC Application Server"
+	com.IACNode["Status"] = "Started"
+	com.IACNode["StartTime"] = time.Now()
 	data := make(map[string]interface{})
 	data["Node"] = com.IACNode
 	data["Result"] = make(map[string]interface{})
-	ServiceStatus := make(map[string]interface{})
-	ServiceStatus["StartTime"] = time.Now()
-	ServiceStatus["Status"] = "Started"
-	data["ServiceStatus"] = ServiceStatus
-	data["time"] = time.Now()
 
-	com.NodeHeartBeats[com.IACNode["AppID"].(string)] = data
+	com.NodeHeartBeats[appid] = data
 
 	initialize()
 

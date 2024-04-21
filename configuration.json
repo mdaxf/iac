@@ -32,7 +32,7 @@
         "database": "IAC_CFG"
     },
     "webserver":{
-        "port": 8080,
+        "port": 8000,
         "paths":{
             "portal": {                
                 "path":"../iac-ui/portal",
@@ -54,7 +54,7 @@
         }
     },
     "appserver":{
-        "url": "http://127.0.0.1:8008",
+        "url": "http://127.0.0.1:8080",
         "apikey": "ahbcgj"
     },
     "log":{
