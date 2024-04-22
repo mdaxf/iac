@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/mdaxf/iac/documents"
-	"github.com/mdaxf/signalrsrv/signalr"
+	"github.com/mdaxf/iac-signalr/signalr"
 )
 
 func TestNewMessageQueuebyExternal(t *testing.T) {

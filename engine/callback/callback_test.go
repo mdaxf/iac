@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/mdaxf/iac/documents"
-	"github.com/mdaxf/signalrsrv/signalr"
+	"github.com/mdaxf/iac-signalr/signalr"
 )
 
 func TestRegisterCallBack(t *testing.T) {

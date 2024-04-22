@@ -14,7 +14,7 @@ import (
 	funcs "github.com/mdaxf/iac/engine/function"
 	"github.com/mdaxf/iac/engine/types"
 	"github.com/mdaxf/iac/logger"
-	"github.com/mdaxf/signalrsrv/signalr"
+	"github.com/mdaxf/iac-signalr/signalr"
 )
 
 type FGroup struct {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/engine/types"
-	"github.com/mdaxf/signalrsrv/signalr"
+	"github.com/mdaxf/iac-signalr/signalr"
 )
 
 func TestExecutebyExternal(t *testing.T) {

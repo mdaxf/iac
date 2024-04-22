@@ -11,12 +11,12 @@ import (
 	"time"
 
 	//	"github.com/mdaxf/iac/controllers/trans"
+	"github.com/mdaxf/iac-signalr/signalr"
 	"github.com/mdaxf/iac/com"
 	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/engine/trancode"
 	"github.com/mdaxf/iac/logger"
-	"github.com/mdaxf/signalrsrv/signalr"
 )
 
 type MessageQueue struct {

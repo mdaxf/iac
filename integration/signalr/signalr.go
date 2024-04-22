@@ -25,7 +25,7 @@ import (
 	kitlog "github.com/go-kit/log"
 	//"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/logger"
-	"github.com/mdaxf/signalrsrv/signalr"
+	"github.com/mdaxf/iac-signalr/signalr"
 )
 
 // Connect establishes a connection to a SignalR server using the provided configuration.

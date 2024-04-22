@@ -7,10 +7,10 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/mdaxf/iac-signalr/signalr"
 	"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/logger"
-	"github.com/mdaxf/signalrsrv/signalr"
 )
 
 var callBackMap map[string]interface{}

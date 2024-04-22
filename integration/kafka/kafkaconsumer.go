@@ -16,7 +16,7 @@ import (
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/framework/queue"
 	"github.com/mdaxf/iac/logger"
-	"github.com/mdaxf/signalrsrv/signalr"
+	"github.com/mdaxf/iac-signalr/signalr"
 )
 
 type KafkasConfig struct {
