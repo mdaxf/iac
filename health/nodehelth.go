@@ -8,7 +8,7 @@ import (
 
 	"database/sql"
 
-	"github.com/mdaxf/signalrsrv/signalr"
+	"github.com/mdaxf/iac-signalr/signalr"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/mdaxf/iac/com"

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mdaxf/signalrsrv/signalr"
+	"github.com/mdaxf/iac-signalr/signalr"
 )
 
 type SignalClientCheck struct {

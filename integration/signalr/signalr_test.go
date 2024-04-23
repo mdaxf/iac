@@ -30,7 +30,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/mdaxf/signalrsrv/signalr"
+	"github.com/mdaxf/iac-signalr/signalr"
 )
 
 func TestConnect(t *testing.T) {

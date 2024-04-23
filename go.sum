@@ -182,8 +182,6 @@ github.com/mattn/go-isatty v0.0.19 h1:JITubQf0MOLdlGRuRq+jtsDlekdYPia9ZFsB8h/APP
 github.com/mattn/go-isatty v0.0.19/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
 github.com/mdaxf/iac-signalr v0.0.0-20240414021819-7bf0f7ea3eac h1:B/VvYh450ix3A1O3oK2BWwEz8yiCuxMtyLr2KkN/KWw=
 github.com/mdaxf/iac-signalr v0.0.0-20240414021819-7bf0f7ea3eac/go.mod h1:eahPWL9qPMEngfmsgbYGZ1bWjv/YykDVBXp8aXEPMWg=
-github.com/mdaxf/signalrsrv v0.0.0-20231006234128-8da62fea4b77 h1:jcHv8BNRL4h874nzbyWuBOwAF37UImZCeukF2v+4Knw=
-github.com/mdaxf/signalrsrv v0.0.0-20231006234128-8da62fea4b77/go.mod h1:zJNPBb4YF9OzvGDLlHJHcfjIXXKCm18GWhY99nGSUr0=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w8PVh93nsPXa1VrQ6jlwL5oN8l14QlcNfg=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
