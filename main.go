@@ -33,10 +33,10 @@ import (
 	"reflect"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	configuration "github.com/mdaxf/iac/config"
 	dbconn "github.com/mdaxf/iac/databases"
 	mongodb "github.com/mdaxf/iac/documents"
-	"github.com/mdaxf/iac/vendor_skip/github.com/google/uuid"
 
 	"github.com/mdaxf/iac/com"
 )

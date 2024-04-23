@@ -24,7 +24,7 @@ import (
 	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/framework/cache"
-	"github.com/mdaxf/iac/vendor_skip/github.com/google/uuid"
+	"github.com/google/uuid"
 
 	//	iacmb "github.com/mdaxf/iac/framework/messagebus"
 
