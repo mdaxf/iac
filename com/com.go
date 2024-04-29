@@ -315,8 +315,11 @@ func GetHostandIPAddress() (map[string]interface{}, error) {
 	nodedata := make(map[string]interface{})
 	nodedata["Host"] = hostname
 	nodedata["OS"] = osName
-	if ipnet.IP.To4() != nil {
-		nodedata["IPAddress"] = ipnet.IP.String()
+
+	if ipnet != nil {
+		if ipnet.IP.To4() != nil {
+			nodedata["IPAddress"] = ipnet.IP.String()
+		}
 	}
 	return nodedata, nil
 }
