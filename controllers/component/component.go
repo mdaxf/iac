@@ -19,7 +19,7 @@ type HeartBeat struct {
 	Node          map[string]interface{} `json:Node"`
 	Result        map[string]interface{} `json:Result"`
 	ServiceStatus map[string]interface{} `json:ServiceStatus"`
-	time          time.Time              `json:time"`
+	Timestamp     time.Time              `json:timestamp"`
 }
 
 func (f *IACComponentController) ComponentHeartbeat(c *gin.Context) {
@@ -84,7 +84,7 @@ func (f *IACComponentController) ComponentClose(c *gin.Context) {
 	iLog.Debug("Component close")
 
 	if com.NodeHeartBeats[data.Node["AppID"].(string)] != nil {
-		data.Node["CloseTime"] = data.time
+		data.Node["CloseTime"] = data.Timestamp
 		data.Node["Status"] = "Closed"
 	}
 
@@ -94,27 +94,20 @@ func (f *IACComponentController) ComponentClose(c *gin.Context) {
 
 func removeNotResponseComponentNodeHeartBeats(iLog logger.Log) {
 	for key, value := range com.NodeHeartBeats {
-		node := value.(map[string]interface{})
-		if node == nil {
-			iLog.Error(fmt.Sprintf("NodeHeartBeats[%s] is nil", key))
-			delete(com.NodeHeartBeats, key)
-			continue
-		}
-		nodeTimestamp, ok := node["timestamp"]
 
+		//	iLog.Debug(fmt.Sprintf("NodeHeartBeats[%s]: %v", key, value))
+
+		data, ok := value.(HeartBeat)
 		if !ok {
-			iLog.Error(fmt.Sprintf("NodeHeartBeats[%s][timestamp] is nil", key))
+			iLog.Error(fmt.Sprintf("NodeHeartBeats[%s] is not HeartBeat", key))
 			delete(com.NodeHeartBeats, key)
 			continue
 		}
+		//	iLog.Debug(fmt.Sprintf("NodeHeartBeats[%s]: %v", key, data))
 
-		lasteHeartBeatTime, ok := nodeTimestamp.(time.Time)
+		lasteHeartBeatTime := data.Timestamp
 
-		if !ok {
-			iLog.Error(fmt.Sprintf("NodeHeartBeats[%s][timestamp] is not time.Time", key))
-			delete(com.NodeHeartBeats, key)
-			continue
-		}
+		//	iLog.Debug(fmt.Sprintf("NodeHeartBeats[%s][timestamp]: %v", key, lasteHeartBeatTime))
 
 		if lasteHeartBeatTime.IsZero() {
 			iLog.Error(fmt.Sprintf("NodeHeartBeats[%s][timestamp] is zero", key))
@@ -126,6 +119,14 @@ func removeNotResponseComponentNodeHeartBeats(iLog logger.Log) {
 			iLog.Debug(fmt.Sprintf("NodeHeartBeats[%s][timestamp] is not response", key))
 			delete(com.NodeHeartBeats, key)
 		}
+
+		node := data.Node
+		if node == nil {
+			iLog.Error(fmt.Sprintf("NodeHeartBeats[%s][Node] is nil", key))
+			delete(com.NodeHeartBeats, key)
+			continue
+		}
+		//	iLog.Debug(fmt.Sprintf("NodeHeartBeats[%s][Node]: %v", key, node))
 
 		if node["Status"] == "Closed" {
 			iLog.Debug(fmt.Sprintf("NodeHeartBeats[%s][Status] is Closed", key))

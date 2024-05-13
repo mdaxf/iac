@@ -56,6 +56,7 @@ func (f *HealthController) CheckHealth(c *gin.Context) {
 	nodehealth := make(map[string]interface{})
 	nodehealth["Result"] = data
 	nodehealth["Node"] = com.IACNode
+	nodehealth["ServiceStatus"] = make(map[string]interface{})
 	nodehealth["timestamp"] = time.Now().UTC()
 	//nodehealth["ServiceStatus"] = (com.NodeHeartBeats[com.IACNode["AppID"].(string)].(map[string]interface{}))["ServiceStatus"]
 	com.NodeHeartBeats[com.IACNode["AppID"].(string)] = nodehealth
