@@ -48,6 +48,7 @@ type Config struct {
 	PluginControllers []PluginController `json:"plugins"`
 	Portal            Portal             `json:"portal"`
 	ApiKey            string             `json:"apikey"`
+	OpenAiKey         string             `json:"openaikey"`
 }
 
 type Portal struct {
@@ -76,6 +77,7 @@ func LoadConfig() (*Config, error) {
 	}
 
 	ApiKey = config.ApiKey
+	OpenAiKey = config.OpenAiKey
 
 	fmt.Println("loaded portal and api configuration:", config)
 	return &config, nil

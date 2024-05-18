@@ -25,6 +25,7 @@ import (
 	config "github.com/mdaxf/iac/config"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mdaxf/iac/controllers/iacai"
 	"github.com/mdaxf/iac/controllers/bpmcontroller"
 	"github.com/mdaxf/iac/controllers/collectionop"
 	"github.com/mdaxf/iac/controllers/component"
@@ -122,6 +123,10 @@ func getModule(module string) reflect.Value {
 
 	case "IACComponentController":
 		moduleInstance := &component.IACComponentController{}
+		return reflect.ValueOf(moduleInstance)
+
+	case "IACAIController":
+		moduleInstance := &iacai.IACAIController{}
 		return reflect.ValueOf(moduleInstance)
 	}
 

@@ -105,7 +105,7 @@ func (wf *WorkFlowController) ExplodeWorkFlow(ctx *gin.Context) {
 	}
 
 	wfe := workflow.NewExplosion(WorkFlowName, EntityName, EntityType, user, clientid)
-	wfentityid, err = wfe.Explode(Description, data)
+	wfentityid, err := wfe.Explode(Description, data)
 
 	if err != nil {
 

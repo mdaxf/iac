@@ -25,7 +25,7 @@ func TestExplodionEngine_Explode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.e.Explode(tt.description, tt.data); (err != nil) != tt.wantErr {
+			if _, err := tt.e.Explode(tt.description, tt.data); (err != nil) != tt.wantErr {
 				t.Errorf("ExplodionEngine.Explode() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

@@ -2,7 +2,17 @@
   "port": 8080,
   "timeout": 5000,
   "apikey":"ahbcgj",
+  "openaikey":"sk-1",
   "controllers": [
+    {"path": "IACAI", 
+    "module": "IACAIController",    
+    "endpoints": [
+      {
+        "method": "POST",
+        "path": "/imagetohtml",
+        "handler": "ImagetoHTML"
+      }
+    ]},    
     {
       "path": "IACComponents", 
       "module": "IACComponentController",    

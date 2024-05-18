@@ -30,6 +30,7 @@ var (
 )
 
 var ApiKey string
+var OpenAiKey string
 
 var GlobalConfiguration *GlobalConfig
 
