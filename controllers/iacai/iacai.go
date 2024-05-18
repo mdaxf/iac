@@ -41,7 +41,7 @@ func (f *IACAIController) ImagetoHTML(c *gin.Context) {
 			}
 		}()
 	*/
-	body, clientid, user, err := common.GetRequestBodyandUser(ctx)
+	body, clientid, user, err := common.GetRequestBodyandUser(c)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -63,7 +63,7 @@ func (f *IACAIController) ImagetoHTML(c *gin.Context) {
 
 	iLog.Debug(fmt.Sprintf("Image to HTML: %v", data))
 
-	html, err := aicodegen.ImageToHTML(data.Image, config.OpenAiKey, data.Text, data.Grid, data.Theme)
+	html, err := aicodegen.GetHtmlCodeFromImage(data.Image, config.OpenAiKey, data.Text, data.Grid, data.Theme)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
