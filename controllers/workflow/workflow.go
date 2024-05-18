@@ -105,7 +105,7 @@ func (wf *WorkFlowController) ExplodeWorkFlow(ctx *gin.Context) {
 	}
 
 	wfe := workflow.NewExplosion(WorkFlowName, EntityName, EntityType, user, clientid)
-	err = wfe.Explode(Description, data)
+	wfentityid, err = wfe.Explode(Description, data)
 
 	if err != nil {
 
@@ -113,6 +113,8 @@ func (wf *WorkFlowController) ExplodeWorkFlow(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": wfentityid})
 }
 
 func (wf *WorkFlowController) GetTasksbyUser(ctx *gin.Context) {

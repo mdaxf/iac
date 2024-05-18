@@ -56,7 +56,7 @@ func NewExplosion(WorkFlowName string, EntityName string, Type string, UserName 
 
 }
 
-func (e *ExplodionEngine) Explode(Description string, EntityData map[string]interface{}) error {
+func (e *ExplodionEngine) Explode(Description string, EntityData map[string]interface{}) (int64, error) {
 	/*if e.Log.ModuleName == "" {
 		e.Log = logger.Log{ModuleName: logger.Framework, User: e.UserName, ControllerName: "workflow"}
 	} */
@@ -78,25 +78,25 @@ func (e *ExplodionEngine) Explode(Description string, EntityData map[string]inte
 	workflowM, err := e.getWorkFlowbyName()
 	if err != nil {
 		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", err))
-		return err
+		return 0, err
 	}
 
 	if workflowM == nil {
 		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", "Workflow not found"))
-		return err
+		return 0, err
 	}
 
 	jsonString, err := json.Marshal(workflowM)
 	if err != nil {
 		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", err))
-		return err
+		return 0, err
 	}
 
 	var workflow wftype.WorkFlow
 	err = json.Unmarshal(jsonString, &workflow)
 	if err != nil {
 		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", err))
-		return err
+		return 0, err
 	}
 	e.workflow = workflow
 
@@ -118,7 +118,7 @@ func (e *ExplodionEngine) Explode(Description string, EntityData map[string]inte
 	if startNode.ID == "" {
 		err = fmt.Errorf("start node not found")
 		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", "start node not found"))
-		return err
+		return 0, err
 	}
 
 	e.Log.Debug(fmt.Sprintf("Workflow %s start node %s is %s ", e.WorkflowName, startNode.ID, e.Type))
@@ -138,14 +138,14 @@ func (e *ExplodionEngine) Explode(Description string, EntityData map[string]inte
 	if len(firstNodes) == 0 {
 		err = fmt.Errorf("the first node not found")
 		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", "First node not found"))
-		return err
+		return 0, err
 	}
 
 	if e.DBTx == nil {
 		e.DBTx, err = dbconn.DB.Begin()
 		if err != nil {
 			e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", err))
-			return err
+			return 0, err
 		}
 		defer e.DBTx.Rollback()
 	}
@@ -153,7 +153,7 @@ func (e *ExplodionEngine) Explode(Description string, EntityData map[string]inte
 	jsonEntityData, err := json.Marshal(EntityData)
 	if err != nil {
 		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.explodeNode - convert the Entityata: %s", err))
-		return err
+		return 0, err
 	}
 
 	e.Log.Debug(fmt.Sprintf("Workflow %s first node %v ", e.WorkflowName, firstNodes))
@@ -167,7 +167,7 @@ func (e *ExplodionEngine) Explode(Description string, EntityData map[string]inte
 
 	if err != nil {
 		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", err))
-		return err
+		return 0, err
 	}
 
 	pretaskdata := make(map[string]interface{})
@@ -180,9 +180,9 @@ func (e *ExplodionEngine) Explode(Description string, EntityData map[string]inte
 	err = e.DBTx.Commit()
 	if err != nil {
 		e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.Explode: %s", err))
-		return err
+		return 0, err
 	}
-	return nil
+	return wfentityid, nil
 
 }
 

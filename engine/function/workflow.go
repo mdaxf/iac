@@ -62,13 +62,17 @@ func (w *WorkFlowFunc) Execute_Explode(f *Funcs) {
 	f.iLog.Debug(fmt.Sprintf("%s, %s", Description, EntityType))
 
 	wfe := workflow.NewExplosion(WorkFlowName, EntityName, EntityType, f.SystemSession["UserName"].(string), "")
-	err := wfe.Explode(Description, Data)
+	wfentityid, err := wfe.Explode(Description, Data)
 
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("failed to create the notification: %v", err))
 		f.CancelExecution(fmt.Sprintf("There is error to engine.funcs.WorkFlow.Execute with error: %s", err))
 		return
 	}
+	outputs := make(map[string]interface{})
+	outputs["WorkFloeEntityID"] = wfentityid
+	f.SetOutputs(outputs)
+
 }
 
 func (w *WorkFlowFunc) Execute_StartTask(f *Funcs) {
