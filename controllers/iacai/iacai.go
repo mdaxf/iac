@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mdaxf/iac/codegen"
+//	"github.com/mdaxf/iac/codegen"
 	"github.com/mdaxf/iac/config"
 	"github.com/mdaxf/iac/controllers/common"
 	"github.com/mdaxf/iac/logger"
@@ -62,14 +62,14 @@ func (f *IACAIController) ImagetoHTML(c *gin.Context) {
 	}
 
 	iLog.Debug(fmt.Sprintf("Image to HTML: %v", data))
-
+/*
 	html, err := codegen.GetHtmlCodeFromImage(data.Image, config.OpenAiKey, data.Text, data.Grid, data.Theme)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
+*/
 	c.JSON(http.StatusOK, gin.H{"data": html})
 
 }
