@@ -31,6 +31,7 @@ var (
 
 var ApiKey string
 var OpenAiKey string
+var OpenAiModel string
 
 var GlobalConfiguration *GlobalConfig
 

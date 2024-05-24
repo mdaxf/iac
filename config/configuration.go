@@ -49,6 +49,7 @@ type Config struct {
 	Portal            Portal             `json:"portal"`
 	ApiKey            string             `json:"apikey"`
 	OpenAiKey         string             `json:"openaikey"`
+	OpenAiModel       string             `json:"openaimodel"`
 }
 
 type Portal struct {
@@ -78,6 +79,7 @@ func LoadConfig() (*Config, error) {
 
 	ApiKey = config.ApiKey
 	OpenAiKey = config.OpenAiKey
+	OpenAiModel = config.OpenAiModel
 
 	fmt.Println("loaded portal and api configuration:", config)
 	return &config, nil

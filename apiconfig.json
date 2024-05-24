@@ -1,18 +1,32 @@
 {
   "port": 8080,
-  "timeout": 5000,
+  "timeout": 600000,
   "apikey":"ahbcgj",
-  "openaikey":"sk-1",
+  "openaikey":"sk-proj-kqdtN0Cj0camyyBlNj92T3BlbkFJ1GPeCAClg7nXAtz5iZyU",
+  "openaimodel":"gpt-4o",
   "controllers": [
-    {"path": "IACAI", 
-    "module": "IACAIController",    
-    "endpoints": [
-      {
-        "method": "POST",
-        "path": "/imagetohtml",
-        "handler": "ImagetoHTML"
-      }
-    ]},    
+    {
+      "path": "codegen", 
+      "module": "IACAIController",
+      "timeout": 1800000,    
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/imagetohtml",
+          "handler": "ImagetoHTML"
+        },
+        {
+          "method": "POST",
+          "path": "/imagetobpm",
+          "handler": "ImagetoBPMFlow"
+        },
+        {
+          "method": "POST",
+          "path": "/imagetoworkflow",
+          "handler": "ImagetoWorkFlow"
+        }
+      ]
+    },    
     {
       "path": "IACComponents", 
       "module": "IACComponentController",    
