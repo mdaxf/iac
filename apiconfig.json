@@ -2,7 +2,7 @@
   "port": 8080,
   "timeout": 600000,
   "apikey":"ahbcgj",
-  "openaikey":"sk-proj-kqdtN0Cj0camyyBlNj92T3BlbkFJ1GPeCAClg7nXAtz5iZyU",
+  "openaikey":"sk-xxx",
   "openaimodel":"gpt-4o",
   "controllers": [
     {
