@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/integration/activemq"
@@ -78,8 +79,18 @@ func LoadConfig() (*Config, error) {
 	}
 
 	ApiKey = config.ApiKey
-	OpenAiKey = config.OpenAiKey
-	OpenAiModel = config.OpenAiModel
+
+	if len(config.OpenAiKey) < 15 {
+		OpenAiKey = os.Getenv("OPENAI_KEY")
+	} else {
+		OpenAiKey = config.OpenAiKey
+	}
+
+	if config.OpenAiModel == "" {
+		OpenAiModel = os.Getenv("OPENAI_MODEL")
+	} else {
+		OpenAiModel = config.OpenAiModel
+	}
 
 	fmt.Println("loaded portal and api configuration:", config)
 	return &config, nil
