@@ -1,6 +1,6 @@
 {
   "port": 8080,
-  "timeout": 600000,
+  "timeout": 180000000,
   "apikey":"ahbcgj",
   "openaikey":"sk-1",
   "openaimodel":"gpt-4o",
@@ -8,7 +8,6 @@
     {
       "path": "codegen", 
       "module": "IACAIController",
-      "timeout": 1800000,    
       "endpoints": [
         {
           "method": "POST",
@@ -24,6 +23,11 @@
           "method": "POST",
           "path": "/imagetoworkflow",
           "handler": "ImagetoWorkFlow"
+        },
+        {
+          "method": "POST",
+          "path": "/ustomockup",
+          "handler": "UserStorytoMockup"
         }
       ]
     },    
