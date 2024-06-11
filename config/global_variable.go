@@ -49,4 +49,5 @@ type GlobalConfig struct {
 	WebServerConfig    map[string]interface{}   `json:"webserver"`
 	Transaction        map[string]interface{}   `json:"transaction"`
 	AppServer          map[string]interface{}   `json:"appserver"`
+	Services           []map[string]interface{} `json:"services"`
 }

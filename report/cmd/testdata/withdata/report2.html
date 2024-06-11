@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<style>
+		body {
+			font-family: 'Ariel', serif;
+			font-size: 14pt;
+			direction: ltr;
+			width: 150mm;
+			height: 100mm;
+			orientation: landscape;
+		}
+	</style>
+</head>
+<body>
+
+<div id="printable" class="label-container">
+	Hello {{ .Values.name }} Are you {{ .Values.age }} years old?
+</div>
+
+</body>
+</html>

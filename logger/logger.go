@@ -324,6 +324,9 @@ func (l *Log) Warn(logmsg string) {
 		Logger.Warn(logmsg)
 	}
 }
+func (l *Log) ErrorLog(err error) {
+	l.Error(fmt.Sprintf("%v", err))
+}
 
 func (l *Log) Error(logmsg string) {
 	logmsg = (fmt.Sprintf("%s %s  %s  %s", l.ClientID, l.User, l.ControllerName, logmsg))
