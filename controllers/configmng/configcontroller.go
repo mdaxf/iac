@@ -1,4 +1,4 @@
-package config
+package configmng
 
 import (
 	"encoding/json"

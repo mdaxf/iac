@@ -25,7 +25,7 @@ import (
 	config "github.com/mdaxf/iac/config"
 
 	"github.com/gin-gonic/gin"
-	configmng "github.com/mdaxf/iac/controller/config"
+	"github.com/mdaxf/iac/controller/configmng"
 	"github.com/mdaxf/iac/controllers/bpmcontroller"
 	"github.com/mdaxf/iac/controllers/collectionop"
 	"github.com/mdaxf/iac/controllers/component"
