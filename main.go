@@ -138,6 +138,16 @@ func main() {
 	portal := config.Portal
 
 	router = gin.Default()
+	// Ensure CORS middleware is registered early so it runs even for preflight requests
+	router.Use(CORSMiddleware("*"))
+
+	// Global OPTIONS handler to make sure preflight requests always receive a 204
+	router.OPTIONS("/*path", func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, Content-Length, X-CSRF-Token, Token, session, Origin, Host, Connection, Accept-Encoding, Accept-Language, X-Requested-With")
+		c.AbortWithStatus(http.StatusNoContent)
+	})
 	// Load controllers dynamically based on the configuration file
 	plugincontrollers := make(map[string]interface{})
 	for _, controllerConfig := range config.PluginControllers {
@@ -210,6 +220,10 @@ func main() {
 
 		c.JSON(http.StatusOK, debugInfo)
 	})
+
+	// Serve static files for 3D models storage
+	router.Static("/storage/3d_models", "./storage/3d_models")
+
 	/*
 		router.Use(static.Serve("/portal", static.LocalFile("./portal", true)))
 		router.Use(static.Serve("/portal/scripts", static.LocalFile("./portal/scripts", true)))*/

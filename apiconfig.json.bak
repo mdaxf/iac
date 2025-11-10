@@ -1,0 +1,366 @@
+{
+  "port": 8080,
+  "timeout": 180000000,
+  "apikey":"ahbcgj",
+  "openaikey":"sk-1",
+  "openaimodel":"gpt-4o",
+  "controllers": [
+    {
+      "path": "codegen", 
+      "module": "IACAIController",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/imagetohtml",
+          "handler": "ImagetoHTML"
+        },
+        {
+          "method": "POST",
+          "path": "/imagetobpm",
+          "handler": "ImagetoBPMFlow"
+        },
+        {
+          "method": "POST",
+          "path": "/imagetoworkflow",
+          "handler": "ImagetoWorkFlow"
+        },
+        {
+          "method": "POST",
+          "path": "/ustomockup",
+          "handler": "UserStorytoMockup"
+        }
+      ]
+    },    
+    {
+      "path": "IACComponents", 
+      "module": "IACComponentController",    
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/heartbeat",
+          "handler": "ComponentHeartbeat"
+        },
+        {
+          "method": "POST",
+          "path": "/close",
+          "handler": "ComponentClose"
+        }
+      ]
+    },
+    {
+      "path": "user", 
+      "module": "UserController",    
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/users",
+          "handler": "List"
+        },
+        {
+          "method": "GET",
+          "path": "/image",
+          "handler": "Image"
+        },
+        {
+          "method": "GET",
+          "path": "/menus",
+          "handler": "UserMenus"
+        },
+        {
+          "method": "POST",
+          "path": "/login",
+          "handler": "Login"
+        },
+        {
+          "method": "POST",
+          "path": "/changepwd",
+          "handler": "ChangePassword"
+        },
+        {
+          "method": "POST",
+          "path": "/logout",
+          "handler": "Logout"
+        }
+      ]
+    },
+    {
+      "path": "function",
+      "module": "FunctionController",    
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/test",
+          "handler": "TestExecFunction"
+        }
+      ]
+    },
+    {
+      "path": "sqldata",
+      "module": "DBController",    
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/query",
+          "handler": "GetDatabyQuery"
+        },
+        {
+          "method": "POST",
+          "path": "/get",
+          "handler": "GetDataFromTables"
+        },
+        {
+          "method": "POST",
+          "path": "/update",
+          "handler": "UpdateDataToTable"
+        },
+        {
+          "method": "POST",
+          "path": "/insert",
+          "handler": "InsertDataToTable"
+        },
+        {
+          "method": "POST",
+          "path": "/delete",
+          "handler": "DeleteDataFromTable"
+        }
+      ]},
+    {
+      "path": "api/process-plans",
+      "module": "ProcessPlanController",    
+      "endpoints":[
+         { "method": "GET",
+          "path": "/",
+          "handler": "GetListofProcessPlan"
+        },
+        { "method": "GET",
+          "path": "/:id",
+          "handler": "GetDetailCProcessPlanbyID"
+        },
+        { "method": "POST",
+          "path": "/",
+          "handler": "CreateProcessPlan"
+        },
+        { "method": "POST",
+          "path": "/:id",
+          "handler": "UpdateProcessPlan"
+        },
+        { "method": "POST",
+          "path": "/delete",
+          "handler": "DeleteProcessPlanbyID"
+        },
+        { "method": "POST",
+          "path": "/history",
+          "handler": "UpdateProcessPlanHistory"
+        }
+      ]
+    },
+    {
+      "path": "collection",
+      "module": "CollectionController",    
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/list",
+          "handler": "GetListofCollectionData"
+        },{
+          "method": "POST",
+          "path": "/update",
+          "handler": "UpdateCollectionData"
+        },{
+          "method": "POST",
+          "path": "/detail",
+          "handler": "GetDetailCollectionData"
+        },{
+          "method": "POST",
+          "path": "/id",
+          "handler": "GetDetailCollectionDatabyID"
+        },{
+          "method": "POST",
+          "path": "/name",
+          "handler": "GetDetailCollectionDatabyName"
+        },{
+          "method": "POST",
+          "path": "/delete",
+          "handler": "DeleteCollectionDatabyID"
+        },{
+          "method": "POST",
+          "path": "/revision",
+          "handler": "CollectionObjectRevision"
+        }
+
+      ]},
+    {
+      "path": "trancode",
+      "module": "TranCodeController",    
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/execute",
+          "handler": "ExecuteTranCode"
+        },{
+          "method": "GET",
+          "path": "/list",
+          "handler": "GetTranCodeListFromRespository"
+        },{
+          "method": "POST",
+          "path": "/detail",
+          "handler": "GetTranCodeDetailFromRespository"
+        }
+        ,{
+          "method": "POST",
+          "path": "/update",
+          "handler": "UpdateTranCodeToRespository"
+        },
+        {
+          "method": "POST",
+          "path": "/revision",
+          "handler": "TranCodeRevision"
+        },
+        {
+          "method": "POST",
+          "path": "/unittest",
+          "handler": "UnitTest"
+        },
+        {
+          "method": "POST",
+          "path": "/test",
+          "handler": "TestbyTestData"
+        },
+        {
+          "method": "POST",
+          "path": "/uitest",
+          "handler": "TestTranCode"
+        },{
+          "method": "POST",
+          "path": "/remotetest",
+          "handler": "RemoteTestTranCode"
+        },{
+          "method": "POST",
+          "path": "/deletets",
+          "handler": "DeleteRemoteTestCache"
+        }
+      ]
+    },
+    {
+      "path": "health",
+      "module": "HealthController",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/check",
+          "handler": "CheckHealth"
+        }
+      ]
+    },
+    {
+      "path": "api/schema",
+      "module": "SchemaController",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/tables",
+          "handler": "ListTables"
+        },
+        {
+          "method": "GET",
+          "path": "/tables/:tableName",
+          "handler": "GetTableMetadata"
+        },
+        {
+          "method": "POST",
+          "path": "/tables/metadata",
+          "handler": "GetTablesMetadata"
+        },
+        {
+          "method": "POST",
+          "path": "/diagram",
+          "handler": "GenerateDiagram"
+        },
+        {
+          "method": "GET",
+          "path": "/dataset/:tableName",
+          "handler": "GenerateDatasetSchema"
+        },
+        {
+          "method": "POST",
+          "path": "/dataset/batch",
+          "handler": "GenerateDatasetSchemas"
+        }
+      ]
+    },
+    {
+      "path": "language",
+      "module": "LCController",    
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/translate",
+          "handler": "GetLngCodes"
+        },{
+          "method": "POST",
+          "path": "/update",
+          "handler": "UpdateLngCode"
+        }
+      ]},
+      {
+        "path": "notification",
+        "module": "NotificationController",    
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/get",
+            "handler": "GetNotificationsbyUser"
+          },{
+            "method": "POST",
+            "path": "/new",
+            "handler": "CreateNotification"
+          },{
+            "method": "POST",
+            "path": "/response",
+            "handler": "ResponseNotification"
+          }
+        ]},
+        {
+          "path": "workflow",
+          "module": "WorkFlowController",    
+          "endpoints": [
+            {
+              "method": "POST",
+              "path": "/tasksbyuser",
+              "handler": "GetTasksbyUser"
+            },{
+              "method": "POST",
+              "path": "/tasksbyentity",
+              "handler": "GetWorkFlowTasks"
+            },{
+              "method": "POST",
+              "path": "/uuid",
+              "handler": "GetWorkFlowbyUUID"
+            },{
+              "method": "POST",
+              "path": "/explode",
+              "handler": "ExplodeWorkFlow"
+            },{
+              "method": "POST",
+              "path": "/starttask",
+              "handler": "StartTask"
+            },{
+              "method": "POST",
+              "path": "/updatedatacomplete",
+              "handler": "UpdateProcessDataAndComplete"
+            },{
+              "method": "POST",
+              "path": "/executecomplete",
+              "handler": "ExecuteTaskTranCodeAndComplete"
+            },{
+              "method": "POST",
+              "path": "/completetask",
+              "handler": "CompleteTask"
+            },{
+              "method": "POST",
+              "path": "/pretaskdata",
+              "handler": "GetPreTaskData"
+            }
+          ]}   
+  ]
+}

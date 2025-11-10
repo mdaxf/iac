@@ -1,12 +1,12 @@
 {
   "port": 8080,
   "timeout": 180000000,
-  "apikey":"ahbcgj",
-  "openaikey":"sk-1",
-  "openaimodel":"gpt-4o",
+  "apikey": "ahbcgj",
+  "openaikey": "sk-1",
+  "openaimodel": "gpt-4o",
   "controllers": [
     {
-      "path": "codegen", 
+      "path": "codegen",
       "module": "IACAIController",
       "endpoints": [
         {
@@ -30,10 +30,10 @@
           "handler": "UserStorytoMockup"
         }
       ]
-    },    
+    },
     {
-      "path": "IACComponents", 
-      "module": "IACComponentController",    
+      "path": "IACComponents",
+      "module": "IACComponentController",
       "endpoints": [
         {
           "method": "POST",
@@ -48,8 +48,8 @@
       ]
     },
     {
-      "path": "user", 
-      "module": "UserController",    
+      "path": "user",
+      "module": "UserController",
       "endpoints": [
         {
           "method": "GET",
@@ -85,7 +85,7 @@
     },
     {
       "path": "function",
-      "module": "FunctionController",    
+      "module": "FunctionController",
       "endpoints": [
         {
           "method": "POST",
@@ -96,7 +96,7 @@
     },
     {
       "path": "sqldata",
-      "module": "DBController",    
+      "module": "DBController",
       "endpoints": [
         {
           "method": "POST",
@@ -123,60 +123,105 @@
           "path": "/delete",
           "handler": "DeleteDataFromTable"
         }
-      ]},
+      ]
+    },
+    {
+      "path": "api/process-plans",
+      "module": "ProcessPlanController",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/",
+          "handler": "GetListofProcessPlan"
+        },
+        {
+          "method": "GET",
+          "path": "/:id",
+          "handler": "GetDetailCProcessPlanbyID"
+        },
+        {
+          "method": "POST",
+          "path": "/",
+          "handler": "CreateProcessPlan"
+        },
+        {
+          "method": "POST",
+          "path": "/:id",
+          "handler": "UpdateProcessPlan"
+        },
+        {
+          "method": "POST",
+          "path": "/delete",
+          "handler": "DeleteProcessPlanbyID"
+        },
+        {
+          "method": "POST",
+          "path": "/history",
+          "handler": "UpdateProcessPlanHistory"
+        }
+      ]
+    },
     {
       "path": "collection",
-      "module": "CollectionController",    
+      "module": "CollectionController",
       "endpoints": [
         {
           "method": "POST",
           "path": "/list",
           "handler": "GetListofCollectionData"
-        },{
+        },
+        {
           "method": "POST",
           "path": "/update",
           "handler": "UpdateCollectionData"
-        },{
+        },
+        {
           "method": "POST",
           "path": "/detail",
           "handler": "GetDetailCollectionData"
-        },{
+        },
+        {
           "method": "POST",
           "path": "/id",
           "handler": "GetDetailCollectionDatabyID"
-        },{
+        },
+        {
           "method": "POST",
           "path": "/name",
           "handler": "GetDetailCollectionDatabyName"
-        },{
+        },
+        {
           "method": "POST",
           "path": "/delete",
           "handler": "DeleteCollectionDatabyID"
-        },{
+        },
+        {
           "method": "POST",
           "path": "/revision",
           "handler": "CollectionObjectRevision"
         }
-
-      ]},
+      ]
+    },
     {
       "path": "trancode",
-      "module": "TranCodeController",    
+      "module": "TranCodeController",
       "endpoints": [
         {
           "method": "POST",
           "path": "/execute",
           "handler": "ExecuteTranCode"
-        },{
+        },
+        {
           "method": "GET",
           "path": "/list",
           "handler": "GetTranCodeListFromRespository"
-        },{
+        },
+        {
           "method": "POST",
           "path": "/detail",
           "handler": "GetTranCodeDetailFromRespository"
-        }
-        ,{
+        },
+        {
           "method": "POST",
           "path": "/update",
           "handler": "UpdateTranCodeToRespository"
@@ -200,11 +245,13 @@
           "method": "POST",
           "path": "/uitest",
           "handler": "TestTranCode"
-        },{
+        },
+        {
           "method": "POST",
           "path": "/remotetest",
           "handler": "RemoteTestTranCode"
-        },{
+        },
+        {
           "method": "POST",
           "path": "/deletets",
           "handler": "DeleteRemoteTestCache"
@@ -213,7 +260,7 @@
     },
     {
       "path": "health",
-      "module": "HealthController",    
+      "module": "HealthController",
       "endpoints": [
         {
           "method": "GET",
@@ -223,78 +270,231 @@
       ]
     },
     {
+      "path": "api/schema",
+      "module": "SchemaController",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/tables",
+          "handler": "ListTables"
+        },
+        {
+          "method": "GET",
+          "path": "/tables/:tableName",
+          "handler": "GetTableMetadata"
+        },
+        {
+          "method": "POST",
+          "path": "/tables/metadata",
+          "handler": "GetTablesMetadata"
+        },
+        {
+          "method": "POST",
+          "path": "/diagram",
+          "handler": "GenerateDiagram"
+        },
+        {
+          "method": "GET",
+          "path": "/dataset/:tableName",
+          "handler": "GenerateDatasetSchema"
+        },
+        {
+          "method": "POST",
+          "path": "/dataset/batch",
+          "handler": "GenerateDatasetSchemas"
+        }
+      ]
+    },
+    {
+      "path": "database",
+      "module": "SchemaController",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/aliases",
+          "handler": "GetDatabaseAliases"
+        },
+        {
+          "method": "POST",
+          "path": "/tables",
+          "handler": "GetDatabaseTables"
+        },
+        {
+          "method": "POST",
+          "path": "/columns",
+          "handler": "GetDatabaseColumns"
+        }
+      ]
+    },
+    {
+      "path": "config",
+      "module": "ConfigController",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/configuration",
+          "handler": "GetConfiguration"
+        },
+        {
+          "method": "POST",
+          "path": "/configuration",
+          "handler": "UpdateConfiguration"
+        },
+        {
+          "method": "GET",
+          "path": "/apiconfig",
+          "handler": "GetAPIConfig"
+        },
+        {
+          "method": "POST",
+          "path": "/apiconfig",
+          "handler": "UpdateAPIConfig"
+        },
+        {
+          "method": "GET",
+          "path": "/webserver",
+          "handler": "GetWebServerConfig"
+        },
+        {
+          "method": "GET",
+          "path": "/backups",
+          "handler": "ListBackups"
+        },
+        {
+          "method": "POST",
+          "path": "/validate",
+          "handler": "ValidateConfiguration"
+        },
+        {
+          "method": "POST",
+          "path": "/restore",
+          "handler": "RestoreBackup"
+        }
+      ]
+    },
+    {
       "path": "language",
-      "module": "LCController",    
+      "module": "LCController",
       "endpoints": [
         {
           "method": "POST",
           "path": "/translate",
           "handler": "GetLngCodes"
-        },{
+        },
+        {
           "method": "POST",
           "path": "/update",
           "handler": "UpdateLngCode"
         }
-      ]},
-      {
-        "path": "notification",
-        "module": "NotificationController",    
-        "endpoints": [
-          {
-            "method": "GET",
-            "path": "/get",
-            "handler": "GetNotificationsbyUser"
-          },{
-            "method": "POST",
-            "path": "/new",
-            "handler": "CreateNotification"
-          },{
-            "method": "POST",
-            "path": "/response",
-            "handler": "ResponseNotification"
-          }
-        ]},
+      ]
+    },
+    {
+      "path": "notification",
+      "module": "NotificationController",
+      "endpoints": [
         {
-          "path": "workflow",
-          "module": "WorkFlowController",    
-          "endpoints": [
-            {
-              "method": "POST",
-              "path": "/tasksbyuser",
-              "handler": "GetTasksbyUser"
-            },{
-              "method": "POST",
-              "path": "/tasksbyentity",
-              "handler": "GetWorkFlowTasks"
-            },{
-              "method": "POST",
-              "path": "/uuid",
-              "handler": "GetWorkFlowbyUUID"
-            },{
-              "method": "POST",
-              "path": "/explode",
-              "handler": "ExplodeWorkFlow"
-            },{
-              "method": "POST",
-              "path": "/starttask",
-              "handler": "StartTask"
-            },{
-              "method": "POST",
-              "path": "/updatedatacomplete",
-              "handler": "UpdateProcessDataAndComplete"
-            },{
-              "method": "POST",
-              "path": "/executecomplete",
-              "handler": "ExecuteTaskTranCodeAndComplete"
-            },{
-              "method": "POST",
-              "path": "/completetask",
-              "handler": "CompleteTask"
-            },{
-              "method": "POST",
-              "path": "/pretaskdata",
-              "handler": "GetPreTaskData"
-            }
-          ]}   
+          "method": "GET",
+          "path": "/get",
+          "handler": "GetNotificationsbyUser"
+        },
+        {
+          "method": "POST",
+          "path": "/new",
+          "handler": "CreateNotification"
+        },
+        {
+          "method": "POST",
+          "path": "/response",
+          "handler": "ResponseNotification"
+        }
+      ]
+    },
+    {
+      "path": "workflow",
+      "module": "WorkFlowController",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/tasksbyuser",
+          "handler": "GetTasksbyUser"
+        },
+        {
+          "method": "POST",
+          "path": "/tasksbyentity",
+          "handler": "GetWorkFlowTasks"
+        },
+        {
+          "method": "POST",
+          "path": "/uuid",
+          "handler": "GetWorkFlowbyUUID"
+        },
+        {
+          "method": "POST",
+          "path": "/explode",
+          "handler": "ExplodeWorkFlow"
+        },
+        {
+          "method": "POST",
+          "path": "/starttask",
+          "handler": "StartTask"
+        },
+        {
+          "method": "POST",
+          "path": "/updatedatacomplete",
+          "handler": "UpdateProcessDataAndComplete"
+        },
+        {
+          "method": "POST",
+          "path": "/executecomplete",
+          "handler": "ExecuteTaskTranCodeAndComplete"
+        },
+        {
+          "method": "POST",
+          "path": "/completetask",
+          "handler": "CompleteTask"
+        },
+        {
+          "method": "POST",
+          "path": "/pretaskdata",
+          "handler": "GetPreTaskData"
+        }
+      ]
+    },
+    {
+      "path": "3dmodels",
+      "module": "Models3DController",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/list",
+          "handler": "ListModels"
+        },
+        {
+          "method": "GET",
+          "path": "/:id",
+          "handler": "GetModelByID"
+        },
+        {
+          "method": "POST",
+          "path": "/generate/text",
+          "handler": "GenerateTextTo3D"
+        },
+        {
+          "method": "POST",
+          "path": "/generate/image",
+          "handler": "GenerateImageTo3D"
+        },
+        {
+          "method": "PUT",
+          "path": "/:id/status",
+          "handler": "UpdateModelStatus"
+        },
+        {
+          "method": "DELETE",
+          "path": "/:id",
+          "handler": "DeleteModel"
+        }
+      ]
+    }
   ]
 }

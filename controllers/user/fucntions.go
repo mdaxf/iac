@@ -222,7 +222,7 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 
 		log.Debug(fmt.Sprintf("ID:%d  Name:%s  FamilyName:%s", ID, Name, FamilyName))
 
-		Columns := []string{"LastSignOnDate", "UpdatedOn", "UpdatedBy"}
+		Columns := []string{"lastsignondate", "modifiedon", "modifiedby"}
 		Values := []string{time.Now().UTC().Format("2006-01-02 15:04:05"), time.Now().UTC().Format("2006-01-02 15:04:05"), username}
 		datatypes := []int{0, 0, 0}
 		Wherestr := fmt.Sprintf("ID= %d", ID)
@@ -357,14 +357,12 @@ func getUserMenus(userID int, isMobile bool, parentID int, username string, clie
 	log.Debug("get user menus execution function is called.")
 
 	Mobile := 0
-	Desktop := 1
 
 	if isMobile {
 		Mobile = 1
-		Desktop = 0
 	}
 
-	querystr := fmt.Sprintf(GetUserMenusQuery, userID, Mobile, Desktop, parentID, userID)
+	querystr := fmt.Sprintf(GetUserMenusQuery, userID, Mobile, Mobile, parentID)
 
 	log.Debug(fmt.Sprintf("Query:%s", querystr))
 
@@ -508,10 +506,10 @@ func execLogout(ctx *gin.Context, token string) (string, error) {
 	log.User = user
 	log.Debug(fmt.Sprintf("execLogout execution function is called. token: %s, %s ", token, ID))
 
-	Columns := []string{"LastSignOffDate", "UpdatedOn", "UpdatedBy"}
+	Columns := []string{"lastsignoffdate", "modifiedon", "modifiedby"}
 	Values := []string{time.Now().UTC().Format("2006-01-02 15:04:05"), time.Now().UTC().Format("2006-01-02 15:04:05"), user}
 	datatypes := []int{0, 0, 0}
-	Wherestr := fmt.Sprintf("LoginName= '%s'", user)
+	Wherestr := fmt.Sprintf("loginname= '%s'", user)
 
 	iDBTx, err := dbconn.DB.Begin()
 	defer iDBTx.Rollback()

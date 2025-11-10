@@ -29,6 +29,7 @@ type CollectionData struct {
 	Data           map[string]interface{} `json:"data"`
 	Operation      string                 `json:"operation"`
 	Keys           []string               `json:"keys"`
+	ID             string                 `id`
 }
 
 // GetListofCollectionData retrieves a list of collection data.
@@ -602,15 +603,21 @@ func (c *CollectionController) UpdateCollectionData(ctx *gin.Context) {
 
 	}
 	if id == "" && list != nil {
-		utcTime := time.Now().UTC()
-		system := map[string]interface{}{
-			"updatedon": utcTime,
-			"updatedby": "system",
-			"createdon": utcTime,
-			"createdby": "system",
-		}
+		/*	utcTime := time.Now().UTC()
+			system := map[string]interface{}{
+				"updatedon": utcTime,
+				"updatedby": "system",
+				"createdon": utcTime,
+				"createdby": "system",
+			}
 
-		list["system"] = system
+			list["system"] = system
+		*/
+		list["modifiedon"] = time.Now().UTC()
+		list["modifiedby"] = user
+		list["createdon"] = time.Now().UTC()
+		list["createdby"] = user
+
 		delete(list, "_id")
 		iLog.Debug(fmt.Sprintf("Insert collection to respository: %s", collectionName))
 		insertResult, err := documents.DocDBCon.InsertCollection(collectionName, list)
@@ -633,10 +640,10 @@ func (c *CollectionController) UpdateCollectionData(ctx *gin.Context) {
 		//filedvalue := primitive.ObjectID(param.ID)
 		filter := bson.M{"_id": parsedObjectID}
 		iLog.Debug(fmt.Sprintf("Update transaction code to respository with filter: %v", filter))
-		system := list["system"].(map[string]interface{})
-		system["updatedon"] = time.Now().UTC()
-		system["updatedby"] = "system"
-		list["system"] = system
+
+		list["modifiedon"] = time.Now().UTC()
+		list["modifiedby"] = user
+
 		//list["system.updatedon"] = time.Now().UTC()
 		//list["system.updatedby"] = "system"
 
@@ -720,7 +727,11 @@ func (c *CollectionController) DeleteCollectionDatabyID(ctx *gin.Context) {
 	collectionName := data.CollectionName
 	operation := data.Operation
 	list := data.Data
-	value := list["_id"]
+
+	value, ok := list["_id"].(string)
+	if !ok || value == "" {
+		value = data.ID
+	}
 
 	iLog.Debug(fmt.Sprintf("Collection Name: %s, operation: %s data: %s", collectionName, operation, list))
 	if collectionName == "" {
@@ -728,12 +739,12 @@ func (c *CollectionController) DeleteCollectionDatabyID(ctx *gin.Context) {
 		return
 	}
 
-	if value == nil || value == "" {
+	if value == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid id"})
 		return
 	}
 
-	err = documents.DocDBCon.DeleteItemFromCollection(collectionName, value.(string))
+	err = documents.DocDBCon.DeleteItemFromCollection(collectionName, value)
 
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Delete item from collection error!"})
@@ -890,10 +901,15 @@ func (c *CollectionController) CollectionObjectRevision(ctx *gin.Context) {
 	}
 
 	utcTime := time.Now().UTC()
-	tcitem["system.updatedon"] = utcTime
+	/*tcitem["system.updatedon"] = utcTime
 	tcitem["system.updatedby"] = "system"
 	tcitem["system.createdon"] = utcTime
-	tcitem["system.createdby"] = "system"
+	tcitem["system.createdby"] = "system" */
+	tcitem["modifiedon"] = utcTime
+	tcitem["modifiedby"] = user
+	tcitem["createdon"] = utcTime
+	tcitem["createdby"] = user
+
 	tcitem["name"] = newname
 	tcitem["version"] = newvision
 

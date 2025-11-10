@@ -103,8 +103,11 @@ func (f *LCController) GetLngCodes(c *gin.Context) {
 	go func() {
 		defer wg.Done()
 		// Your second task code goes here
+		querytemp := `SELECT lnc.id as id, lnc.name as lngcode, COALESCE(lc.mediumtext_,lc.shorttext,lnc.name) as text FROM lngcodes lnc 
+		INNER JOIN lngcode_contents lc ON lc.lngcodeid = lnc.id
+		WHERE lnc.name IN ('%s') AND lc.languageid = (SELECT id FROM languages WHERE name = '%s' LIMIT 1)`
 
-		query := fmt.Sprintf("SELECT lngcode, text FROM language_codes WHERE lngcode IN ('%s') AND language = '%s'", strings.Join(lcdata.Lngcodes, "','"), language)
+		query := fmt.Sprintf(querytemp, strings.Join(lcdata.Lngcodes, "','"), language)
 		//query := fmt.Sprintf("SELECT lngcode, text FROM language_codes Where language = '%s'", language)
 
 		iLog.Debug(fmt.Sprintf("Get LngCodes query: %s", query))
@@ -152,7 +155,7 @@ func (f *LCController) UpdateLngCode(c *gin.Context) {
 		iLog.Error(fmt.Sprintf("Update LngCode error: %s", err.Error()))
 	}
 	if LoginName == "" {
-		LoginName = "System"
+		LoginName = "sys"
 	}
 	iLog.User = LoginName
 
@@ -219,20 +222,12 @@ func (f *LCController) insertlngcode(db *dbconn.DBOperation, lngcode string, tex
 
 	// Format the time as a string in the MySQL date and time format
 	formattedTime := currentTimeUTC.Format("2006-01-02 15:04:05")
-	Columns := make([]string, 7)
-	Values := make([]string, 7)
+	Columns := make([]string, 5)
+	Values := make([]string, 5)
 
 	n := 0
-	Columns[n] = "text"
-	Values[n] = text
-
-	n += 1
-	Columns[n] = "lngcode"
+	Columns[n] = "name"
 	Values[n] = lngcode
-
-	n += 1
-	Columns[n] = "language"
-	Values[n] = language
 
 	n += 1
 	Columns[n] = "UpdatedOn"
@@ -251,7 +246,71 @@ func (f *LCController) insertlngcode(db *dbconn.DBOperation, lngcode string, tex
 	Values[n] = User
 
 	iLog.Debug(fmt.Sprintf("insertlngcode: %s , %s", Columns, Values))
-	_, err := db.TableInsert("language_codes", Columns, Values)
+	lngcodeid, err := db.TableInsert("lngcodes", Columns, Values)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("inert a new lngcode record error: %s", err.Error()))
+		return err
+	}
+
+	if lngcodeid == 0 {
+		iLog.Error(fmt.Sprintf("inert a new lngcode record error: %s", "lngcodeid is 0"))
+		return fmt.Errorf("lngcodeid is 0")
+	}
+
+	querytext := fmt.Sprintf("Select id from languages where language='%s' limit 1", language)
+	result, err := db.Query_Json(querytext)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("get the languageid error: %s", err.Error()))
+		return err
+	}
+	if result == nil || len(result) == 0 {
+		iLog.Error(fmt.Sprintf("get the languageid error: %s", "no languageid found"))
+		return fmt.Errorf("no languageid found")
+	}
+	languageid := int(result[0]["id"].(float64))
+
+	if result[0]["id"] == nil {
+		iLog.Error(fmt.Sprintf("get the languageid error: %s", "languageid is nil"))
+		return fmt.Errorf("languageid is nil")
+	}
+
+	Columns = make([]string, 8)
+	Values = make([]string, 8)
+
+	n = 0
+	Columns[n] = "shorttext"
+	Values[n] = text
+
+	n += 1
+	Columns[n] = "mediumtext_"
+	Values[n] = text
+
+	n += 1
+	Columns[n] = "lngcodeid"
+	Values[n] = string(lngcodeid)
+
+	n += 1
+	Columns[n] = "languageid"
+	Values[n] = string(languageid)
+
+	n += 1
+	Columns[n] = "UpdatedOn"
+	Values[n] = formattedTime
+
+	n += 1
+	Columns[n] = "UpdatedBy"
+	Values[n] = User
+
+	n += 1
+	Columns[n] = "CreatedOn"
+	Values[n] = formattedTime
+
+	n += 1
+	Columns[n] = "CreatedBy"
+	Values[n] = User
+
+	iLog.Debug(fmt.Sprintf("insertlngcode: %s , %s", Columns, Values))
+	_, err = db.TableInsert("lngcode_contents", Columns, Values)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("inert a new lngcode record error: %s", err.Error()))
 		return err
@@ -273,6 +332,30 @@ func (f *LCController) updatelngcodbyid(db *dbconn.DBOperation, id int, lngcode 
 		}
 	}()
 
+	// get the languageid
+	querytext := fmt.Sprintf("Select id from languages where language='%s' limit 1", language)
+	result, err := db.Query_Json(querytext)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("get the languageid error: %s", err.Error()))
+		return err
+	}
+	if result == nil || len(result) == 0 {
+		iLog.Error(fmt.Sprintf("get the languageid error: %s", "no languageid found"))
+		return fmt.Errorf("no languageid found")
+	}
+
+	if result[0]["id"] == nil {
+		iLog.Error(fmt.Sprintf("get the languageid error: %s", "languageid is nil"))
+		return fmt.Errorf("languageid is nil")
+	}
+
+	languageid := int(result[0]["id"].(float64))
+
+	if languageid == 0 {
+		iLog.Error(fmt.Sprintf("get the languageid error: %s", "languageid is 0"))
+		return fmt.Errorf("languageid is 0")
+	}
+
 	currentTimeUTC := time.Now().UTC()
 
 	// Format the time as a string in the MySQL date and time format
@@ -290,8 +373,8 @@ func (f *LCController) updatelngcodbyid(db *dbconn.DBOperation, id int, lngcode 
 	Values[n] = lngcode
 	datatypes[n] = 1
 	n += 1
-	Columns[n] = "language"
-	Values[n] = language
+	Columns[n] = "languageid"
+	Values[n] = string(languageid)
 	datatypes[n] = 1
 	n += 1
 	Columns[n] = "UpdatedOn"
@@ -302,9 +385,9 @@ func (f *LCController) updatelngcodbyid(db *dbconn.DBOperation, id int, lngcode 
 	Values[n] = User
 	datatypes[n] = 1
 
-	Where = fmt.Sprintf("ID = '%d' ", id)
+	Where = fmt.Sprintf("lngcodeid = '%d' AND langaugeid = %d ", id, languageid)
 
-	_, err := db.TableUpdate("language_codes", Columns, Values, datatypes, Where)
+	_, err = db.TableUpdate("language_codes", Columns, Values, datatypes, Where)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("update the lngcode error: %s", err.Error()))
 		return err

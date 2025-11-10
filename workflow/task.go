@@ -80,21 +80,21 @@ func (wft *WorkFlowTask) UpdateTaskStatus(newstatus int64) error {
 		return err
 	}
 	dbop := dbconn.NewDBOperation(wft.UserName, DBTx, logger.Framework)
-	Columns := []string{"Status"}
+	Columns := []string{"status"}
 	Values := []string{fmt.Sprintf("%d", newstatus)}
 	datatypes := []int{int(1)}
 
 	if newstatus == 5 {
-		Columns = []string{"Status", "CompletedDate"}
+		Columns = []string{"status", "completedDate"}
 		Values = []string{fmt.Sprintf("%d", newstatus), time.Now().UTC().Format("2006-01-02 15:04:05")}
 		datatypes = []int{int(1), int(0)}
 	} else if newstatus == 2 {
-		Columns = []string{"Status", "StartedDate"}
+		Columns = []string{"status", "startedDate"}
 		Values = []string{fmt.Sprintf("%d", newstatus), time.Now().UTC().Format("2006-01-02 15:04:05")}
 		datatypes = []int{int(1), int(0)}
 	}
 
-	Where := fmt.Sprintf("ID = %d", wft.WorkFlowTaskID)
+	Where := fmt.Sprintf("id = %d", wft.WorkFlowTaskID)
 	_, err = dbop.TableUpdate("workflow_tasks", Columns, Values, datatypes, Where)
 	if err != nil {
 		wft.iLog.Error(fmt.Sprintf("Error in updating workflow tasks: %s", err))
@@ -138,7 +138,9 @@ func (wft *WorkFlowTask) StartTask() error {
 	}
 	dbop := dbconn.NewDBOperation(wft.UserName, DBTx, logger.Framework)
 
-	rows, err := dbop.Query_Json(fmt.Sprintf("select WorkflowEntityID, WorkflowNodeID, NotificationUUID from workflow_tasks where ID = %d", wft.WorkFlowTaskID))
+	//rows, err := dbop.Query_Json(fmt.Sprintf("select WorkflowEntityID, WorkflowNodeID, NotificationUUID from workflow_tasks where ID = %d", wft.WorkFlowTaskID))
+	rows, err := dbop.Query_Json(fmt.Sprintf("select workflowentityid, workflownodeid, notificationuuid from workflow_tasks where id = %d", wft.WorkFlowTaskID))
+
 	if err != nil {
 		wft.iLog.Error(fmt.Sprintf("Error in getting workflow entity id: %s", err))
 		return err
@@ -197,7 +199,9 @@ func (wft *WorkFlowTask) UpdateProcessData(extprocessdata map[string]interface{}
 	}
 	dbop := dbconn.NewDBOperation(wft.UserName, DBTx, logger.Framework)
 
-	rows, err := dbop.Query_Json(fmt.Sprintf("select WorkflowEntityID, WorkflowNodeID, ProcessData, NotificationUUID from workflow_tasks where ID = %d", wft.WorkFlowTaskID))
+	//rows, err := dbop.Query_Json(fmt.Sprintf("select WorkflowEntityID, WorkflowNodeID, ProcessData, NotificationUUID from workflow_tasks where ID = %d", wft.WorkFlowTaskID))
+	rows, err := dbop.Query_Json(fmt.Sprintf("select workflowentityid, workflownodeid, processdata, notificationuuid from workflow_tasks where id = %d", wft.WorkFlowTaskID))
+
 	if err != nil {
 		wft.iLog.Error(fmt.Sprintf("Error in getting cureent process data: %s", err))
 		return err
@@ -209,8 +213,8 @@ func (wft *WorkFlowTask) UpdateProcessData(extprocessdata map[string]interface{}
 	}
 	ProcessData := map[string]interface{}{}
 
-	if rows[0]["ProcessData"] != nil {
-		err := json.Unmarshal([]byte(rows[0]["ProcessData"].(string)), &ProcessData)
+	if rows[0]["processdata"] != nil {
+		err := json.Unmarshal([]byte(rows[0]["processdata"].(string)), &ProcessData)
 		if err != nil {
 			wft.iLog.Error(fmt.Sprintf("Error in getting process data: %s", err))
 			return err
@@ -230,7 +234,7 @@ func (wft *WorkFlowTask) UpdateProcessData(extprocessdata map[string]interface{}
 		return err
 	}
 
-	Columns := []string{"ProcessData"}
+	Columns := []string{"processdata"}
 	Values := []string{string(jsonData)}
 	datatypes := []int{int(0)}
 	Where := fmt.Sprintf("ID = %d", wft.WorkFlowTaskID)
@@ -277,7 +281,9 @@ func (wft *WorkFlowTask) ExecuteTaskTranCode(TranCode string) error {
 	}
 	dbop := dbconn.NewDBOperation(wft.UserName, DBTx, logger.Framework)
 
-	rows, err := dbop.Query_Json(fmt.Sprintf("select WorkflowEntityID, WorkflowNodeID, ProcessData, NotificationUUID from workflow_tasks where ID = %d", wft.WorkFlowTaskID))
+	//rows, err := dbop.Query_Json(fmt.Sprintf("select WorkflowEntityID, WorkflowNodeID, ProcessData, NotificationUUID from workflow_tasks where ID = %d", wft.WorkFlowTaskID))
+	rows, err := dbop.Query_Json(fmt.Sprintf("select workflowentityid, workflownodeid, processdata, notificationuuid from workflow_tasks where id = %d", wft.WorkFlowTaskID))
+
 	if err != nil {
 		wft.iLog.Error(fmt.Sprintf("Error in getting workflow entity id: %s", err))
 		return err
@@ -301,8 +307,8 @@ func (wft *WorkFlowTask) ExecuteTaskTranCode(TranCode string) error {
 			WorkflowNodeID = rows[0]["WorkflowNodeID"].(string)
 		}
 	*/
-	if rows[0]["ProcessData"] != nil {
-		err := json.Unmarshal([]byte(rows[0]["ProcessData"].(string)), &ProcessData)
+	if rows[0]["processdata"] != nil {
+		err := json.Unmarshal([]byte(rows[0]["processdata"].(string)), &ProcessData)
 		if err != nil {
 			wft.iLog.Error(fmt.Sprintf("Error in getting process data: %s", err))
 			return err
@@ -358,10 +364,10 @@ func (wft *WorkFlowTask) CompleteTask() error {
 	}
 	dbop := dbconn.NewDBOperation(wft.UserName, DBTx, logger.Framework)
 
-	Columns := []string{"Status", "CompletedDate"}
+	Columns := []string{"status", "completedDate"}
 	Values := []string{fmt.Sprintf("%d", 5), time.Now().UTC().Format("2006-01-02 15:04:05")}
 	datatypes := []int{int(1), int(0)}
-	Where := fmt.Sprintf("ID = %d", wft.WorkFlowTaskID)
+	Where := fmt.Sprintf("id = %d", wft.WorkFlowTaskID)
 	_, err = dbop.TableUpdate("workflow_tasks", Columns, Values, datatypes, Where)
 	if err != nil {
 		wft.iLog.Error(fmt.Sprintf("Error in updating workflow tasks: %s", err))
@@ -384,24 +390,24 @@ func (wft *WorkFlowTask) CompleteTask() error {
 	ProcessData := map[string]interface{}{}
 	NotificationUUID := ""
 
-	if rows[0]["WorkflowEntityID"] != nil {
-		WorkflowEntityID = rows[0]["WorkflowEntityID"].(int64)
+	if rows[0]["workflowentityid"] != nil {
+		WorkflowEntityID = rows[0]["workflowentityid"].(int64)
 	}
 
-	if rows[0]["WorkflowNodeID"] != nil {
-		WorkflowNodeID = rows[0]["WorkflowNodeID"].(string)
+	if rows[0]["workflownodeid"] != nil {
+		WorkflowNodeID = rows[0]["workflownodeid"].(string)
 	}
 
-	if rows[0]["ProcessData"] != nil {
-		err := json.Unmarshal([]byte(rows[0]["ProcessData"].(string)), &ProcessData)
+	if rows[0]["processdata"] != nil {
+		err := json.Unmarshal([]byte(rows[0]["processdata"].(string)), &ProcessData)
 		if err != nil {
 			wft.iLog.Error(fmt.Sprintf("Error in getting process data: %s", err))
 			return err
 		}
 	}
 
-	if rows[0]["NotificationUUID"] != nil {
-		NotificationUUID = rows[0]["NotificationUUID"].(string)
+	if rows[0]["notificationuuid"] != nil {
+		NotificationUUID = rows[0]["notificationuuid"].(string)
 	}
 
 	if WorkflowEntityID == 0 || WorkflowNodeID == "" {
@@ -410,7 +416,7 @@ func (wft *WorkFlowTask) CompleteTask() error {
 		return err
 	}
 
-	rows, err = dbop.Query_Json(fmt.Sprintf("select WorkflowUUID from workflow_entities where ID = %d", WorkflowEntityID))
+	rows, err = dbop.Query_Json(fmt.Sprintf("select workflowuuid from workflow_entities where id = %d", WorkflowEntityID))
 	if err != nil {
 		wft.iLog.Error(fmt.Sprintf("Error in getting workflow uuid: %s", err))
 		return err
@@ -424,8 +430,8 @@ func (wft *WorkFlowTask) CompleteTask() error {
 	var WorkFlow wftype.WorkFlow
 
 	WorkflowUUID := ""
-	if rows[0]["WorkflowUUID"] != nil {
-		WorkflowUUID = rows[0]["WorkflowUUID"].(string)
+	if rows[0]["workflowuuid"] != nil {
+		WorkflowUUID = rows[0]["workflowuuid"].(string)
 	}
 	//WorkFlowSchema := rows[0]["WorkFlow"].([]byte)
 
@@ -629,7 +635,7 @@ func ValidateAndCompleteWorkFlow(WorkFlowEntityID int64, idbTx *sql.Tx, DocDBCon
 
 	dbop := dbconn.NewDBOperation(UserName, idbTx, logger.Framework)
 
-	tasks, err := dbop.Query_Json(fmt.Sprintf("select * from workflow_tasks where WorkflowEntityID = %d AND Status != %d", WorkFlowEntityID, 5))
+	tasks, err := dbop.Query_Json(fmt.Sprintf("select * from workflow_tasks where workflowentityid = %d AND status != %d", WorkFlowEntityID, 5))
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error in getting workflow tasks: %s", err))
 
@@ -643,7 +649,7 @@ func ValidateAndCompleteWorkFlow(WorkFlowEntityID int64, idbTx *sql.Tx, DocDBCon
 	if len(tasks) == 0 {
 		iLog.Debug(fmt.Sprintf("Workflow completed for workflowentityid: %d", WorkFlowEntityID))
 
-		Columns := []string{"Status", "CompletedDate"}
+		Columns := []string{"status", "completeddate"}
 		Values := []string{fmt.Sprintf("%d", 5), time.Now().UTC().Format("2006-01-02 15:04:05")}
 		datatypes := []int{int(1), int(0)}
 		Where := fmt.Sprintf("ID = %d", WorkFlowEntityID)
@@ -835,7 +841,7 @@ func ExecuteTaskTranCode(workflowtaskid int64, TranCodeName string, data map[str
 
 	dbop := dbconn.NewDBOperation(UserName, idbTx, logger.Framework)
 
-	rows, err := dbop.Query_Json(fmt.Sprintf("select WorkflowEntityID, WorkflowNodeID, ProcessData from workflow_tasks where ID = %d", workflowtaskid))
+	rows, err := dbop.Query_Json(fmt.Sprintf("select workflowentityid, workflownodeid, processdata from workflow_tasks where id = %d", workflowtaskid))
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error in getting workflow entity id: %s", err))
 		return nil, err
@@ -846,14 +852,14 @@ func ExecuteTaskTranCode(workflowtaskid int64, TranCodeName string, data map[str
 		return nil, err
 	}
 
-	ProcessData := rows[0]["ProcessData"].(map[string]interface{})
+	ProcessData := rows[0]["processdata"].(map[string]interface{})
 
 	outputs := callback_mgr.ConvertSliceToMap(result)
 	for key, value := range outputs {
 		ProcessData[key] = value
 	}
 
-	Columns := []string{"ProcessData"}
+	Columns := []string{"processdata"}
 	Values := []string{fmt.Sprintf("%s", ProcessData)}
 	datatypes := []int{int(0)}
 	Where := fmt.Sprintf("ID = %d", workflowtaskid)
@@ -910,7 +916,7 @@ func GetWorkFlowTasks(workflowentityid int64, UserName string) ([]map[string]int
 	dbop := dbconn.NewDBOperation(UserName, DBTx, logger.Framework)
 
 	// Get workflow entity
-	result, err := dbop.Query_Json(fmt.Sprintf("select * from workflow_tasks where WorkflowEntityID = %d", workflowentityid))
+	result, err := dbop.Query_Json(fmt.Sprintf("select * from workflow_tasks where workflowentityid = %d", workflowentityid))
 
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error in getting workflow tasks: %s", err))
@@ -944,7 +950,13 @@ func GetTasksbyUser(UserName string) ([]map[string]interface{}, error) {
 	dbop := dbconn.NewDBOperation(UserName, DBTx, logger.Framework)
 
 	// Get workflow entity
-	result, err := dbop.Query_Json(fmt.Sprintf("SELECT * FROM workflow_tasks wt WHERE exists (Select 1 FROM workflow_task_assignments wts LEFT JOIN user_roles ur on ur.RoleID = wts.RoleID INNER JOIN users u on u.ID = wts.UserID OR ur.UserID = u.ID where wts.workflowTaskID = wt.ID AND u.LoginName = '%s')", UserName))
+	querytemp := `SELECT * FROM workflow_tasks wt 
+			WHERE exists (Select 1 FROM workflow_task_assignments wts 
+				LEFT JOIN user_roles ur on ur.roleid = wts.roleid 
+				INNER JOIN users u on u.ID = wts.userid OR ur.userid = u.id 
+				where wts.workflowtaskid = wt.id AND u.loginname = '%s')`
+
+	result, err := dbop.Query_Json(fmt.Sprintf(querytemp, UserName))
 
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error in getting workflow tasks: %s", err))
@@ -979,7 +991,7 @@ func GetTaskPreTaskData(taskid int64, UserName string) (map[string]interface{}, 
 	dbop := dbconn.NewDBOperation(UserName, DBTx, logger.Framework)
 
 	// Get workflow entity
-	rows, err := dbop.Query_Json(fmt.Sprintf("SELECT PreTaskData FROM workflow_tasks WHERE id = %d", taskid))
+	rows, err := dbop.Query_Json(fmt.Sprintf("SELECT pretaskdata FROM workflow_tasks WHERE id = %d", taskid))
 
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error in getting workflow task's PreTaskData: %s", err))
@@ -993,8 +1005,8 @@ func GetTaskPreTaskData(taskid int64, UserName string) (map[string]interface{}, 
 
 	PreTaskData := make(map[string]interface{})
 
-	if rows[0]["PreTaskData"] != nil {
-		err := json.Unmarshal([]byte(rows[0]["PreTaskData"].(string)), &PreTaskData)
+	if rows[0]["pretaskdata"] != nil {
+		err := json.Unmarshal([]byte(rows[0]["pretaskdata"].(string)), &PreTaskData)
 		if err != nil {
 			iLog.Error(fmt.Sprintf("Error in getting pretask data: %s", err))
 			return nil, err

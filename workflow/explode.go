@@ -160,7 +160,8 @@ func (e *ExplodionEngine) Explode(Description string, EntityData map[string]inte
 
 	dbop := dbconn.NewDBOperation(e.UserName, e.DBTx, "Workflow.Explosion")
 
-	columns := []string{"Type", "Entity", "Status", "Description", "Data", "WorkflowUUID", "Workflow", "createdby", "createdon", "updatedby", "updatedon"}
+	//columns := []string{"Type", "Entity", "Status", "Description", "Data", "WorkflowUUID", "Workflow", "createdby", "createdon", "updatedby", "updatedon"}
+	columns := []string{"type", "entity", "status", "description", "data", "workflowuuid", "workflow", "createdby", "createdon", "modifiedby", "modifiedon"}
 	values := []string{e.Type, e.EntityName, "1", Description, string(jsonEntityData), workflow.UUID, string(jsonString), e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05"), e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05")}
 
 	wfentityid, err := dbop.TableInsert("workflow_entities", columns, values)
@@ -214,7 +215,10 @@ func (e *ExplodionEngine) explodeNode(node wftype.Node, workflowentityid int64, 
 
 	dbop := dbconn.NewDBOperation(e.UserName, DBTx, "Workflow.Explosion")
 
-	columns := []string{"WorkflowEntityID", "Type", "Status", "WorkflowNodeID", "PreTaskData", "ProcessData", "Page", "TranCode", "createdby", "createdon", "updatedby", "updatedon"}
+	//columns := []string{"WorkflowEntityID", "Type", "Status", "WorkflowNodeID", "PreTaskData", "ProcessData", "Page", "TranCode", "createdby", "createdon", "updatedby", "updatedon"}
+
+	columns := []string{"workflowentityid", "type", "status", "workflownodeid", "pretaskdata", "processdata", "page", "trancode", "createdby", "createdon", "modifiedby", "modifiedon"}
+
 	values := []string{fmt.Sprintf("%d", workflowentityid), node.Type, "1", node.ID, string(PreTaskjsonData), string(jsonData), node.Page, node.TranCode, e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05"), e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05")}
 
 	taskid, err := dbop.TableInsert("workflow_tasks", columns, values)
@@ -234,7 +238,7 @@ func (e *ExplodionEngine) explodeNode(node wftype.Node, workflowentityid int64, 
 	for _, role := range node.Roles {
 
 		if role != "" {
-			rows, err := dbop.Query_Json(fmt.Sprintf("select id from roles where Name = '%s'", role))
+			rows, err := dbop.Query_Json(fmt.Sprintf("select id from roles where name = '%s'", role))
 
 			if err != nil {
 				e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.explodeNode to get the role assignment: %s", err))
@@ -244,7 +248,8 @@ func (e *ExplodionEngine) explodeNode(node wftype.Node, workflowentityid int64, 
 			} else {
 				roleid := rows[0]["id"].(int64)
 				roleids = append(roleids, roleid)
-				columns = []string{"WorkflowTaskID", "RoleID", "createdby", "createdon", "updatedby", "updatedon"}
+				//columns = []string{"WorkflowTaskID", "RoleID", "createdby", "createdon", "updatedby", "updatedon"}
+				columns = []string{"workflowtaskid", "roleid", "createdby", "createdon", "modifiedby", "modifiedon"}
 				values = []string{fmt.Sprintf("%d", taskid), fmt.Sprintf("%d", roleid), e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05"), e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05")}
 
 				_, err = dbop.TableInsert("workflow_task_assignments", columns, values)
@@ -263,7 +268,7 @@ func (e *ExplodionEngine) explodeNode(node wftype.Node, workflowentityid int64, 
 
 	for _, user := range node.Users {
 		if user != "" {
-			rows, err := dbop.Query_Json(fmt.Sprintf("select id, LoginName from users where LoginName = '%s' OR Name = '%s'", user, user))
+			rows, err := dbop.Query_Json(fmt.Sprintf("select id, loginname from users where loginname = '%s' OR name = '%s'", user, user))
 
 			if err != nil {
 				e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.explodeNode during gettign userid: %s", err))
@@ -271,9 +276,10 @@ func (e *ExplodionEngine) explodeNode(node wftype.Node, workflowentityid int64, 
 				e.Log.Error(fmt.Sprintf("System does not find the user: %s", user))
 			} else {
 				userid := rows[0]["id"].(int64)
-				loginname := rows[0]["LoginName"].(string)
+				loginname := rows[0]["loginname"].(string)
 				userids = append(userids, userid)
-				columns = []string{"WorkflowTaskID", "UserID", "createdby", "createdon", "updatedby", "updatedon"}
+				//columns = []string{"WorkflowTaskID", "UserID", "createdby", "createdon", "updatedby", "updatedon"}
+				columns = []string{"workflowtaskid", "userid", "createdby", "createdon", "modifiedby", "modifiedon"}
 				values = []string{fmt.Sprintf("%d", taskid), fmt.Sprintf("%d", userid), e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05"), e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05")}
 
 				_, err = dbop.TableInsert("workflow_task_assignments", columns, values)
@@ -312,7 +318,7 @@ func (e *ExplodionEngine) explodeNode(node wftype.Node, workflowentityid int64, 
 			e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.explodeNode during creating notification: %s", err))
 		}
 
-		columns = []string{"NotificationUUID"}
+		columns = []string{"notificationuuid"}
 		values = []string{notification["uuid"].(string)}
 		datatypes := []int{int(0)}
 		Where := fmt.Sprintf("id = %d", taskid)
@@ -323,7 +329,8 @@ func (e *ExplodionEngine) explodeNode(node wftype.Node, workflowentityid int64, 
 
 	}
 
-	columns = []string{"WorkflowEntityID", "WorkflowTaskID", "Type", "Status", "createdby", "createdon", "updatedby", "updatedon"}
+	//columns = []string{"WorkflowEntityID", "WorkflowTaskID", "Type", "Status", "createdby", "createdon", "updatedby", "updatedon"}
+	columns = []string{"workflowentityid", "workflowtaskid", "type", "status", "createdby", "createdon", "modifiedby", "modifiedon"}
 	values = []string{fmt.Sprintf("%d", workflowentityid), fmt.Sprintf("%d", taskid), "create task", "1", e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05"), e.UserName, time.Now().UTC().Format("2006-01-02 15:04:05")}
 
 	_, err = dbop.TableInsert("workflow_task_histories", columns, values)

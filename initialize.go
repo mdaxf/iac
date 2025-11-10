@@ -20,11 +20,12 @@ import (
 	"io/ioutil"
 	"time"
 
+	"github.com/google/uuid"
 	config "github.com/mdaxf/iac/config"
 	dbconn "github.com/mdaxf/iac/databases"
+	"github.com/mdaxf/iac/databases/orm"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/framework/cache"
-	"github.com/google/uuid"
 
 	//	iacmb "github.com/mdaxf/iac/framework/messagebus"
 
@@ -171,10 +172,81 @@ func initializeDatabase() {
 		}
 	}
 
-	// connect to the database
+	// connect to the database (legacy method)
 	err := dbconn.ConnectDB()
 	if err != nil {
 		ilog.Error(fmt.Sprintf("initialize Database error: %s", err.Error()))
+	}
+
+	// Register main database with ORM as "default" alias
+	ilog.Info("Registering main database with ORM as 'default' alias")
+	err = orm.RegisterDataBase("default", dbconn.DatabaseType, dbconn.DatabaseConnection,
+		orm.MaxIdleConnections(dbconn.MaxIdleConns),
+		orm.MaxOpenConnections(dbconn.MaxOpenConns))
+	if err != nil {
+		ilog.Error(fmt.Sprintf("Failed to register default database with ORM: %s", err.Error()))
+	} else {
+		ilog.Info("Successfully registered 'default' database with ORM")
+	}
+
+	// Register alternative databases from configuration
+	altDatabases := config.GlobalConfiguration.AltDatabasesConfig
+	if altDatabases != nil && len(altDatabases) > 0 {
+		ilog.Info(fmt.Sprintf("Registering %d alternative databases with ORM", len(altDatabases)))
+
+		for _, altDB := range altDatabases {
+			// Extract configuration values
+			aliasName, nameOk := altDB["name"].(string)
+			dbType, typeOk := altDB["type"].(string)
+			connection, connOk := altDB["connection"].(string)
+
+			if !nameOk || aliasName == "" {
+				ilog.Warn("Alternative database missing 'name', skipping")
+				continue
+			}
+
+			if !typeOk || dbType == "" {
+				ilog.Warn(fmt.Sprintf("Alternative database '%s' missing 'type', skipping", aliasName))
+				continue
+			}
+
+			if !connOk || connection == "" {
+				ilog.Warn(fmt.Sprintf("Alternative database '%s' missing 'connection', skipping", aliasName))
+				continue
+			}
+
+			// Skip if this is the default database (already registered)
+			if aliasName == "default" {
+				ilog.Debug("Skipping 'default' alias in altdatabases (already registered)")
+				continue
+			}
+
+			// Get optional connection pool settings
+			maxIdle := 5
+			maxOpen := 10
+
+			if v, ok := altDB["maxidleconns"].(float64); ok {
+				maxIdle = int(v)
+			}
+
+			if v, ok := altDB["maxopenconns"].(float64); ok {
+				maxOpen = int(v)
+			}
+
+			// Register the alternative database with ORM
+			ilog.Info(fmt.Sprintf("Registering alternative database '%s' (type: %s)", aliasName, dbType))
+			err = orm.RegisterDataBase(aliasName, dbType, connection,
+				orm.MaxIdleConnections(maxIdle),
+				orm.MaxOpenConnections(maxOpen))
+
+			if err != nil {
+				ilog.Error(fmt.Sprintf("Failed to register database '%s': %s", aliasName, err.Error()))
+			} else {
+				ilog.Info(fmt.Sprintf("Successfully registered database '%s'", aliasName))
+			}
+		}
+	} else {
+		ilog.Debug("No alternative databases configured")
 	}
 }
 

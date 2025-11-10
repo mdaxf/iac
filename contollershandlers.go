@@ -25,16 +25,20 @@ import (
 	config "github.com/mdaxf/iac/config"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mdaxf/iac/controllers/iacai"
+	configmng "github.com/mdaxf/iac/controller/config"
 	"github.com/mdaxf/iac/controllers/bpmcontroller"
 	"github.com/mdaxf/iac/controllers/collectionop"
 	"github.com/mdaxf/iac/controllers/component"
 	"github.com/mdaxf/iac/controllers/databaseop"
 	"github.com/mdaxf/iac/controllers/function"
 	healthcheck "github.com/mdaxf/iac/controllers/health"
+	"github.com/mdaxf/iac/controllers/iacai"
 	"github.com/mdaxf/iac/controllers/lngcodes"
+	"github.com/mdaxf/iac/controllers/models3d"
 	"github.com/mdaxf/iac/controllers/notifications"
+	"github.com/mdaxf/iac/controllers/processplan"
 	"github.com/mdaxf/iac/controllers/role"
+	"github.com/mdaxf/iac/controllers/schema"
 	"github.com/mdaxf/iac/controllers/trans"
 	"github.com/mdaxf/iac/controllers/user"
 	"github.com/mdaxf/iac/controllers/workflow"
@@ -128,8 +132,22 @@ func getModule(module string) reflect.Value {
 	case "IACAIController":
 		moduleInstance := &iacai.IACAIController{}
 		return reflect.ValueOf(moduleInstance)
-	}
 
+	case "ProcessPlanController":
+		moduleInstance := &processplan.ProcessPlanController{}
+		return reflect.ValueOf(moduleInstance)
+	case "SchemaController":
+		moduleInstance := &schema.SchemaController{}
+		return reflect.ValueOf(moduleInstance)
+
+	case "Models3DController":
+		moduleInstance := &models3d.Models3DController{}
+		return reflect.ValueOf(moduleInstance)
+
+	case "ConfigController":
+		moduleInstance := &configmng.ConfigController{}
+		return reflect.ValueOf(moduleInstance)
+	}
 	return reflect.Value{}
 }
 
@@ -168,25 +186,20 @@ func createEndpoints(router *gin.Engine, module string, modulepath string, endpo
 
 		switch endpoint.Method {
 		case http.MethodGet:
-			router.Use(auth.AuthMiddleware())
-			router.GET(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
+			router.GET(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), auth.AuthMiddleware(), handler)
 		case http.MethodPost:
 
 			if strings.Contains(modulepath, "/user/login") {
 				router.POST(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
 			} else {
-				router.Use(auth.AuthMiddleware())
-				router.POST(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
+				router.POST(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), auth.AuthMiddleware(), handler)
 			}
 		case http.MethodPut:
-			router.Use(auth.AuthMiddleware())
-			router.PUT(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
+			router.PUT(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), auth.AuthMiddleware(), handler)
 		case http.MethodPatch:
-			router.Use(auth.AuthMiddleware())
-			router.PATCH(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
+			router.PATCH(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), auth.AuthMiddleware(), handler)
 		case http.MethodDelete:
-			router.Use(auth.AuthMiddleware())
-			router.DELETE(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), handler)
+			router.DELETE(fmt.Sprintf("%s/%s", modulepath, endpoint.Path), auth.AuthMiddleware(), handler)
 		default:
 			return fmt.Errorf("unsupported HTTP method '%s'", endpoint.Method)
 		}

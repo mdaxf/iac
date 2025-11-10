@@ -14,7 +14,7 @@
     },
     "database":{
         "type":"mysql",        
-        "connection": "user:iacf12345678@tcp(localhost:3306)/iac?timeout=5s",
+        "connection": "user:iacf12345678@tcp(localhost:3306)/iac25?timeout=5s",
         "maxidleconns":5,
         "maxopenconns":10,
         "timeout": 5
@@ -25,7 +25,7 @@
             "type":"mysql",
             "connection":"user:iacf12345678@tcp(localhost:3306)/iac"
         }
-    ],
+ ],
     "documentdb":{
         "type": "mongodb",
         "connection": "mongodb://localhost:27017",
@@ -59,17 +59,17 @@
     },
     "log":{
         "adapter": "console", 
-        "level": "performance",
+        "level": "debug",
         "performance": true,
         "performancethread": 1,
         "file":{
-            "folder": "c:\\\\temp\\\\iac_loger", 
+            "folder": "c:\\temp\\iac_loger", 
             "file": "iac.log",
             "maxlines":10000,
             "maxsize": 1024},
         "console":{},
         "multiplefile":{
-            "folder": "c:\\\\temp\\\\iac_loger", 
+            "folder": "c:\\temp\\iac_loger", 
             "file": "iac.log",
             "maxlines":10000,
             "maxsize": 1024,
@@ -109,7 +109,7 @@
         }
     },
     "translation":{
-        "autopopulate": true,
+        "autopopulate": false,
         "cache": true
     }
 }
