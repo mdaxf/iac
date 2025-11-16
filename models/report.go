@@ -294,7 +294,7 @@ func (Report) TableName() string {
 // ReportDatasource represents a data source for a report
 type ReportDatasource struct {
 	ID             string  `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
-	ReportID       string  `json:"reportid" gorm:"type:varchar(36);not null"`
+	ReportID       string  `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
 	Alias          string  `json:"alias" gorm:"type:varchar(100);not null"`
 	DatabaseAlias  string  `json:"databasealias" gorm:"type:varchar(100)"`
 	QueryType      string  `json:"querytype" gorm:"type:varchar(20);default:'visual'"`
@@ -325,7 +325,7 @@ func (ReportDatasource) TableName() string {
 // ReportComponent represents a visual component in a report
 type ReportComponent struct {
 	ID                    string        `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
-	ReportID              string        `json:"reportid" gorm:"type:varchar(36);not null"`
+	ReportID              string        `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
 	ComponentType         ComponentType `json:"componenttype" gorm:"type:enum('table','chart','barcode','sub_report','text','image','drill_down');not null"`
 	Name                  string        `json:"name" gorm:"type:varchar(255);not null"`
 	X                     float64       `json:"x" gorm:"type:decimal(10,2);default:0"`
@@ -363,7 +363,7 @@ func (ReportComponent) TableName() string {
 // ReportParameter represents an input parameter for a report
 type ReportParameter struct {
 	ID              string        `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
-	ReportID        string        `json:"reportid" gorm:"type:varchar(36);not null"`
+	ReportID        string        `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
 	Name            string        `json:"name" gorm:"type:varchar(100);not null"`
 	DisplayName     string        `json:"displayname" gorm:"type:varchar(100)"`
 	ParameterType   ParameterType `json:"parametertype" gorm:"type:enum('text','number','date','datetime','select','multi_select','boolean');default:'text'"`
@@ -393,7 +393,7 @@ func (ReportParameter) TableName() string {
 // ReportExecution represents a report execution record
 type ReportExecution struct {
 	ID              string    `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
-	ReportID        string    `json:"reportid" gorm:"type:varchar(36);not null"`
+	ReportID        string    `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
 	ExecutedBy      string    `json:"executedby" gorm:"type:varchar(36)"`
 	ExecutionStatus string    `json:"executionstatus" gorm:"type:varchar(20);default:'pending'"`
 	ExecutionTimeMs int       `json:"executiontimems"`
@@ -422,7 +422,7 @@ func (ReportExecution) TableName() string {
 // ReportShare represents report sharing permissions
 type ReportShare struct {
 	ID         string     `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
-	ReportID   string     `json:"reportid" gorm:"type:varchar(36);not null"`
+	ReportID   string     `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
 	SharedBy   string     `json:"sharedby" gorm:"type:varchar(36)"`
 	SharedWith string     `json:"sharedwith" gorm:"type:varchar(36)"`
 	CanView    bool       `json:"canview" gorm:"default:true"`
@@ -481,7 +481,7 @@ func (ReportTemplate) TableName() string {
 // ReportSchedule represents a scheduled report execution
 type ReportSchedule struct {
 	ID             string     `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
-	ReportID       string     `json:"reportid" gorm:"type:varchar(36);not null"`
+	ReportID       string     `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
 	ScheduleName   string     `json:"schedulename" gorm:"type:varchar(255)"`
 	CronExpression string     `json:"cronexpression" gorm:"type:varchar(100);not null"`
 	Timezone       string     `json:"timezone" gorm:"type:varchar(50);default:'UTC'"`
