@@ -346,10 +346,14 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 				t.ilog.Error(structuredErr.GetFormattedError())
 			}
 
-			// Rollback the transaction
+			// Rollback the transaction due to panic
 			t.ilog.Info(fmt.Sprintf("Rolling back transaction for %s due to error", t.Tcode.Name))
 			if t.DBTx != nil {
-				t.DBTx.Rollback()
+				if rollbackErr := t.DBTx.Rollback(); rollbackErr != nil {
+					t.ilog.Error(fmt.Sprintf("Error during panic rollback: %s", rollbackErr.Error()))
+				}
+				// Update transaction state to prevent double rollback by the other defer
+				txState = types.TransactionRolledBack
 			}
 			if t.CtxCancel != nil {
 				t.CtxCancel()
@@ -368,9 +372,10 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 	userSession := map[string]interface{}{}
 	var err error
 	newTransaction := false
+	txState := types.TransactionRunning
 
+	// TRANSACTION MANAGEMENT: Proper coordination of transaction lifecycle
 	if t.DBTx == nil {
-
 		t.DBTx, err = dbconn.DB.Begin()
 		newTransaction = true
 		if err != nil {
@@ -378,7 +383,17 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 			return map[string]interface{}{}, err
 		}
 
-		defer t.DBTx.Rollback()
+		// IMPORTANT: Only rollback if transaction was NOT committed
+		// This defer will only execute if we don't commit (due to error or panic)
+		defer func() {
+			if newTransaction && txState == types.TransactionRunning {
+				t.ilog.Info(fmt.Sprintf("Rolling back uncommitted transaction for %s", t.Tcode.Name))
+				if rollbackErr := t.DBTx.Rollback(); rollbackErr != nil {
+					t.ilog.Error(fmt.Sprintf("Error during transaction rollback: %s", rollbackErr.Error()))
+				}
+				txState = types.TransactionRolledBack
+			}
+		}()
 	}
 
 	if t.Ctx == nil {
@@ -430,13 +445,21 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 		}
 	}
 
+	// Commit the transaction if we started it
 	if newTransaction {
+		t.ilog.Info(fmt.Sprintf("Committing transaction for %s", t.Tcode.Name))
 		err := t.DBTx.Commit()
 		if err != nil {
 			t.ilog.Error(fmt.Sprintf("Error in Trancode.Execute during DB transaction commit: %s", err.Error()))
-			t.CtxCancel()
+			txState = types.TransactionFailed
+			if t.CtxCancel != nil {
+				t.CtxCancel()
+			}
 			return map[string]interface{}{}, err
 		}
+		// Mark transaction as committed so defer won't rollback
+		txState = types.TransactionCommitted
+		t.ilog.Info(fmt.Sprintf("Transaction committed successfully for %s", t.Tcode.Name))
 	}
 
 	if t.TestwithSc {
