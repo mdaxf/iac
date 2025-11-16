@@ -2,12 +2,27 @@
 
 Real-time remote debugging system for the BPM execution engine with Server-Sent Events (SSE) and message bus support.
 
+## Key Feature: Multiple Users Monitor Same Session
+
+**Each debug session has a unique Session ID. Multiple users can connect to the SAME Session ID and monitor the execution simultaneously in real-time.**
+
+```
+Session ID: "prod-issue-001"
+        ↓
+    ┌───┴───┬─────┬─────┐
+    ↓       ↓     ↓     ↓
+  User A  User B User C User D
+ (Web UI) (CLI) (Web)  (API)
+
+All see the SAME events in real-time!
+```
+
 ## Features
 
 - **Real-time Event Streaming**: Stream execution events to multiple clients via SSE
 - **Step-by-Step Execution Tracking**: Monitor every step of trancode execution
 - **Detailed Execution Data**: Captures inputs, outputs, timing, and routing information
-- **Multi-Client Support**: Multiple clients can monitor the same debug session
+- **Multi-User Collaboration**: **Multiple users can monitor the same debug session simultaneously using the unique Session ID**
 - **Event Filtering**: Filter events by type, log level, trancode, or function type
 - **Flexible Architecture**: Uses message bus for async event distribution
 - **Security**: Automatic sanitization of sensitive data (passwords, tokens, etc.)
@@ -104,6 +119,34 @@ Each debug event contains:
   }
 }
 ```
+
+## How Session IDs Work
+
+Each debug session is identified by a **unique Session ID** that comes from `SystemSession["SessionID"]` when executing a trancode:
+
+```go
+// Execute trancode with Session ID
+systemSession := map[string]interface{}{
+    "SessionID": "debug-session-123",  // This unique ID enables debugging
+    "UserNo":    "user-456",
+}
+
+outputs, err := trancode.Execute("OrderProcessing", inputs, systemSession)
+```
+
+**Multiple users can connect to the same Session ID:**
+
+```javascript
+// User 1 (Browser 1)
+const es1 = new EventSource('http://localhost:8080/api/debug/stream?sessionID=debug-session-123');
+
+// User 2 (Browser 2) - SAME Session ID
+const es2 = new EventSource('http://localhost:8080/api/debug/stream?sessionID=debug-session-123');
+
+// Both see the SAME events in real-time!
+```
+
+**See [MULTIPLE_USERS.md](MULTIPLE_USERS.md) for complete examples of team collaboration.**
 
 ## Usage
 
