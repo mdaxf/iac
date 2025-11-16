@@ -60,16 +60,16 @@ func (s *ReportService) ListReports(userID string, isPublic bool, reportType str
 
 	// Apply filters
 	if !isPublic {
-		query = query.Where("created_by = ? OR is_public = ?", userID, true)
+		query = query.Where("createdby = ? OR ispublic = ?", userID, true)
 	} else {
-		query = query.Where("is_public = ?", true)
+		query = query.Where("ispublic = ?", true)
 	}
 
 	if reportType != "" {
-		query = query.Where("report_type = ?", reportType)
+		query = query.Where("reporttype = ?", reportType)
 	}
 
-	query = query.Where("is_active = ?", true)
+	query = query.Where("active = ?", true)
 
 	// Get total count
 	query.Count(&total)
@@ -77,7 +77,7 @@ func (s *ReportService) ListReports(userID string, isPublic bool, reportType str
 	// Apply pagination
 	offset := (page - 1) * pageSize
 	err := query.Offset(offset).Limit(pageSize).
-		Order("updated_at DESC").
+		Order("modifiedon DESC").
 		Find(&reports).Error
 
 	if err != nil {
@@ -90,14 +90,14 @@ func (s *ReportService) ListReports(userID string, isPublic bool, reportType str
 // UpdateReport updates an existing report
 func (s *ReportService) UpdateReport(id string, updates map[string]interface{}) error {
 	// Add updated_at timestamp
-	updates["updated_at"] = time.Now()
+	updates["modifiedon"] = time.Now()
 
 	return s.DB.Model(&models.Report{}).Where("id = ?", id).Updates(updates).Error
 }
 
 // DeleteReport soft deletes a report
 func (s *ReportService) DeleteReport(id string) error {
-	return s.DB.Model(&models.Report{}).Where("id = ?", id).Update("is_active", false).Error
+	return s.DB.Model(&models.Report{}).Where("id = ?", id).Update("active", false).Error
 }
 
 // HardDeleteReport permanently deletes a report
@@ -117,13 +117,13 @@ func (s *ReportService) AddDatasource(datasource *models.ReportDatasource) error
 // GetDatasources retrieves all datasources for a report
 func (s *ReportService) GetDatasources(reportID string) ([]models.ReportDatasource, error) {
 	var datasources []models.ReportDatasource
-	err := s.DB.Where("report_id = ?", reportID).Find(&datasources).Error
+	err := s.DB.Where("reportid = ?", reportID).Find(&datasources).Error
 	return datasources, err
 }
 
 // UpdateDatasource updates a datasource
 func (s *ReportService) UpdateDatasource(id string, updates map[string]interface{}) error {
-	updates["updated_at"] = time.Now()
+	updates["modifiedon"] = time.Now()
 	return s.DB.Model(&models.ReportDatasource{}).Where("id = ?", id).Updates(updates).Error
 }
 
@@ -144,7 +144,7 @@ func (s *ReportService) AddComponent(component *models.ReportComponent) error {
 // GetComponents retrieves all components for a report
 func (s *ReportService) GetComponents(reportID string) ([]models.ReportComponent, error) {
 	var components []models.ReportComponent
-	err := s.DB.Where("report_id = ? AND is_visible = ?", reportID, true).
+	err := s.DB.Where("reportid = ? AND isvisible = ?", reportID, true).
 		Order("z_index ASC").
 		Find(&components).Error
 	return components, err
@@ -152,7 +152,7 @@ func (s *ReportService) GetComponents(reportID string) ([]models.ReportComponent
 
 // UpdateComponent updates a component
 func (s *ReportService) UpdateComponent(id string, updates map[string]interface{}) error {
-	updates["updated_at"] = time.Now()
+	updates["modifiedon"] = time.Now()
 	return s.DB.Model(&models.ReportComponent{}).Where("id = ?", id).Updates(updates).Error
 }
 
@@ -173,7 +173,7 @@ func (s *ReportService) AddParameter(parameter *models.ReportParameter) error {
 // GetParameters retrieves all parameters for a report
 func (s *ReportService) GetParameters(reportID string) ([]models.ReportParameter, error) {
 	var parameters []models.ReportParameter
-	err := s.DB.Where("report_id = ? AND is_enabled = ?", reportID, true).
+	err := s.DB.Where("reportid = ? AND isenabled = ?", reportID, true).
 		Order("sort_order ASC").
 		Find(&parameters).Error
 	return parameters, err
@@ -181,7 +181,7 @@ func (s *ReportService) GetParameters(reportID string) ([]models.ReportParameter
 
 // UpdateParameter updates a parameter
 func (s *ReportService) UpdateParameter(id string, updates map[string]interface{}) error {
-	updates["updated_at"] = time.Now()
+	updates["modifiedon"] = time.Now()
 	return s.DB.Model(&models.ReportParameter{}).Where("id = ?", id).Updates(updates).Error
 }
 
@@ -207,8 +207,8 @@ func (s *ReportService) UpdateExecution(id string, updates map[string]interface{
 // GetExecutionHistory retrieves execution history for a report
 func (s *ReportService) GetExecutionHistory(reportID string, limit int) ([]models.ReportExecution, error) {
 	var executions []models.ReportExecution
-	err := s.DB.Where("report_id = ?", reportID).
-		Order("created_at DESC").
+	err := s.DB.Where("reportid = ?", reportID).
+		Order("createdob DESC").
 		Limit(limit).
 		Find(&executions).Error
 	return executions, err
@@ -217,7 +217,7 @@ func (s *ReportService) GetExecutionHistory(reportID string, limit int) ([]model
 // UpdateLastExecutedAt updates the last execution timestamp
 func (s *ReportService) UpdateLastExecutedAt(reportID string) error {
 	now := time.Now()
-	return s.DB.Model(&models.Report{}).Where("id = ?", reportID).Update("last_executed_at", now).Error
+	return s.DB.Model(&models.Report{}).Where("id = ?", reportID).Update("lastexecutedon", now).Error
 }
 
 // ShareReport creates a share record
@@ -237,19 +237,19 @@ func (s *ReportService) ShareReport(share *models.ReportShare) error {
 // GetShares retrieves all shares for a report
 func (s *ReportService) GetShares(reportID string) ([]models.ReportShare, error) {
 	var shares []models.ReportShare
-	err := s.DB.Where("report_id = ? AND is_active = ?", reportID, true).Find(&shares).Error
+	err := s.DB.Where("reportid = ? AND active = ?", reportID, true).Find(&shares).Error
 	return shares, err
 }
 
 // RevokeShare deactivates a share
 func (s *ReportService) RevokeShare(id string) error {
-	return s.DB.Model(&models.ReportShare{}).Where("id = ?", id).Update("is_active", false).Error
+	return s.DB.Model(&models.ReportShare{}).Where("id = ?", id).Update("active", false).Error
 }
 
 // GetShareByToken retrieves a share by token
 func (s *ReportService) GetShareByToken(token string) (*models.ReportShare, error) {
 	var share models.ReportShare
-	err := s.DB.Where("share_token = ? AND is_active = ?", token, true).First(&share).Error
+	err := s.DB.Where("share_token = ? AND active = ?", token, true).First(&share).Error
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +272,7 @@ func (s *ReportService) ListTemplates(category string, isPublic bool) ([]models.
 	}
 
 	if isPublic {
-		query = query.Where("is_public = ?", true)
+		query = query.Where("ispublic = ?", true)
 	}
 
 	err := query.Order("usage_count DESC, rating DESC").Find(&templates).Error
@@ -309,7 +309,7 @@ func (s *ReportService) CreateFromTemplate(templateID, userID string) (*models.R
 		TemplateSourceID: templateID,
 		LayoutConfig:     template.TemplateConfig,
 		Version:          1,
-		IsActive:         true,
+		Active:           true,
 	}
 
 	err = s.CreateReport(report)
@@ -343,7 +343,7 @@ func (s *ReportService) DuplicateReport(reportID, userID string) (*models.Report
 		LayoutConfig: original.LayoutConfig,
 		PageSettings: original.PageSettings,
 		Version:      1,
-		IsActive:     true,
+		Active:       true,
 	}
 
 	err = s.CreateReport(newReport)
@@ -383,10 +383,10 @@ func (s *ReportService) SearchReports(keyword string, userID string, limit int) 
 	var reports []models.Report
 	searchTerm := "%" + keyword + "%"
 
-	err := s.DB.Where("(created_by = ? OR is_public = ?) AND is_active = ? AND (name LIKE ? OR description LIKE ?)",
+	err := s.DB.Where("(createdby = ? OR ispublic = ?) AND active = ? AND (name LIKE ? OR description LIKE ?)",
 		userID, true, true, searchTerm, searchTerm).
 		Limit(limit).
-		Order("updated_at DESC").
+		Order("modifiedon DESC").
 		Find(&reports).Error
 
 	return reports, err

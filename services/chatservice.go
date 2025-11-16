@@ -38,7 +38,7 @@ func (s *ChatService) CreateConversation(userID, databaseAlias, title string, au
 		UserID:           userID,
 		DatabaseAlias:    databaseAlias,
 		AutoExecuteQuery: autoExecute,
-		IsActive:         true,
+		Active:           true,
 	}
 
 	if err := s.DB.Create(conversation).Error; err != nil {
@@ -51,7 +51,7 @@ func (s *ChatService) CreateConversation(userID, databaseAlias, title string, au
 // GetConversation retrieves a conversation by ID
 func (s *ChatService) GetConversation(id string) (*models.Conversation, error) {
 	var conversation models.Conversation
-	err := s.DB.Preload("Messages").First(&conversation, "id = ? AND is_active = ?", id, true).Error
+	err := s.DB.Preload("Messages").First(&conversation, "id = ? AND active = ?", id, true).Error
 	if err != nil {
 		return nil, err
 	}
@@ -61,8 +61,8 @@ func (s *ChatService) GetConversation(id string) (*models.Conversation, error) {
 // ListConversations retrieves conversations for a user
 func (s *ChatService) ListConversations(userID string, limit int) ([]models.Conversation, error) {
 	var conversations []models.Conversation
-	err := s.DB.Where("user_id = ? AND is_active = ?", userID, true).
-		Order("updated_at DESC").
+	err := s.DB.Where("userid = ? AND active = ?", userID, true).
+		Order("modifiedon DESC").
 		Limit(limit).
 		Find(&conversations).Error
 	return conversations, err
@@ -72,7 +72,7 @@ func (s *ChatService) ListConversations(userID string, limit int) ([]models.Conv
 func (s *ChatService) DeleteConversation(id string) error {
 	return s.DB.Model(&models.Conversation{}).
 		Where("id = ?", id).
-		Update("is_active", false).Error
+		Update("active", false).Error
 }
 
 // ProcessMessage processes a user message and generates AI response
@@ -194,7 +194,7 @@ func (s *ChatService) getRelevantBusinessEntities(databaseAlias, question string
 	var entities []models.BusinessEntity
 
 	// Use full-text search for now (vector search would be better)
-	err := s.DB.Where("database_alias = ?", databaseAlias).
+	err := s.DB.Where("databasealias = ?", databaseAlias).
 		Where("MATCH(entity_name, description) AGAINST(? IN NATURAL LANGUAGE MODE)", question).
 		Limit(5).
 		Find(&entities).Error
@@ -207,7 +207,7 @@ func (s *ChatService) getRelevantTableMetadata(databaseAlias, question string) (
 	var metadata []models.DatabaseSchemaMetadata
 
 	// Use full-text search for now
-	err := s.DB.Where("database_alias = ?", databaseAlias).
+	err := s.DB.Where("databasealias = ?", databaseAlias).
 		Where("MATCH(description, column_comment) AGAINST(? IN NATURAL LANGUAGE MODE)", question).
 		Limit(10).
 		Find(&metadata).Error
@@ -428,7 +428,7 @@ func (s *ChatService) SearchSimilarSchemaElements(ctx context.Context, databaseA
 
 	// 2. Get all embeddings for the database
 	var embeddings []models.SchemaEmbedding
-	if err := s.DB.Where("database_alias = ?", databaseAlias).Find(&embeddings).Error; err != nil {
+	if err := s.DB.Where("databasealias = ?", databaseAlias).Find(&embeddings).Error; err != nil {
 		return nil, err
 	}
 

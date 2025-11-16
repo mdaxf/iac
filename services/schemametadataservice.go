@@ -33,7 +33,7 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 
 	query := `
 		SELECT
-			TABLE_NAME as table_name,
+			TABLE_NAME as tablename,
 			COALESCE(TABLE_COMMENT, '') as table_comment
 		FROM information_schema.TABLES
 		WHERE TABLE_SCHEMA = ?
@@ -56,7 +56,7 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 		}
 
 		if err := s.db.WithContext(ctx).
-			Where("database_alias = ? AND table_name = ? AND metadata_type = ?", databaseAlias, table.TableName, models.MetadataTypeTable).
+			Where("databasealias = ? AND tablename = ? AND metadatatype = ?", databaseAlias, table.TableName, models.MetadataTypeTable).
 			Assign(tableMeta).
 			FirstOrCreate(tableMeta).Error; err != nil {
 			return fmt.Errorf("failed to save table metadata for %s: %w", table.TableName, err)
@@ -73,7 +73,7 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 
 		columnQuery := `
 			SELECT
-				COLUMN_NAME as column_name,
+				COLUMN_NAME as columnname,
 				DATA_TYPE as data_type,
 				IS_NULLABLE as is_nullable,
 				COLUMN_KEY as column_key,
@@ -103,7 +103,7 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 			}
 
 			if err := s.db.WithContext(ctx).
-				Where("database_alias = ? AND table_name = ? AND column_name = ? AND metadata_type = 'column'",
+				Where("databasealias = ? AND tablename = ? AND columnname = ? AND metadatatype = 'column'",
 					databaseAlias, table.TableName, column.ColumnName).
 				Assign(columnMeta).
 				FirstOrCreate(columnMeta).Error; err != nil {
@@ -120,8 +120,8 @@ func (s *SchemaMetadataService) GetTableMetadata(ctx context.Context, databaseAl
 	var metadata []models.DatabaseSchemaMetadata
 
 	if err := s.db.WithContext(ctx).
-		Where("database_alias = ? AND metadata_type = ?", databaseAlias, models.MetadataTypeTable).
-		Order("table_name").
+		Where("databasealias = ? AND metadatatype = ?", databaseAlias, models.MetadataTypeTable).
+		Order("tablename").
 		Find(&metadata).Error; err != nil {
 		return nil, fmt.Errorf("failed to get table metadata: %w", err)
 	}
@@ -134,8 +134,8 @@ func (s *SchemaMetadataService) GetColumnMetadata(ctx context.Context, databaseA
 	var metadata []models.DatabaseSchemaMetadata
 
 	if err := s.db.WithContext(ctx).
-		Where("database_alias = ? AND table_name = ? AND metadata_type = ?", databaseAlias, tableName, models.MetadataTypeColumn).
-		Order("column_name").
+		Where("databasealias = ? AND tablename = ? AND metadatatype = ?", databaseAlias, tableName, models.MetadataTypeColumn).
+		Order("columnname").
 		Find(&metadata).Error; err != nil {
 		return nil, fmt.Errorf("failed to get column metadata: %w", err)
 	}
@@ -155,7 +155,7 @@ func (s *SchemaMetadataService) UpdateMetadata(ctx context.Context, id string, d
 		return nil
 	}
 
-	updates["updated_at"] = gorm.Expr("CURRENT_TIMESTAMP")
+	updates["modifiedon"] = gorm.Expr("CURRENT_TIMESTAMP")
 
 	if err := s.db.WithContext(ctx).
 		Model(&models.DatabaseSchemaMetadata{}).
@@ -181,13 +181,13 @@ func (s *SchemaMetadataService) DeleteMetadata(ctx context.Context, id string) e
 func (s *SchemaMetadataService) GetSchemaContext(ctx context.Context, databaseAlias string, tableNames []string) (string, error) {
 	var metadata []models.DatabaseSchemaMetadata
 
-	query := s.db.WithContext(ctx).Where("database_alias = ?", databaseAlias)
+	query := s.db.WithContext(ctx).Where("databasealias = ?", databaseAlias)
 
 	if len(tableNames) > 0 {
-		query = query.Where("table_name IN ?", tableNames)
+		query = query.Where("tablename IN ?", tableNames)
 	}
 
-	if err := query.Order("table_name, metadata_type DESC, column_name").Find(&metadata).Error; err != nil {
+	if err := query.Order("tablename, metadatatype DESC, columnname").Find(&metadata).Error; err != nil {
 		return "", fmt.Errorf("failed to get schema context: %w", err)
 	}
 
@@ -234,8 +234,8 @@ func (s *SchemaMetadataService) GetAllDatabases(ctx context.Context) ([]string, 
 
 	if err := s.db.WithContext(ctx).
 		Model(&models.DatabaseSchemaMetadata{}).
-		Distinct("database_alias").
-		Pluck("database_alias", &databases).Error; err != nil {
+		Distinct("databasealias").
+		Pluck("databasealias", &databases).Error; err != nil {
 		return nil, fmt.Errorf("failed to get databases: %w", err)
 	}
 
@@ -249,10 +249,10 @@ func (s *SchemaMetadataService) SearchMetadata(ctx context.Context, databaseAlia
 	searchPattern := "%" + keyword + "%"
 
 	if err := s.db.WithContext(ctx).
-		Where("database_alias = ?", databaseAlias).
-		Where("table_name LIKE ? OR COALESCE(column_name, '') LIKE ? OR COALESCE(description, '') LIKE ? OR COALESCE(business_name, '') LIKE ?",
+		Where("databasealias = ?", databaseAlias).
+		Where("tablename LIKE ? OR COALESCE(columnname, '') LIKE ? OR COALESCE(description, '') LIKE ? OR COALESCE(businessterms, '') LIKE ?",
 			searchPattern, searchPattern, searchPattern, searchPattern).
-		Order("table_name, entity_type DESC, column_name").
+		Order("tablename, metadatatype DESC, columnname").
 		Find(&metadata).Error; err != nil {
 		return nil, fmt.Errorf("failed to search metadata: %w", err)
 	}

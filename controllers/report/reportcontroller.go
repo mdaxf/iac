@@ -122,9 +122,9 @@ func (rc *ReportController) ListReports(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data":  reports,
-		"total": total,
-		"page":  page,
+		"reports": reports,
+		"total":   total,
+		"page":    page,
 		"page_size": pageSize,
 	})
 }

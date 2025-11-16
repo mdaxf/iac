@@ -47,10 +47,10 @@ func (s *QueryTemplateService) GetTemplate(ctx context.Context, id string) (*mod
 func (s *QueryTemplateService) ListTemplates(ctx context.Context, databaseAlias string) ([]models.QueryTemplate, error) {
 	var templates []models.QueryTemplate
 
-	query := s.db.WithContext(ctx).Order("template_name")
+	query := s.db.WithContext(ctx).Order("templatename")
 
 	if databaseAlias != "" {
-		query = query.Where("database_alias = ?", databaseAlias)
+		query = query.Where("databasealias = ?", databaseAlias)
 	}
 
 	if err := query.Find(&templates).Error; err != nil {
@@ -62,7 +62,7 @@ func (s *QueryTemplateService) ListTemplates(ctx context.Context, databaseAlias 
 
 // UpdateTemplate updates a query template
 func (s *QueryTemplateService) UpdateTemplate(ctx context.Context, id string, updates map[string]interface{}) error {
-	updates["updated_at"] = gorm.Expr("CURRENT_TIMESTAMP")
+	updates["modifiedon"] = gorm.Expr("CURRENT_TIMESTAMP")
 
 	if err := s.db.WithContext(ctx).
 		Model(&models.QueryTemplate{}).
@@ -90,14 +90,14 @@ func (s *QueryTemplateService) SearchTemplates(ctx context.Context, databaseAlia
 	searchPattern := "%" + keyword + "%"
 
 	query := s.db.WithContext(ctx).
-		Where("template_name LIKE ? OR COALESCE(description, '') LIKE ? OR query_pattern LIKE ?",
+		Where("templatename LIKE ? OR COALESCE(description, '') LIKE ? OR query_pattern LIKE ?",
 			searchPattern, searchPattern, searchPattern)
 
 	if databaseAlias != "" {
-		query = query.Where("database_alias = ?", databaseAlias)
+		query = query.Where("databasealias = ?", databaseAlias)
 	}
 
-	if err := query.Order("template_name").Find(&templates).Error; err != nil {
+	if err := query.Order("templatename").Find(&templates).Error; err != nil {
 		return nil, fmt.Errorf("failed to search query templates: %w", err)
 	}
 
@@ -121,17 +121,17 @@ func (s *QueryTemplateService) GetTemplatesByIntent(ctx context.Context, databas
 
 	for _, keyword := range keywords {
 		searchPattern := "%" + keyword + "%"
-		conditions = append(conditions, "(template_name LIKE ? OR COALESCE(description, '') LIKE ? OR COALESCE(example_questions, '') LIKE ?)")
+		conditions = append(conditions, "(templatename LIKE ? OR COALESCE(description, '') LIKE ? OR COALESCE(examplequestions, '') LIKE ?)")
 		args = append(args, searchPattern, searchPattern, searchPattern)
 	}
 
 	query := s.db.WithContext(ctx).Where(strings.Join(conditions, " OR "), args...)
 
 	if databaseAlias != "" {
-		query = query.Where("database_alias = ?", databaseAlias)
+		query = query.Where("databasealias = ?", databaseAlias)
 	}
 
-	if err := query.Order("template_name").Find(&templates).Error; err != nil {
+	if err := query.Order("templatename").Find(&templates).Error; err != nil {
 		return nil, fmt.Errorf("failed to get templates by intent: %w", err)
 	}
 
@@ -143,8 +143,8 @@ func (s *QueryTemplateService) IncrementUsageCount(ctx context.Context, id strin
 	if err := s.db.WithContext(ctx).
 		Model(&models.QueryTemplate{}).
 		Where("id = ?", id).
-		UpdateColumn("usage_count", gorm.Expr("usage_count + 1")).
-		UpdateColumn("last_used_at", gorm.Expr("CURRENT_TIMESTAMP")).
+		UpdateColumn("usagecount", gorm.Expr("usagecount + 1")).
+		UpdateColumn("lastrunat", gorm.Expr("CURRENT_TIMESTAMP")).
 		Error; err != nil {
 		return fmt.Errorf("failed to increment usage count: %w", err)
 	}
@@ -156,8 +156,8 @@ func (s *QueryTemplateService) IncrementUsageCount(ctx context.Context, id strin
 func (s *QueryTemplateService) GetTemplateContext(ctx context.Context, databaseAlias string, limit int) (string, error) {
 	var templates []models.QueryTemplate
 
-	query := s.db.WithContext(ctx).Where("database_alias = ?", databaseAlias).
-		Order("usage_count DESC, template_name")
+	query := s.db.WithContext(ctx).Where("databasealias = ?", databaseAlias).
+		Order("usagecount DESC, templatename")
 
 	if limit > 0 {
 		query = query.Limit(limit)

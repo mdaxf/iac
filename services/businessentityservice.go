@@ -46,10 +46,10 @@ func (s *BusinessEntityService) GetEntity(ctx context.Context, id string) (*mode
 func (s *BusinessEntityService) ListEntities(ctx context.Context, databaseAlias string) ([]models.BusinessEntity, error) {
 	var entities []models.BusinessEntity
 
-	query := s.db.WithContext(ctx).Order("entity_name")
+	query := s.db.WithContext(ctx).Order("entityname")
 
 	if databaseAlias != "" {
-		query = query.Where("database_alias = ?", databaseAlias)
+		query = query.Where("databasealias = ?", databaseAlias)
 	}
 
 	if err := query.Find(&entities).Error; err != nil {
@@ -61,7 +61,7 @@ func (s *BusinessEntityService) ListEntities(ctx context.Context, databaseAlias 
 
 // UpdateEntity updates a business entity
 func (s *BusinessEntityService) UpdateEntity(ctx context.Context, id string, updates map[string]interface{}) error {
-	updates["updated_at"] = gorm.Expr("CURRENT_TIMESTAMP")
+	updates["modifiedon"] = gorm.Expr("CURRENT_TIMESTAMP")
 
 	if err := s.db.WithContext(ctx).
 		Model(&models.BusinessEntity{}).
@@ -89,14 +89,14 @@ func (s *BusinessEntityService) SearchEntities(ctx context.Context, databaseAlia
 	searchPattern := "%" + keyword + "%"
 
 	query := s.db.WithContext(ctx).
-		Where("entity_name LIKE ? OR COALESCE(description, '') LIKE ? OR COALESCE(synonyms, '') LIKE ?",
+		Where("entityname LIKE ? OR COALESCE(description, '') LIKE ? OR COALESCE(synonyms, '') LIKE ?",
 			searchPattern, searchPattern, searchPattern)
 
 	if databaseAlias != "" {
-		query = query.Where("database_alias = ?", databaseAlias)
+		query = query.Where("databasealias = ?", databaseAlias)
 	}
 
-	if err := query.Order("entity_name").Find(&entities).Error; err != nil {
+	if err := query.Order("entityname").Find(&entities).Error; err != nil {
 		return nil, fmt.Errorf("failed to search business entities: %w", err)
 	}
 
@@ -110,8 +110,8 @@ func (s *BusinessEntityService) GetEntitiesByTable(ctx context.Context, database
 	mappingPattern := fmt.Sprintf("%%\"table_name\":\"%s\"%%", tableName)
 
 	if err := s.db.WithContext(ctx).
-		Where("database_alias = ? AND table_mapping LIKE ?", databaseAlias, mappingPattern).
-		Order("entity_name").
+		Where("databasealias = ? AND tablemappings LIKE ?", databaseAlias, mappingPattern).
+		Order("entityname").
 		Find(&entities).Error; err != nil {
 		return nil, fmt.Errorf("failed to get entities by table: %w", err)
 	}
@@ -123,13 +123,13 @@ func (s *BusinessEntityService) GetEntitiesByTable(ctx context.Context, database
 func (s *BusinessEntityService) GetEntityContext(ctx context.Context, databaseAlias string, entityNames []string) (string, error) {
 	var entities []models.BusinessEntity
 
-	query := s.db.WithContext(ctx).Where("database_alias = ?", databaseAlias)
+	query := s.db.WithContext(ctx).Where("databasealias = ?", databaseAlias)
 
 	if len(entityNames) > 0 {
-		query = query.Where("entity_name IN ?", entityNames)
+		query = query.Where("entityname IN ?", entityNames)
 	}
 
-	if err := query.Order("entity_name").Find(&entities).Error; err != nil {
+	if err := query.Order("entityname").Find(&entities).Error; err != nil {
 		return "", fmt.Errorf("failed to get entity context: %w", err)
 	}
 
