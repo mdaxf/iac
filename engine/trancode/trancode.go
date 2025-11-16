@@ -14,6 +14,7 @@ import (
 
 	funcgroup "github.com/mdaxf/iac/engine/funcgroup"
 
+	"github.com/mdaxf/iac/engine/debug"
 	"github.com/mdaxf/iac/engine/types"
 	"github.com/mdaxf/iac/logger"
 	"go.mongodb.org/mongo-driver/bson"
@@ -297,6 +298,22 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 		elapsed := time.Since(startTime)
 		t.ilog.PerformanceWithDuration("engine.TranCode.Execute", elapsed)
 	}()
+
+	// Initialize debug helper
+	var debugHelper *debug.DebugHelper
+	var sessionID string
+	if t.SystemSession["SessionID"] != nil {
+		if sid, ok := t.SystemSession["SessionID"].(string); ok {
+			sessionID = sid
+			debugHelper = debug.NewDebugHelper(sessionID, t.Tcode.Name, t.Tcode.Version)
+		}
+	}
+
+	// Emit trancode start event
+	if debugHelper != nil {
+		debugHelper.EmitTranCodeStart()
+	}
+
 	// ROLLBACK DESIGN: This defer/recover pattern is intentional.
 	// When any function fails or ThrowError executes with iserror=true,
 	// we catch the panic here and rollback the entire transaction to
@@ -349,6 +366,11 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 			// Rollback the transaction due to panic
 			t.ilog.Info(fmt.Sprintf("Rolling back transaction for %s due to error", t.Tcode.Name))
 			if t.DBTx != nil {
+				// Emit transaction rollback event
+				if debugHelper != nil {
+					debugHelper.EmitTransactionRollback(fmt.Sprintf("Panic during execution: %v", r))
+				}
+
 				if rollbackErr := t.DBTx.Rollback(); rollbackErr != nil {
 					t.ilog.Error(fmt.Sprintf("Error during panic rollback: %s", rollbackErr.Error()))
 				}
@@ -383,11 +405,22 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 			return map[string]interface{}{}, err
 		}
 
+		// Emit transaction begin event
+		if debugHelper != nil {
+			debugHelper.EmitTransactionBegin()
+		}
+
 		// IMPORTANT: Only rollback if transaction was NOT committed
 		// This defer will only execute if we don't commit (due to error or panic)
 		defer func() {
 			if newTransaction && txState == types.TransactionRunning {
 				t.ilog.Info(fmt.Sprintf("Rolling back uncommitted transaction for %s", t.Tcode.Name))
+
+				// Emit transaction rollback event
+				if debugHelper != nil {
+					debugHelper.EmitTransactionRollback("Uncommitted transaction at end of execution")
+				}
+
 				if rollbackErr := t.DBTx.Rollback(); rollbackErr != nil {
 					t.ilog.Error(fmt.Sprintf("Error during transaction rollback: %s", rollbackErr.Error()))
 				}
@@ -422,6 +455,12 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 	t.ilog.Debug(fmt.Sprintf("start first function group:", logger.ConvertJson(fgroup)))
 
 	for code == 1 {
+		// Emit funcgroup start event
+		fgStartTime := time.Now()
+		if debugHelper != nil {
+			debugHelper.EmitFuncGroupStart(fgroup.Name)
+		}
+
 		fg := funcgroup.NewFGroup(t.DocDBCon, t.SignalRClient, t.DBTx, fgroup, "", systemSession, userSession, externalinputs, externaloutputs, t.Ctx, t.CtxCancel)
 
 		fg.TestwithSc = t.TestwithSc
@@ -436,10 +475,20 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 		externaloutputs = fg.Externaloutputs
 		userSession = fg.UserSession
 
+		// Emit funcgroup complete event
+		if debugHelper != nil {
+			debugHelper.EmitFuncGroupComplete(fgroup.Name, time.Since(fgStartTime))
+		}
+
 		if fg.Nextfuncgroup == "" {
 			code = 0
 			break
 		} else {
+			// Emit funcgroup routing event
+			if debugHelper != nil {
+				debugHelper.EmitFuncGroupRouting(fgroup.Name, fg.Nextfuncgroup, fg.Nextfuncgroup)
+			}
+
 			fgroup, code = t.getFGbyName(fg.Nextfuncgroup)
 			t.ilog.Debug(fmt.Sprintf("function group:%s, Code:%d", logger.ConvertJson(fgroup), code))
 		}
@@ -460,12 +509,23 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 		// Mark transaction as committed so defer won't rollback
 		txState = types.TransactionCommitted
 		t.ilog.Info(fmt.Sprintf("Transaction committed successfully for %s", t.Tcode.Name))
+
+		// Emit transaction commit event
+		if debugHelper != nil {
+			debugHelper.EmitTransactionCommit()
+		}
 	}
 
 	if t.TestwithSc {
 		t.TestResults["Outputs"] = externaloutputs
 		t.TestResults["Error"] = t.ErrorMessage
 	}
+
+	// Emit trancode complete event
+	if debugHelper != nil {
+		debugHelper.EmitTranCodeComplete(time.Since(startTime), externaloutputs)
+	}
+
 	return externaloutputs, nil
 
 }
