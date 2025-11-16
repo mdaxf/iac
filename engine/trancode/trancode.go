@@ -228,8 +228,14 @@ func NewTranFlow(tcode types.TranCode, externalinputs, systemSession map[string]
 	log := logger.Log{}
 	log.ModuleName = logger.TranCode
 	log.ControllerName = "Trancode"
+	// Use safe type assertion for session access
 	if systemSession["UserNo"] != nil {
-		log.User = systemSession["UserNo"].(string)
+		if userNo, err := types.AssertString(systemSession["UserNo"], "systemSession[UserNo]"); err == nil {
+			log.User = userNo
+		} else {
+			log.User = "System"
+			log.Warn(fmt.Sprintf("Type assertion warning: %s", err.Error()))
+		}
 	} else {
 		log.User = "System"
 	}

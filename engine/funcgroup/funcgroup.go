@@ -318,7 +318,14 @@ func (c *FGroup) CheckRouter(RouterDef types.RouterDef) string {
 		if len(arr) == 2 {
 			c.iLog.Debug(fmt.Sprintf("function variables: %s", logger.ConvertJson(c.funcCachedVariables)))
 			if c.funcCachedVariables[arr[0]] != nil {
-				tempobj := c.funcCachedVariables[arr[0]].(map[string]interface{})
+				// Use safe type assertion to prevent unwanted panics
+				tempobj, err := types.AssertMap(c.funcCachedVariables[arr[0]], fmt.Sprintf("funcCachedVariables[%s]", arr[0]))
+				if err != nil {
+					c.iLog.Error(fmt.Sprintf("Type assertion error in router: %s", err.Error()))
+					// Log the error but don't panic - use default route instead
+					c.iLog.Debug(fmt.Sprintf("Falling back to default function group due to type assertion error"))
+					continue // Continue to default function group
+				}
 				c.iLog.Debug(fmt.Sprintf("function variables: %s", logger.ConvertJson(tempobj)))
 				if tempobj[arr[1]] != nil {
 					c.iLog.Debug(fmt.Sprintf("function %s variable %s value: %s", arr[0], arr[1], logger.ConvertJson(tempobj[arr[1]])))
