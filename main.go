@@ -37,6 +37,13 @@ import (
 	configuration "github.com/mdaxf/iac/config"
 	dbconn "github.com/mdaxf/iac/databases"
 	mongodb "github.com/mdaxf/iac/documents"
+	"github.com/mdaxf/iac/gormdb"
+
+	// Register database adapters
+	_ "github.com/mdaxf/iac/databases/mssql"
+	_ "github.com/mdaxf/iac/databases/mysql"
+	_ "github.com/mdaxf/iac/databases/oracle"
+	_ "github.com/mdaxf/iac/databases/postgres"
 
 	"github.com/mdaxf/iac/com"
 )
@@ -106,6 +113,13 @@ func main() {
 
 	if dbconn.DB != nil {
 		defer dbconn.DB.Close()
+
+		// Initialize GORM database for new AI and reporting features
+		if err := gormdb.InitGormDB(); err != nil {
+			ilog.Error(fmt.Sprintf("Failed to initialize GORM database: %v", err))
+		} else {
+			ilog.Info("GORM database initialized successfully")
+		}
 	} else {
 		//log.Fatalf("Failed to connect to database")
 		ilog.Error("Failed to connect to database")
@@ -323,7 +337,7 @@ func CORSMiddleware(allowOrigin string) gin.HandlerFunc {
 		c.Header("Access-Control-Allow-Origin", allowOrigin)
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		//  c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, Origin")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, Content-Length, X-CSRF-Token, Token, session, Origin, Host, Connection, Accept-Encoding, Accept-Language, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, Content-Length, X-CSRF-Token, X-Client-Id, Token, session, Origin, Host, Connection, Accept-Encoding, Accept-Language, X-Requested-With")
 
 		//	ilog.Debug(fmt.Sprintf("CORSMiddleware: %s", allowOrigin))
 		//	ilog.Debug(fmt.Sprintf("CORSMiddleware header: %s", c.Request.Header))

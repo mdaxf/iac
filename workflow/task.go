@@ -374,7 +374,7 @@ func (wft *WorkFlowTask) CompleteTask() error {
 		return err
 	}
 
-	rows, err := dbop.Query_Json(fmt.Sprintf("select WorkflowEntityID, WorkflowNodeID, ProcessData, NotificationUUID from workflow_tasks where ID = %d", wft.WorkFlowTaskID))
+	rows, err := dbop.Query_Json(fmt.Sprintf("select workflowentityid, workflownodeid, processdata, notificationuuid from workflow_tasks where id = %d", wft.WorkFlowTaskID))
 	if err != nil {
 		wft.iLog.Error(fmt.Sprintf("Error in getting workflow entity id: %s", err))
 		return err
@@ -652,7 +652,7 @@ func ValidateAndCompleteWorkFlow(WorkFlowEntityID int64, idbTx *sql.Tx, DocDBCon
 		Columns := []string{"status", "completeddate"}
 		Values := []string{fmt.Sprintf("%d", 5), time.Now().UTC().Format("2006-01-02 15:04:05")}
 		datatypes := []int{int(1), int(0)}
-		Where := fmt.Sprintf("ID = %d", WorkFlowEntityID)
+		Where := fmt.Sprintf("id = %d", WorkFlowEntityID)
 		_, err = dbop.TableUpdate("workflow_entities", Columns, Values, datatypes, Where)
 
 		if err != nil {

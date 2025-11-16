@@ -22,9 +22,6 @@ import (
 
 	//	"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/logger"
-
-	_ "github.com/denisenkom/go-mssqldb"
-	_ "github.com/go-sql-driver/mysql"
 )
 
 // DB is the interface for database connection

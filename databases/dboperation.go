@@ -24,9 +24,6 @@ import (
 	"github.com/mdaxf/iac/com"
 	"github.com/mdaxf/iac/engine/types"
 	"github.com/mdaxf/iac/logger"
-
-	_ "github.com/denisenkom/go-mssqldb"
-	_ "github.com/go-sql-driver/mysql"
 )
 
 type DBOperation struct {
@@ -560,8 +557,8 @@ func (db *DBOperation) TableInsert(TableName string, Columns []string, Values []
 		args[i] = s
 	}
 
-	fmt.Println(querystr)
-	fmt.Println(args)
+	//	fmt.Println(querystr)
+	//	fmt.Println(args)
 	stmt, err := idbtx.PrepareContext(ctx, querystr)
 	//	stmt, err := idbtx.Prepare(querystr)
 	defer stmt.Close()
@@ -585,6 +582,7 @@ func (db *DBOperation) TableInsert(TableName string, Columns []string, Values []
 	}
 
 	if blocaltx {
+		db.iLog.Error(fmt.Sprintf("Database Transaction commit!"))
 		idbtx.Commit()
 	}
 
@@ -726,6 +724,107 @@ func (db *DBOperation) TableUpdate(TableName string, Columns []string, Values []
 		return rowcount, err
 	}
 
+}
+
+func (db *DBOperation) TableUpdate_v2(TableName string, Columns []string, Values []interface{}, datatypes []int, Where string) (int64, error) {
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		db.iLog.PerformanceWithDuration("dbconn.TableUpdate", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			db.iLog.Error(fmt.Sprintf("Panic in TableUpdate: %v", err))
+		}
+	}()
+
+	db.iLog.Debug(fmt.Sprintf("Updating table %s: columns=%v, values=%v, where=%s", TableName, Columns, Values, Where))
+
+	var (
+		idbtx   *sql.Tx
+		err     error
+		localTx bool
+	)
+
+	// --- Transaction setup ---
+	if db.DBTx != nil {
+		idbtx = db.DBTx
+	} else {
+		idbtx, err = DB.Begin()
+		if err != nil {
+			return 0, fmt.Errorf("failed to begin transaction: %w", err)
+		}
+		localTx = true
+		defer func() {
+			if localTx {
+				_ = idbtx.Commit()
+			}
+		}()
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(com.DBTransactionTimeout))
+	defer cancel()
+
+	// --- Build SET clause ---
+	var setClauses []string
+	var args []interface{}
+
+	for i, col := range Columns {
+		val := Values[i]
+
+		// Handle nil → NULL explicitly
+		if val == nil {
+			setClauses = append(setClauses, fmt.Sprintf("%s = NULL", col))
+			continue
+		}
+
+		// Parameterized
+		placeholder := "?"
+		if DatabaseType == "sqlserver" {
+			placeholder = fmt.Sprintf("@p%d", i+1)
+		}
+
+		setClauses = append(setClauses, fmt.Sprintf("%s = %s", col, placeholder))
+		args = append(args, val)
+	}
+
+	setClause := strings.Join(setClauses, ", ")
+	query := fmt.Sprintf("UPDATE %s SET %s WHERE %s", TableName, setClause, Where)
+
+	db.iLog.Debug(fmt.Sprintf("Final query: %s | args=%v", query, args))
+
+	stmt, err := idbtx.PrepareContext(ctx, query)
+	if err != nil {
+		if localTx {
+			_ = idbtx.Rollback()
+		}
+		return 0, fmt.Errorf("prepare failed: %w", err)
+	}
+	defer stmt.Close()
+
+	res, err := stmt.ExecContext(ctx, args...)
+	if err != nil {
+		if localTx {
+			_ = idbtx.Rollback()
+		}
+		return 0, fmt.Errorf("execution failed: %w", err)
+	}
+
+	rowCount, err := res.RowsAffected()
+	if err != nil {
+		if localTx {
+			_ = idbtx.Rollback()
+		}
+		return 0, fmt.Errorf("failed to get affected rows: %w", err)
+	}
+
+	if localTx {
+		_ = idbtx.Commit()
+	}
+
+	return rowCount, nil
 }
 
 // TableDelete deletes records from a table based on the provided WHERE clause.

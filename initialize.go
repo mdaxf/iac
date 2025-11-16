@@ -93,8 +93,8 @@ func initialize() {
 			//	fmt.Errorf("Failed to connect to IAC Message Bus: %v", err)
 			ilog.Error(fmt.Sprintf("Failed to connect to IAC Message Bus: %v", err))
 		}
-		fmt.Printf("IAC Message Bus: %v", com.IACMessageBusClient)
-		ilog.Debug(fmt.Sprintf("IAC Message Bus: %v", com.IACMessageBusClient))
+		//	fmt.Printf("IAC Message Bus: %v", com.IACMessageBusClient)
+		//	ilog.Debug(fmt.Sprintf("IAC Message Bus: %v", com.IACMessageBusClient))
 	}()
 	wg.Add(1)
 	go func() {

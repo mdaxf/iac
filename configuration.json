@@ -109,7 +109,7 @@
         }
     },
     "translation":{
-        "autopopulate": false,
+        "autopopulate": true,
         "cache": true
     }
 }

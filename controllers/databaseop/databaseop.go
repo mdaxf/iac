@@ -20,6 +20,17 @@ import (
 type DBController struct {
 }
 
+type TabulatorFilter struct {
+	Field string      `json:"field"`
+	Type  string      `json:"type"`
+	Value interface{} `json:"value"` // can be string, number, bool
+}
+
+type TabSorter struct {
+	Field string `json:"field"`
+	Dir   string `json:"dir"`
+}
+
 type DBData struct {
 	TableName  string                 `json."tablename"` // table name
 	Data       map[string]interface{} `json."data"`
@@ -28,10 +39,20 @@ type DBData struct {
 	Where      map[string]interface{} `json."where"`     // where args for update and delete
 	NullValues map[string]interface{} `json."nullvalues"`
 	QueryStr   string                 `json."querystr"` // query string for query
+	Cursor     *int                   `json:"cursor"`   // last seen id, null for first
+	Offset     int                    `json:"offset"`
+	Limit      int                    `json:"limit"`
+	Sorters    []TabSorter            `json:"sorters"`
+	Filters    []TabulatorFilter      `json:"filters"`
 }
 
 type QueryInput struct {
-	QueryStr string `json."querystr"` // query string for query
+	QueryStr string            `json."querystr"` // query string for query
+	Offset   int               `json:"offset"`
+	Cursor   *int              `json:"cursor"` // last seen id, null for first
+	Limit    int               `json:"limit"`
+	Sorters  []TabSorter       `json:"sorters"`
+	Filters  []TabulatorFilter `json:"filters"`
 }
 
 // GetDatabyQuery retrieves data from the database based on the provided query.
@@ -111,6 +132,145 @@ func (db *DBController) GetDatabyQuery(ctx *gin.Context) {
 	//jsondata, err := json.Marshal(result)
 
 	ctx.JSON(http.StatusOK, gin.H{"data": result})
+}
+
+// the progressive retrieve data for the data list or tabulor list
+func (db *DBController) GetDatabyQueryForTabulor(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDatabyQueryForTabulor"}
+	startTime := time.Now()
+
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("controllers.databaseop.GetDatabyQueryForTabulor", elapsed)
+	}()
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				iLog.Error(fmt.Sprintf("Get data by query error: %s", err))
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+			}
+		}()
+
+		_, user, clientid, err := common.GetRequestUser(ctx)
+		if err != nil {
+			iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
+
+		iLog.ClientID = clientid
+		iLog.User = user
+		iLog.Debug(fmt.Sprintf("Get data by query"))
+
+		var data QueryInput
+		body, err := common.GetRequestBody(ctx)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	*/
+	body, clientid, user, err := common.GetRequestBodyandUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	var data QueryInput
+
+	iLog.Debug(fmt.Sprintf("GetDatabyQuery from respository with body: %s", body))
+
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetDataFromRequest Unmarshal error: %s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.Debug(fmt.Sprintf("GetDataFromRequest data: %s", data))
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get data by query error: %s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.Debug(fmt.Sprintf("Get data by query: %s", data.QueryStr))
+	Query := data.QueryStr
+
+	// additionaal code for the Tabulor progressive retrieve data
+
+	args := []interface{}{}
+	where, args := buildWherePrepared(data.Filters, args) // reuse from prepared version
+	sqlStr := Query + where
+
+	// Keyset: assume ordering by id ASC (adapt if other column)
+	// If sorters provided and they use id, we can still keyset on id
+	sqlStr += " "
+	if len(data.Sorters) > 0 {
+
+		for i, sort := range data.Sorters {
+			field := sort.Field
+			dir := strings.ToUpper(sort.Dir)
+			if dir != "ASC" && dir != "DESC" {
+				dir = "ASC" // fallback
+			}
+
+			// build ORDER BY clause
+			if i == 0 {
+				sqlStr += fmt.Sprintf(" ORDER BY %s %s", field, dir)
+			} else {
+				sqlStr += fmt.Sprintf(", %s %s", field, dir)
+			}
+		}
+	}
+
+	if data.Limit <= 0 {
+		data.Limit = 1000
+	}
+
+	// Get total count for pagination (before adding LIMIT/OFFSET)
+	countSQL := "SELECT COUNT(*) as total FROM (" + Query + where + ") as count_query"
+	countResult, err := dbconn.NewDBOperation("system", nil, "Execute Count Query").Query_Json(countSQL, args...)
+
+	var totalCount int64 = 0
+	if err == nil && len(countResult) > 0 {
+		if totalVal, ok := countResult[0]["total"].(float64); ok {
+			totalCount = int64(totalVal)
+		} else if totalVal, ok := countResult[0]["total"].(int64); ok {
+			totalCount = totalVal
+		} else if totalVal, ok := countResult[0]["total"].(int); ok {
+			totalCount = int64(totalVal)
+		}
+	}
+
+	// Calculate last_page for Tabulator progressive loading
+	var lastPage int64 = 1
+	if data.Limit > 0 {
+		lastPage = (totalCount + int64(data.Limit) - 1) / int64(data.Limit) // Ceiling division
+	}
+
+	// LIMIT/OFFSET (add to args)
+	sqlStr += " LIMIT ? OFFSET ?"
+	args = append(args, data.Limit, data.Offset)
+
+	// get data from database
+	result, err := dbconn.NewDBOperation("system", nil, "Execute Query Function").Query_Json(sqlStr, args...)
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get data from table error: %s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.Debug(fmt.Sprintf("Get data from table result: %s", gin.H{"data": result}))
+
+	// Return data with pagination metadata for Tabulator progressive loading
+	ctx.JSON(http.StatusOK, gin.H{
+		"data":      result,
+		"last_page": lastPage,
+		"total":     totalCount,
+		"page":      (data.Offset / data.Limit) + 1,
+		"size":      data.Limit,
+	})
 }
 
 /*
@@ -203,6 +363,113 @@ func (db *DBController) GetDataFromTables(ctx *gin.Context) {
 	// get data from database
 
 	result, err := dbconn.NewDBOperation("system", nil, "Execute Query Function").Query_Json(Query)
+
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get data from table error: %s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.Debug(fmt.Sprintf("Get data from table result: %s", gin.H{"data": result}))
+	//jsondata, err := json.Marshal(result)
+
+	ctx.JSON(http.StatusOK, gin.H{"data": result})
+}
+
+func (db *DBController) GetDataFromTablesForTabulor(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "GetDataFromTable"}
+	startTime := time.Now()
+
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("controllers.databaseop.GetDataFromTables", elapsed)
+	}()
+
+	/*	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("Get data from tables error: %s", err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
+		}
+	}()  */
+	_, user, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetDataFromRequest error: %s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	}
+
+	iLog.ClientID = clientid
+	iLog.User = user
+	iLog.Debug(fmt.Sprintf("Get data from table"))
+
+	data, err := db.GetDataFromRequest(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get data from table error: %s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.Debug(fmt.Sprintf("Get data from table: %s", data.TableName))
+
+	Query, TableNames, err := db.getDataStructForQuery(data.Data, user, clientid)
+	Wherestr := ""
+	iLog.Debug(fmt.Sprintf("get where condition: %s", data.Where))
+	for key, value := range data.Where {
+		iLog.Debug(fmt.Sprintf("get where condition: %s %s", key, value))
+		if value == "" {
+			Wherestr = fmt.Sprintf("%s %s ", Wherestr, key)
+		} else {
+			Wherestr = fmt.Sprintf("%s %s='%s'", Wherestr, key, value)
+		}
+	}
+	if Wherestr != "" {
+		Query = fmt.Sprintf("SELECT %s from %s where %s", Query, TableNames, Wherestr)
+	} else {
+		Query = fmt.Sprintf("SELECT %s from %s", Query, TableNames)
+	}
+	iLog.Debug(fmt.Sprintf("Get data from query: %s", Query))
+
+	// get data from database
+
+	// additionaal code for the Tabulor progressive retrieve data
+
+	args := []interface{}{}
+	where, args := buildWherePrepared(data.Filters, args) // reuse from prepared version
+
+	sqlStr := Query
+	if Wherestr == "" {
+		sqlStr += " WHERE 1=1 " + where
+	} else {
+		sqlStr += where
+	}
+
+	// Keyset: assume ordering by id ASC (adapt if other column)
+	// If sorters provided and they use id, we can still keyset on id
+	sqlStr += " "
+	if len(data.Sorters) > 0 {
+
+		for i, sort := range data.Sorters {
+			field := sort.Field
+			dir := strings.ToUpper(sort.Dir)
+			if dir != "ASC" && dir != "DESC" {
+				dir = "ASC" // fallback
+			}
+
+			// build ORDER BY clause
+			if i == 0 {
+				sqlStr += fmt.Sprintf(" ORDER BY %s %s", field, dir)
+			} else {
+				sqlStr += fmt.Sprintf(", %s %s", field, dir)
+			}
+		}
+	}
+
+	if data.Limit <= 0 {
+		data.Limit = 1000
+	}
+
+	// LIMIT/OFFSET (add to args)
+	sqlStr += " LIMIT ? OFFSET ?"
+	args = append(args, data.Limit, data.Offset)
+
+	result, err := dbconn.NewDBOperation("system", nil, "Execute Query Function").Query_Json(sqlStr, args...)
 
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Get data from table error: %s", err.Error()))
@@ -592,7 +859,7 @@ func (db *DBController) UpdateDataToTable(ctx *gin.Context) error {
 	iLog.Debug(fmt.Sprintf("Update data to table: %s", data.TableName))
 	nullvalues := data.NullValues
 	fields := []string{}
-	values := []string{}
+	values := []interface{}{}
 	datatype := []int{}
 	for key, value := range data.Data {
 		iLog.Debug(fmt.Sprintf("Update data to table: %s %s %s", key, value, reflect.TypeOf(value)))
@@ -600,6 +867,9 @@ func (db *DBController) UpdateDataToTable(ctx *gin.Context) error {
 			if nullvalues != nil {
 				if nullvalue, ok := nullvalues[key]; ok {
 					if value == nullvalue {
+						fields = append(fields, key)
+						values = append(values, nil)
+						datatype = append(datatype, -1) // -1 = null type
 						continue
 					}
 				}
@@ -626,6 +896,10 @@ func (db *DBController) UpdateDataToTable(ctx *gin.Context) error {
 				datatype = append(datatype, 0)
 				values = append(values, value.(string))
 			}
+		} else {
+			fields = append(fields, key)
+			values = append(values, nil)
+			datatype = append(datatype, -1) // -1 = null type
 		}
 	}
 
@@ -652,7 +926,7 @@ func (db *DBController) UpdateDataToTable(ctx *gin.Context) error {
 		return err
 	}
 
-	rowcount, err := dbconn.NewDBOperation("system", nil, "Execute dtable update").TableUpdate(data.TableName, fields, values, datatype, Wherestr)
+	rowcount, err := dbconn.NewDBOperation("system", nil, "Execute dtable update").TableUpdate_v2(data.TableName, fields, values, datatype, Wherestr)
 
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Update data to table error: %s", err.Error()))
@@ -788,4 +1062,54 @@ func (db *DBController) GetDataFromRequest(ctx *gin.Context) (DBData, error) {
 	}
 	iLog.Debug(fmt.Sprintf("GetDataFromRequest data: %s", data))
 	return data, nil
+}
+
+func buildWherePrepared(filters []TabulatorFilter, args []interface{}) (string, []interface{}) {
+	clauses := []string{}
+	for _, f := range filters {
+		if f.Field == "" {
+			continue
+		}
+		switch strings.ToLower(f.Type) {
+		case "like":
+			clauses = append(clauses, fmt.Sprintf("%s LIKE ?", f.Field))
+			args = append(args, "%"+ConvertInterfaceToString(f.Value)+"%")
+		case "starts":
+			clauses = append(clauses, fmt.Sprintf("%s LIKE ?", f.Field))
+			args = append(args, ConvertInterfaceToString(f.Value)+"%")
+		case "ends":
+			clauses = append(clauses, fmt.Sprintf("%s LIKE ?", f.Field))
+			args = append(args, "%"+ConvertInterfaceToString(f.Value))
+		default:
+			clauses = append(clauses, fmt.Sprintf("%s = ?", f.Field))
+			args = append(args, f.Value)
+		}
+	}
+	if len(clauses) == 0 {
+		return "", args
+	}
+	return " AND " + strings.Join(clauses, " AND "), args
+}
+
+func ConvertInterfaceToString(value interface{}) string {
+	var valStr string
+
+	switch v := value.(type) {
+	case string:
+		valStr = v
+	case int:
+		valStr = fmt.Sprintf("%d", v)
+	case float64:
+		valStr = fmt.Sprintf("%f", v)
+	case bool:
+		valStr = fmt.Sprintf("%t", v)
+	default:
+		valStr = fmt.Sprint(v) // fallback for other types
+	}
+
+	return valStr
+}
+
+func escape(s string) string {
+	return strings.ReplaceAll(s, "'", "''")
 }

@@ -62,7 +62,7 @@ WHERE COALESCE(Mobile,0) = %d AND COALESCE(Desktop,0) = %d AND COALESCE(ParentID
 		INNER JOIN user_roles UR ON UR.RoleID = MR.RoleID
 		WHERE UR.UserID = %d AND MR.menuid = M.ID)
 Order By Position `  */
-var GetUserMenusQuery string = `Select M.id as ID, M.name as Name, COALESCE(lc.mediumtext_, shorttext,M.name) as Description,  COALESCE(lnc.name, '') as  LngCode, pagetype as PageType, parentid as ParentID, page as Page, inputs as Inputs, icon as Icon, M.url as Url,
+var GetUserMenusQuery string = `Select M.id as ID, M.name as Name, COALESCE(lc.mediumtext_, shorttext,M.name) as Description,  COALESCE(lnc.name, '') as  LngCode, pagetype as PageType, parentid as ParentID, CASE WHEN pagetype = 3 THEN url ELSE page END as Page, inputs as Inputs, icon as Icon, M.url as Url,
 	 CASE WHEN Exists (SELECT 1 FROM menu_roles MR INNER JOIN user_roles UR ON UR.roleid = MR.roleid 
 					WHERE menuid = M.id AND userid = U.id AND COALESCE(viewonly,0) =0) THEN 0 
 		ELSE 1 END As ViewOnly, position  AS Position

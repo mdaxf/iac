@@ -25,10 +25,11 @@ import (
 	config "github.com/mdaxf/iac/config"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mdaxf/iac/controller/configmng"
+	"github.com/mdaxf/iac/controllers/ai"
 	"github.com/mdaxf/iac/controllers/bpmcontroller"
 	"github.com/mdaxf/iac/controllers/collectionop"
 	"github.com/mdaxf/iac/controllers/component"
+	"github.com/mdaxf/iac/controllers/configmng"
 	"github.com/mdaxf/iac/controllers/databaseop"
 	"github.com/mdaxf/iac/controllers/function"
 	healthcheck "github.com/mdaxf/iac/controllers/health"
@@ -37,6 +38,7 @@ import (
 	"github.com/mdaxf/iac/controllers/models3d"
 	"github.com/mdaxf/iac/controllers/notifications"
 	"github.com/mdaxf/iac/controllers/processplan"
+	"github.com/mdaxf/iac/controllers/report"
 	"github.com/mdaxf/iac/controllers/role"
 	"github.com/mdaxf/iac/controllers/schema"
 	"github.com/mdaxf/iac/controllers/trans"
@@ -146,6 +148,26 @@ func getModule(module string) reflect.Value {
 
 	case "ConfigController":
 		moduleInstance := &configmng.ConfigController{}
+		return reflect.ValueOf(moduleInstance)
+
+	case "ReportController":
+		moduleInstance := report.NewReportController()
+		return reflect.ValueOf(moduleInstance)
+
+	case "ChatController":
+		moduleInstance := report.NewChatController()
+		return reflect.ValueOf(moduleInstance)
+
+	case "SchemaMetadataController":
+		moduleInstance := ai.NewSchemaMetadataController()
+		return reflect.ValueOf(moduleInstance)
+
+	case "BusinessEntityController":
+		moduleInstance := ai.NewBusinessEntityController()
+		return reflect.ValueOf(moduleInstance)
+
+	case "QueryTemplateController":
+		moduleInstance := ai.NewQueryTemplateController()
 		return reflect.ValueOf(moduleInstance)
 	}
 	return reflect.Value{}

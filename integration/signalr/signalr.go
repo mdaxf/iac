@@ -17,16 +17,59 @@ package signalr
 import (
 	"context"
 	"fmt"
-	"os"
+	"strings"
 
 	//	"strings"
 	"time"
 
-	kitlog "github.com/go-kit/log"
+	//kitlog "github.com/go-kit/log"
 	//"github.com/mdaxf/iac/com"
-	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac-signalr/signalr"
+	"github.com/mdaxf/iac/logger"
 )
+
+type SignalRLogAdapter struct {
+	log logger.Log
+}
+
+func (l *SignalRLogAdapter) Log(keyVals ...interface{}) error {
+	// Format the structured log like go-kit
+
+	// Convert keyVals to a map for easy lookup
+	m := make(map[string]interface{})
+	for i := 0; i < len(keyVals); i += 2 {
+		if i+1 < len(keyVals) {
+			k := fmt.Sprintf("%v", keyVals[i])
+			m[k] = keyVals[i+1]
+		}
+	}
+
+	// Extract level if present
+	level := ""
+	if v, ok := m["level"]; ok {
+		level = strings.ToLower(fmt.Sprintf("%v", v))
+	}
+
+	// Rebuild a clean structured message
+	var sb strings.Builder
+	for k, v := range m {
+		sb.WriteString(fmt.Sprintf("%s=%v ", k, v))
+	}
+	msg := strings.TrimSpace(sb.String())
+
+	// Route to correct log category
+	switch level {
+
+	case "warn", "warning":
+		l.log.Warn(msg)
+	case "error":
+		l.log.Error(msg)
+	default:
+		l.log.Info(msg)
+	}
+
+	return nil
+}
 
 // Connect establishes a connection to a SignalR server using the provided configuration.
 // It returns a signalr.Client and an error if any.
@@ -41,13 +84,40 @@ func Connect(config map[string]interface{}) (signalr.Client, error) {
 	ilog.Info(fmt.Sprintf("Connecting with configuration: %v", config))
 	address := fmt.Sprintf("%s/%s", config["server"].(string), config["hub"].(string))
 
-	c, err := signalr.NewClient(context.Background(), nil,
+	structuredLogger := &SignalRLogAdapter{log: ilog}
+
+	/*	c, err := signalr.NewClient(context.Background(), nil,
 		signalr.WithReceiver(&IACMessageBus{}),
 		signalr.WithConnector(func() (signalr.Connection, error) {
 			creationCtx, _ := context.WithTimeout(context.Background(), 2*time.Second)
-			return signalr.NewHTTPConnection(creationCtx, address)
+			//return signalr.NewHTTPConnection(creationCtx, address)
+			return signalr.NewHTTPConnection(creationCtx, address,
+				signalr.WithTransports(signalr.TransportWebSockets), // ← THIS LINE!
+			)
+
 		}),
-		signalr.Logger(kitlog.NewLogfmtLogger(os.Stdout), false))
+		//signalr.Logger(kitlog.NewLogfmtLogger(os.Stdout), true))
+		signalr.Logger(structuredLogger, true),
+	)  */
+
+	c, err := signalr.NewClient(
+		context.Background(),
+		signalr.WithReceiver(&IACMessageBus{}),
+		signalr.WithConnector(func() (signalr.Connection, error) {
+			// Create connection context with timeout
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			// Connect with WebSocket transport only
+			return signalr.NewHTTPConnection(ctx, address,
+				signalr.WithTransports(signalr.TransportWebSockets),
+			)
+		}),
+		signalr.Logger(structuredLogger, false),
+		signalr.KeepAliveInterval(15*time.Second),
+		signalr.TimeoutInterval(60*time.Second),
+	)
+
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +138,7 @@ var groupname = "IAC_Internal_MessageBus"
 func (c *IACMessageBus) Receive(message string) {
 	ilog := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "SignalR Client Receive message"}
 	//	fmt.Printf("Receive message: %s \n", message)
-	ilog.Info(fmt.Sprintf("Receive message: %s \n", message))
+	ilog.Debug(fmt.Sprintf("Receive message: %s \n", message))
 }
 
 /*

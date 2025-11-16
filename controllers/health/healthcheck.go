@@ -49,9 +49,9 @@ func (f *HealthController) CheckHealth(c *gin.Context) {
 
 	iLog.Debug("Health Check")
 	data, err := health.CheckSystemHealth(c)
-	iLog.Debug(fmt.Sprintf("Health Check Result: %v", data))
+	//iLog.Debug(fmt.Sprintf("Health Check Result: %v", data))
 
-	iLog.Debug(fmt.Sprintf("all node health data: %v", com.NodeHeartBeats))
+	//iLog.Debug(fmt.Sprintf("all node health data: %v", com.NodeHeartBeats))
 
 	nodehealth := make(map[string]interface{})
 	nodehealth["Result"] = data

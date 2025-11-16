@@ -64,7 +64,8 @@ func (sc *SchemaController) getTableStructure(tableName string, schemaName strin
 			c.column_default,
 			c.character_maximum_length,
 			c.numeric_precision,
-			c.numeric_scale
+			c.numeric_scale,
+			coalesce(c.extra,'') as extra
 		FROM information_schema.columns c
 		WHERE c.table_name = ?
 		AND c.table_schema = ?
@@ -83,8 +84,9 @@ func (sc *SchemaController) getTableStructure(tableName string, schemaName strin
 		var dataType string
 		var isNullable string
 		var defaultValue, charMaxLength, numericPrecision, numericScale interface{}
+		var extra string
 
-		err := rows.Scan(&col.Name, &dataType, &isNullable, &defaultValue, &charMaxLength, &numericPrecision, &numericScale)
+		err := rows.Scan(&col.Name, &dataType, &isNullable, &defaultValue, &charMaxLength, &numericPrecision, &numericScale, &extra)
 		if err != nil {
 			iLog.Error(fmt.Sprintf("Error scanning column: %v", err))
 			continue
@@ -93,6 +95,7 @@ func (sc *SchemaController) getTableStructure(tableName string, schemaName strin
 		// Build complete type string
 		col.Type = sc.formatDataType(dataType, charMaxLength, numericPrecision, numericScale)
 		col.Nullable = isNullable == "YES"
+		col.Extra = extra
 
 		if defaultValue != nil {
 			defStr := fmt.Sprintf("%v", defaultValue)
@@ -452,12 +455,15 @@ func (sc *SchemaController) generateDetailPage(tableName string, schemaName stri
 	tabIndex++
 
 	// Build General tab content with form fields
-	generalFields := []string{}
+	generalFields := []interface{}{}
 	systemFields := []string{"createdby", "createdon", "modifiedby", "modifiedon"}
 	hasSystemFields := false
+	excludedfields := []string{"metadata", "extensionid", "referenceid", "rowversionstamp", "uuid"}
+	hasextensionid := false
 
 	for _, col := range table.Columns {
 		isSystemField := false
+		isExcludedfield := false
 		for _, sf := range systemFields {
 			if col.Name == sf {
 				isSystemField = true
@@ -465,8 +471,48 @@ func (sc *SchemaController) generateDetailPage(tableName string, schemaName stri
 				break
 			}
 		}
-		if !isSystemField && col.Name != keyField {
-			generalFields = append(generalFields, col.Name)
+		for _, sf := range excludedfields {
+			if col.Name == sf {
+				isExcludedfield = true
+				break
+			}
+		}
+
+		if col.Name == "extensionid" {
+			hasextensionid = true
+		}
+		if !isExcludedfield && !isSystemField && col.Name != keyField {
+			fieldstr := col.Name
+
+			if col.Extra == "auto_increment" {
+				continue
+			}
+			if col.Name == "lngcodeid" {
+				data := map[string]interface{}{
+					"lngcodeid": map[string]interface{}{
+						"translation": "",
+						"fields":      []string{"shorttext", "mediumtext_"},
+					},
+				}
+				generalFields = append(generalFields, data)
+				generalFields = append(generalFields, "dummy")
+				continue
+			}
+
+			if col.ForeignKey != nil {
+
+				data := map[string]interface{}{}
+				item := map[string]interface{}{}
+				item["link"] = col.ForeignKey.Table
+				item["schema"] = col.ForeignKey.Table
+				item["field"] = "name"
+				item["keyfield"] = col.ForeignKey.Column
+				data[fieldstr] = item
+				generalFields = append(generalFields, data)
+				continue
+			}
+
+			generalFields = append(generalFields, fieldstr)
 		}
 	}
 
@@ -511,7 +557,7 @@ func (sc *SchemaController) generateDetailPage(tableName string, schemaName stri
 
 		// Create sublink content
 		detailPage[tabName] = map[string]interface{}{
-			"type": "sublink",
+			"type": "subitem",
 			"linkfields": []map[string]interface{}{
 				{keyField: fmt.Sprintf("%s.%s", rel.SourceTable, rel.SourceColumn)},
 			},
@@ -525,6 +571,42 @@ func (sc *SchemaController) generateDetailPage(tableName string, schemaName stri
 			},
 			"actions": []string{"Add", "Save", "Delete"},
 		}
+	}
+
+	if hasextensionid {
+		tabName := "Extensions"
+		tabs[tabName] = map[string]interface{}{
+			"available": map[string]interface{}{
+				keyField: map[string]interface{}{">": 0},
+			},
+			"lng": map[string]interface{}{
+				"code":    tabName,
+				"default": "Extensions",
+			},
+			"index": tabIndex,
+		}
+		tabIndex++
+		// Create extension content
+
+		detailPage[tabName] = map[string]interface{}{
+			"type": "extensionlink",
+			"linkfields": []map[string]interface{}{
+				{"extensionid": "extension_values.extensionid"},
+			},
+			"masterschema":      "extensions",
+			"keyfield":          "extensionid",
+			"targetkeyfield":    "extensionid",
+			"tablename":         "extension_values",
+			"maintable":         tableName,
+			"maintablekeyfield": "id",
+			"schema":            "extensionvalues",
+			"lng": map[string]interface{}{
+				"code":    "Extensions",
+				"default": "Extensions",
+			},
+			"actions": []string{"Add", "Delete"},
+		}
+
 	}
 
 	// Add System tab if system fields exist
@@ -624,13 +706,29 @@ func (sc *SchemaController) generateDatasetSchemaForTable(tableName string, sche
 	// Build list fields (non-hidden fields)
 	var listFields []string
 	var hiddenFields []string
+	excludedfields := []string{"metadata", "referenceid", "rowversionstamp", "uuid"}
+	isExcludedfield := false
+	haslngcodeid := false
 	for _, col := range table.Columns {
 		if col.Name == "id" || strings.HasSuffix(col.Name, "id") {
 			if col.Name != keyField {
 				hiddenFields = append(hiddenFields, col.Name)
 			}
-		} else {
+		}
+
+		for _, sf := range excludedfields {
+			if col.Name == sf {
+				isExcludedfield = true
+				break
+			}
+		}
+
+		if !isExcludedfield {
 			listFields = append(listFields, col.Name)
+		}
+
+		if col.Name == "lngcodeid" {
+			haslngcodeid = true
 		}
 	}
 
@@ -657,7 +755,13 @@ func (sc *SchemaController) generateDatasetSchemaForTable(tableName string, sche
 				"default": sc.toTitleCase(col.Name),
 			},
 		}
-
+		if col.ForeignKey != nil {
+			if col.Type == "integer" {
+				propDef.Nullvalue = "0"
+			} else {
+				propDef.Nullvalue = ""
+			}
+		}
 		// Set format for datetime types
 		if strings.Contains(strings.ToLower(col.Type), "timestamp") ||
 			strings.Contains(strings.ToLower(col.Type), "date") {
@@ -679,6 +783,28 @@ func (sc *SchemaController) generateDatasetSchemaForTable(tableName string, sche
 		if !col.Nullable && col.Name != keyField && !propDef.Readonly {
 			requiredFields = append(requiredFields, col.Name)
 		}
+	}
+
+	if haslngcodeid {
+		propDef := PropertyDefinition{
+			Type: "string",
+			Lng: map[string]interface{}{
+				"code":    "ShortText",
+				"default": "Short Description",
+			},
+			External: true,
+		}
+		properties["shorttext"] = propDef
+
+		propDef = PropertyDefinition{
+			Type: "string",
+			Lng: map[string]interface{}{
+				"code":    "MediumText",
+				"default": "Description",
+			},
+			External: true,
+		}
+		properties["mediumtext_"] = propDef
 	}
 
 	// Build definition
@@ -719,6 +845,8 @@ func (sc *SchemaController) mapDBTypeToJSONType(dbType string) string {
 	dbType = strings.ToLower(dbType)
 
 	switch {
+	case strings.Contains(dbType, "tinyint"):
+		return "boolean"
 	case strings.Contains(dbType, "int"):
 		return "integer"
 	case strings.Contains(dbType, "numeric"), strings.Contains(dbType, "decimal"),

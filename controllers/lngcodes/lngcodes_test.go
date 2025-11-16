@@ -45,11 +45,11 @@ func TestLCController_UpdateLngCode(t *testing.T) {
 
 func TestLCController_insertlngcode(t *testing.T) {
 	type args struct {
-		db       *dbconn.DBOperation
-		lngcode  string
-		text     string
-		language string
-		User     string
+		db         *dbconn.DBOperation
+		lngcodeid  int64
+		text       string
+		languageid int64
+		User       string
 	}
 	tests := []struct {
 		name    string
@@ -61,7 +61,7 @@ func TestLCController_insertlngcode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.f.insertlngcode(tt.args.db, tt.args.lngcode, tt.args.text, tt.args.language, tt.args.User); (err != nil) != tt.wantErr {
+			if err := tt.f.insertlngcontent(tt.args.db, tt.args.lngcodeid, tt.args.text, tt.args.languageid, tt.args.User); (err != nil) != tt.wantErr {
 				t.Errorf("LCController.insertlngcode() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -70,12 +70,11 @@ func TestLCController_insertlngcode(t *testing.T) {
 
 func TestLCController_updatelngcodbyid(t *testing.T) {
 	type args struct {
-		db       *dbconn.DBOperation
-		id       int
-		lngcode  string
-		text     string
-		language string
-		User     string
+		db         *dbconn.DBOperation
+		id         int
+		text       string
+		languageid int
+		User       string
 	}
 	tests := []struct {
 		name    string
@@ -87,7 +86,7 @@ func TestLCController_updatelngcodbyid(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.f.updatelngcodbyid(tt.args.db, tt.args.id, tt.args.lngcode, tt.args.text, tt.args.language, tt.args.User); (err != nil) != tt.wantErr {
+			if err := tt.f.updatelngcontent(tt.args.db, tt.args.id, tt.args.text, int64(tt.args.languageid), tt.args.User); (err != nil) != tt.wantErr {
 				t.Errorf("LCController.updatelngcodbyid() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -96,11 +95,11 @@ func TestLCController_updatelngcodbyid(t *testing.T) {
 
 func TestLCController_populatesinglelngcodes(t *testing.T) {
 	type args struct {
-		db       *dbconn.DBOperation
-		lngcode  string
-		text     string
-		language string
-		User     string
+		db         *dbconn.DBOperation
+		lngcode    string
+		text       string
+		languageid int64
+		User       string
 	}
 	tests := []struct {
 		name string
@@ -111,17 +110,17 @@ func TestLCController_populatesinglelngcodes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.f.populatesinglelngcodes(tt.args.db, tt.args.lngcode, tt.args.text, tt.args.language, tt.args.User)
+			tt.f.populatesinglelngcodes(tt.args.db, tt.args.lngcode, tt.args.text, tt.args.languageid, tt.args.User)
 		})
 	}
 }
 
 func TestLCController_populatelngcodes(t *testing.T) {
 	type args struct {
-		lngcodes []string
-		text     []string
-		language string
-		User     string
+		lngcodes   []string
+		text       []string
+		languageid int64
+		User       string
 	}
 	tests := []struct {
 		name string
@@ -132,7 +131,7 @@ func TestLCController_populatelngcodes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.f.populatelngcodes(tt.args.lngcodes, tt.args.text, tt.args.language, tt.args.User)
+			tt.f.populatelngcodes(tt.args.lngcodes, tt.args.text, tt.args.languageid, tt.args.User)
 		})
 	}
 }

@@ -24,6 +24,7 @@ type DBColumn struct {
 	ForeignKey   *ForeignKey `json:"foreign_key,omitempty"`
 	DefaultValue *string     `json:"default_value,omitempty"`
 	Comment      *string     `json:"comment,omitempty"`
+	Extra        string      `json:"extra"`
 }
 
 // ForeignKey represents a foreign key relationship
@@ -91,10 +92,12 @@ type DatasetSchema struct {
 
 // PropertyDefinition represents a field definition
 type PropertyDefinition struct {
-	Type     string                 `json:"type"`
-	Format   string                 `json:"format,omitempty"`
-	Readonly bool                   `json:"readonly,omitempty"`
-	Lng      map[string]interface{} `json:"lng"`
+	Type      string                 `json:"type"`
+	Format    string                 `json:"format,omitempty"`
+	Readonly  bool                   `json:"readonly,omitempty"`
+	Lng       map[string]interface{} `json:"lng"`
+	Nullvalue string                 `json:"nullvalue"`
+	External  bool                   `json:"external"`
 }
 
 // ListTables returns all table names from the database

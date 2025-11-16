@@ -23,12 +23,15 @@ type LCController struct {
 }
 
 type LCData struct {
-	IDs       []int    `json:"ids"`
-	Lngcodes  []string `json:"lngcodes"`
-	Texts     []string `json:"texts"`
-	Shorts    []string `json:"shorts"`
-	Languages []string `json:"languages"`
-	Language  string   `json:"language"`
+	IDs         []int    `json:"ids"`
+	Lngcodes    []string `json:"lngcodes"`
+	Texts       []string `json:"texts"`
+	Shorts      []string `json:"shorts"`
+	Languages   []string `json:"languages"`
+	Language    string   `json:"language"`
+	Languageid  int64    `json:"languageid"`
+	Lngcodeids  []int64  `json:"lngcodeids"`
+	Languageids []int64  `json:"languageids"`
 }
 
 func (f *LCController) GetLngCodes(c *gin.Context) {
@@ -46,25 +49,14 @@ func (f *LCController) GetLngCodes(c *gin.Context) {
 		}
 	}()
 
-	_, LoginName, _, err := auth.GetUserInformation(c)
+	body, clientid, user, err := common.GetRequestBodyandUser(c)
 	if err != nil {
-		iLog.Error(fmt.Sprintf("Get LngCode error: %s", err.Error()))
-	}
-	if LoginName == "" {
-		LoginName = "System"
-	}
-
-	iLog.User = LoginName
-
-	iLog.Debug(fmt.Sprintf("Get LngCodes"))
-
-	body, err := common.GetRequestBody(c)
-
-	if err != nil {
-		iLog.Error(fmt.Sprintf("Get LngCodes error: %s", err.Error()))
+		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	iLog.ClientID = clientid
+	iLog.User = user
 
 	var lcdata LCData
 	err = json.Unmarshal(body, &lcdata)
@@ -75,12 +67,17 @@ func (f *LCController) GetLngCodes(c *gin.Context) {
 	}
 
 	iLog.Debug(fmt.Sprintf("Get LngCodes lcdata: %s", lcdata))
+	/*
+		language := "en"
 
-	language := "en"
-	if lcdata.Language == "" {
-		language = "en"
-	} else {
-		language = lcdata.Language
+		if lcdata.Language == "" {
+			language = "en"
+		} else {
+			language = lcdata.Language
+		} */
+	languageid := int64(1)
+	if lcdata.Languageid > 0 {
+		languageid = lcdata.Languageid
 	}
 
 	if len(lcdata.Lngcodes) == 0 {
@@ -96,7 +93,7 @@ func (f *LCController) GetLngCodes(c *gin.Context) {
 		go func() {
 			defer wg.Done() // Decrement the wait group counter when the goroutine exits
 			// Your task code goes here
-			f.populatelngcodes(lcdata.Lngcodes, lcdata.Texts, language, LoginName)
+			f.populatelngcodes(lcdata.Lngcodes, lcdata.Texts, languageid, user)
 		}()
 	}
 	wg.Add(1)
@@ -105,9 +102,9 @@ func (f *LCController) GetLngCodes(c *gin.Context) {
 		// Your second task code goes here
 		querytemp := `SELECT lnc.id as id, lnc.name as lngcode, COALESCE(lc.mediumtext_,lc.shorttext,lnc.name) as text FROM lngcodes lnc 
 		INNER JOIN lngcode_contents lc ON lc.lngcodeid = lnc.id
-		WHERE lnc.name IN ('%s') AND lc.languageid = (SELECT id FROM languages WHERE name = '%s' LIMIT 1)`
+		WHERE lnc.name IN ('%s') AND lc.languageid = '%i'`
 
-		query := fmt.Sprintf(querytemp, strings.Join(lcdata.Lngcodes, "','"), language)
+		query := fmt.Sprintf(querytemp, strings.Join(lcdata.Lngcodes, "','"), languageid)
 		//query := fmt.Sprintf("SELECT lngcode, text FROM language_codes Where language = '%s'", language)
 
 		iLog.Debug(fmt.Sprintf("Get LngCodes query: %s", query))
@@ -117,7 +114,7 @@ func (f *LCController) GetLngCodes(c *gin.Context) {
 			return
 		}
 		defer idbtx.Rollback()
-		db := dbconn.NewDBOperation(LoginName, idbtx, logger.Framework)
+		db := dbconn.NewDBOperation(user, idbtx, logger.Framework)
 
 		result, err := db.Query_Json(query)
 
@@ -134,7 +131,54 @@ func (f *LCController) GetLngCodes(c *gin.Context) {
 	wg.Wait()
 }
 
+func (f *LCController) InsertLngCode(db *dbconn.DBOperation, lngcode string, User string) (int64, error) {
+
+	iLog := logger.Log{ModuleName: logger.API, User: User, ControllerName: "LngCodes"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("controllers.lngcodes.insertlngcode", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			iLog.Error(fmt.Sprintf("insertlngcode error: %s", err))
+		}
+	}()
+	currentTimeUTC := time.Now().UTC()
+
+	// Format the time as a string in the MySQL date and time format
+	formattedTime := currentTimeUTC.Format("2006-01-02 15:04:05")
+	Columns := make([]string, 3)
+	Values := make([]string, 3)
+
+	n := 0
+	Columns[n] = "name"
+	Values[n] = lngcode
+
+	n += 1
+	Columns[n] = "createdon"
+	Values[n] = formattedTime
+
+	n += 1
+	Columns[n] = "createdby"
+	Values[n] = User
+
+	iLog.Debug(fmt.Sprintf("insertlngcode: %s , %s", Columns, Values))
+	id, err := db.TableInsert("lngcodes", Columns, Values)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("inert a new lngcode record error: %s", err.Error()))
+		return 0, err
+	}
+	return id, nil
+
+}
+
 func (f *LCController) UpdateLngCode(c *gin.Context) {
+
+}
+
+func (f *LCController) UpdateLngContent(c *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "LngCodes"}
 	startTime := time.Now()
 	defer func() {
@@ -186,14 +230,23 @@ func (f *LCController) UpdateLngCode(c *gin.Context) {
 	db := dbconn.NewDBOperation(LoginName, idbtx, logger.Framework)
 	for index, id := range lcdata.IDs {
 		if id == 0 {
-			err = f.insertlngcode(db, lcdata.Lngcodes[index], lcdata.Texts[index], lcdata.Languages[index], LoginName)
+			lngcodeid := lcdata.Lngcodeids[index]
+			if lngcodeid == 0 {
+				lngcodeid, err = f.InsertLngCode(db, lcdata.Lngcodes[index], LoginName)
+
+				if err != nil {
+					iLog.Error(fmt.Sprintf("Create Lng Code error: %s", err.Error()))
+				}
+			}
+
+			err = f.insertlngcontent(db, lngcodeid, lcdata.Texts[index], lcdata.Languageids[index], LoginName)
 			if err != nil {
 				iLog.Error(fmt.Sprintf("Insert LngCode error: %s", err.Error()))
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
 		} else {
-			err = f.updatelngcodbyid(db, id, lcdata.Lngcodes[index], lcdata.Texts[index], lcdata.Languages[index], LoginName)
+			err = f.updatelngcontent(db, id, lcdata.Texts[index], lcdata.Languageids[index], LoginName)
 			if err != nil {
 				iLog.Error(fmt.Sprintf("Insert LngCode error: %s", err.Error()))
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -205,7 +258,7 @@ func (f *LCController) UpdateLngCode(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": "success"})
 
 }
-func (f *LCController) insertlngcode(db *dbconn.DBOperation, lngcode string, text string, language string, User string) error {
+func (f *LCController) insertlngcontent(db *dbconn.DBOperation, lngcodeid int64, text string, languageid int64, User string) error {
 	iLog := logger.Log{ModuleName: logger.API, User: User, ControllerName: "LngCodes"}
 	startTime := time.Now()
 	defer func() {
@@ -222,62 +275,18 @@ func (f *LCController) insertlngcode(db *dbconn.DBOperation, lngcode string, tex
 
 	// Format the time as a string in the MySQL date and time format
 	formattedTime := currentTimeUTC.Format("2006-01-02 15:04:05")
-	Columns := make([]string, 5)
-	Values := make([]string, 5)
+	Columns := make([]string, 8)
+	Values := make([]string, 8)
 
 	n := 0
-	Columns[n] = "name"
-	Values[n] = lngcode
+	Columns[n] = "lngcodeid"
+	Values[n] = fmt.Sprintf("%d", lngcodeid)
 
 	n += 1
-	Columns[n] = "UpdatedOn"
-	Values[n] = formattedTime
+	Columns[n] = "languageid"
+	Values[n] = fmt.Sprintf("%d", languageid)
 
 	n += 1
-	Columns[n] = "UpdatedBy"
-	Values[n] = User
-
-	n += 1
-	Columns[n] = "CreatedOn"
-	Values[n] = formattedTime
-
-	n += 1
-	Columns[n] = "CreatedBy"
-	Values[n] = User
-
-	iLog.Debug(fmt.Sprintf("insertlngcode: %s , %s", Columns, Values))
-	lngcodeid, err := db.TableInsert("lngcodes", Columns, Values)
-	if err != nil {
-		iLog.Error(fmt.Sprintf("inert a new lngcode record error: %s", err.Error()))
-		return err
-	}
-
-	if lngcodeid == 0 {
-		iLog.Error(fmt.Sprintf("inert a new lngcode record error: %s", "lngcodeid is 0"))
-		return fmt.Errorf("lngcodeid is 0")
-	}
-
-	querytext := fmt.Sprintf("Select id from languages where language='%s' limit 1", language)
-	result, err := db.Query_Json(querytext)
-	if err != nil {
-		iLog.Error(fmt.Sprintf("get the languageid error: %s", err.Error()))
-		return err
-	}
-	if result == nil || len(result) == 0 {
-		iLog.Error(fmt.Sprintf("get the languageid error: %s", "no languageid found"))
-		return fmt.Errorf("no languageid found")
-	}
-	languageid := int(result[0]["id"].(float64))
-
-	if result[0]["id"] == nil {
-		iLog.Error(fmt.Sprintf("get the languageid error: %s", "languageid is nil"))
-		return fmt.Errorf("languageid is nil")
-	}
-
-	Columns = make([]string, 8)
-	Values = make([]string, 8)
-
-	n = 0
 	Columns[n] = "shorttext"
 	Values[n] = text
 
@@ -286,31 +295,23 @@ func (f *LCController) insertlngcode(db *dbconn.DBOperation, lngcode string, tex
 	Values[n] = text
 
 	n += 1
-	Columns[n] = "lngcodeid"
-	Values[n] = string(lngcodeid)
-
-	n += 1
-	Columns[n] = "languageid"
-	Values[n] = string(languageid)
-
-	n += 1
-	Columns[n] = "UpdatedOn"
+	Columns[n] = "modifiedon"
 	Values[n] = formattedTime
 
 	n += 1
-	Columns[n] = "UpdatedBy"
+	Columns[n] = "modifiedby"
 	Values[n] = User
 
 	n += 1
-	Columns[n] = "CreatedOn"
+	Columns[n] = "createdon"
 	Values[n] = formattedTime
 
 	n += 1
-	Columns[n] = "CreatedBy"
+	Columns[n] = "createdby"
 	Values[n] = User
 
 	iLog.Debug(fmt.Sprintf("insertlngcode: %s , %s", Columns, Values))
-	_, err = db.TableInsert("lngcode_contents", Columns, Values)
+	_, err := db.TableInsert("lngcode_contents", Columns, Values)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("inert a new lngcode record error: %s", err.Error()))
 		return err
@@ -318,7 +319,7 @@ func (f *LCController) insertlngcode(db *dbconn.DBOperation, lngcode string, tex
 	return nil
 }
 
-func (f *LCController) updatelngcodbyid(db *dbconn.DBOperation, id int, lngcode string, text string, language string, User string) error {
+func (f *LCController) updatelngcontent(db *dbconn.DBOperation, id int, text string, languageid int64, User string) error {
 	iLog := logger.Log{ModuleName: logger.API, User: User, ControllerName: "LngCodes"}
 	startTime := time.Now()
 	defer func() {
@@ -332,30 +333,6 @@ func (f *LCController) updatelngcodbyid(db *dbconn.DBOperation, id int, lngcode 
 		}
 	}()
 
-	// get the languageid
-	querytext := fmt.Sprintf("Select id from languages where language='%s' limit 1", language)
-	result, err := db.Query_Json(querytext)
-	if err != nil {
-		iLog.Error(fmt.Sprintf("get the languageid error: %s", err.Error()))
-		return err
-	}
-	if result == nil || len(result) == 0 {
-		iLog.Error(fmt.Sprintf("get the languageid error: %s", "no languageid found"))
-		return fmt.Errorf("no languageid found")
-	}
-
-	if result[0]["id"] == nil {
-		iLog.Error(fmt.Sprintf("get the languageid error: %s", "languageid is nil"))
-		return fmt.Errorf("languageid is nil")
-	}
-
-	languageid := int(result[0]["id"].(float64))
-
-	if languageid == 0 {
-		iLog.Error(fmt.Sprintf("get the languageid error: %s", "languageid is 0"))
-		return fmt.Errorf("languageid is 0")
-	}
-
 	currentTimeUTC := time.Now().UTC()
 
 	// Format the time as a string in the MySQL date and time format
@@ -365,29 +342,34 @@ func (f *LCController) updatelngcodbyid(db *dbconn.DBOperation, id int, lngcode 
 	datatypes := make([]int, 5)
 	Where := ""
 	n := 0
-	Columns[n] = "text"
+
+	Columns[n] = "shorttext"
 	Values[n] = text
 	datatypes[n] = 1
+
 	n += 1
-	Columns[n] = "lngcode"
-	Values[n] = lngcode
+	Columns[n] = "mediumtext_"
+	Values[n] = text
 	datatypes[n] = 1
+
 	n += 1
 	Columns[n] = "languageid"
-	Values[n] = string(languageid)
+	Values[n] = fmt.Sprintf("%d", languageid)
 	datatypes[n] = 1
+
 	n += 1
-	Columns[n] = "UpdatedOn"
+	Columns[n] = "modifiedon"
 	Values[n] = formattedTime
 	datatypes[n] = 2
+
 	n += 1
-	Columns[n] = "UpdatedBy"
+	Columns[n] = "modifiedby"
 	Values[n] = User
 	datatypes[n] = 1
 
-	Where = fmt.Sprintf("lngcodeid = '%d' AND langaugeid = %d ", id, languageid)
+	Where = fmt.Sprintf("id = '%d' ", id)
 
-	_, err = db.TableUpdate("language_codes", Columns, Values, datatypes, Where)
+	_, err := db.TableUpdate("language_codes", Columns, Values, datatypes, Where)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("update the lngcode error: %s", err.Error()))
 		return err
@@ -395,7 +377,7 @@ func (f *LCController) updatelngcodbyid(db *dbconn.DBOperation, id int, lngcode 
 	return nil
 }
 
-func (f *LCController) populatesinglelngcodes(db *dbconn.DBOperation, lngcode string, text string, language string, User string) {
+func (f *LCController) populatesinglelngcodes(db *dbconn.DBOperation, lngcode string, text string, languageid int64, User string) {
 	iLog := logger.Log{ModuleName: logger.API, User: User, ControllerName: "LngCodes"}
 	startTime := time.Now()
 	defer func() {
@@ -415,12 +397,12 @@ func (f *LCController) populatesinglelngcodes(db *dbconn.DBOperation, lngcode st
 		return
 	}
 
-	if language == "" {
+	if languageid == 0 {
 		iLog.Error(fmt.Sprintf("populatelngcodes error: %s", "language is empty"))
 		return
 	}
 
-	query := fmt.Sprintf("SELECT lngcode, text FROM language_codes WHERE lngcode = '%s' AND language = '%s'", lngcode, language)
+	query := fmt.Sprintf("SELECT lngcodes.name as lngcode, lngcodes.id as lngcodeid, lngcode_contents.id as lngcodecontentid, lngcode_contents.mediumtext_ as text FROM lngcodes LEFT JOIN lngcode_contents ON lngcode_contents.lngcodeid = lngcodes.id AND lngcode_contents.languageid ='%d' WHERE lngcodes.name = '%s' ", languageid, lngcode)
 	iLog.Debug(fmt.Sprintf("populatesinglelngcodes query: %s", query))
 
 	result, err := db.Query_Json(query)
@@ -428,103 +410,67 @@ func (f *LCController) populatesinglelngcodes(db *dbconn.DBOperation, lngcode st
 		iLog.Error(fmt.Sprintf("populatesinglelngcodes error: %s", err.Error()))
 		return
 	}
-	iLog.Debug(fmt.Sprintf("populatesinglelngcodes rows: %s", result))
+	iLog.Debug(fmt.Sprintf("get lng code and conents rows: %s", result))
 
 	var existlngcode string
 	var existtext string
-
+	lngcodeid := int64(0)
+	lngcodecontentid := int64(0)
 	update := false
-	insert := true
+	insertcontent := true
+	inertlngcode := true
+	updatecontent := false
+
 	if result != nil {
 
 		if len(result) > 0 {
-			insert = false
+			inertlngcode = false
+			insertcontent = false
 			existlngcode = result[0]["lngcode"].(string)
 			existtext = result[0]["text"].(string)
+			lngcodeid = result[0]["lngcodeid"].(int64)
+			lngcodecontentid = result[0]["lngcodecontentid"].(int64)
+
 			if existlngcode == lngcode && existtext == text {
 				update = false
+				updatecontent = false
 			} else {
-				update = true
+				update = false
+				if lngcodecontentid == 0 {
+					insertcontent = true
+				} else {
+					updatecontent = true
+					insertcontent = false
+				}
 			}
 		}
-	} else {
-		insert = true
 	}
 
-	iLog.Debug(fmt.Sprintf("populatesinglelngcodes update: %s insert: %s", update, insert))
-	currentTimeUTC := time.Now().UTC()
+	iLog.Debug(fmt.Sprintf("populatesinglelngcodes update: %t insert: %t, %t, %t, %d", update, inertlngcode, updatecontent, insertcontent, lngcodeid))
+	//currentTimeUTC := time.Now().UTC()
 
 	// Format the time as a string in the MySQL date and time format
-	formattedTime := currentTimeUTC.Format("2006-01-02 15:04:05")
-	if update {
-		return
-		/*	Columns := make([]string, 3)
-			Values := make([]string, 3)
-			datatypes := make([]int, 3)
-			Where := ""
-			n := 0
-			Columns[n] = "text"
-			Values[n] = text
-			datatypes[n] = 1
-
-			n += 1
-			Columns[n] = "UpdatedOn"
-			Values[n] = formattedTime
-			datatypes[n] = 2
-			n += 1
-			Columns[n] = "UpdatedBy"
-			Values[n] = User
-			datatypes[n] = 1
-
-			Where = fmt.Sprintf("lngcode = '%s' ANG language ='%s'", lngcode, language)
-
-			_, err := db.TableUpdate("language_codes", Columns, Values, datatypes, Where)
-			if err != nil {
-				iLog.Error(fmt.Sprintf("populatelngcodes error: %s", err.Error()))
-				return
-			} */
-	} else if insert {
-
-		Columns := make([]string, 5)
-		Values := make([]string, 5)
-		datatypes := make([]int, 5)
-		n := 0
-		Columns[n] = "lngcode"
-		Values[n] = lngcode
-		datatypes[n] = 1
-		n += 1
-		Columns[n] = "text"
-		Values[n] = text
-		datatypes[n] = 1
-		/*	n += 1
-			Columns[n] = "short"
-			Values[n] = short
-			datatypes[n] = 1  */
-		n += 1
-		Columns[n] = "language"
-		Values[n] = language
-		datatypes[n] = 1
-		n += 1
-		Columns[n] = "CreatedOn"
-		Values[n] = formattedTime
-		datatypes[n] = 2
-		n += 1
-		Columns[n] = "CreatedBy"
-		Values[n] = User
-		datatypes[n] = 1
-		n += 1
-
-		_, err := db.TableInsert("language_codes", Columns, Values)
+	//formattedTime := currentTimeUTC.Format("2006-01-02 15:04:05")
+	if inertlngcode {
+		lngcodeid, err = f.InsertLngCode(db, lngcode, User) // db.TableInsert("lngcodes", Columns, Values)
 		if err != nil {
-			iLog.Error(fmt.Sprintf("populatelngcodes error: %s", err.Error()))
+			iLog.Error(fmt.Sprintf("insert lng code error: %s", err.Error()))
 			return
 		}
+	}
+	iLog.Debug(fmt.Sprintf("data for the lngcode content:%d,%d", lngcodeid, languageid))
+	if insertcontent && lngcodeid > 0 {
 
+		err := f.insertlngcontent(db, lngcodeid, text, languageid, User)
+		if err != nil {
+			iLog.Error(fmt.Sprintf("insert lng content error: %s", err.Error()))
+			return
+		}
 	}
 
 }
 
-func (f *LCController) populatelngcodes(lngcodes []string, text []string, language string, User string) {
+func (f *LCController) populatelngcodes(lngcodes []string, text []string, languageid int64, User string) {
 	iLog := logger.Log{ModuleName: logger.API, User: User, ControllerName: "LngCodes"}
 	startTime := time.Now()
 	defer func() {
@@ -554,7 +500,7 @@ func (f *LCController) populatelngcodes(lngcodes []string, text []string, langua
 			return
 		} */
 
-	if language == "" {
+	if languageid == 0 {
 		iLog.Error(fmt.Sprintf("populatelngcodes error: %s", "language is empty"))
 		return
 	}
@@ -567,8 +513,8 @@ func (f *LCController) populatelngcodes(lngcodes []string, text []string, langua
 	defer idbtx.Rollback()
 	db := dbconn.NewDBOperation(User, idbtx, logger.Framework)
 	for i := 0; i < len(lngcodes); i++ {
-		iLog.Debug(fmt.Sprintf("populatelngcodes lngcode: %s %s %s %s", lngcodes[i], text[i], language, User))
-		f.populatesinglelngcodes(db, lngcodes[i], text[i], language, User)
+		iLog.Debug(fmt.Sprintf("populatelngcodes lngcode: %s %s %d %s", lngcodes[i], text[i], languageid, User))
+		f.populatesinglelngcodes(db, lngcodes[i], text[i], languageid, User)
 
 	}
 	idbtx.Commit()
