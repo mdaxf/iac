@@ -778,25 +778,14 @@ func customMarshal(v interface{}) string {
 // Returns:
 // - The converted integer value.
 
+// ConverttoInt converts a string to int (uses TypeConverter for better error handling)
 func (f *Funcs) ConverttoInt(str string) int {
-	/*	startTime := time.Now()
-		defer func() {
-			elapsed := time.Since(startTime)
-			f.iLog.PerformanceWithDuration("engine.funcs.ConverttoInt", elapsed)
-		}()
-		defer func() {
-			if err := recover(); err != nil {
-				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoInt with error: %s", err))
-				return
-			}
-		}()
-	*/
-	temp, err := strconv.Atoi(str)
+	result, err := TypeConv.ConvertToInt(str)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Convert %s to int error: %s", str, err.Error()))
+		return 0
 	}
-
-	return temp
+	return result
 }
 
 // ConverttoFloat converts a string to a float64 value.
@@ -808,25 +797,14 @@ func (f *Funcs) ConverttoInt(str string) int {
 // Returns:
 // - The converted float64 value.
 
+// ConverttoFloat converts a string to float64 (uses TypeConverter for better error handling)
 func (f *Funcs) ConverttoFloat(str string) float64 {
-	/*	startTime := time.Now()
-		defer func() {
-			elapsed := time.Since(startTime)
-			f.iLog.PerformanceWithDuration("engine.funcs.ConverttoFloat", elapsed)
-		}()
-		defer func() {
-			if err := recover(); err != nil {
-				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoFloat with error: %s", err))
-				return
-			}
-		}()
-	*/
-	temp, err := strconv.ParseFloat(str, 64)
+	result, err := TypeConv.ConvertToFloat(str)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Convert %s to float error: %s", str, err.Error()))
+		return 0.0
 	}
-
-	return temp
+	return result
 }
 
 // ConverttoBool converts a string to a boolean value.
@@ -839,25 +817,14 @@ func (f *Funcs) ConverttoFloat(str string) float64 {
 // Returns:
 // - bool: The boolean value parsed from the string.
 
+// ConverttoBool converts a string to bool (uses TypeConverter for better error handling)
 func (f *Funcs) ConverttoBool(str string) bool {
-	/*	startTime := time.Now()
-		defer func() {
-			elapsed := time.Since(startTime)
-			f.iLog.PerformanceWithDuration("engine.funcs.ConverttoBool", elapsed)
-		}()
-		defer func() {
-			if err := recover(); err != nil {
-				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoBool with error: %s", err))
-				return
-			}
-		}()
-	*/
-	temp, err := strconv.ParseBool(str)
+	result, err := TypeConv.ConvertToBool(str)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Convert %s to bool error: %s", str, err.Error()))
+		return false
 	}
-
-	return temp
+	return result
 }
 
 // ConverttoDateTime converts a string to a time.Time value.
@@ -870,25 +837,14 @@ func (f *Funcs) ConverttoBool(str string) bool {
 // Returns:
 // - time.Time: The time.Time value parsed from the string.
 
+// ConverttoDateTime converts a string to time.Time (uses TypeConverter for better error handling)
 func (f *Funcs) ConverttoDateTime(str string) time.Time {
-	/*	startTime := time.Now()
-		defer func() {
-			elapsed := time.Since(startTime)
-			f.iLog.PerformanceWithDuration("engine.funcs.ConverttoDatTime", elapsed)
-		}()
-		defer func() {
-			if err := recover(); err != nil {
-				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoDateTime with error: %s", err))
-				return
-			}
-		}()
-	*/
-	temp, err := time.Parse(types.DateTimeFormat, str)
+	result, err := TypeConv.ConvertToDateTime(str)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Convert %s to time error: %s", str, err.Error()))
+		return time.Time{}
 	}
-
-	return temp
+	return result
 }
 
 // SetOutputs sets the outputs of the function.
