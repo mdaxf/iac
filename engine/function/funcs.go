@@ -122,21 +122,79 @@ func NewFuncs(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sql
 // - An error if there was an error in the process.
 
 func (f *Funcs) HandleInputs() ([]string, []string, map[string]interface{}, error) {
-	/*	startTime := time.Now()
-		defer func() {
-			elapsed := time.Since(startTime)
-			f.iLog.PerformanceWithDuration("engine.funcs.HandleInputs", elapsed)
-		}()
-	*/defer func() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.HandleInputs", elapsed)
+	}()
+
+	// ROLLBACK DESIGN: Catch panics and create structured errors
+	defer func() {
 		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.HandleInputs with error: %s", err))
-			f.CancelExecution(fmt.Sprintf("There is error to engine.funcs.HandleInputs with error: %s", err))
+			errMsg := fmt.Sprintf("Panic in HandleInputs: %v", err)
+			f.iLog.Error(errMsg)
+
+			// Create structured error
+			execContext := &types.ExecutionContext{
+				FunctionName:  f.Fobj.Name,
+				FunctionType:  f.Fobj.Functype.String(),
+				ExecutionTime: startTime,
+			}
+
+			structuredErr := types.NewExecutionError(errMsg, nil).
+				WithContext(execContext).
+				WithRollbackReason("Input mapping failed")
+
+			f.iLog.Error(structuredErr.GetFormattedError())
+			f.CancelExecution(errMsg)
+			panic(structuredErr) // Re-panic with structured error
+		}
+	}()
+
+	f.iLog.Info(fmt.Sprintf("Start processing inputs for function %s", f.Fobj.Name))
+	f.iLog.Debug(fmt.Sprintf("function inputs: %s", logger.ConvertJson(f.Fobj.Inputs)))
+
+	// Use the new comprehensive InputMapper for safe type-aware input mapping
+	inputMapper := NewInputMapper(
+		f.SystemSession,
+		f.UserSession,
+		f.Externalinputs,
+		f.FuncCachedVariables,
+		f.iLog,
+	)
+
+	// Map all inputs using the new comprehensive mapper
+	mappedInputs, nameList, valueList, err := inputMapper.MapAllInputs(f.Fobj.Inputs)
+	if err != nil {
+		f.iLog.Error(fmt.Sprintf("Error mapping inputs: %s", err.Error()))
+		return nil, nil, nil, err
+	}
+
+	f.FunctionMappedInputs = mappedInputs
+	f.iLog.Debug(fmt.Sprintf("Successfully mapped %d inputs", len(mappedInputs)))
+
+	return nameList, valueList, mappedInputs, nil
+}
+
+// HandleInputsLegacy is the original HandleInputs implementation kept for backward compatibility
+// This function is deprecated and will be removed in a future version
+// Use HandleInputs instead, which uses the new comprehensive InputMapper
+func (f *Funcs) HandleInputsLegacy() ([]string, []string, map[string]interface{}, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.HandleInputsLegacy", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.HandleInputsLegacy with error: %s", err))
+			f.CancelExecution(fmt.Sprintf("There is error to engine.funcs.HandleInputsLegacy with error: %s", err))
 			return
 		}
 	}()
 
-	f.iLog.Debug(fmt.Sprintf("Start process %s", reflect.ValueOf(f.HandleInputs).Kind().String()))
-
+	f.iLog.Debug(fmt.Sprintf("Start process %s", reflect.ValueOf(f.HandleInputsLegacy).Kind().String()))
 	f.iLog.Debug(fmt.Sprintf("function inputs: %s", logger.ConvertJson(f.Fobj.Inputs)))
 
 	newinputs := make(map[string]interface{})
@@ -144,7 +202,6 @@ func (f *Funcs) HandleInputs() ([]string, []string, map[string]interface{}, erro
 	valuelist := make([]string, len(f.Fobj.Inputs))
 
 	inputs := f.Fobj.Inputs
-	//	newinputs = f.FunctionMappedInputs
 
 	for i, _ := range inputs {
 		//	f.iLog.Debug(fmt.Sprintf("function input: %s, Source: %s", logger.ConvertJson(inputs[i]), inputs[i].Source))

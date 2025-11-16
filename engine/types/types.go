@@ -219,6 +219,24 @@ const (
 	Fromexternal
 )
 
+// String returns the string representation of InputSource
+func (is InputSource) String() string {
+	switch is {
+	case Constant:
+		return "Constant"
+	case Prefunction:
+		return "Prefunction"
+	case Fromsyssession:
+		return "Fromsyssession"
+	case Fromusersession:
+		return "Fromusersession"
+	case Fromexternal:
+		return "Fromexternal"
+	default:
+		return "Unknown"
+	}
+}
+
 type OutputDest int
 
 const (
