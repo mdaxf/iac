@@ -1130,11 +1130,23 @@ func (f *Funcs) Execute() {
 			inputmapfuncs.Execute(f)
 
 		case types.GoExpr:
-			goexprfuncs := GoExprFuncs{}
+			// Use enhanced Go expression executor with safety features
+			goexprfuncs := EnhancedGoExprFuncs{}
 			goexprfuncs.Execute(f)
+
 		case types.Javascript:
 			jsfuncs := JSFuncs{}
 			jsfuncs.Execute(f)
+
+		case types.PythonExpr:
+			// NEW: Python expression execution
+			pythonExprFuncs := PythonExprFuncs{}
+			pythonExprFuncs.Execute(f)
+
+		case types.PythonScript:
+			// NEW: Python script execution
+			pythonScriptFuncs := PythonScriptFuncs{}
+			pythonScriptFuncs.Execute(f)
 
 		case types.Query:
 			qfuncs := QueryFuncs{}
