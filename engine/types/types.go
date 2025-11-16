@@ -129,7 +129,65 @@ const (
 	SendMessagebyMQTT
 	SendMessagebyAQMP
 	WebServiceCall
+	PythonExpr
+	PythonScript
 )
+
+// String returns the string representation of FunctionType
+func (ft FunctionType) String() string {
+	switch ft {
+	case InputMap:
+		return "InputMap"
+	case GoExpr:
+		return "GoExpr"
+	case Javascript:
+		return "Javascript"
+	case Query:
+		return "Query"
+	case StoreProcedure:
+		return "StoreProcedure"
+	case SubTranCode:
+		return "SubTranCode"
+	case TableInsert:
+		return "TableInsert"
+	case TableUpdate:
+		return "TableUpdate"
+	case TableDelete:
+		return "TableDelete"
+	case CollectionInsert:
+		return "CollectionInsert"
+	case CollectionUpdate:
+		return "CollectionUpdate"
+	case CollectionDelete:
+		return "CollectionDelete"
+	case ThrowError:
+		return "ThrowError"
+	case SendMessage:
+		return "SendMessage"
+	case SendEmail:
+		return "SendEmail"
+	case ExplodeWorkFlow:
+		return "ExplodeWorkFlow"
+	case StartWorkFlowTask:
+		return "StartWorkFlowTask"
+	case CompleteWorkFlowTask:
+		return "CompleteWorkFlowTask"
+	case SendMessagebyKafka:
+		return "SendMessagebyKafka"
+	case SendMessagebyMQTT:
+		return "SendMessagebyMQTT"
+	case SendMessagebyAQMP:
+		return "SendMessagebyAQMP"
+	case WebServiceCall:
+		return "WebServiceCall"
+	case PythonExpr:
+		return "PythonExpr"
+	case PythonScript:
+		return "PythonScript"
+	default:
+		return "Unknown"
+	}
+}
 
 type Status int
 

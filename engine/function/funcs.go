@@ -989,12 +989,59 @@ func (f *Funcs) Execute() {
 		f.iLog.PerformanceWithDuration("engine.funcs.Execute", elapsed)
 	}()
 
+	// ROLLBACK DESIGN: This defer/recover pattern is intentional.
+	// When a function fails, we catch the panic and propagate it up
+	// to ensure the entire transaction is rolled back.
 	defer func() {
 		if r := recover(); r != nil {
-			f.iLog.Error(fmt.Sprintf("Panic in Execute: %s", r))
-			f.CancelExecution(fmt.Sprintf("Panic in Execute: %s", r))
-			f.ErrorMessage = fmt.Sprintf("Panic in Execute: %s", r)
-			return
+			// Check if this is a structured BPMError
+			if bpmErr, ok := r.(*types.BPMError); ok {
+				// Add function context if not already present
+				if bpmErr.Context == nil {
+					bpmErr.Context = &types.ExecutionContext{}
+				}
+				bpmErr.Context.FunctionName = f.Fobj.Name
+				bpmErr.Context.FunctionType = f.Fobj.Functype.String()
+
+				// Log the formatted error
+				f.iLog.Error(bpmErr.GetFormattedError())
+				f.ErrorMessage = bpmErr.Error()
+
+				// Update rollback reason if needed
+				if bpmErr.RollbackReason == "" {
+					bpmErr.WithRollbackReason(fmt.Sprintf("Function %s failed", f.Fobj.Name))
+				}
+			} else {
+				// Handle non-structured errors
+				errMsg := fmt.Sprintf("Panic in function %s: %v", f.Fobj.Name, r)
+				f.iLog.Error(errMsg)
+				f.ErrorMessage = errMsg
+
+				// Create a structured error for better tracking
+				execContext := &types.ExecutionContext{
+					FunctionName:  f.Fobj.Name,
+					FunctionType:  f.Fobj.Functype.String(),
+					ExecutionTime: startTime,
+				}
+				if userNo, ok := f.SystemSession["UserNo"].(string); ok {
+					execContext.UserNo = userNo
+				}
+				if clientID, ok := f.SystemSession["ClientID"].(string); ok {
+					execContext.ClientID = clientID
+				}
+
+				structuredErr := types.NewExecutionError(errMsg, nil).
+					WithContext(execContext).
+					WithRollbackReason(fmt.Sprintf("Unexpected error in function %s", f.Fobj.Name))
+
+				f.iLog.Error(structuredErr.GetFormattedError())
+			}
+
+			// Cancel execution
+			f.CancelExecution(f.ErrorMessage)
+
+			// Re-panic to propagate to parent function group
+			panic(r)
 		}
 	}()
 

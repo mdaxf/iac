@@ -291,12 +291,63 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 		elapsed := time.Since(startTime)
 		t.ilog.PerformanceWithDuration("engine.TranCode.Execute", elapsed)
 	}()
+	// ROLLBACK DESIGN: This defer/recover pattern is intentional.
+	// When any function fails or ThrowError executes with iserror=true,
+	// we catch the panic here and rollback the entire transaction to
+	// prevent partial data changes, ensuring atomicity.
 	defer func() {
 		if r := recover(); r != nil {
-			t.ilog.Error(fmt.Sprintf("Error in Trancode.Execute: %s", r))
-			t.ErrorMessage = fmt.Sprintf("Error in Trancode.Execute: %s", r)
-			t.DBTx.Rollback()
-			t.CtxCancel()
+			// Check if this is a structured BPMError
+			if bpmErr, ok := r.(*types.BPMError); ok {
+				// Add transaction code context if not already present
+				if bpmErr.Context == nil {
+					bpmErr.Context = &types.ExecutionContext{}
+				}
+				bpmErr.Context.TranCodeName = t.Tcode.Name
+				bpmErr.Context.TranCodeVersion = t.Tcode.Version
+
+				// Log the formatted error
+				t.ilog.Error(bpmErr.GetFormattedError())
+				t.ErrorMessage = bpmErr.Error()
+
+				// Update rollback reason
+				if bpmErr.RollbackReason == "" {
+					bpmErr.WithRollbackReason(fmt.Sprintf("Transaction code %s failed", t.Tcode.Name))
+				}
+			} else {
+				// Handle non-structured errors
+				errMsg := fmt.Sprintf("Error in Trancode.Execute: %v", r)
+				t.ilog.Error(errMsg)
+				t.ErrorMessage = errMsg
+
+				// Create a structured error for better tracking
+				execContext := &types.ExecutionContext{
+					TranCodeName:    t.Tcode.Name,
+					TranCodeVersion: t.Tcode.Version,
+					ExecutionTime:   startTime,
+				}
+				if userNo, ok := t.SystemSession["UserNo"].(string); ok {
+					execContext.UserNo = userNo
+				}
+				if clientID, ok := t.SystemSession["ClientID"].(string); ok {
+					execContext.ClientID = clientID
+				}
+
+				structuredErr := types.NewExecutionError(errMsg, nil).
+					WithContext(execContext).
+					WithRollbackReason(fmt.Sprintf("Unexpected error in transaction code %s", t.Tcode.Name))
+
+				t.ilog.Error(structuredErr.GetFormattedError())
+			}
+
+			// Rollback the transaction
+			t.ilog.Info(fmt.Sprintf("Rolling back transaction for %s due to error", t.Tcode.Name))
+			if t.DBTx != nil {
+				t.DBTx.Rollback()
+			}
+			if t.CtxCancel != nil {
+				t.CtxCancel()
+			}
 			return
 		}
 	}()
