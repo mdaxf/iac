@@ -33,6 +33,28 @@ type DBOperation struct {
 	User       string
 }
 
+// GetDialect returns the dialect for the current database type
+// This provides automatic database type support by using the factory pattern
+func (db *DBOperation) GetDialect() Dialect {
+	dialect, err := GetFactory().GetDialect(DBType(DatabaseType))
+	if err != nil {
+		db.iLog.Error(fmt.Sprintf("Failed to get dialect for database type %s: %v", DatabaseType, err))
+		// Return MySQL dialect as default for backward compatibility
+		return NewMySQLDialect()
+	}
+	return dialect
+}
+
+// GetPlaceholder returns the database-specific placeholder for parameter n
+func (db *DBOperation) GetPlaceholder(n int) string {
+	return db.GetDialect().Placeholder(n)
+}
+
+// QuoteIdentifier returns the database-specific quoted identifier
+func (db *DBOperation) QuoteIdentifier(name string) string {
+	return db.GetDialect().QuoteIdentifier(name)
+}
+
 // NewDBOperation creates a new instance of DBOperation.
 // It takes the following parameters:
 // - User: the name of the user performing the database operation.

@@ -1,3 +1,11 @@
+// Package databaseop provides database operation controllers with automatic
+// database type support using the factory pattern and dialect system.
+//
+// Key improvements:
+// - Automatic support for multiple database types (MySQL, PostgreSQL, MSSQL, Oracle)
+// - Database-specific SQL dialect handling (placeholders, LIMIT/OFFSET, JSON operations)
+// - Removes hardcoded database type checks for better maintainability
+// - Uses the new DatabaseFactory and Dialect interfaces for database portability
 package databaseop
 
 import (
@@ -249,9 +257,16 @@ func (db *DBController) GetDatabyQueryForTabulor(ctx *gin.Context) {
 		lastPage = (totalCount + int64(data.Limit) - 1) / int64(data.Limit) // Ceiling division
 	}
 
-	// LIMIT/OFFSET (add to args)
-	sqlStr += " LIMIT ? OFFSET ?"
-	args = append(args, data.Limit, data.Offset)
+	// Use dialect-specific LIMIT/OFFSET syntax
+	dialect, err := dbconn.GetFactory().GetDialect(dbconn.DBType(dbconn.DatabaseType))
+	if err != nil {
+		dialect = dbconn.NewMySQLDialect()
+	}
+
+	// Add database-specific pagination
+	sqlStr += " " + dialect.LimitOffset(data.Limit, data.Offset)
+	// Note: Some dialects use placeholders in LimitOffset, others use direct values
+	// The current implementation uses direct values in the LimitOffset method
 
 	// get data from database
 	result, err := dbconn.NewDBOperation("system", nil, "Execute Query Function").Query_Json(sqlStr, args...)
@@ -465,9 +480,14 @@ func (db *DBController) GetDataFromTablesForTabulor(ctx *gin.Context) {
 		data.Limit = 1000
 	}
 
-	// LIMIT/OFFSET (add to args)
-	sqlStr += " LIMIT ? OFFSET ?"
-	args = append(args, data.Limit, data.Offset)
+	// Use dialect-specific LIMIT/OFFSET syntax
+	dialect, err := dbconn.GetFactory().GetDialect(dbconn.DBType(dbconn.DatabaseType))
+	if err != nil {
+		dialect = dbconn.NewMySQLDialect()
+	}
+
+	// Add database-specific pagination
+	sqlStr += " " + dialect.LimitOffset(data.Limit, data.Offset)
 
 	result, err := dbconn.NewDBOperation("system", nil, "Execute Query Function").Query_Json(sqlStr, args...)
 
@@ -609,6 +629,7 @@ func (db *DBController) getmysqlsubtabls(tablename string, data map[string]inter
 		TableLinks = fmt.Sprintf("%s  %s", TableLinks, SubLinks)
 	}
 	/*
+		// Note: JSON aggregation now uses database-specific dialects
 		if markasJson {
 			if Links != "" {
 				Query = fmt.Sprintf("SELECT %s from %s where %s", Query, tablename, Links)
@@ -616,10 +637,19 @@ func (db *DBController) getmysqlsubtabls(tablename string, data map[string]inter
 				Query = fmt.Sprintf("SELECT %s from %s", Query, tablename)
 			}
 
-			if dbconn.DatabaseType == "sqlserver" {
-				Query = fmt.Sprintf("%s FOR JSON PATH", Query)
-			} else if dbconn.DatabaseType == "mysql" {
-				Query = fmt.Sprintf("SELECT json_agg(t)  FROM ( %s ) t ", Query)
+			// Use dialect-specific JSON aggregation
+			dialect, _ := dbconn.GetFactory().GetDialect(dbconn.DBType(dbconn.DatabaseType))
+			if dialect != nil && dialect.SupportsJSON() {
+				switch dbconn.DBType(dbconn.DatabaseType) {
+				case dbconn.DBTypeMSSQL:
+					Query = fmt.Sprintf("%s FOR JSON PATH", Query)
+				case dbconn.DBTypeMySQL:
+					Query = fmt.Sprintf("SELECT JSON_ARRAYAGG(JSON_OBJECT(*)) FROM ( %s ) t", Query)
+				case dbconn.DBTypePostgreSQL:
+					Query = fmt.Sprintf("SELECT json_agg(t) FROM ( %s ) t", Query)
+				case dbconn.DBTypeOracle:
+					Query = fmt.Sprintf("SELECT JSON_ARRAYAGG(JSON_OBJECT(*)) FROM ( %s ) t", Query)
+				}
 			}
 			Query = fmt.Sprintf("(%s ) as \"%s\"", Query, tablename)
 		}
@@ -690,6 +720,7 @@ func (db *DBController) getsubtabls(tablename string, data map[string]interface{
 
 	Query = strings.TrimRight(Query, ",")
 
+	// Use dialect-specific JSON aggregation for database portability
 	if markasJson {
 		if Links != "" {
 			Query = fmt.Sprintf("SELECT %s from %s where %s", Query, tablename, Links)
@@ -697,10 +728,19 @@ func (db *DBController) getsubtabls(tablename string, data map[string]interface{
 			Query = fmt.Sprintf("SELECT %s from %s", Query, tablename)
 		}
 
-		if dbconn.DatabaseType == "sqlserver" {
-			Query = fmt.Sprintf("%s FOR JSON PATH", Query)
-		} else if dbconn.DatabaseType == "mysql" {
-			Query = fmt.Sprintf("SELECT json_agg(t)  FROM ( %s ) t ", Query)
+		// Automatically detect database type and use appropriate JSON syntax
+		dialect, _ := dbconn.GetFactory().GetDialect(dbconn.DBType(dbconn.DatabaseType))
+		if dialect != nil && dialect.SupportsJSON() {
+			switch dbconn.DBType(dbconn.DatabaseType) {
+			case dbconn.DBTypeMSSQL:
+				Query = fmt.Sprintf("%s FOR JSON PATH", Query)
+			case dbconn.DBTypeMySQL:
+				Query = fmt.Sprintf("SELECT JSON_ARRAYAGG(JSON_OBJECT(*)) FROM ( %s ) t", Query)
+			case dbconn.DBTypePostgreSQL:
+				Query = fmt.Sprintf("SELECT json_agg(t) FROM ( %s ) t", Query)
+			case dbconn.DBTypeOracle:
+				Query = fmt.Sprintf("SELECT JSON_ARRAYAGG(JSON_OBJECT(*)) FROM ( %s ) t", Query)
+			}
 		}
 		Query = fmt.Sprintf("(%s ) as \"%s\"", Query, tablename)
 	}
@@ -1064,25 +1104,44 @@ func (db *DBController) GetDataFromRequest(ctx *gin.Context) (DBData, error) {
 	return data, nil
 }
 
+// buildWherePrepared builds WHERE clause with database-specific placeholders
+// Uses the new database model to automatically support different database types
 func buildWherePrepared(filters []TabulatorFilter, args []interface{}) (string, []interface{}) {
+	// Get dialect from the global factory for placeholder generation
+	dialect, err := dbconn.GetFactory().GetDialect(dbconn.DBType(dbconn.DatabaseType))
+	if err != nil {
+		// Fallback to MySQL-style placeholders if dialect not found
+		dialect = dbconn.NewMySQLDialect()
+	}
+
 	clauses := []string{}
+	paramIndex := len(args) + 1 // Start from the next parameter index
+
 	for _, f := range filters {
 		if f.Field == "" {
 			continue
 		}
+
+		placeholder := dialect.Placeholder(paramIndex)
+		quotedField := dialect.QuoteIdentifier(f.Field)
+
 		switch strings.ToLower(f.Type) {
 		case "like":
-			clauses = append(clauses, fmt.Sprintf("%s LIKE ?", f.Field))
+			clauses = append(clauses, fmt.Sprintf("%s LIKE %s", quotedField, placeholder))
 			args = append(args, "%"+ConvertInterfaceToString(f.Value)+"%")
+			paramIndex++
 		case "starts":
-			clauses = append(clauses, fmt.Sprintf("%s LIKE ?", f.Field))
+			clauses = append(clauses, fmt.Sprintf("%s LIKE %s", quotedField, placeholder))
 			args = append(args, ConvertInterfaceToString(f.Value)+"%")
+			paramIndex++
 		case "ends":
-			clauses = append(clauses, fmt.Sprintf("%s LIKE ?", f.Field))
+			clauses = append(clauses, fmt.Sprintf("%s LIKE %s", quotedField, placeholder))
 			args = append(args, "%"+ConvertInterfaceToString(f.Value))
+			paramIndex++
 		default:
-			clauses = append(clauses, fmt.Sprintf("%s = ?", f.Field))
+			clauses = append(clauses, fmt.Sprintf("%s = %s", quotedField, placeholder))
 			args = append(args, f.Value)
+			paramIndex++
 		}
 	}
 	if len(clauses) == 0 {
