@@ -789,9 +789,10 @@ func (db *DBOperation) TableUpdate_v2(TableName string, Columns []string, Values
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(com.DBTransactionTimeout))
 	defer cancel()
 
-	// --- Build SET clause ---
+	// --- Build SET clause with database-specific placeholders ---
 	var setClauses []string
 	var args []interface{}
+	paramIndex := 1 // Parameter index for placeholders
 
 	for i, col := range Columns {
 		val := Values[i]
@@ -802,11 +803,9 @@ func (db *DBOperation) TableUpdate_v2(TableName string, Columns []string, Values
 			continue
 		}
 
-		// Parameterized
-		placeholder := "?"
-		if DatabaseType == "sqlserver" {
-			placeholder = fmt.Sprintf("@p%d", i+1)
-		}
+		// Use dialect-specific placeholder for database portability
+		placeholder := db.GetPlaceholder(paramIndex)
+		paramIndex++
 
 		setClauses = append(setClauses, fmt.Sprintf("%s = %s", col, placeholder))
 		args = append(args, val)

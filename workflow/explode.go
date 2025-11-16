@@ -321,7 +321,9 @@ func (e *ExplodionEngine) explodeNode(node wftype.Node, workflowentityid int64, 
 		columns = []string{"notificationuuid"}
 		values = []string{notification["uuid"].(string)}
 		datatypes := []int{int(0)}
-		Where := fmt.Sprintf("id = %d", taskid)
+		// Use dialect-specific identifier quoting for database portability
+		idColumn := dbop.QuoteIdentifier("id")
+		Where := fmt.Sprintf("%s = %d", idColumn, taskid)
 		_, err = dbop.TableUpdate("workflow_tasks", columns, values, datatypes, Where)
 		if err != nil {
 			e.Log.Error(fmt.Sprintf("Error in WorkFlow.Explosion.explodeNode during updating notification: %s", err))

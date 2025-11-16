@@ -92,21 +92,6 @@ func (cf *TableDeleteFuncs) Execute(f *Funcs) {
 		return
 	}
 
-	// construct the WHERE clause based on the key columns
-	Where := ""
-	for i, column := range keycolumnList {
-		switch keycolumndatatypeList[i] {
-		case int(types.String):
-		case int(types.DateTime):
-			Where += column + " = '" + keycolumnvalueList[i] + "'"
-		default:
-			Where += column + " = " + keycolumnvalueList[i]
-		}
-		if i < len(keycolumnList)-1 {
-			Where += " AND "
-		}
-	}
-
 	// get the user from the system session or set it to "System" if not available
 	var user string
 	if f.SystemSession["User"] != nil {
@@ -115,8 +100,25 @@ func (cf *TableDeleteFuncs) Execute(f *Funcs) {
 		user = "System"
 	}
 
-	// create a new DBOperation instance
-	dboperation := dbconn.NewDBOperation(user, f.DBTx, "TableDete Function")
+	// create a new DBOperation instance for database-agnostic operations
+	dboperation := dbconn.NewDBOperation(user, f.DBTx, "TableDelete Function")
+
+	// Construct the WHERE clause with database-specific quoted identifiers
+	Where := ""
+	for i, column := range keycolumnList {
+		quotedColumn := dboperation.QuoteIdentifier(column)
+
+		switch keycolumndatatypeList[i] {
+		case int(types.String):
+		case int(types.DateTime):
+			Where += quotedColumn + " = '" + keycolumnvalueList[i] + "'"
+		default:
+			Where += quotedColumn + " = " + keycolumnvalueList[i]
+		}
+		if i < len(keycolumnList)-1 {
+			Where += " AND "
+		}
+	}
 
 	// perform the table delete operation
 	output, err := dboperation.TableDelete(TableName, Where)

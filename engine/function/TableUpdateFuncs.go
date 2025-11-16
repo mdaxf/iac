@@ -83,27 +83,8 @@ func (cf *TableUpdateFuncs) Execute(f *Funcs) {
 		return
 	}
 
-	Where := ""
-	for i, column := range keycolumnList {
-		if Where != "" {
-			Where = fmt.Sprintf("%s AND ", Where)
-		}
-		//	f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs Column: %s  Value: %s  keycolumndatatypeList: %s", column, keycolumnvalueList[i], keycolumndatatypeList[i]))
-		/*switch keycolumndatatypeList[i] {
-		case int(types.String):
-		case int(types.DateTime):
-			Where = fmt.Sprintf("%s %s ='%s'", Where, column, keycolumnvalueList[i])
-		default:
-			Where = fmt.Sprintf("%s %s =%s", Where, column, keycolumnvalueList[i])
-		}  */
-		value := strings.Replace(keycolumnvalueList[i], "'", "", -1)
-
-		Where = fmt.Sprintf("%s %s ='%s'", Where, column, value)
-		//	f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs Where: %s", Where))
-	}
-	f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs Where: %s", Where))
+	// Get database dialect for proper identifier quoting and WHERE clause building
 	var user string
-
 	if f.SystemSession["User"] != nil {
 		user = f.SystemSession["User"].(string)
 	} else {
@@ -111,6 +92,20 @@ func (cf *TableUpdateFuncs) Execute(f *Funcs) {
 	}
 
 	dboperation := dbconn.NewDBOperation(user, f.DBTx, "TableUpdate Function")
+
+	// Build WHERE clause with database-specific quoted identifiers
+	Where := ""
+	for i, column := range keycolumnList {
+		if Where != "" {
+			Where = fmt.Sprintf("%s AND ", Where)
+		}
+		value := strings.Replace(keycolumnvalueList[i], "'", "", -1)
+
+		// Use dialect-specific identifier quoting for better database portability
+		quotedColumn := dboperation.QuoteIdentifier(column)
+		Where = fmt.Sprintf("%s %s ='%s'", Where, quotedColumn, value)
+	}
+	f.iLog.Debug(fmt.Sprintf("TableUpdateFuncs Where: %s", Where))
 
 	output, err := dboperation.TableUpdate(TableName, columnList, columnvalueList, columndatatypeList, Where)
 	if err != nil {
