@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/mdaxf/iac/databases"
+	dbconn "github.com/mdaxf/iac/databases"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -52,9 +52,9 @@ func hashShardingExample() {
 	fmt.Println("--------------------------------")
 
 	// Create shard manager with hash modulo strategy
-	config := databases.DefaultShardManagerConfig()
-	config.Strategy = databases.HashModulo
-	sm := databases.NewShardManager(config)
+	config := dbconn.DefaultShardManagerConfig()
+	config.Strategy = dbconn.HashModulo
+	sm := dbconn.NewShardManager(config)
 
 	// Create 3 shards (in production, these would be separate databases)
 	for i := 0; i < 3; i++ {
@@ -76,7 +76,7 @@ func hashShardingExample() {
 			log.Fatal(err)
 		}
 
-		shard := &databases.Shard{
+		shard := &dbconn.Shard{
 			ID:     i,
 			Name:   fmt.Sprintf("shard-%d", i),
 			DB:     db,
@@ -140,17 +140,17 @@ func consistentHashingExample() {
 	fmt.Println("----------------------")
 
 	// Consistent hashing provides better distribution when adding/removing shards
-	config := databases.DefaultShardManagerConfig()
-	config.Strategy = databases.ConsistentHash
+	config := dbconn.DefaultShardManagerConfig()
+	config.Strategy = dbconn.ConsistentHash
 	config.VirtualNodes = 150 // More virtual nodes = better distribution
-	sm := databases.NewShardManager(config)
+	sm := dbconn.NewShardManager(config)
 
 	// Create 4 shards
 	for i := 0; i < 4; i++ {
 		db, _ := sql.Open("sqlite3", ":memory:")
 		defer db.Close()
 
-		shard := &databases.Shard{
+		shard := &dbconn.Shard{
 			ID:     i,
 			Name:   fmt.Sprintf("shard-%d", i),
 			DB:     db,
@@ -186,7 +186,7 @@ func consistentHashingExample() {
 	db, _ := sql.Open("sqlite3", ":memory:")
 	defer db.Close()
 
-	newShard := &databases.Shard{
+	newShard := &dbconn.Shard{
 		ID:     4,
 		Name:   "shard-4",
 		DB:     db,
@@ -217,9 +217,9 @@ func rangeShardingExample() {
 	fmt.Println("------------------------")
 
 	// Range sharding is useful for time-series data or alphabetical distribution
-	config := databases.DefaultShardManagerConfig()
-	config.Strategy = databases.RangeSharding
-	sm := databases.NewShardManager(config)
+	config := dbconn.DefaultShardManagerConfig()
+	config.Strategy = dbconn.RangeSharding
+	sm := dbconn.NewShardManager(config)
 
 	// Create 3 shards for different date ranges
 	shardRanges := []struct {
@@ -237,7 +237,7 @@ func rangeShardingExample() {
 		db, _ := sql.Open("sqlite3", ":memory:")
 		defer db.Close()
 
-		shard := &databases.Shard{
+		shard := &dbconn.Shard{
 			ID:     sr.id,
 			Name:   sr.name,
 			DB:     db,
@@ -274,16 +274,16 @@ func lookupShardingExample() {
 	fmt.Println("-------------------------")
 
 	// Lookup sharding is useful for multi-tenant applications
-	config := databases.DefaultShardManagerConfig()
-	config.Strategy = databases.LookupSharding
-	sm := databases.NewShardManager(config)
+	config := dbconn.DefaultShardManagerConfig()
+	config.Strategy = dbconn.LookupSharding
+	sm := dbconn.NewShardManager(config)
 
 	// Create 3 shards
 	for i := 0; i < 3; i++ {
 		db, _ := sql.Open("sqlite3", ":memory:")
 		defer db.Close()
 
-		shard := &databases.Shard{
+		shard := &dbconn.Shard{
 			ID:     i,
 			Name:   fmt.Sprintf("shard-%d", i),
 			DB:     db,
@@ -324,10 +324,10 @@ func crossShardQueryExample() {
 	fmt.Println("\n5. Cross-Shard Queries")
 	fmt.Println("-----------------------")
 
-	config := databases.DefaultShardManagerConfig()
+	config := dbconn.DefaultShardManagerConfig()
 	config.EnableCrossShard = true
 	config.MaxCrossShardQueries = 5
-	sm := databases.NewShardManager(config)
+	sm := dbconn.NewShardManager(config)
 
 	// Create 3 shards with data
 	for i := 0; i < 3; i++ {
@@ -357,7 +357,7 @@ func crossShardQueryExample() {
 			log.Fatal(err)
 		}
 
-		shard := &databases.Shard{
+		shard := &dbconn.Shard{
 			ID:     i,
 			Name:   fmt.Sprintf("shard-%d", i),
 			DB:     db,
@@ -404,7 +404,7 @@ func shardStatisticsExample() {
 	fmt.Println("\n6. Shard Statistics")
 	fmt.Println("--------------------")
 
-	sm := databases.NewShardManager(nil)
+	sm := dbconn.NewShardManager(nil)
 
 	// Create shards
 	for i := 0; i < 3; i++ {
@@ -413,7 +413,7 @@ func shardStatisticsExample() {
 
 		db.Exec("CREATE TABLE test (id INTEGER)")
 
-		shard := &databases.Shard{
+		shard := &dbconn.Shard{
 			ID:     i,
 			Name:   fmt.Sprintf("shard-%d", i),
 			DB:     db,
@@ -452,16 +452,16 @@ func productionShardingExample() {
 	fmt.Println("-----------------------------")
 
 	// Configure shard manager for production
-	config := &databases.ShardManagerConfig{
-		Strategy:             databases.ConsistentHash,
-		HashFunc:             databases.CRC32Hash,
+	config := &dbconn.ShardManagerConfig{
+		Strategy:             dbconn.ConsistentHash,
+		HashFunc:             dbconn.CRC32Hash,
 		VirtualNodes:         150,
 		EnableCrossShard:     true,
 		MaxCrossShardQueries: 10,
 		CrossShardTimeout:    30,
 	}
 
-	sm := databases.NewShardManager(config)
+	sm := dbconn.NewShardManager(config)
 
 	// In production, connect to actual database servers
 	shardConfigs := []struct {
@@ -486,7 +486,7 @@ func productionShardingExample() {
 		db, _ := sql.Open("sqlite3", ":memory:")
 		defer db.Close()
 
-		shard := &databases.Shard{
+		shard := &dbconn.Shard{
 			ID:     sc.id,
 			Name:   sc.name,
 			DB:     db,

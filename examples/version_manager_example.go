@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/mdaxf/iac/databases"
+	dbconn "github.com/mdaxf/iac/databases"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -45,7 +45,7 @@ func basicVersioningExample() {
 	defer db.Close()
 
 	// Create version manager
-	vm, err := databases.NewVersionManager(db, "sqlite3", nil)
+	vm, err := dbconn.NewVersionManager(db, "sqlite3", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,11 +66,11 @@ func migrationExample() {
 	db, _ := sql.Open("sqlite3", ":memory:")
 	defer db.Close()
 
-	vm, _ := databases.NewVersionManager(db, "sqlite3", nil)
+	vm, _ := dbconn.NewVersionManager(db, "sqlite3", nil)
 	ctx := context.Background()
 
 	// Define migrations
-	migrations := []*databases.Migration{
+	migrations := []*dbconn.Migration{
 		{
 			Version:     1,
 			Description: "Create users table",
@@ -149,23 +149,23 @@ func rollbackExample() {
 	db, _ := sql.Open("sqlite3", ":memory:")
 	defer db.Close()
 
-	vm, _ := databases.NewVersionManager(db, "sqlite3", nil)
+	vm, _ := dbconn.NewVersionManager(db, "sqlite3", nil)
 	ctx := context.Background()
 
 	// Register and apply migrations
-	vm.RegisterMigration(&databases.Migration{
+	vm.RegisterMigration(&dbconn.Migration{
 		Version:     1,
 		Description: "Create table1",
 		UpSQL:       "CREATE TABLE table1 (id INTEGER)",
 		DownSQL:     "DROP TABLE table1",
 	})
-	vm.RegisterMigration(&databases.Migration{
+	vm.RegisterMigration(&dbconn.Migration{
 		Version:     2,
 		Description: "Create table2",
 		UpSQL:       "CREATE TABLE table2 (id INTEGER)",
 		DownSQL:     "DROP TABLE table2",
 	})
-	vm.RegisterMigration(&databases.Migration{
+	vm.RegisterMigration(&dbconn.Migration{
 		Version:     3,
 		Description: "Create table3",
 		UpSQL:       "CREATE TABLE table3 (id INTEGER)",
@@ -204,11 +204,11 @@ func compatibilityCheckExample() {
 	db, _ := sql.Open("sqlite3", ":memory:")
 	defer db.Close()
 
-	vm, _ := databases.NewVersionManager(db, "sqlite3", nil)
+	vm, _ := dbconn.NewVersionManager(db, "sqlite3", nil)
 	ctx := context.Background()
 
 	// Apply some migrations
-	vm.RegisterMigration(&databases.Migration{
+	vm.RegisterMigration(&dbconn.Migration{
 		Version: 5,
 		UpSQL:   "CREATE TABLE test (id INTEGER)",
 	})
@@ -256,14 +256,14 @@ func productionExample() {
 	defer db.Close()
 
 	// Configure version manager
-	config := &databases.VersionManagerConfig{
+	config := &dbconn.VersionManagerConfig{
 		VersionTable:      "schema_versions",
 		AutoMigrate:       false, // Manual control in production
 		ValidateChecksums: true,  // Always validate in production
 		AllowOutOfOrder:   false, // Strict ordering
 	}
 
-	vm, _ := databases.NewVersionManager(db, "postgres", config)
+	vm, _ := dbconn.NewVersionManager(db, "postgres", config)
 	ctx := context.Background()
 
 	// Define all application migrations
@@ -281,7 +281,7 @@ func productionExample() {
 
 	// Register all migrations
 	for _, m := range migrations {
-		vm.RegisterMigration(&databases.Migration{
+		vm.RegisterMigration(&dbconn.Migration{
 			Version:     m.version,
 			Description: m.description,
 			UpSQL:       m.upSQL,
@@ -320,7 +320,7 @@ func legacyDatabaseExample() {
 	db, _ := sql.Open("sqlite3", ":memory:")
 	defer db.Close()
 
-	vm, _ := databases.NewVersionManager(db, "sqlite3", nil)
+	vm, _ := dbconn.NewVersionManager(db, "sqlite3", nil)
 	ctx := context.Background()
 
 	// Existing database already at version 10
@@ -337,7 +337,7 @@ func legacyDatabaseExample() {
 	fmt.Printf("  Current version: %d\n", currentVersion)
 
 	// Now can register new migrations starting from 11
-	vm.RegisterMigration(&databases.Migration{
+	vm.RegisterMigration(&dbconn.Migration{
 		Version:     11,
 		Description: "First new migration",
 		UpSQL:       "CREATE TABLE new_feature (id INTEGER)",

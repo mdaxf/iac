@@ -21,7 +21,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/mdaxf/iac/databases"
+	dbconn "github.com/mdaxf/iac/databases"
 )
 
 func main() {
@@ -46,7 +46,7 @@ func basicReplicaManagement() {
 	fmt.Println("----------------------------")
 
 	// Create replica manager with default config
-	rm := databases.NewReplicaManager(nil)
+	rm := dbconn.NewReplicaManager(nil)
 
 	// Register replicas
 	rm.RegisterReplica("replica-1", 1)
@@ -76,10 +76,10 @@ func weightedLoadBalancing() {
 	fmt.Println("---------------------------")
 
 	// Create config with weighted round-robin strategy
-	config := databases.DefaultReplicaManagerConfig()
-	config.Strategy = databases.WeightedRoundRobin
+	config := dbconn.DefaultReplicaManagerConfig()
+	config.Strategy = dbconn.WeightedRoundRobin
 
-	rm := databases.NewReplicaManager(config)
+	rm := dbconn.NewReplicaManager(config)
 
 	// Register replicas with different weights
 	// Higher weight = more traffic
@@ -110,11 +110,11 @@ func replicaLagMonitoring() {
 	fmt.Println("\n3. Replica Lag Monitoring")
 	fmt.Println("--------------------------")
 
-	config := databases.DefaultReplicaManagerConfig()
-	config.Strategy = databases.LeastLag
+	config := dbconn.DefaultReplicaManagerConfig()
+	config.Strategy = dbconn.LeastLag
 	config.MaxReplicaLag = 10.0 // 10 seconds max lag
 
-	rm := databases.NewReplicaManager(config)
+	rm := dbconn.NewReplicaManager(config)
 
 	// Register replicas
 	rm.RegisterReplica("replica-east-1", 1)
@@ -162,10 +162,10 @@ func automaticFailover() {
 	fmt.Println("\n4. Automatic Failover")
 	fmt.Println("----------------------")
 
-	config := databases.DefaultReplicaManagerConfig()
+	config := dbconn.DefaultReplicaManagerConfig()
 	config.FailoverThreshold = 3 // Mark unhealthy after 3 failures
 
-	rm := databases.NewReplicaManager(config)
+	rm := dbconn.NewReplicaManager(config)
 
 	// Register replicas
 	rm.RegisterReplica("replica-1", 1)
@@ -218,12 +218,12 @@ func exampleWithRealDatabase() {
 	fmt.Println("----------------------------------")
 
 	// Create replica manager
-	config := databases.DefaultReplicaManagerConfig()
-	config.Strategy = databases.WeightedRoundRobin
+	config := dbconn.DefaultReplicaManagerConfig()
+	config.Strategy = dbconn.WeightedRoundRobin
 	config.MaxReplicaLag = 10.0
 	config.LagCheckInterval = 5 * time.Second
 
-	rm := databases.NewReplicaManager(config)
+	rm := dbconn.NewReplicaManager(config)
 
 	// Register replicas
 	rm.RegisterReplica("postgres-replica-1", 5)
@@ -293,8 +293,8 @@ func exampleCompleteSetup() {
 	fmt.Println("--------------------------")
 
 	// Step 1: Configure replica manager
-	config := &databases.ReplicaManagerConfig{
-		Strategy:              databases.WeightedRoundRobin,
+	config := &dbconn.ReplicaManagerConfig{
+		Strategy:              dbconn.WeightedRoundRobin,
 		MaxReplicaLag:         5.0,
 		LagCheckInterval:      10 * time.Second,
 		FailoverThreshold:     3,
@@ -304,7 +304,7 @@ func exampleCompleteSetup() {
 		LocalRegion:           "us-east-1",
 	}
 
-	rm := databases.NewReplicaManager(config)
+	rm := dbconn.NewReplicaManager(config)
 
 	// Step 2: Register all replicas with weights
 	replicas := []struct {

@@ -22,7 +22,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/mdaxf/iac/databases"
+	dbconn "github.com/mdaxf/iac/databases"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -51,12 +51,12 @@ func basicCachingExample() {
 	fmt.Println("-----------------------")
 
 	// Create in-memory cache backend
-	backend := databases.NewMemoryCache(10 * 1024 * 1024) // 10MB
+	backend := dbconn.NewMemoryCache(10 * 1024 * 1024) // 10MB
 
 	// Create query cache
-	config := databases.DefaultQueryCacheConfig()
+	config := dbconn.DefaultQueryCacheConfig()
 	config.DefaultTTL = 5 * time.Minute
-	qc := databases.NewQueryCache(config, backend)
+	qc := dbconn.NewQueryCache(config, backend)
 
 	ctx := context.Background()
 
@@ -90,7 +90,7 @@ func basicCachingExample() {
 
 	// Try to get non-existent entry
 	_, err = qc.Get(ctx, query, 99999)
-	if err == databases.ErrCacheMiss {
+	if err == dbconn.ErrCacheMiss {
 		fmt.Println("Cache miss for non-existent key (expected)")
 	}
 }
@@ -99,8 +99,8 @@ func cacheInvalidationExample() {
 	fmt.Println("\n2. Cache Invalidation")
 	fmt.Println("----------------------")
 
-	backend := databases.NewMemoryCache(10 * 1024 * 1024)
-	qc := databases.NewQueryCache(nil, backend)
+	backend := dbconn.NewMemoryCache(10 * 1024 * 1024)
+	qc := dbconn.NewQueryCache(nil, backend)
 	ctx := context.Background()
 
 	// Cache some user queries
@@ -125,7 +125,7 @@ func cacheInvalidationExample() {
 
 	// Check if invalidated
 	_, err := qc.Get(ctx, "SELECT * FROM users WHERE id = ?", 1)
-	if err == databases.ErrCacheMiss {
+	if err == dbconn.ErrCacheMiss {
 		fmt.Println("  User 1 is invalidated (cache miss)")
 	}
 
@@ -141,7 +141,7 @@ func cacheInvalidationExample() {
 
 	// All user queries should be gone
 	_, err = qc.Get(ctx, "SELECT * FROM users WHERE id = ?", 2)
-	if err == databases.ErrCacheMiss {
+	if err == dbconn.ErrCacheMiss {
 		fmt.Println("  All user queries invalidated")
 	}
 
@@ -156,10 +156,10 @@ func cacheMetricsExample() {
 	fmt.Println("\n3. Cache Metrics")
 	fmt.Println("-----------------")
 
-	backend := databases.NewMemoryCache(10 * 1024 * 1024)
-	config := databases.DefaultQueryCacheConfig()
+	backend := dbconn.NewMemoryCache(10 * 1024 * 1024)
+	config := dbconn.DefaultQueryCacheConfig()
 	config.EnableMetrics = true
-	qc := databases.NewQueryCache(config, backend)
+	qc := dbconn.NewQueryCache(config, backend)
 	ctx := context.Background()
 
 	// Simulate some cache activity
@@ -195,8 +195,8 @@ func getOrSetExample() {
 	fmt.Println("\n4. GetOrSet Pattern")
 	fmt.Println("--------------------")
 
-	backend := databases.NewMemoryCache(10 * 1024 * 1024)
-	qc := databases.NewQueryCache(nil, backend)
+	backend := dbconn.NewMemoryCache(10 * 1024 * 1024)
+	qc := dbconn.NewQueryCache(nil, backend)
 	ctx := context.Background()
 
 	// Simulate database
@@ -266,12 +266,12 @@ func ttlConfigExample() {
 	fmt.Println("\n5. TTL Configuration")
 	fmt.Println("---------------------")
 
-	backend := databases.NewMemoryCache(10 * 1024 * 1024)
-	config := databases.DefaultQueryCacheConfig()
+	backend := dbconn.NewMemoryCache(10 * 1024 * 1024)
+	config := dbconn.DefaultQueryCacheConfig()
 
 	// Short TTL for frequently changing data
 	config.DefaultTTL = 200 * time.Millisecond
-	qc := databases.NewQueryCache(config, backend)
+	qc := dbconn.NewQueryCache(config, backend)
 	ctx := context.Background()
 
 	query := "SELECT COUNT(*) FROM active_sessions"
@@ -292,7 +292,7 @@ func ttlConfigExample() {
 
 	// Should be expired
 	_, err = qc.Get(ctx, query)
-	if err == databases.ErrCacheMiss {
+	if err == dbconn.ErrCacheMiss {
 		fmt.Println("  After 250ms: Cache miss (expired)")
 	}
 }
@@ -318,15 +318,15 @@ func completeCachingExample() {
 	db.Exec("INSERT INTO users VALUES (2, 'Bob', 'bob@example.com', datetime('now'))")
 
 	// Setup cache
-	backend := databases.NewMemoryCache(10 * 1024 * 1024)
-	config := &databases.QueryCacheConfig{
+	backend := dbconn.NewMemoryCache(10 * 1024 * 1024)
+	config := &dbconn.QueryCacheConfig{
 		Enabled:        true,
 		DefaultTTL:     5 * time.Minute,
 		MaxCacheSize:   1024 * 1024,
 		CacheKeyPrefix: "app:users:",
 		EnableMetrics:  true,
 	}
-	qc := databases.NewQueryCache(config, backend)
+	qc := dbconn.NewQueryCache(config, backend)
 	ctx := context.Background()
 
 	// Service layer function

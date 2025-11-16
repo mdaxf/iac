@@ -20,7 +20,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/mdaxf/iac/databases"
+	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/dbinitializer"
 	"github.com/mdaxf/iac/metrics"
 )
@@ -38,7 +38,7 @@ func main() {
 	poolManager := dbInit.GetPoolManager()
 
 	// Create metrics collector
-	collector := databases.NewMetricsCollector()
+	collector := dbconn.NewMetricsCollector()
 
 	// Set custom slow query threshold (default is 1 second)
 	collector.SetSlowQueryThreshold(500 * time.Millisecond)
@@ -58,7 +58,7 @@ func main() {
 	// Wait for server to start
 	time.Sleep(1 * time.Second)
 
-	fmt.Println("\n2. Collecting metrics from databases...")
+	fmt.Println("\n2. Collecting metrics from dbconn...")
 
 	// Start periodic metrics collection
 	go collectMetricsPeriodically(poolManager, collector)
@@ -77,7 +77,7 @@ func main() {
 }
 
 // collectMetricsPeriodically collects metrics from all databases every 5 seconds
-func collectMetricsPeriodically(poolManager *databases.PoolManager, collector *databases.MetricsCollector) {
+func collectMetricsPeriodically(poolManager *dbconn.PoolManager, collector *dbconn.MetricsCollector) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
@@ -108,7 +108,7 @@ func collectMetricsPeriodically(poolManager *databases.PoolManager, collector *d
 }
 
 // simulateDatabaseOperations simulates various database operations
-func simulateDatabaseOperations(poolManager *databases.PoolManager, collector *databases.MetricsCollector) {
+func simulateDatabaseOperations(poolManager *dbconn.PoolManager, collector *dbconn.MetricsCollector) {
 	dbTypes := poolManager.GetAllDatabases()
 
 	// Simulate operations for each database type
@@ -118,7 +118,7 @@ func simulateDatabaseOperations(poolManager *databases.PoolManager, collector *d
 }
 
 // simulateOperationsForDB simulates operations for a specific database
-func simulateOperationsForDB(poolManager *databases.PoolManager, collector *databases.MetricsCollector, dbType string) {
+func simulateOperationsForDB(poolManager *dbconn.PoolManager, collector *dbconn.MetricsCollector, dbType string) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 

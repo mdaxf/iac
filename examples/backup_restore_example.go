@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/mdaxf/iac/databases"
+	dbconn "github.com/mdaxf/iac/databases"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -49,7 +49,7 @@ func basicBackupExample() {
 	fmt.Println("----------------")
 
 	// Create backup manager with default config
-	bm, err := databases.NewBackupManager(nil)
+	bm, err := dbconn.NewBackupManager(nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -86,9 +86,9 @@ func customConfigExample() {
 	fmt.Println("--------------------------------")
 
 	// Configure backup manager
-	config := &databases.BackupConfig{
+	config := &dbconn.BackupConfig{
 		BackupDir:          "./my_backups",
-		Format:             databases.CompressedFormat,
+		Format:             dbconn.CompressedFormat,
 		Compression:        true,
 		MaxBackups:         20,
 		RetentionDays:      60,
@@ -96,7 +96,7 @@ func customConfigExample() {
 		ScheduleExpression: "0 3 * * *", // 3 AM daily
 	}
 
-	bm, err := databases.NewBackupManager(config)
+	bm, err := dbconn.NewBackupManager(config)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func manageBackupsExample() {
 	fmt.Println("\n3. Manage Backups")
 	fmt.Println("------------------")
 
-	bm, _ := databases.NewBackupManager(nil)
+	bm, _ := dbconn.NewBackupManager(nil)
 
 	// List all backups
 	backups := bm.ListBackups()
@@ -152,7 +152,7 @@ func restoreExample() {
 	fmt.Println("\n4. Restore from Backup")
 	fmt.Println("-----------------------")
 
-	bm, _ := databases.NewBackupManager(nil)
+	bm, _ := dbconn.NewBackupManager(nil)
 
 	// Open database connection
 	db, err := sql.Open("sqlite3", ":memory:")
@@ -164,7 +164,7 @@ func restoreExample() {
 	ctx := context.Background()
 
 	// Restore options
-	options := &databases.RestoreOptions{
+	options := &dbconn.RestoreOptions{
 		DropExisting:     true,
 		CreateDatabase:   true,
 		SkipVerification: false,
@@ -192,10 +192,10 @@ func scheduledBackupExample() {
 	fmt.Println("\n5. Scheduled Backups")
 	fmt.Println("---------------------")
 
-	config := databases.DefaultBackupConfig()
+	config := dbconn.DefaultBackupConfig()
 	config.ScheduleExpression = "0 2 * * *" // 2 AM daily
 
-	bm, _ := databases.NewBackupManager(config)
+	bm, _ := dbconn.NewBackupManager(config)
 
 	db, _ := sql.Open("sqlite3", ":memory:")
 	defer db.Close()
@@ -222,16 +222,16 @@ func completeMySQLExample() {
 	fmt.Println("----------------------------------")
 
 	// Configure for MySQL
-	config := &databases.BackupConfig{
+	config := &dbconn.BackupConfig{
 		BackupDir:     "/var/backups/mysql",
-		Format:        databases.SQLFormat,
+		Format:        dbconn.SQLFormat,
 		Compression:   true,
 		MaxBackups:    30,
 		RetentionDays: 90,
 		VerifyBackup:  true,
 	}
 
-	bm, err := databases.NewBackupManager(config)
+	bm, err := dbconn.NewBackupManager(config)
 	if err != nil {
 		log.Fatalf("Failed to create backup manager: %v", err)
 	}
@@ -279,16 +279,16 @@ func completePostgreSQLExample() {
 	fmt.Println("\n7. Complete PostgreSQL Backup Example")
 	fmt.Println("---------------------------------------")
 
-	config := &databases.BackupConfig{
+	config := &dbconn.BackupConfig{
 		BackupDir:     "/var/backups/postgres",
-		Format:        databases.BinaryFormat,
+		Format:        dbconn.BinaryFormat,
 		Compression:   true,
 		MaxBackups:    14,
 		RetentionDays: 30,
 		VerifyBackup:  true,
 	}
 
-	bm, err := databases.NewBackupManager(config)
+	bm, err := dbconn.NewBackupManager(config)
 	if err != nil {
 		log.Fatalf("Failed to create backup manager: %v", err)
 	}
@@ -318,7 +318,7 @@ func completePostgreSQLExample() {
 
 	// Restore example
 	fmt.Println("\nRestore Process:")
-	options := &databases.RestoreOptions{
+	options := &dbconn.RestoreOptions{
 		DropExisting:   false,
 		CreateDatabase: false,
 		TargetDatabase: "mydb_restored",
@@ -337,7 +337,7 @@ func pointInTimeRecoveryExample() {
 	fmt.Println("\n8. Point-in-Time Recovery")
 	fmt.Println("--------------------------")
 
-	bm, _ := databases.NewBackupManager(nil)
+	bm, _ := dbconn.NewBackupManager(nil)
 
 	// Find backup closest to target time
 	// targetTime := time.Now().Add(-24 * time.Hour)
@@ -349,7 +349,7 @@ func pointInTimeRecoveryExample() {
 	fmt.Println("  4. Apply transaction logs up to target time")
 	fmt.Println("  5. Verify data consistency")
 
-	options := &databases.RestoreOptions{
+	options := &dbconn.RestoreOptions{
 		DropExisting: true,
 		// PointInTime:  &targetTime,
 	}

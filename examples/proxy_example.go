@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mdaxf/iac/databases"
+	dbconn "github.com/mdaxf/iac/databases"
 )
 
 func main() {
@@ -37,7 +37,7 @@ func basicProxyExample() {
 	fmt.Println("------------------------")
 
 	// Create proxy with default config
-	proxy := databases.NewDatabaseProxy(nil)
+	proxy := dbconn.NewDatabaseProxy(nil)
 
 	fmt.Println("Database proxy initialized")
 	fmt.Printf("  Max Connections: %d\n", proxy.config.MaxConnections)
@@ -52,10 +52,10 @@ func queryRewriterExample() {
 	fmt.Println("\n2. Query Rewriting")
 	fmt.Println("-------------------")
 
-	rewriter := databases.NewQueryRewriter()
+	rewriter := dbconn.NewQueryRewriter()
 
 	// Add custom rewrite rules
-	rules := []databases.RewriteRule{
+	rules := []dbconn.RewriteRule{
 		{
 			Name:    "optimize-select-star",
 			Pattern: "SELECT * FROM users",
@@ -94,7 +94,7 @@ func loadBalancingExample() {
 	fmt.Println("------------------")
 
 	// Create load balancer
-	lb := databases.NewLoadBalancer(databases.RoundRobin)
+	lb := dbconn.NewLoadBalancer(dbconn.RoundRobin)
 
 	fmt.Println("Load balancer initialized with Round Robin strategy")
 	fmt.Println("  Strategy: Round Robin")
@@ -116,7 +116,7 @@ func queryLoggingExample() {
 	fmt.Println("\n4. Query Logging")
 	fmt.Println("-----------------")
 
-	logger := databases.NewQueryLogger(100)
+	logger := dbconn.NewQueryLogger(100)
 
 	// Simulate some queries
 	queries := []struct {
@@ -147,7 +147,7 @@ func metricsExample() {
 	fmt.Println("\n5. Proxy Metrics")
 	fmt.Println("-----------------")
 
-	proxy := databases.NewDatabaseProxy(nil)
+	proxy := dbconn.NewDatabaseProxy(nil)
 
 	// Simulate some query activity
 	proxy.totalQueries = 1000
@@ -179,7 +179,7 @@ func completeProxyExample() {
 	fmt.Println("------------------------")
 
 	// Configure proxy
-	config := &databases.ProxyConfig{
+	config := &dbconn.ProxyConfig{
 		MaxConnections:      200,
 		IdleTimeout:         10 * time.Minute,
 		QueryTimeout:        60 * time.Second,
@@ -189,7 +189,7 @@ func completeProxyExample() {
 		SlowQueryThreshold:  500 * time.Millisecond,
 	}
 
-	proxy := databases.NewDatabaseProxy(config)
+	proxy := dbconn.NewDatabaseProxy(config)
 
 	fmt.Println("Production proxy configuration:")
 	fmt.Printf("  Max Connections: %d\n", config.MaxConnections)

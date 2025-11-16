@@ -1,6 +1,6 @@
 // Copyright 2023 IAC. All Rights Reserved.
 
-package databases
+package dbconn
 
 import (
 	"context"
