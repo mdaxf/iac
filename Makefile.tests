@@ -1,0 +1,106 @@
+# IAC Database Integration Tests Makefile
+# This Makefile provides convenient targets for running database integration tests
+
+.PHONY: test-all test-relational test-document test-mysql test-postgres test-mongodb test-mssql test-oracle test-help
+
+# Default target
+test-all:
+	@echo "Running all database integration tests..."
+	@./scripts/run-tests.sh all -v
+
+# Test categories
+test-relational:
+	@echo "Running relational database tests..."
+	@./scripts/run-tests.sh relational -v
+
+test-document:
+	@echo "Running document database tests..."
+	@./scripts/run-tests.sh document -v
+
+# Individual database tests
+test-mysql:
+	@echo "Running MySQL integration tests..."
+	@./scripts/run-tests.sh mysql -v
+
+test-postgres:
+	@echo "Running PostgreSQL integration tests..."
+	@./scripts/run-tests.sh postgres -v
+
+test-mongodb:
+	@echo "Running MongoDB integration tests..."
+	@./scripts/run-tests.sh mongodb -v
+
+test-mssql:
+	@echo "Running MSSQL integration tests..."
+	@export SKIP_mssql_TESTS=false && ./scripts/run-tests.sh all -v
+
+test-oracle:
+	@echo "Running Oracle integration tests..."
+	@export SKIP_oracle_TESTS=false && ./scripts/run-tests.sh all -v
+
+# Test coverage
+test-coverage:
+	@echo "Running tests with coverage..."
+	@go test -cover -coverprofile=coverage.out ./databases/integration_test.go ./documents/integration_test.go
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
+# Quick tests (skip slow databases)
+test-quick:
+	@echo "Running quick tests (MySQL, PostgreSQL, MongoDB only)..."
+	@export SKIP_mssql_TESTS=true && \
+	 export SKIP_oracle_TESTS=true && \
+	 ./scripts/run-tests.sh all -v
+
+# Setup test databases using Docker
+test-setup:
+	@echo "Starting test databases..."
+	@docker-compose -f docker-compose.databases.yml up -d
+	@echo "Waiting for databases to be ready..."
+	@sleep 10
+	@./scripts/start-databases.sh
+
+# Teardown test databases
+test-teardown:
+	@echo "Stopping test databases..."
+	@docker-compose -f docker-compose.databases.yml down
+
+# Clean test database volumes
+test-clean:
+	@echo "Cleaning test databases (WARNING: This deletes all data)..."
+	@docker-compose -f docker-compose.databases.yml down -v
+
+# Help
+test-help:
+	@echo "IAC Database Integration Tests"
+	@echo ""
+	@echo "Available targets:"
+	@echo "  test-all          - Run all integration tests"
+	@echo "  test-relational   - Run relational database tests only"
+	@echo "  test-document     - Run document database tests only"
+	@echo "  test-mysql        - Run MySQL tests only"
+	@echo "  test-postgres     - Run PostgreSQL tests only"
+	@echo "  test-mongodb      - Run MongoDB tests only"
+	@echo "  test-mssql        - Run MSSQL tests only"
+	@echo "  test-oracle       - Run Oracle tests only"
+	@echo "  test-coverage     - Run tests with coverage report"
+	@echo "  test-quick        - Run quick tests (skip Oracle/MSSQL)"
+	@echo "  test-setup        - Start test databases using Docker"
+	@echo "  test-teardown     - Stop test databases"
+	@echo "  test-clean        - Clean test databases and volumes"
+	@echo "  test-help         - Show this help message"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make test-all                  # Run all tests"
+	@echo "  make test-mysql                # Run MySQL tests only"
+	@echo "  make test-setup test-all       # Setup databases and run all tests"
+	@echo ""
+	@echo "Environment variables:"
+	@echo "  TEST_MYSQL_HOST    - MySQL host (default: localhost)"
+	@echo "  TEST_POSTGRES_HOST - PostgreSQL host (default: localhost)"
+	@echo "  TEST_MONGODB_HOST  - MongoDB host (default: localhost)"
+	@echo "  SKIP_mysql_TESTS   - Skip MySQL tests (default: false)"
+	@echo "  SKIP_postgres_TESTS - Skip PostgreSQL tests (default: false)"
+	@echo "  SKIP_mongodb_TESTS - Skip MongoDB tests (default: false)"
+	@echo "  SKIP_mssql_TESTS   - Skip MSSQL tests (default: true)"
+	@echo "  SKIP_oracle_TESTS  - Skip Oracle tests (default: true)"
