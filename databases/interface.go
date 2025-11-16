@@ -73,6 +73,15 @@ type Dialect interface {
 	// Query Translation
 	TranslatePagination(query string, limit, offset int) string
 	TranslateUpsert(table string, columns []string, conflictColumns []string) string
+
+	// DDL Generation - Schema Management
+	// These methods enable database-agnostic table schema definitions
+	CreateTableDDL(schema *TableSchema) string
+	AddColumnDDL(tableName string, column *ColumnInfo) string
+	DropColumnDDL(tableName, columnName string) string
+	AlterColumnDDL(tableName string, column *ColumnInfo) string
+	CreateIndexDDL(tableName string, index *IndexInfo) string
+	DropIndexDDL(tableName, indexName string) string
 }
 
 // DBConfig represents database connection configuration
