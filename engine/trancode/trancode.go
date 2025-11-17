@@ -314,6 +314,9 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 		debugHelper.EmitTranCodeStart()
 	}
 
+	// Initialize transaction state for tracking
+	txState := types.TransactionRunning
+
 	// ROLLBACK DESIGN: This defer/recover pattern is intentional.
 	// When any function fails or ThrowError executes with iserror=true,
 	// we catch the panic here and rollback the entire transaction to
@@ -394,7 +397,6 @@ func (t *TranFlow) Execute() (map[string]interface{}, error) {
 	userSession := map[string]interface{}{}
 	var err error
 	newTransaction := false
-	txState := types.TransactionRunning
 
 	// TRANSACTION MANAGEMENT: Proper coordination of transaction lifecycle
 	if t.DBTx == nil {
