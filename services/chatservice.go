@@ -195,7 +195,7 @@ func (s *ChatService) getRelevantBusinessEntities(databaseAlias, question string
 
 	// Use full-text search for now (vector search would be better)
 	err := s.DB.Where("databasealias = ?", databaseAlias).
-		Where("MATCH(entity_name, description) AGAINST(? IN NATURAL LANGUAGE MODE)", question).
+		Where("MATCH(entityname, description) AGAINST(? IN NATURAL LANGUAGE MODE)", question).
 		Limit(5).
 		Find(&entities).Error
 
@@ -208,7 +208,7 @@ func (s *ChatService) getRelevantTableMetadata(databaseAlias, question string) (
 
 	// Use full-text search for now
 	err := s.DB.Where("databasealias = ?", databaseAlias).
-		Where("MATCH(description, column_comment) AGAINST(? IN NATURAL LANGUAGE MODE)", question).
+		Where("MATCH(description, columncomment) AGAINST(? IN NATURAL LANGUAGE MODE)", question).
 		Limit(10).
 		Find(&metadata).Error
 
