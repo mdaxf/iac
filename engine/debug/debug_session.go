@@ -107,7 +107,6 @@ func (ds *DebugSession) GetExecutionTrace() *ExecutionTrace {
 		EndTime:      ds.EndTime,
 		Status:       ds.Status,
 		Events:       events,
-		EventCount:   ds.EventCount,
 	}
 }
 

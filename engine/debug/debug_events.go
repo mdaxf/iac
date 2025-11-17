@@ -11,32 +11,32 @@ import (
 type EventType string
 
 const (
-	EventTranCodeStart      EventType = "trancode.start"
-	EventTranCodeComplete   EventType = "trancode.complete"
-	EventTranCodeError      EventType = "trancode.error"
-	EventFuncGroupStart     EventType = "funcgroup.start"
-	EventFuncGroupComplete  EventType = "funcgroup.complete"
-	EventFuncGroupRouting   EventType = "funcgroup.routing"
-	EventFunctionStart      EventType = "function.start"
-	EventFunctionComplete   EventType = "function.complete"
-	EventFunctionError      EventType = "function.error"
-	EventInputMapping       EventType = "input.mapping"
-	EventOutputMapping      EventType = "output.mapping"
-	EventDatabaseQuery      EventType = "database.query"
-	EventScriptExecution    EventType = "script.execution"
-	EventValidation         EventType = "validation"
-	EventTransactionBegin   EventType = "transaction.begin"
-	EventTransactionCommit  EventType = "transaction.commit"
+	EventTranCodeStart       EventType = "trancode.start"
+	EventTranCodeComplete    EventType = "trancode.complete"
+	EventTranCodeError       EventType = "trancode.error"
+	EventFuncGroupStart      EventType = "funcgroup.start"
+	EventFuncGroupComplete   EventType = "funcgroup.complete"
+	EventFuncGroupRouting    EventType = "funcgroup.routing"
+	EventFunctionStart       EventType = "function.start"
+	EventFunctionComplete    EventType = "function.complete"
+	EventFunctionError       EventType = "function.error"
+	EventInputMapping        EventType = "input.mapping"
+	EventOutputMapping       EventType = "output.mapping"
+	EventDatabaseQuery       EventType = "database.query"
+	EventScriptExecution     EventType = "script.execution"
+	EventValidation          EventType = "validation"
+	EventTransactionBegin    EventType = "transaction.begin"
+	EventTransactionCommit   EventType = "transaction.commit"
 	EventTransactionRollback EventType = "transaction.rollback"
 )
 
 // DebugEvent represents a single debug event during execution
 type DebugEvent struct {
-	ID            string                 `json:"id"`
-	SessionID     string                 `json:"session_id"`
-	Timestamp     time.Time              `json:"timestamp"`
-	EventType     EventType              `json:"event_type"`
-	Level         string                 `json:"level"` // DEBUG, INFO, WARNING, ERROR
+	ID        string    `json:"id"`
+	SessionID string    `json:"session_id"`
+	Timestamp time.Time `json:"timestamp"`
+	EventType EventType `json:"event_type"`
+	Level     string    `json:"level"` // DEBUG, INFO, WARNING, ERROR
 
 	// Execution context
 	TranCodeName    string `json:"trancode_name,omitempty"`
@@ -46,26 +46,26 @@ type DebugEvent struct {
 	FunctionType    string `json:"function_type,omitempty"`
 
 	// Execution details
-	ExecutionStep   int                    `json:"execution_step"`
-	ExecutionTime   time.Duration          `json:"execution_time,omitempty"`
-	StartTime       time.Time              `json:"start_time,omitempty"`
-	EndTime         time.Time              `json:"end_time,omitempty"`
+	ExecutionStep int           `json:"execution_step"`
+	ExecutionTime time.Duration `json:"execution_time,omitempty"`
+	StartTime     time.Time     `json:"start_time,omitempty"`
+	EndTime       time.Time     `json:"end_time,omitempty"`
 
 	// Data
-	Inputs          map[string]interface{} `json:"inputs,omitempty"`
-	Outputs         map[string]interface{} `json:"outputs,omitempty"`
-	RoutingValue    interface{}            `json:"routing_value,omitempty"`
-	RoutingPath     string                 `json:"routing_path,omitempty"`
+	Inputs       map[string]interface{} `json:"inputs,omitempty"`
+	Outputs      map[string]interface{} `json:"outputs,omitempty"`
+	RoutingValue interface{}            `json:"routing_value,omitempty"`
+	RoutingPath  string                 `json:"routing_path,omitempty"`
 
 	// Additional context
-	Message         string                 `json:"message,omitempty"`
-	Error           string                 `json:"error,omitempty"`
-	StackTrace      string                 `json:"stack_trace,omitempty"`
-	Metadata        map[string]interface{} `json:"metadata,omitempty"`
+	Message    string                 `json:"message,omitempty"`
+	Error      string                 `json:"error,omitempty"`
+	StackTrace string                 `json:"stack_trace,omitempty"`
+	Metadata   map[string]interface{} `json:"metadata,omitempty"`
 
 	// Performance metrics
-	MemoryUsage     int64                  `json:"memory_usage,omitempty"`
-	CPUTime         time.Duration          `json:"cpu_time,omitempty"`
+	MemoryUsage int64         `json:"memory_usage,omitempty"`
+	CPUTime     time.Duration `json:"cpu_time,omitempty"`
 }
 
 // NewDebugEvent creates a new debug event
@@ -160,6 +160,12 @@ func (de *DebugEvent) WithMessage(message string) *DebugEvent {
 // WithMetadata adds custom metadata to the event
 func (de *DebugEvent) WithMetadata(key string, value interface{}) *DebugEvent {
 	de.Metadata[key] = value
+	return de
+}
+
+// WithStep sets the execution step number
+func (de *DebugEvent) WithStep(step int) *DebugEvent {
+	de.ExecutionStep = step
 	return de
 }
 

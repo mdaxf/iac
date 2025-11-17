@@ -86,8 +86,8 @@ func (e *EnhancedPythonExecutor) Execute(
 		// Check if it's a timeout
 		if ctx.Err() == context.DeadlineExceeded {
 			return nil, types.NewTimeoutError(
-				fmt.Sprintf("%s timed out after %v", scriptType, e.Config.Timeout),
-				err,
+				fmt.Sprintf("%s execution", scriptType),
+				e.Config.Timeout,
 			).WithContext(&types.ExecutionContext{
 				FunctionType:  scriptType,
 				ExecutionTime: startTime,
@@ -101,6 +101,7 @@ func (e *EnhancedPythonExecutor) Execute(
 		}
 
 		return nil, types.NewScriptError(
+			scriptType,
 			fmt.Sprintf("%s failed", scriptType),
 			err,
 		).WithContext(&types.ExecutionContext{
@@ -145,6 +146,7 @@ func (e *EnhancedPythonExecutor) Execute(
 
 		// Otherwise, return error
 		return nil, types.NewScriptError(
+			scriptType,
 			"Failed to parse Python output as JSON",
 			err,
 		).WithDetail("output", string(outputBytes))
@@ -161,7 +163,7 @@ func (e *EnhancedPythonExecutor) Execute(
 		}
 	}
 
-	e.Log.Performance(fmt.Sprintf("%s executed in %v", scriptType, executionTime))
+	e.Log.Info(fmt.Sprintf("%s executed in %v", scriptType, executionTime))
 
 	return result, nil
 }
@@ -187,6 +189,7 @@ func (e *EnhancedPythonExecutor) buildWrapperScript(
 		pyValue, err := e.convertToPythonValue(value)
 		if err != nil {
 			return "", types.NewScriptError(
+				"Python",
 				fmt.Sprintf("Failed to convert input '%s' to Python value", key),
 				err,
 			)
@@ -356,7 +359,7 @@ func (cf *PythonExprFuncs) Execute(f *Funcs) {
 				ExecutionTime: startTime,
 			}
 
-			structuredErr := types.NewScriptError(errMsg, nil).
+			structuredErr := types.NewScriptError("PythonExpr", errMsg, nil).
 				WithContext(execContext).
 				WithRollbackReason("Python expression execution failed")
 
@@ -464,7 +467,7 @@ func (cf *PythonScriptFuncs) Execute(f *Funcs) {
 				ExecutionTime: startTime,
 			}
 
-			structuredErr := types.NewScriptError(errMsg, nil).
+			structuredErr := types.NewScriptError("PythonScript", errMsg, nil).
 				WithContext(execContext).
 				WithRollbackReason("Python script execution failed")
 

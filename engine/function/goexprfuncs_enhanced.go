@@ -83,7 +83,7 @@ func (e *EnhancedGoExprExecutor) Execute(
 	}
 
 	executionTime := time.Since(startTime)
-	e.Log.Performance(fmt.Sprintf("Go expression executed in %v", executionTime))
+	e.Log.Info(fmt.Sprintf("Go expression executed in %v", executionTime))
 
 	return outputMap, nil
 }
@@ -129,8 +129,8 @@ func (e *EnhancedGoExprExecutor) executeWithContext(
 
 	case <-ctx.Done():
 		return nil, types.NewTimeoutError(
-			"Go expression execution cancelled or timed out",
-			ctx.Err(),
+			"Go expression execution",
+			0, // timeout value not available from context
 		)
 	}
 }
@@ -240,7 +240,7 @@ func (cf *EnhancedGoExprFuncs) Execute(f *Funcs) {
 
 		// Trigger rollback if it's a critical error
 		if bpmErr, ok := scriptErr.(*types.BPMError); ok {
-			if bpmErr.Severity == types.SeverityCritical || bpmErr.Severity == types.SeverityError {
+			if bpmErr.Severity == types.ErrorSeverityCritical || bpmErr.Severity == types.ErrorSeverityError {
 				panic(bpmErr)
 			}
 		}
