@@ -110,7 +110,7 @@ func PackageDatabase(w http.ResponseWriter, r *http.Request) {
 
 	// Save package to database
 	repo := repository.NewPackageRepository(user, dbTx)
-	packageRecord, err := repo.SavePackage(pkg, req.Environment)
+	packageRecord, err := repo.SavePackage(pkg, req.Environment, &req.Filter)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to save package: %v", err), http.StatusInternalServerError)
 		return
@@ -198,6 +198,45 @@ func PackageDocuments(w http.ResponseWriter, r *http.Request) {
 
 	pkg.Description = req.Description
 
+	// Save package to database
+	dbTx, err := dbconn.DB.Begin()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to begin transaction: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer dbTx.Rollback()
+
+	repo := repository.NewPackageRepository(user, dbTx)
+	packageRecord, err := repo.SavePackage(pkg, req.Environment, &req.Filter)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to save package: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Record pack action
+	now := time.Now()
+	packAction := &repository.PackageActionRecord{
+		PackageID:            pkg.ID,
+		ActionType:           repository.ActionTypePack,
+		ActionStatus:         repository.ActionStatusCompleted,
+		SourceEnvironment:    req.Environment,
+		PerformedBy:          user,
+		PerformedAt:          now,
+		StartedAt:            &startTime,
+		CompletedAt:          &now,
+		CollectionsProcessed: len(pkg.DocumentData.Collections),
+	}
+
+	// Calculate documents processed
+	for _, collection := range pkg.DocumentData.Collections {
+		packAction.RecordsProcessed += collection.DocumentCount
+		packAction.RecordsSucceeded += collection.DocumentCount
+	}
+
+	if err := repo.SaveAction(packAction); err != nil {
+		iLog.Warn(fmt.Sprintf("Failed to save pack action: %v", err))
+	}
+
 	// Export package
 	data, err := packager.ExportPackage(pkg)
 	if err != nil {
@@ -205,12 +244,24 @@ func PackageDocuments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return package
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s-v%s.json", pkg.Name, pkg.Version))
-	w.Write(data)
+	dbTx.Commit()
 
-	iLog.Info(fmt.Sprintf("Documents packaged: %s v%s", pkg.Name, pkg.Version))
+	// Return package with metadata
+	response := map[string]interface{}{
+		"package_id":   packageRecord.ID,
+		"name":         packageRecord.Name,
+		"version":      packageRecord.Version,
+		"checksum":     packageRecord.Checksum,
+		"file_size":    packageRecord.FileSize,
+		"collections":  len(pkg.DocumentData.Collections),
+		"documents":    packAction.RecordsProcessed,
+		"package_data": data,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+
+	iLog.Info(fmt.Sprintf("Documents packaged and saved: %s v%s (ID: %s)", pkg.Name, pkg.Version, pkg.ID))
 }
 
 // DeployDatabasePackage deploys a database package

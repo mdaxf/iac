@@ -47,7 +47,7 @@ func NewPackageRepository(user string, dbTx *sql.Tx) *PackageRepository {
 }
 
 // SavePackage saves a package to the database
-func (pr *PackageRepository) SavePackage(pkg *models.Package, environment string) (*PackageRecord, error) {
+func (pr *PackageRepository) SavePackage(pkg *models.Package, environment string, filter *models.PackageFilter) (*PackageRecord, error) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
@@ -66,8 +66,18 @@ func (pr *PackageRepository) SavePackage(pkg *models.Package, environment string
 	hash := sha256.Sum256(packageData)
 	checksum := hex.EncodeToString(hash[:])
 
+	// Build enhanced metadata with packaged entities and selection criteria
+	enhancedMetadata := pr.buildPackageMetadata(pkg, filter)
+
+	// Merge with existing metadata
+	if pkg.Metadata != nil {
+		for k, v := range pkg.Metadata {
+			enhancedMetadata[k] = v
+		}
+	}
+
 	// Serialize metadata
-	metadataJSON, _ := json.Marshal(pkg.Metadata)
+	metadataJSON, _ := json.Marshal(enhancedMetadata)
 	depsJSON, _ := json.Marshal(pkg.Dependencies)
 
 	record := &PackageRecord{
@@ -445,6 +455,131 @@ func (pr *PackageRepository) SaveDeployment(deployment *PackageDeployment) error
 	)
 
 	return err
+}
+
+// buildPackageMetadata builds comprehensive metadata about packaged entities and selection criteria
+func (pr *PackageRepository) buildPackageMetadata(pkg *models.Package, filter *models.PackageFilter) map[string]interface{} {
+	metadata := make(map[string]interface{})
+
+	// Package type specific metadata
+	if pkg.PackageType == "database" && pkg.DatabaseData != nil {
+		entities := make([]map[string]interface{}, 0)
+		totalRecords := 0
+
+		for _, table := range pkg.DatabaseData.Tables {
+			entity := map[string]interface{}{
+				"name":           table.TableName,
+				"type":           "table",
+				"row_count":      table.RowCount,
+				"column_count":   len(table.Columns),
+				"pk_columns":     table.PKColumns,
+				"fk_count":       len(table.FKColumns),
+				"pk_strategy":    pkg.DatabaseData.PKMappings[table.TableName].Strategy,
+			}
+
+			// Add WHERE clause if present
+			if filter != nil && filter.WhereClause != nil {
+				if whereClause, ok := filter.WhereClause[table.TableName]; ok {
+					entity["where_clause"] = whereClause
+				}
+			}
+
+			// Add excluded columns if present
+			if filter != nil && filter.ExcludeColumns != nil {
+				if excludedCols, ok := filter.ExcludeColumns[table.TableName]; ok && len(excludedCols) > 0 {
+					entity["excluded_columns"] = excludedCols
+				}
+			}
+
+			entities = append(entities, entity)
+			totalRecords += table.RowCount
+		}
+
+		metadata["packaged_entities"] = entities
+		metadata["entity_count"] = len(entities)
+		metadata["total_records"] = totalRecords
+		metadata["total_relationships"] = len(pkg.DatabaseData.Relationships)
+
+		// Selection criteria
+		if filter != nil {
+			selectionCriteria := make(map[string]interface{})
+			if len(filter.Tables) > 0 {
+				selectionCriteria["tables"] = filter.Tables
+			}
+			if filter.IncludeRelated {
+				selectionCriteria["include_related"] = true
+				selectionCriteria["max_depth"] = filter.MaxDepth
+			}
+			if len(filter.WhereClause) > 0 {
+				selectionCriteria["where_clauses"] = filter.WhereClause
+			}
+			if len(filter.ExcludeColumns) > 0 {
+				selectionCriteria["excluded_columns"] = filter.ExcludeColumns
+			}
+			metadata["selection_criteria"] = selectionCriteria
+		}
+
+	} else if pkg.PackageType == "document" && pkg.DocumentData != nil {
+		entities := make([]map[string]interface{}, 0)
+		totalDocuments := 0
+
+		for _, collection := range pkg.DocumentData.Collections {
+			entity := map[string]interface{}{
+				"name":           collection.CollectionName,
+				"type":           "collection",
+				"document_count": collection.DocumentCount,
+				"index_count":    len(collection.IndexInfo),
+				"id_field":       collection.IDField,
+				"id_strategy":    pkg.DocumentData.IDMappings[collection.CollectionName].Strategy,
+			}
+
+			// Add query filter if present
+			if filter != nil && filter.WhereClause != nil {
+				if queryFilter, ok := filter.WhereClause[collection.CollectionName]; ok {
+					entity["query_filter"] = queryFilter
+				}
+			}
+
+			// Add excluded fields if present
+			if filter != nil && filter.ExcludeFields != nil {
+				if excludedFields, ok := filter.ExcludeFields[collection.CollectionName]; ok && len(excludedFields) > 0 {
+					entity["excluded_fields"] = excludedFields
+				}
+			}
+
+			entities = append(entities, entity)
+			totalDocuments += collection.DocumentCount
+		}
+
+		metadata["packaged_entities"] = entities
+		metadata["entity_count"] = len(entities)
+		metadata["total_documents"] = totalDocuments
+		metadata["total_references"] = len(pkg.DocumentData.References)
+
+		// Selection criteria
+		if filter != nil {
+			selectionCriteria := make(map[string]interface{})
+			if len(filter.Collections) > 0 {
+				selectionCriteria["collections"] = filter.Collections
+			}
+			if len(filter.WhereClause) > 0 {
+				selectionCriteria["query_filters"] = filter.WhereClause
+			}
+			if len(filter.ExcludeFields) > 0 {
+				selectionCriteria["excluded_fields"] = filter.ExcludeFields
+			}
+			metadata["selection_criteria"] = selectionCriteria
+		}
+	}
+
+	// Common metadata
+	metadata["include_parent_data"] = pkg.IncludeParent
+	if len(pkg.Dependencies) > 0 {
+		metadata["has_dependencies"] = true
+		metadata["dependency_count"] = len(pkg.Dependencies)
+	}
+
+	return metadata
 }
 
 // Helper functions
