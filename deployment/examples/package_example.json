@@ -1,0 +1,152 @@
+{
+  "id": "pkg-123e4567-e89b-12d3-a456-426614174000",
+  "name": "UserManagementPackage",
+  "description": "User management tables with related data",
+  "version": "1.0.0",
+  "package_type": "database",
+  "created_at": "2024-01-15T10:30:00Z",
+  "created_by": "admin",
+  "metadata": {
+    "environment": "production",
+    "exported_from": "mysql-prod-01"
+  },
+  "database_data": {
+    "tables": [
+      {
+        "table_name": "users",
+        "schema": "public",
+        "columns": [
+          {
+            "name": "id",
+            "data_type": "int",
+            "is_primary_key": true,
+            "is_foreign_key": false,
+            "is_nullable": false
+          },
+          {
+            "name": "username",
+            "data_type": "varchar",
+            "is_primary_key": false,
+            "is_foreign_key": false,
+            "is_nullable": false,
+            "max_length": 255
+          },
+          {
+            "name": "email",
+            "data_type": "varchar",
+            "is_primary_key": false,
+            "is_foreign_key": false,
+            "is_nullable": false,
+            "max_length": 255
+          },
+          {
+            "name": "created_at",
+            "data_type": "timestamp",
+            "is_primary_key": false,
+            "is_foreign_key": false,
+            "is_nullable": false
+          }
+        ],
+        "rows": [
+          {
+            "id": 1,
+            "username": "john_doe",
+            "email": "john@example.com",
+            "created_at": "2024-01-10T08:00:00Z"
+          },
+          {
+            "id": 2,
+            "username": "jane_smith",
+            "email": "jane@example.com",
+            "created_at": "2024-01-11T09:15:00Z"
+          }
+        ],
+        "row_count": 2,
+        "pk_columns": ["id"],
+        "fk_columns": []
+      },
+      {
+        "table_name": "user_roles",
+        "columns": [
+          {
+            "name": "id",
+            "data_type": "int",
+            "is_primary_key": true,
+            "is_foreign_key": false,
+            "is_nullable": false
+          },
+          {
+            "name": "user_id",
+            "data_type": "int",
+            "is_primary_key": false,
+            "is_foreign_key": true,
+            "is_nullable": false
+          },
+          {
+            "name": "role_name",
+            "data_type": "varchar",
+            "is_primary_key": false,
+            "is_foreign_key": false,
+            "is_nullable": false,
+            "max_length": 100
+          }
+        ],
+        "rows": [
+          {
+            "id": 1,
+            "user_id": 1,
+            "role_name": "admin"
+          },
+          {
+            "id": 2,
+            "user_id": 2,
+            "role_name": "user"
+          }
+        ],
+        "row_count": 2,
+        "pk_columns": ["id"],
+        "fk_columns": [
+          {
+            "column_name": "user_id",
+            "referenced_table": "users",
+            "referenced_column": "id",
+            "constraint_name": "fk_user_roles_user"
+          }
+        ]
+      }
+    ],
+    "pk_mappings": {
+      "users": {
+        "table_name": "users",
+        "pk_columns": ["id"],
+        "is_auto_increment": true,
+        "strategy": "auto_increment"
+      },
+      "user_roles": {
+        "table_name": "user_roles",
+        "pk_columns": ["id"],
+        "is_auto_increment": true,
+        "strategy": "auto_increment"
+      }
+    },
+    "relationships": [
+      {
+        "id": "rel-001",
+        "source_table": "user_roles",
+        "source_column": "user_id",
+        "target_table": "users",
+        "target_column": "id",
+        "constraint_name": "fk_user_roles_user",
+        "on_delete": "CASCADE"
+      }
+    ],
+    "sequence_info": {
+      "users": 100,
+      "user_roles": 50
+    },
+    "database_type": "mysql",
+    "schema_version": "1.0"
+  },
+  "include_parent": true,
+  "dependencies": []
+}
