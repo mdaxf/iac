@@ -23,6 +23,7 @@ import (
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/logger"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // CollectionService provides collection operations that work across multiple document DB types
@@ -56,11 +57,20 @@ type QueryResult struct {
 }
 
 // getDocumentDB retrieves the document database instance
+// Falls back to legacy DocDBCon if new initializer is not available
 func (s *CollectionService) getDocumentDB() (documents.DocumentDB, error) {
-	if dbinitializer.GlobalInitializer == nil {
-		return nil, fmt.Errorf("database not initialized")
+	// Try new initializer first
+	if dbinitializer.GlobalInitializer != nil {
+		return dbinitializer.GlobalInitializer.GetDocumentDB()
 	}
-	return dbinitializer.GlobalInitializer.GetDocumentDB()
+
+	// Fall back to legacy connection - use legacy path instead
+	return nil, fmt.Errorf("using legacy database connection")
+}
+
+// isLegacyMode checks if we should use legacy DocDBCon
+func (s *CollectionService) isLegacyMode() bool {
+	return dbinitializer.GlobalInitializer == nil && documents.DocDBCon != nil
 }
 
 // QueryCollection queries a collection with pagination and filtering
@@ -85,7 +95,12 @@ func (s *CollectionService) QueryCollection(collectionName string, opts *QueryOp
 		opts.Page = 1
 	}
 
-	// Get document database
+	// Check if using legacy mode
+	if s.isLegacyMode() {
+		return s.queryCollectionLegacy(collectionName, opts)
+	}
+
+	// Get document database (new mode)
 	docDB, err := s.getDocumentDB()
 	if err != nil {
 		s.iLog.Error(fmt.Sprintf("Failed to get document database: %v", err))
@@ -134,6 +149,71 @@ func (s *CollectionService) QueryCollection(collectionName string, opts *QueryOp
 	}, nil
 }
 
+// queryCollectionLegacy handles queries using the legacy DocDBCon
+func (s *CollectionService) queryCollectionLegacy(collectionName string, opts *QueryOptions) (*QueryResult, error) {
+	if documents.DocDBCon == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+
+	// Convert filter and projection to bson.M
+	filter := bson.M{}
+	if opts.Filter != nil {
+		for k, v := range opts.Filter {
+			filter[k] = v
+		}
+	}
+
+	projection := bson.M{}
+	if opts.Projection != nil {
+		for k, v := range opts.Projection {
+			projection[k] = v
+		}
+	}
+
+	// Query all documents matching filter (legacy doesn't support pagination natively)
+	allResults, err := documents.DocDBCon.QueryCollection(collectionName, filter, projection)
+	if err != nil {
+		s.iLog.Error(fmt.Sprintf("Failed to query collection (legacy): %v", err))
+		return nil, err
+	}
+
+	totalCount := int64(len(allResults))
+
+	// Calculate pagination
+	offset := (opts.Page - 1) * opts.PageSize
+	end := offset + opts.PageSize
+
+	// Apply pagination manually
+	var results []map[string]interface{}
+	if offset < len(allResults) {
+		if end > len(allResults) {
+			end = len(allResults)
+		}
+		for _, item := range allResults[offset:end] {
+			results = append(results, map[string]interface{}(item))
+		}
+	} else {
+		results = []map[string]interface{}{}
+	}
+
+	// Calculate total pages
+	totalPages := int(totalCount) / opts.PageSize
+	if int(totalCount)%opts.PageSize > 0 {
+		totalPages++
+	}
+
+	s.iLog.Debug(fmt.Sprintf("QueryCollection (legacy mode): total=%d, page=%d, pagesize=%d, showing %d results",
+		totalCount, opts.Page, opts.PageSize, len(results)))
+
+	return &QueryResult{
+		Data:       results,
+		TotalCount: totalCount,
+		Page:       opts.Page,
+		PageSize:   opts.PageSize,
+		TotalPages: totalPages,
+	}, nil
+}
+
 // GetItemByID retrieves a single item by its ID
 func (s *CollectionService) GetItemByID(collectionName string, id string) (map[string]interface{}, error) {
 	startTime := time.Now()
@@ -142,6 +222,17 @@ func (s *CollectionService) GetItemByID(collectionName string, id string) (map[s
 		s.iLog.PerformanceWithDuration("CollectionService.GetItemByID", elapsed)
 	}()
 
+	// Legacy mode
+	if s.isLegacyMode() {
+		result, err := documents.DocDBCon.GetItembyID(collectionName, id)
+		if err != nil {
+			s.iLog.Error(fmt.Sprintf("Failed to get item by ID (legacy): %v", err))
+			return nil, err
+		}
+		return map[string]interface{}(result), nil
+	}
+
+	// New mode
 	docDB, err := s.getDocumentDB()
 	if err != nil {
 		return nil, err
@@ -167,6 +258,39 @@ func (s *CollectionService) GetItemByField(collectionName string, field string, 
 		s.iLog.PerformanceWithDuration("CollectionService.GetItemByField", elapsed)
 	}()
 
+	// Legacy mode
+	if s.isLegacyMode() {
+		// Special handling for common fields
+		if field == "name" {
+			result, err := documents.DocDBCon.GetDefaultItembyName(collectionName, value.(string))
+			if err != nil {
+				s.iLog.Error(fmt.Sprintf("Failed to get item by field %s (legacy): %v", field, err))
+				return nil, err
+			}
+			return map[string]interface{}(result), nil
+		} else if field == "uuid" {
+			result, err := documents.DocDBCon.GetItembyUUID(collectionName, value.(string))
+			if err != nil {
+				s.iLog.Error(fmt.Sprintf("Failed to get item by field %s (legacy): %v", field, err))
+				return nil, err
+			}
+			return map[string]interface{}(result), nil
+		} else {
+			// Generic field query
+			filter := bson.M{field: value}
+			results, err := documents.DocDBCon.QueryCollection(collectionName, filter, nil)
+			if err != nil {
+				s.iLog.Error(fmt.Sprintf("Failed to get item by field %s (legacy): %v", field, err))
+				return nil, err
+			}
+			if len(results) > 0 {
+				return map[string]interface{}(results[0]), nil
+			}
+			return nil, fmt.Errorf("document not found")
+		}
+	}
+
+	// New mode
 	docDB, err := s.getDocumentDB()
 	if err != nil {
 		return nil, err
@@ -192,6 +316,20 @@ func (s *CollectionService) InsertItem(collectionName string, data map[string]in
 		s.iLog.PerformanceWithDuration("CollectionService.InsertItem", elapsed)
 	}()
 
+	// Legacy mode
+	if s.isLegacyMode() {
+		result, err := documents.DocDBCon.InsertCollection(collectionName, data)
+		if err != nil {
+			s.iLog.Error(fmt.Sprintf("Failed to insert item (legacy): %v", err))
+			return "", err
+		}
+		if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
+			return oid.Hex(), nil
+		}
+		return fmt.Sprintf("%v", result.InsertedID), nil
+	}
+
+	// New mode
 	docDB, err := s.getDocumentDB()
 	if err != nil {
 		return "", err
@@ -215,6 +353,23 @@ func (s *CollectionService) UpdateItem(collectionName string, filter map[string]
 		s.iLog.PerformanceWithDuration("CollectionService.UpdateItem", elapsed)
 	}()
 
+	// Legacy mode
+	if s.isLegacyMode() {
+		filterBson := bson.M{}
+		for k, v := range filter {
+			filterBson[k] = v
+		}
+
+		// Legacy UpdateCollection expects nil for update bson.M and data for replacement
+		err := documents.DocDBCon.UpdateCollection(collectionName, filterBson, nil, update)
+		if err != nil {
+			s.iLog.Error(fmt.Sprintf("Failed to update item (legacy): %v", err))
+			return err
+		}
+		return nil
+	}
+
+	// New mode
 	docDB, err := s.getDocumentDB()
 	if err != nil {
 		return err
@@ -238,6 +393,23 @@ func (s *CollectionService) DeleteItem(collectionName string, filter map[string]
 		s.iLog.PerformanceWithDuration("CollectionService.DeleteItem", elapsed)
 	}()
 
+	// Legacy mode
+	if s.isLegacyMode() {
+		// Extract _id from filter
+		idStr, ok := filter["_id"].(string)
+		if !ok {
+			return fmt.Errorf("_id must be a string for legacy delete")
+		}
+
+		err := documents.DocDBCon.DeleteItemFromCollection(collectionName, idStr)
+		if err != nil {
+			s.iLog.Error(fmt.Sprintf("Failed to delete item (legacy): %v", err))
+			return err
+		}
+		return nil
+	}
+
+	// New mode
 	docDB, err := s.getDocumentDB()
 	if err != nil {
 		return err

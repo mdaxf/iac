@@ -164,6 +164,24 @@ Currently supports:
 - ✅ PostgreSQL JSONB (via adapter)
 - 🔄 Additional databases can be added via `DocumentDB` interface
 
+### Legacy Mode Support
+
+The service automatically detects and supports legacy database initialization:
+
+**New Mode** (Recommended):
+- Uses `dbinitializer.GlobalInitializer`
+- Supports multiple database types
+- Database-level pagination for better performance
+- Full DocumentDB interface support
+
+**Legacy Mode** (Automatic Fallback):
+- Uses `documents.DocDBCon`
+- MongoDB-specific connection
+- Application-level pagination (fetches all, then slices)
+- Maintains backward compatibility
+
+The service automatically detects which mode to use based on initialization. No code changes needed!
+
 ## Migration Guide
 
 ### For Existing Code:
