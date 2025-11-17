@@ -151,7 +151,7 @@ func (dp *DatabaseProxy) Query(ctx context.Context, query string, args ...interf
 	}
 
 	// Execute query
-	rows, err := db.QueryContext(ctx, query, args...)
+	rows, err := db.Query(ctx, query, args...)
 
 	// Record metrics
 	duration := time.Since(start)
@@ -195,7 +195,7 @@ func (dp *DatabaseProxy) Exec(ctx context.Context, query string, args ...interfa
 	}
 
 	// Execute query
-	result, err := db.ExecContext(ctx, query, args...)
+	result, err := db.Exec(ctx, query, args...)
 
 	// Record metrics
 	duration := time.Since(start)
@@ -477,15 +477,6 @@ type QueryLogger struct {
 	mu      sync.RWMutex
 	queries []QueryLog
 	maxLogs int
-}
-
-// QueryLog represents a logged query
-type QueryLog struct {
-	Query     string
-	Args      []interface{}
-	Duration  time.Duration
-	Error     error
-	Timestamp time.Time
 }
 
 // NewQueryLogger creates a new query logger

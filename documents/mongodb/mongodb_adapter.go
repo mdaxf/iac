@@ -657,8 +657,8 @@ func (m *MongoDBAdapter) convertBsonMToMap(bsonDoc bson.M) map[string]interface{
 		case primitive.A:
 			arr := make([]interface{}, len(val))
 			for i, item := range val {
-				if m, ok := item.(bson.M); ok {
-					arr[i] = m.convertBsonMToMap(m)
+				if bsonM, ok := item.(bson.M); ok {
+					arr[i] = m.convertBsonMToMap(bsonM)
 				} else {
 					arr[i] = item
 				}
