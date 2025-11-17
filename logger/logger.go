@@ -179,16 +179,30 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 	//	fmt.Println(fmt.Sprintf(`{"level":%d}, %d`, level, logadapter))
 	if logadapter == "file" || logadapter == "multifile" {
 		adapterconfig := make(map[string]interface{})
+
+		// Try to get adapter-specific config in order of preference:
+		// 1. config["adapterconfig"] (new format)
+		// 2. config["file"] or config["multifile"] (legacy format matching adapter name)
+		// 3. Fall back to entire config
 		if config["adapterconfig"] != nil {
 			// Safe type assertion with check
 			if cfg, ok := config["adapterconfig"].(map[string]interface{}); ok {
 				adapterconfig = cfg
-			} else {
-				adapterconfig = config
 			}
-		} else {
+		} else if config[logadapter.(string)] != nil {
+			// Check for config under adapter name (e.g., config["file"])
+			if cfg, ok := config[logadapter.(string)].(map[string]interface{}); ok {
+				adapterconfig = cfg
+			}
+		}
+
+		// If still empty, fall back to entire config
+		if len(adapterconfig) == 0 {
 			adapterconfig = config
 		}
+
+		// Debug output to help diagnose configuration issues
+		fmt.Printf("Logger %s config - adapterconfig keys: %v\n", logtype, getMapKeys(adapterconfig))
 
 		// Safe type conversion for filename
 		filenameStr := "iac.log"
@@ -223,6 +237,9 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 			fullfilename = filepath.Join(folderStr, fmt.Sprintf("%s_%s%s", logtype, fileNameOnly, suffix))
 		}
 
+		// Debug output showing the resolved log file path
+		fmt.Printf("Logger %s will write to: %s (maxlines=%d, maxsize=%d)\n", logtype, fullfilename, maxlines, maxsize)
+
 		// Safe type conversion for maxlines (handles int, float64, string)
 		if adapterconfig["maxlines"] != nil {
 			maxlines = com.ConverttoIntwithDefault(adapterconfig["maxlines"], maxlines)
@@ -246,38 +263,68 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 		db := "IAC_Cache"
 		collection := "cache"
 		adapterconfig := make(map[string]interface{})
+
+		// Try to get adapter-specific config in order of preference:
+		// 1. config["adapterconfig"]
+		// 2. config["documentdb"] (legacy format)
+		// 3. Fall back to entire config
 		if config["adapterconfig"] != nil {
 			// Safe type assertion with check
 			if cfg, ok := config["adapterconfig"].(map[string]interface{}); ok {
 				adapterconfig = cfg
-			} else {
-				adapterconfig = config
 			}
-		} else {
+		} else if config["documentdb"] != nil {
+			// Check for config under "documentdb" key
+			if cfg, ok := config["documentdb"].(map[string]interface{}); ok {
+				adapterconfig = cfg
+			}
+		}
+
+		// If still empty, fall back to entire config
+		if len(adapterconfig) == 0 {
 			adapterconfig = config
 		}
 
+		// For documentdb, check if there's a nested documentdb config
+		documentdbcfg := adapterconfig
 		if adapterconfig["documentdb"] != nil {
 			// Safe type assertion with check
-			if documentdbcfg, ok := adapterconfig["documentdb"].(map[string]interface{}); ok {
-				if documentdbcfg["conn"] != nil {
-					if c, ok := documentdbcfg["conn"].(string); ok {
-						conn = c
-					}
-				}
-				if documentdbcfg["db"] != nil {
-					if d, ok := documentdbcfg["db"].(string); ok {
-						db = d
-					}
-				}
-				if documentdbcfg["collection"] != nil {
-					if col, ok := documentdbcfg["collection"].(string); ok {
-						collection = col
-					}
-				}
+			if cfg, ok := adapterconfig["documentdb"].(map[string]interface{}); ok {
+				documentdbcfg = cfg
 			}
 		}
-		loger.SetLogger(logs.AdapterDocumentDB, fmt.Sprintf(`{"level":"%d", "conn":"%s", "db":"%s", "collection":"%s", "Perf": "%b", "Threhold": %d}`, level, conn, db, collection, performance, performancethrehold))
+
+		// Extract connection parameters
+		if documentdbcfg["conn"] != nil {
+			if c, ok := documentdbcfg["conn"].(string); ok {
+				conn = c
+			}
+		}
+		if documentdbcfg["db"] != nil {
+			if d, ok := documentdbcfg["db"].(string); ok {
+				db = d
+			}
+		}
+		if documentdbcfg["collection"] != nil {
+			if col, ok := documentdbcfg["collection"].(string); ok {
+				collection = col
+			}
+		}
+
+		// Create config using json.Marshal to properly handle special characters
+		docdbConfig := map[string]interface{}{
+			"level":      level,
+			"conn":       conn,
+			"db":         db,
+			"collection": collection,
+			"Perf":       performance,
+			"Threhold":   performancethrehold,
+		}
+		if configJSON, err := json.Marshal(docdbConfig); err == nil {
+			loger.SetLogger(logs.AdapterDocumentDB, string(configJSON))
+		} else {
+			fmt.Printf("Error marshaling documentdb logger config: %v\n", err)
+		}
 		return
 	}
 
@@ -285,10 +332,33 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 	case "console":
 		loger.SetLogger(logs.AdapterConsole, fmt.Sprintf(`{"level":%d, "Perf": "%b", "Threhold": %d}`, level, performance, performancethrehold))
 	case "file":
-		//	logs.SetLogger(logs.AdapterFile, `{"filename":"test.log"}`)
-		loger.SetLogger(logs.AdapterFile, fmt.Sprintf(`{"level":"%d","filename":"%s","maxlines":"%d","maxsize":"%d","Perf": "%b", "Threhold": %d}`, level, fullfilename, maxlines, maxsize, performance, performancethrehold))
+		// Create config using json.Marshal to properly escape paths
+		fileConfig := map[string]interface{}{
+			"level":    level,
+			"filename": fullfilename,
+			"maxlines": maxlines,
+			"maxsize":  maxsize,
+			"Perf":     performance,
+			"Threhold": performancethrehold,
+		}
+		if configJSON, err := json.Marshal(fileConfig); err == nil {
+			loger.SetLogger(logs.AdapterFile, string(configJSON))
+		} else {
+			fmt.Printf("Error marshaling file logger config: %v\n", err)
+		}
 	case "multifile":
-		loger.SetLogger(logs.AdapterMultiFile, fmt.Sprintf(`{"filename":"%s","level":"%s", "Perf": "%b", "Threhold": %d}`, fullfilename, level, performance, performancethrehold))
+		// Create config using json.Marshal to properly escape paths
+		multiFileConfig := map[string]interface{}{
+			"filename": fullfilename,
+			"level":    level,
+			"Perf":     performance,
+			"Threhold": performancethrehold,
+		}
+		if configJSON, err := json.Marshal(multiFileConfig); err == nil {
+			loger.SetLogger(logs.AdapterMultiFile, string(configJSON))
+		} else {
+			fmt.Printf("Error marshaling multifile logger config: %v\n", err)
+		}
 	case "smtp":
 		loger.SetLogger(logs.AdapterMail, fmt.Sprintf(`{"username":"%s","password":"%s","host":"%s","subject":"%s","sendTos":"%s","level":"%d","Perf": "%b", "Threhold": %d}`, config["username"], config["password"], config["host"], config["subject"], config["sendTos"], level, performance, performancethrehold))
 	case "conn":
@@ -520,4 +590,13 @@ func ConvertJson(jobj interface{}) string {
 		return ""
 	}
 	return string(jsonString)
+}
+
+// Helper function to get map keys for debugging
+func getMapKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
