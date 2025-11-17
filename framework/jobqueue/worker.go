@@ -178,24 +178,26 @@ func (jw *JobWorker) processNextJob(worker *Worker) {
 		return
 	}
 
-	// Try to acquire distributed lock
-	locked, err := jw.queueManager.AcquireLock(ctx, job.ID, 5*time.Minute)
-	if err != nil {
-		worker.logger.Error(fmt.Sprintf("Failed to acquire lock for job %s: %v", job.ID, err))
-		return
-	}
-
-	if !locked {
-		worker.logger.Debug(fmt.Sprintf("Could not acquire lock for job %s (already processing)", job.ID))
-		return
-	}
-
-	// Ensure lock is released when done
-	defer func() {
-		if err := jw.queueManager.ReleaseLock(ctx, job.ID); err != nil {
-			worker.logger.Error(fmt.Sprintf("Failed to release lock for job %s: %v", job.ID, err))
+	// Try to acquire distributed lock (if queue manager is available)
+	if jw.queueManager != nil {
+		locked, err := jw.queueManager.AcquireLock(ctx, job.ID, 5*time.Minute)
+		if err != nil {
+			worker.logger.Error(fmt.Sprintf("Failed to acquire lock for job %s: %v", job.ID, err))
+			return
 		}
-	}()
+
+		if !locked {
+			worker.logger.Debug(fmt.Sprintf("Could not acquire lock for job %s (already processing)", job.ID))
+			return
+		}
+
+		// Ensure lock is released when done
+		defer func() {
+			if err := jw.queueManager.ReleaseLock(ctx, job.ID); err != nil {
+				worker.logger.Error(fmt.Sprintf("Failed to release lock for job %s: %v", job.ID, err))
+			}
+		}()
+	}
 
 	// Update job status to processing
 	err = jw.jobService.UpdateQueueJobStatus(ctx, job.ID, int(models.JobStatusProcessing), "", "")
@@ -204,8 +206,10 @@ func (jw *JobWorker) processNextJob(worker *Worker) {
 		return
 	}
 
-	// Update cache status
-	jw.queueManager.SetJobStatus(ctx, job.ID, int(models.JobStatusProcessing))
+	// Update cache status (if queue manager is available)
+	if jw.queueManager != nil {
+		jw.queueManager.SetJobStatus(ctx, job.ID, int(models.JobStatusProcessing))
+	}
 
 	worker.logger.Info(fmt.Sprintf("Processing job %s (Handler: %s, Priority: %d)", job.ID, job.Handler, job.Priority))
 
@@ -254,16 +258,23 @@ func (jw *JobWorker) executeJob(ctx context.Context, worker *Worker, job *models
 
 			// Update status to retrying
 			jw.jobService.UpdateQueueJobStatus(ctx, job.ID, int(models.JobStatusRetrying), "", err.Error())
-			jw.queueManager.SetJobStatus(ctx, job.ID, int(models.JobStatusRetrying))
 
-			// Re-enqueue with lower priority
-			jw.queueManager.EnqueueJob(ctx, job.ID, job.Priority-1)
+			// Update cache status (if queue manager is available)
+			if jw.queueManager != nil {
+				jw.queueManager.SetJobStatus(ctx, job.ID, int(models.JobStatusRetrying))
+				// Re-enqueue with lower priority
+				jw.queueManager.EnqueueJob(ctx, job.ID, job.Priority-1)
+			}
 		} else {
 			worker.logger.Error(fmt.Sprintf("Job %s failed permanently after %d retries", job.ID, job.RetryCount))
 
 			// Update status to failed
 			jw.jobService.UpdateQueueJobStatus(ctx, job.ID, int(models.JobStatusFailed), "", err.Error())
-			jw.queueManager.SetJobStatus(ctx, job.ID, int(models.JobStatusFailed))
+
+			// Update cache status (if queue manager is available)
+			if jw.queueManager != nil {
+				jw.queueManager.SetJobStatus(ctx, job.ID, int(models.JobStatusFailed))
+			}
 		}
 	} else {
 		worker.logger.Info(fmt.Sprintf("Job %s completed successfully in %v", job.ID, time.Since(startTime)))
@@ -274,7 +285,11 @@ func (jw *JobWorker) executeJob(ctx context.Context, worker *Worker, job *models
 
 		// Update status to completed
 		jw.jobService.UpdateQueueJobStatus(ctx, job.ID, int(models.JobStatusCompleted), result, "")
-		jw.queueManager.SetJobStatus(ctx, job.ID, int(models.JobStatusCompleted))
+
+		// Update cache status (if queue manager is available)
+		if jw.queueManager != nil {
+			jw.queueManager.SetJobStatus(ctx, job.ID, int(models.JobStatusCompleted))
+		}
 	}
 
 	// Save job history
@@ -282,8 +297,8 @@ func (jw *JobWorker) executeJob(ctx context.Context, worker *Worker, job *models
 		worker.logger.Error(fmt.Sprintf("Failed to create job history: %v", err))
 	}
 
-	// Clear cached data for completed job
-	if history.StatusID == int(models.JobStatusCompleted) {
+	// Clear cached data for completed job (if queue manager is available)
+	if history.StatusID == int(models.JobStatusCompleted) && jw.queueManager != nil {
 		jw.queueManager.ClearJobData(ctx, job.ID)
 	}
 }

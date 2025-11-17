@@ -6,7 +6,9 @@ A comprehensive background job processing system with queue management, schedule
 
 - **Queue Job Processing**: Process jobs asynchronously with priority support
 - **Scheduled Jobs**: Configure recurring jobs with cron expressions or intervals
-- **Distributed Processing**: Redis-based distributed locking for multi-instance deployments
+- **Distributed Processing**: Cache-based distributed locking for multi-instance deployments (Redis, Memcache, etc.)
+- **Flexible Cache Support**: Works with any configured cache adapter (Redis, Memcache, in-memory, etc.)
+- **Single-Instance Mode**: Runs without cache for single-instance deployments
 - **Job History**: Complete audit trail of all job executions
 - **Retry Mechanism**: Automatic retry with configurable attempts
 - **Integration Hooks**: Create jobs from various integration sources (SignalR, Kafka, MQTT, HTTP, etc.)
@@ -89,9 +91,11 @@ Add to `configuration.json`:
 - `poll_interval`: How often to poll for new jobs (seconds)
 - `max_retries`: Default maximum retry attempts
 - `scheduler_check_interval`: How often to check for new scheduled jobs (seconds)
-- `use_redis`: Use Redis for distributed job coordination
+- `use_redis`: Informational flag indicating cache type (system uses any configured cache)
 - `job_history_retention_days`: How long to keep job history
 - `enable_metrics`: Enable job metrics collection
+
+**Note**: The system automatically uses whatever cache is configured (Redis, Memcache, etc.). If no cache is configured, it runs in single-instance mode without distributed locking.
 
 ## Installation
 

@@ -88,12 +88,14 @@ func (ijc *IntegrationJobCreator) CreateJobFromMessage(
 		return nil, fmt.Errorf("failed to create job: %w", err)
 	}
 
-	// Enqueue in Redis for distributed processing
-	err = ijc.queueManager.EnqueueJob(ctx, job.ID, job.Priority)
-	if err != nil {
-		ijc.logger.Error(fmt.Sprintf("Failed to enqueue job %s: %v", job.ID, err))
-		// Don't fail the operation if Redis enqueueing fails
-		// The job is still in the database and will be picked up by polling
+	// Enqueue in cache for distributed processing (if queue manager is available)
+	if ijc.queueManager != nil {
+		err = ijc.queueManager.EnqueueJob(ctx, job.ID, job.Priority)
+		if err != nil {
+			ijc.logger.Error(fmt.Sprintf("Failed to enqueue job %s: %v", job.ID, err))
+			// Don't fail the operation if cache enqueueing fails
+			// The job is still in the database and will be picked up by polling
+		}
 	}
 
 	ijc.logger.Info(fmt.Sprintf("Created integration job %s for topic %s (handler: %s, direction: %s)",
@@ -221,8 +223,10 @@ func (ijc *IntegrationJobCreator) BatchCreateJobs(
 			continue
 		}
 
-		// Enqueue in Redis
-		ijc.queueManager.EnqueueJob(ctx, job.ID, job.Priority)
+		// Enqueue in cache (if queue manager is available)
+		if ijc.queueManager != nil {
+			ijc.queueManager.EnqueueJob(ctx, job.ID, job.Priority)
+		}
 
 		createdIDs = append(createdIDs, job.ID)
 	}

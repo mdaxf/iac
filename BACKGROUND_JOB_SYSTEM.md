@@ -7,12 +7,13 @@ A comprehensive background job processing system has been implemented to handle 
 ## Key Features
 
 1. **Job Queue Management**: All integration messages create jobs in `queue_jobs` table for asynchronous processing
-2. **Distributed Processing**: Redis-based distributed locking enables multi-instance deployments
-3. **Scheduled Jobs**: Configure recurring jobs with cron expressions or time intervals
-4. **Job History**: Complete audit trail of all executions in `job_histories` table
-5. **Retry Mechanism**: Automatic retry with configurable attempts
-6. **Priority Support**: Jobs processed based on priority (higher first) and FIFO within priority
-7. **Transaction Safety**: All jobs execute within database transactions
+2. **Distributed Processing**: Cache-based distributed locking enables multi-instance deployments (Redis, Memcache, etc.)
+3. **Flexible Cache Support**: Works with any configured cache adapter or runs in single-instance mode
+4. **Scheduled Jobs**: Configure recurring jobs with cron expressions or time intervals
+5. **Job History**: Complete audit trail of all executions in `job_histories` table
+6. **Retry Mechanism**: Automatic retry with configurable attempts
+7. **Priority Support**: Jobs processed based on priority (higher first) and FIFO within priority
+8. **Transaction Safety**: All jobs execute within database transactions
 
 ## Database Schema
 
@@ -102,13 +103,14 @@ Provides CRUD operations for jobs:
 - `CreateJobFromIntegrationMessage`: Create job from integration message
 
 ### 3. Distributed Queue Manager (`framework/jobqueue/queue_manager.go`)
-Redis-based distributed coordination:
+Cache-based distributed coordination (works with Redis, Memcache, or any cache adapter):
 - `EnqueueJob`: Add job to distributed queue
 - `DequeueJob`: Remove and return next job
 - `AcquireLock`: Distributed lock for job processing
 - `ReleaseLock`: Release distributed lock
 - `SetJobStatus`: Cache job status
 - Prevents duplicate processing across multiple instances
+- Automatically disabled if no cache is configured (single-instance mode)
 
 ### 4. Job Worker (`framework/jobqueue/worker.go`)
 Background worker pool that processes jobs:
@@ -173,9 +175,11 @@ Add to `configuration.json`:
 - `poll_interval`: Poll interval in seconds (default: 5)
 - `max_retries`: Default maximum retry attempts (default: 3)
 - `scheduler_check_interval`: Scheduler check interval in seconds (default: 60)
-- `use_redis`: Use Redis for distributed coordination (default: false)
+- `use_redis`: Informational flag indicating cache type - system uses any configured cache (default: false)
 - `job_history_retention_days`: Days to retain job history (default: 90)
 - `enable_metrics`: Enable metrics collection (default: false)
+
+**Cache Behavior**: The system automatically detects and uses whatever cache is configured in the cache configuration (Redis, Memcache, etc.). If no cache is available, it runs in single-instance mode without distributed locking. This allows the system to work in any deployment scenario.
 
 ## Installation Steps
 

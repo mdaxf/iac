@@ -267,9 +267,11 @@ func (js *JobScheduler) executeScheduledJob(job *models.Job) {
 		return
 	}
 
-	// Enqueue in Redis
-	if err := js.queueManager.EnqueueJob(ctx, queueJob.ID, queueJob.Priority); err != nil {
-		js.logger.Error(fmt.Sprintf("Failed to enqueue job %s: %v", queueJob.ID, err))
+	// Enqueue in cache (if queue manager is available)
+	if js.queueManager != nil {
+		if err := js.queueManager.EnqueueJob(ctx, queueJob.ID, queueJob.Priority); err != nil {
+			js.logger.Error(fmt.Sprintf("Failed to enqueue job %s: %v", queueJob.ID, err))
+		}
 	}
 
 	// Calculate next run time

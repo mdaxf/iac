@@ -45,27 +45,27 @@ func InitializeJobSystem(
 		return fmt.Errorf("invalid job configuration: %w", err)
 	}
 
-	// Initialize distributed queue manager
-	if config.GlobalConfiguration.JobsConfig.UseRedis {
-		if cacheInstance == nil {
-			logger.Warning("Redis not available, job system will run in single-instance mode")
+	// Initialize distributed queue manager with any available cache
+	// This works with Redis, Memcache, or any cache.Cache implementation
+	if cacheInstance != nil {
+		GlobalQueueManager = NewDistributedQueueManager(cacheInstance)
+		logger.Info(fmt.Sprintf("Initialized distributed queue manager with configured cache (instance: %s)", GlobalQueueManager.GetInstanceID()))
+
+		// Health check
+		if err := GlobalQueueManager.HealthCheck(ctx); err != nil {
+			logger.Warning(fmt.Sprintf("Queue manager health check failed: %v - continuing without cache", err))
+			logger.Warning("Job system will run in single-instance mode without distributed locking")
+			GlobalQueueManager = nil
 		} else {
-			GlobalQueueManager = NewDistributedQueueManager(cacheInstance)
-			logger.Info(fmt.Sprintf("Initialized distributed queue manager (instance: %s)", GlobalQueueManager.GetInstanceID()))
-
-			// Health check
-			if err := GlobalQueueManager.HealthCheck(ctx); err != nil {
-				logger.Error(fmt.Sprintf("Queue manager health check failed: %v", err))
-				return fmt.Errorf("queue manager health check failed: %w", err)
+			cacheType := "configured cache"
+			if config.GlobalConfiguration.JobsConfig.UseRedis {
+				cacheType = "Redis"
 			}
+			logger.Info(fmt.Sprintf("Queue manager using %s for distributed coordination", cacheType))
 		}
-	}
-
-	// If queue manager is not initialized, create a basic one
-	if GlobalQueueManager == nil {
-		// Create a no-op cache for single instance mode
-		logger.Warning("Running job system in single-instance mode without Redis")
-		// You might want to create a local in-memory cache here
+	} else {
+		logger.Warning("No cache configured - job system will run in single-instance mode")
+		logger.Warning("For distributed processing across multiple instances, configure a cache (Redis, Memcache, etc.)")
 	}
 
 	// Initialize job worker
