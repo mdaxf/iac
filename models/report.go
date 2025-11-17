@@ -295,26 +295,26 @@ func (Report) TableName() string {
 type ReportDatasource struct {
 	ID             string  `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
 	ReportID       string  `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
-	Alias          string  `json:"alias" gorm:"type:varchar(100);not null"`
-	DatabaseAlias  string  `json:"databasealias" gorm:"type:varchar(100)"`
-	QueryType      string  `json:"querytype" gorm:"type:varchar(20);default:'visual'"`
-	CustomSQL      string  `json:"customsql" gorm:"type:text"`
-	SelectedTables JSONMap `json:"selectedtables" gorm:"type:json"`
-	SelectedFields JSONMap `json:"selectedfields" gorm:"type:json"`
-	Joins          JSONMap `json:"joins" gorm:"type:json"`
-	Filters        JSONMap `json:"filters" gorm:"type:json"`
-	Sorting        JSONMap `json:"sorting" gorm:"type:json"`
-	Grouping       JSONMap `json:"grouping" gorm:"type:json"`
-	Parameters     JSONMap `json:"parameters" gorm:"type:json"`
+	Alias          string  `json:"alias" gorm:"column:alias;type:varchar(100);not null"`
+	DatabaseAlias  string  `json:"databasealias" gorm:"column:databasealias;type:varchar(100)"`
+	QueryType      string  `json:"querytype" gorm:"column:querytype;type:varchar(20);default:'visual'"`
+	CustomSQL      string  `json:"customsql" gorm:"column:customsql;type:text"`
+	SelectedTables JSONMap `json:"selectedtables" gorm:"column:selectedtables;type:json"`
+	SelectedFields JSONMap `json:"selectedfields" gorm:"column:selectedfields;type:json"`
+	Joins          JSONMap `json:"joins" gorm:"column:joins;type:json"`
+	Filters        JSONMap `json:"filters" gorm:"column:filters;type:json"`
+	Sorting        JSONMap `json:"sorting" gorm:"column:sorting;type:json"`
+	Grouping       JSONMap `json:"grouping" gorm:"column:grouping;type:json"`
+	Parameters     JSONMap `json:"parameters" gorm:"column:parameters;type:json"`
 
 	// Standard IAC audit fields (must be at end)
-	Active          bool   `json:"active" gorm:"default:true"`
-	ReferenceID     string `json:"referenceid" gorm:"type:varchar(36)"`
-	CreatedBy       string `json:"createdby" gorm:"type:varchar(45)"`
-	CreatedOn       Time   `json:"createdon" gorm:"autoCreateTime"`
-	ModifiedBy      string `json:"modifiedby" gorm:"type:varchar(45)"`
-	ModifiedOn      Time   `json:"modifiedon" gorm:"autoUpdateTime"`
-	RowVersionStamp int    `json:"rowversionstamp" gorm:"default:1"`
+	Active          bool   `json:"active" gorm:"column:active;default:true"`
+	ReferenceID     string `json:"referenceid" gorm:"column:referenceid;type:varchar(36)"`
+	CreatedBy       string `json:"createdby" gorm:"column:createdby;type:varchar(45)"`
+	CreatedOn       Time   `json:"createdon" gorm:"column:createdon;autoCreateTime"`
+	ModifiedBy      string `json:"modifiedby" gorm:"column:modifiedby;type:varchar(45)"`
+	ModifiedOn      Time   `json:"modifiedon" gorm:"column:modifiedon;autoUpdateTime"`
+	RowVersionStamp int    `json:"rowversionstamp" gorm:"column:rowversionstamp;default:1"`
 }
 
 // TableName specifies the table name
@@ -324,35 +324,35 @@ func (ReportDatasource) TableName() string {
 
 // ReportComponent represents a visual component in a report
 type ReportComponent struct {
-	ID                    string        `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
+	ID                    string        `json:"id" gorm:"primaryKey;column:id;type:varchar(36);default:(UUID())"`
 	ReportID              string        `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
-	ComponentType         ComponentType `json:"componenttype" gorm:"type:enum('table','chart','barcode','sub_report','text','image','drill_down');not null"`
-	Name                  string        `json:"name" gorm:"type:varchar(255);not null"`
-	X                     float64       `json:"x" gorm:"type:decimal(10,2);default:0"`
-	Y                     float64       `json:"y" gorm:"type:decimal(10,2);default:0"`
-	Width                 float64       `json:"width" gorm:"type:decimal(10,2);default:200"`
-	Height                float64       `json:"height" gorm:"type:decimal(10,2);default:100"`
-	ZIndex                int           `json:"zindex" gorm:"default:0"`
-	DatasourceAlias       string        `json:"datasourcealias" gorm:"type:varchar(100)"`
-	DataConfig            JSONMap       `json:"dataconfig" gorm:"type:json"`
-	ComponentConfig       JSONMap       `json:"componentconfig" gorm:"type:json"`
-	StyleConfig           JSONMap       `json:"styleconfig" gorm:"type:json"`
-	ChartType             *ChartType    `json:"charttype" gorm:"type:enum('line','bar','pie','area','scatter','donut','stacked_bar','stacked_area','bar_3d','pie_3d','line_3d')"`
-	ChartConfig           JSONMap       `json:"chartconfig" gorm:"type:json"`
-	BarcodeType           *BarcodeType  `json:"barcodetype" gorm:"type:enum('code128','code39','ean13','ean8','upc','qr_code','data_matrix','pdf417','aztec')"`
-	BarcodeConfig         JSONMap       `json:"barcodeconfig" gorm:"type:json"`
-	DrillDownConfig       JSONMap       `json:"drilldownconfig" gorm:"type:json"`
-	ConditionalFormatting JSONMap       `json:"conditionalformatting" gorm:"type:json"`
-	IsVisible             bool          `json:"isvisible" gorm:"default:true"`
+	ComponentType         ComponentType `json:"componenttype" gorm:"column:componenttype;type:enum('table','chart','barcode','sub_report','text','image','drill_down');not null"`
+	Name                  string        `json:"name" gorm:"column:name;type:varchar(255);not null"`
+	X                     float64       `json:"x" gorm:"column:x;type:decimal(10,2);default:0"`
+	Y                     float64       `json:"y" gorm:"column:y;type:decimal(10,2);default:0"`
+	Width                 float64       `json:"width" gorm:"column:width;type:decimal(10,2);default:200"`
+	Height                float64       `json:"height" gorm:"column:height;type:decimal(10,2);default:100"`
+	ZIndex                int           `json:"zindex" gorm:"column:zindex;default:0"`
+	DatasourceAlias       string        `json:"datasourcealias" gorm:"column:datasourcealias;type:varchar(100)"`
+	DataConfig            JSONMap       `json:"dataconfig" gorm:"column:dataconfig;type:json"`
+	ComponentConfig       JSONMap       `json:"componentconfig" gorm:"column:componentconfig;type:json"`
+	StyleConfig           JSONMap       `json:"styleconfig" gorm:"column:styleconfig;type:json"`
+	ChartType             *ChartType    `json:"charttype" gorm:"column:charttype;type:enum('line','bar','pie','area','scatter','donut','stacked_bar','stacked_area','bar_3d','pie_3d','line_3d')"`
+	ChartConfig           JSONMap       `json:"chartconfig" gorm:"column:chartconfig;type:json"`
+	BarcodeType           *BarcodeType  `json:"barcodetype" gorm:"column:barcodetype;type:enum('code128','code39','ean13','ean8','upc','qr_code','data_matrix','pdf417','aztec')"`
+	BarcodeConfig         JSONMap       `json:"barcodeconfig" gorm:"column:barcodeconfig;type:json"`
+	DrillDownConfig       JSONMap       `json:"drilldownconfig" gorm:"column:drilldownconfig;type:json"`
+	ConditionalFormatting JSONMap       `json:"conditionalformatting" gorm:"column:conditionalformatting;type:json"`
+	IsVisible             bool          `json:"isvisible" gorm:"column:isvisible;default:true"`
 
 	// Standard IAC audit fields (must be at end)
-	Active          bool   `json:"active" gorm:"default:true"`
-	ReferenceID     string `json:"referenceid" gorm:"type:varchar(36)"`
-	CreatedBy       string `json:"createdby" gorm:"type:varchar(45)"`
-	CreatedOn       Time   `json:"createdon" gorm:"autoCreateTime"`
-	ModifiedBy      string `json:"modifiedby" gorm:"type:varchar(45)"`
-	ModifiedOn      Time   `json:"modifiedon" gorm:"autoUpdateTime"`
-	RowVersionStamp int    `json:"rowversionstamp" gorm:"default:1"`
+	Active          bool   `json:"active" gorm:"column:active;default:true"`
+	ReferenceID     string `json:"referenceid" gorm:"column:referenceid;type:varchar(36)"`
+	CreatedBy       string `json:"createdby" gorm:"column:createdby;type:varchar(45)"`
+	CreatedOn       Time   `json:"createdon" gorm:"column:createdon;autoCreateTime"`
+	ModifiedBy      string `json:"modifiedby" gorm:"column:modifiedby;type:varchar(45)"`
+	ModifiedOn      Time   `json:"modifiedon" gorm:"column:modifiedon;autoUpdateTime"`
+	RowVersionStamp int    `json:"rowversionstamp" gorm:"column:rowversionstamp;default:1"`
 }
 
 // TableName specifies the table name
@@ -362,27 +362,27 @@ func (ReportComponent) TableName() string {
 
 // ReportParameter represents an input parameter for a report
 type ReportParameter struct {
-	ID              string        `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
+	ID              string        `json:"id" gorm:"primaryKey;column:id;type:varchar(36);default:(UUID())"`
 	ReportID        string        `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
-	Name            string        `json:"name" gorm:"type:varchar(100);not null"`
-	DisplayName     string        `json:"displayname" gorm:"type:varchar(100)"`
-	ParameterType   ParameterType `json:"parametertype" gorm:"type:enum('text','number','date','datetime','select','multi_select','boolean');default:'text'"`
-	DefaultValue    string        `json:"defaultvalue" gorm:"type:text"`
-	IsRequired      bool          `json:"isrequired" gorm:"default:false"`
-	IsEnabled       bool          `json:"isenabled" gorm:"default:true"`
-	ValidationRules string        `json:"validationrules" gorm:"type:text"`
-	Options         string        `json:"options" gorm:"type:text"`
-	Description     string        `json:"description" gorm:"type:text"`
-	SortOrder       int           `json:"sortorder" gorm:"default:0"`
+	Name            string        `json:"name" gorm:"column:name;type:varchar(100);not null"`
+	DisplayName     string        `json:"displayname" gorm:"column:displayname;type:varchar(100)"`
+	ParameterType   ParameterType `json:"parametertype" gorm:"column:parametertype;type:enum('text','number','date','datetime','select','multi_select','boolean');default:'text'"`
+	DefaultValue    string        `json:"defaultvalue" gorm:"column:defaultvalue;type:text"`
+	IsRequired      bool          `json:"isrequired" gorm:"column:isrequired;default:false"`
+	IsEnabled       bool          `json:"isenabled" gorm:"column:isenabled;default:true"`
+	ValidationRules string        `json:"validationrules" gorm:"column:validationrules;type:text"`
+	Options         string        `json:"options" gorm:"column:options;type:text"`
+	Description     string        `json:"description" gorm:"column:description;type:text"`
+	SortOrder       int           `json:"sortorder" gorm:"column:sortorder;default:0"`
 
 	// Standard IAC audit fields (must be at end)
-	Active          bool   `json:"active" gorm:"default:true"`
-	ReferenceID     string `json:"referenceid" gorm:"type:varchar(36)"`
-	CreatedBy       string `json:"createdby" gorm:"type:varchar(45)"`
-	CreatedOn       Time   `json:"createdon" gorm:"autoCreateTime"`
-	ModifiedBy      string `json:"modifiedby" gorm:"type:varchar(45)"`
-	ModifiedOn      Time   `json:"modifiedon" gorm:"autoUpdateTime"`
-	RowVersionStamp int    `json:"rowversionstamp" gorm:"default:1"`
+	Active          bool   `json:"active" gorm:"column:active;default:true"`
+	ReferenceID     string `json:"referenceid" gorm:"column:referenceid;type:varchar(36)"`
+	CreatedBy       string `json:"createdby" gorm:"column:createdby;type:varchar(45)"`
+	CreatedOn       Time   `json:"createdon" gorm:"column:createdon;autoCreateTime"`
+	ModifiedBy      string `json:"modifiedby" gorm:"column:modifiedby;type:varchar(45)"`
+	ModifiedOn      Time   `json:"modifiedon" gorm:"column:modifiedon;autoUpdateTime"`
+	RowVersionStamp int    `json:"rowversionstamp" gorm:"column:rowversionstamp;default:1"`
 }
 
 // TableName specifies the table name
@@ -392,26 +392,26 @@ func (ReportParameter) TableName() string {
 
 // ReportExecution represents a report execution record
 type ReportExecution struct {
-	ID              string    `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
+	ID              string    `json:"id" gorm:"primaryKey;column:id;type:varchar(36);default:(UUID())"`
 	ReportID        string    `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
-	ExecutedBy      string    `json:"executedby" gorm:"type:varchar(36)"`
-	ExecutionStatus string    `json:"executionstatus" gorm:"type:varchar(20);default:'pending'"`
-	ExecutionTimeMs int       `json:"executiontimems"`
-	ErrorMessage    string    `json:"errormessage" gorm:"type:text"`
-	Parameters      JSONMap   `json:"parameters" gorm:"type:json"`
-	OutputFormat    string    `json:"outputformat" gorm:"type:varchar(20)"`
-	OutputSizeBytes int64     `json:"outputsizebytes"`
-	OutputPath      string    `json:"outputpath" gorm:"type:varchar(500)"`
-	RowCount        int       `json:"rowcount"`
+	ExecutedBy      string    `json:"executedby" gorm:"column:executedby;type:varchar(36)"`
+	ExecutionStatus string    `json:"executionstatus" gorm:"column:executionstatus;type:varchar(20);default:'pending'"`
+	ExecutionTimeMs int       `json:"executiontimems" gorm:"column:executiontimems"`
+	ErrorMessage    string    `json:"errormessage" gorm:"column:errormessage;type:text"`
+	Parameters      JSONMap   `json:"parameters" gorm:"column:parameters;type:json"`
+	OutputFormat    string    `json:"outputformat" gorm:"column:outputformat;type:varchar(20)"`
+	OutputSizeBytes int64     `json:"outputsizebytes" gorm:"column:outputsizebytes"`
+	OutputPath      string    `json:"outputpath" gorm:"column:outputpath;type:varchar(500)"`
+	RowCount        int       `json:"rowcount" gorm:"column:rowcount"`
 
 	// Standard IAC audit fields (must be at end)
-	Active          bool   `json:"active" gorm:"default:true"`
-	ReferenceID     string `json:"referenceid" gorm:"type:varchar(36)"`
-	CreatedBy       string `json:"createdby" gorm:"type:varchar(45)"`
-	CreatedOn       Time   `json:"createdon" gorm:"autoCreateTime"`
-	ModifiedBy      string `json:"modifiedby" gorm:"type:varchar(45)"`
-	ModifiedOn      Time   `json:"modifiedon" gorm:"autoUpdateTime"`
-	RowVersionStamp int    `json:"rowversionstamp" gorm:"default:1"`
+	Active          bool   `json:"active" gorm:"column:active;default:true"`
+	ReferenceID     string `json:"referenceid" gorm:"column:referenceid;type:varchar(36)"`
+	CreatedBy       string `json:"createdby" gorm:"column:createdby;type:varchar(45)"`
+	CreatedOn       Time   `json:"createdon" gorm:"column:createdon;autoCreateTime"`
+	ModifiedBy      string `json:"modifiedby" gorm:"column:modifiedby;type:varchar(45)"`
+	ModifiedOn      Time   `json:"modifiedon" gorm:"column:modifiedon;autoUpdateTime"`
+	RowVersionStamp int    `json:"rowversionstamp" gorm:"column:rowversionstamp;default:1"`
 }
 
 // TableName specifies the table name
@@ -421,25 +421,25 @@ func (ReportExecution) TableName() string {
 
 // ReportShare represents report sharing permissions
 type ReportShare struct {
-	ID         string     `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
+	ID         string     `json:"id" gorm:"primaryKey;column:id;type:varchar(36);default:(UUID())"`
 	ReportID   string     `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
-	SharedBy   string     `json:"sharedby" gorm:"type:varchar(36)"`
-	SharedWith string     `json:"sharedwith" gorm:"type:varchar(36)"`
-	CanView    bool       `json:"canview" gorm:"default:true"`
-	CanEdit    bool       `json:"canedit" gorm:"default:false"`
-	CanExecute bool       `json:"canexecute" gorm:"default:true"`
-	CanShare   bool       `json:"canshare" gorm:"default:false"`
-	ShareToken string     `json:"sharetoken" gorm:"type:varchar(255);uniqueIndex"`
-	ExpiresAt  *time.Time `json:"expiresat"`
+	SharedBy   string     `json:"sharedby" gorm:"column:sharedby;type:varchar(36)"`
+	SharedWith string     `json:"sharedwith" gorm:"column:sharedwith;type:varchar(36)"`
+	CanView    bool       `json:"canview" gorm:"column:canview;default:true"`
+	CanEdit    bool       `json:"canedit" gorm:"column:canedit;default:false"`
+	CanExecute bool       `json:"canexecute" gorm:"column:canexecute;default:true"`
+	CanShare   bool       `json:"canshare" gorm:"column:canshare;default:false"`
+	ShareToken string     `json:"sharetoken" gorm:"column:sharetoken;type:varchar(255);uniqueIndex"`
+	ExpiresAt  *time.Time `json:"expiresat" gorm:"column:expiresat"`
 
 	// Standard IAC audit fields (must be at end)
-	Active          bool   `json:"active" gorm:"default:true"`
-	ReferenceID     string `json:"referenceid" gorm:"type:varchar(36)"`
-	CreatedBy       string `json:"createdby" gorm:"type:varchar(45)"`
-	CreatedOn       Time   `json:"createdon" gorm:"autoCreateTime"`
-	ModifiedBy      string `json:"modifiedby" gorm:"type:varchar(45)"`
-	ModifiedOn      Time   `json:"modifiedon" gorm:"autoUpdateTime"`
-	RowVersionStamp int    `json:"rowversionstamp" gorm:"default:1"`
+	Active          bool   `json:"active" gorm:"column:active;default:true"`
+	ReferenceID     string `json:"referenceid" gorm:"column:referenceid;type:varchar(36)"`
+	CreatedBy       string `json:"createdby" gorm:"column:createdby;type:varchar(45)"`
+	CreatedOn       Time   `json:"createdon" gorm:"column:createdon;autoCreateTime"`
+	ModifiedBy      string `json:"modifiedby" gorm:"column:modifiedby;type:varchar(45)"`
+	ModifiedOn      Time   `json:"modifiedon" gorm:"column:modifiedon;autoUpdateTime"`
+	RowVersionStamp int    `json:"rowversionstamp" gorm:"column:rowversionstamp;default:1"`
 }
 
 // TableName specifies the table name
@@ -449,28 +449,28 @@ func (ReportShare) TableName() string {
 
 // ReportTemplate represents a pre-built report template
 type ReportTemplate struct {
-	ID                string  `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
-	Name              string  `json:"name" gorm:"type:varchar(255);not null"`
-	Description       string  `json:"description" gorm:"type:text"`
-	Category          string  `json:"category" gorm:"type:varchar(100)"`
-	TemplateConfig    JSONMap `json:"templateconfig" gorm:"type:json"`
-	PreviewImage      string  `json:"previewimage" gorm:"type:varchar(500)"`
-	UsageCount        int     `json:"usagecount" gorm:"default:0"`
-	Rating            float64 `json:"rating" gorm:"type:decimal(3,2);default:0.00"`
-	AICompatible      bool    `json:"aicompatible" gorm:"default:false"`
-	AITags            JSONMap `json:"aitags" gorm:"type:json"`
-	SuggestedUseCases JSONMap `json:"suggestedusecases" gorm:"type:json"`
-	IsPublic          bool    `json:"ispublic" gorm:"default:true"`
-	IsSystem          bool    `json:"issystem" gorm:"default:false"`
+	ID                string  `json:"id" gorm:"primaryKey;column:id;type:varchar(36);default:(UUID())"`
+	Name              string  `json:"name" gorm:"column:name;type:varchar(255);not null"`
+	Description       string  `json:"description" gorm:"column:description;type:text"`
+	Category          string  `json:"category" gorm:"column:category;type:varchar(100)"`
+	TemplateConfig    JSONMap `json:"templateconfig" gorm:"column:templateconfig;type:json"`
+	PreviewImage      string  `json:"previewimage" gorm:"column:previewimage;type:varchar(500)"`
+	UsageCount        int     `json:"usagecount" gorm:"column:usagecount;default:0"`
+	Rating            float64 `json:"rating" gorm:"column:rating;type:decimal(3,2);default:0.00"`
+	AICompatible      bool    `json:"aicompatible" gorm:"column:aicompatible;default:false"`
+	AITags            JSONMap `json:"aitags" gorm:"column:aitags;type:json"`
+	SuggestedUseCases JSONMap `json:"suggestedusecases" gorm:"column:suggestedusecases;type:json"`
+	IsPublic          bool    `json:"ispublic" gorm:"column:ispublic;default:true"`
+	IsSystem          bool    `json:"issystem" gorm:"column:issystem;default:false"`
 
 	// Standard IAC audit fields (must be at end)
-	Active          bool   `json:"active" gorm:"default:true"`
-	ReferenceID     string `json:"referenceid" gorm:"type:varchar(36)"`
-	CreatedBy       string `json:"createdby" gorm:"type:varchar(45)"`
-	CreatedOn       Time   `json:"createdon" gorm:"autoCreateTime"`
-	ModifiedBy      string `json:"modifiedby" gorm:"type:varchar(45)"`
-	ModifiedOn      Time   `json:"modifiedon" gorm:"autoUpdateTime"`
-	RowVersionStamp int    `json:"rowversionstamp" gorm:"default:1"`
+	Active          bool   `json:"active" gorm:"column:active;default:true"`
+	ReferenceID     string `json:"referenceid" gorm:"column:referenceid;type:varchar(36)"`
+	CreatedBy       string `json:"createdby" gorm:"column:createdby;type:varchar(45)"`
+	CreatedOn       Time   `json:"createdon" gorm:"column:createdon;autoCreateTime"`
+	ModifiedBy      string `json:"modifiedby" gorm:"column:modifiedby;type:varchar(45)"`
+	ModifiedOn      Time   `json:"modifiedon" gorm:"column:modifiedon;autoUpdateTime"`
+	RowVersionStamp int    `json:"rowversionstamp" gorm:"column:rowversionstamp;default:1"`
 }
 
 // TableName specifies the table name
@@ -480,26 +480,26 @@ func (ReportTemplate) TableName() string {
 
 // ReportSchedule represents a scheduled report execution
 type ReportSchedule struct {
-	ID             string     `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
+	ID             string     `json:"id" gorm:"primaryKey;column:id;type:varchar(36);default:(UUID())"`
 	ReportID       string     `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
-	ScheduleName   string     `json:"schedulename" gorm:"type:varchar(255)"`
-	CronExpression string     `json:"cronexpression" gorm:"type:varchar(100);not null"`
-	Timezone       string     `json:"timezone" gorm:"type:varchar(50);default:'UTC'"`
-	OutputFormat   string     `json:"outputformat" gorm:"type:varchar(20);default:'pdf'"`
-	DeliveryMethod string     `json:"deliverymethod" gorm:"type:varchar(20);default:'email'"`
-	DeliveryConfig JSONMap    `json:"deliveryconfig" gorm:"type:json"`
-	Parameters     JSONMap    `json:"parameters" gorm:"type:json"`
-	LastRunAt      *time.Time `json:"lastrunat"`
-	NextRunAt      *time.Time `json:"nextrunat"`
+	ScheduleName   string     `json:"schedulename" gorm:"column:schedulename;type:varchar(255)"`
+	CronExpression string     `json:"cronexpression" gorm:"column:cronexpression;type:varchar(100);not null"`
+	Timezone       string     `json:"timezone" gorm:"column:timezone;type:varchar(50);default:'UTC'"`
+	OutputFormat   string     `json:"outputformat" gorm:"column:outputformat;type:varchar(20);default:'pdf'"`
+	DeliveryMethod string     `json:"deliverymethod" gorm:"column:deliverymethod;type:varchar(20);default:'email'"`
+	DeliveryConfig JSONMap    `json:"deliveryconfig" gorm:"column:deliveryconfig;type:json"`
+	Parameters     JSONMap    `json:"parameters" gorm:"column:parameters;type:json"`
+	LastRunAt      *time.Time `json:"lastrunat" gorm:"column:lastrunat"`
+	NextRunAt      *time.Time `json:"nextrunat" gorm:"column:nextrunat"`
 
 	// Standard IAC audit fields (must be at end)
-	Active          bool   `json:"active" gorm:"default:true"`
-	ReferenceID     string `json:"referenceid" gorm:"type:varchar(36)"`
-	CreatedBy       string `json:"createdby" gorm:"type:varchar(45)"`
-	CreatedOn       Time   `json:"createdon" gorm:"autoCreateTime"`
-	ModifiedBy      string `json:"modifiedby" gorm:"type:varchar(45)"`
-	ModifiedOn      Time   `json:"modifiedon" gorm:"autoUpdateTime"`
-	RowVersionStamp int    `json:"rowversionstamp" gorm:"default:1"`
+	Active          bool   `json:"active" gorm:"column:active;default:true"`
+	ReferenceID     string `json:"referenceid" gorm:"column:referenceid;type:varchar(36)"`
+	CreatedBy       string `json:"createdby" gorm:"column:createdby;type:varchar(45)"`
+	CreatedOn       Time   `json:"createdon" gorm:"column:createdon;autoCreateTime"`
+	ModifiedBy      string `json:"modifiedby" gorm:"column:modifiedby;type:varchar(45)"`
+	ModifiedOn      Time   `json:"modifiedon" gorm:"column:modifiedon;autoUpdateTime"`
+	RowVersionStamp int    `json:"rowversionstamp" gorm:"column:rowversionstamp;default:1"`
 }
 
 // TableName specifies the table name
