@@ -20,6 +20,8 @@ The IAC Integration Framework provides a unified approach to integrating with va
 - **Data Hub**: Central message transformation and routing engine
 - **Message Mapping**: Transform messages between different schemas and protocols
 - **Routing Rules**: Intelligent message routing based on conditions
+- **Job Integration**: Zero-code, configuration-driven automatic message processing
+- **Background Workers**: Distributed job processing with retry and error handling
 
 ## Supported Protocols
 
@@ -486,6 +488,76 @@ Define how messages should be routed:
   "active": true
 }
 ```
+
+### Job Integration - Zero-Code Automation
+
+The DataHub includes **zero-code job integration** that automatically creates and processes jobs when messages are received or need to be sent. **No programming required!**
+
+**Key Features:**
+- Automatic job creation from incoming messages
+- Configuration-driven transformation and routing
+- Scheduled jobs with cron expressions
+- Built-in retry and error handling
+- Distributed worker processing
+- Full audit trail
+
+**Example Configuration:**
+
+Define jobs in `config/integration/datahub/jobs.json`:
+
+```json
+{
+  "jobs": [
+    {
+      "id": "rest-to-soap-orders",
+      "name": "REST Orders to SOAP ERP",
+      "enabled": true,
+      "type": "transform",
+      "trigger": {
+        "type": "on_receive",
+        "protocol": "REST",
+        "topic": "/api/orders"
+      },
+      "protocol": "REST",
+      "destination": "SOAP:http://erp.example.com/OrderService",
+      "mapping_id": "rest-to-soap-order",
+      "priority": 10,
+      "max_retries": 3,
+      "auto_route": true
+    }
+  ]
+}
+```
+
+**What This Does:**
+1. Monitors REST endpoint `/api/orders` for incoming messages
+2. Automatically creates a job when a message arrives
+3. Applies the `rest-to-soap-order` transformation mapping
+4. Routes the transformed message to the SOAP ERP system
+5. Retries up to 3 times on failure
+6. All without writing any code!
+
+**Job Types:**
+- **transform**: Transform and route messages
+- **receive**: Poll for new messages
+- **send**: Send messages to destinations
+- **route**: Route through DataHub rules
+
+**Trigger Types:**
+- **on_receive**: When message arrives
+- **on_schedule**: Cron-based scheduling
+- **on_event**: System events
+- **manual**: API triggered
+
+**Priority Levels:**
+- 1-3: Low priority (background tasks)
+- 4-6: Normal priority (regular operations)
+- 7-9: High priority (important transactions)
+- 10+: Critical priority (urgent processing)
+
+For complete job integration documentation, see:
+- `integration/datahub/JOB_INTEGRATION_GUIDE.md` - Comprehensive guide
+- `integration/datahub/job_config_example.json` - Configuration examples
 
 ### Usage
 
