@@ -295,26 +295,26 @@ func (Report) TableName() string {
 type ReportDatasource struct {
 	ID             string  `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
 	ReportID       string  `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
-	Alias          string  `json:"alias" gorm:"type:varchar(100);not null"`
-	DatabaseAlias  string  `json:"databasealias" gorm:"type:varchar(100)"`
-	QueryType      string  `json:"querytype" gorm:"type:varchar(20);default:'visual'"`
-	CustomSQL      string  `json:"customsql" gorm:"type:text"`
-	SelectedTables JSONMap `json:"selectedtables" gorm:"type:json"`
-	SelectedFields JSONMap `json:"selectedfields" gorm:"type:json"`
-	Joins          JSONMap `json:"joins" gorm:"type:json"`
-	Filters        JSONMap `json:"filters" gorm:"type:json"`
-	Sorting        JSONMap `json:"sorting" gorm:"type:json"`
-	Grouping       JSONMap `json:"grouping" gorm:"type:json"`
-	Parameters     JSONMap `json:"parameters" gorm:"type:json"`
+	Alias          string  `json:"alias" gorm:"column:alias;type:varchar(100);not null"`
+	DatabaseAlias  string  `json:"databasealias" gorm:"column:databasealias;type:varchar(100)"`
+	QueryType      string  `json:"querytype" gorm:"column:querytype;type:varchar(20);default:'visual'"`
+	CustomSQL      string  `json:"customsql" gorm:"column:customsql;type:text"`
+	SelectedTables JSONMap `json:"selectedtables" gorm:"column:selectedtables;type:json"`
+	SelectedFields JSONMap `json:"selectedfields" gorm:"column:selectedfields;type:json"`
+	Joins          JSONMap `json:"joins" gorm:"column:joins;type:json"`
+	Filters        JSONMap `json:"filters" gorm:"column:filters;type:json"`
+	Sorting        JSONMap `json:"sorting" gorm:"column:sorting;type:json"`
+	Grouping       JSONMap `json:"grouping" gorm:"column:grouping;type:json"`
+	Parameters     JSONMap `json:"parameters" gorm:"column:parameters;type:json"`
 
 	// Standard IAC audit fields (must be at end)
-	Active          bool   `json:"active" gorm:"default:true"`
-	ReferenceID     string `json:"referenceid" gorm:"type:varchar(36)"`
-	CreatedBy       string `json:"createdby" gorm:"type:varchar(45)"`
-	CreatedOn       Time   `json:"createdon" gorm:"autoCreateTime"`
-	ModifiedBy      string `json:"modifiedby" gorm:"type:varchar(45)"`
-	ModifiedOn      Time   `json:"modifiedon" gorm:"autoUpdateTime"`
-	RowVersionStamp int    `json:"rowversionstamp" gorm:"default:1"`
+	Active          bool   `json:"active" gorm:"column:active;default:true"`
+	ReferenceID     string `json:"referenceid" gorm:"column:referenceid;type:varchar(36)"`
+	CreatedBy       string `json:"createdby" gorm:"column:createdby;type:varchar(45)"`
+	CreatedOn       Time   `json:"createdon" gorm:"column:createdon;autoCreateTime"`
+	ModifiedBy      string `json:"modifiedby" gorm:"column:modifiedby;type:varchar(45)"`
+	ModifiedOn      Time   `json:"modifiedon" gorm:"column:modifiedon;autoUpdateTime"`
+	RowVersionStamp int    `json:"rowversionstamp" gorm:"column:rowversionstamp;default:1"`
 }
 
 // TableName specifies the table name
