@@ -224,12 +224,18 @@ func (w *fileLogWriter) WriteMsg(lm *LogMsg) error {
 	}
 
 	w.Lock()
+	defer w.Unlock()
+
+	// Guard against nil fileWriter
+	if w.fileWriter == nil {
+		return fmt.Errorf("fileWriter is nil, file logger not properly initialized")
+	}
+
 	_, err := w.fileWriter.Write([]byte(msg))
 	if err == nil {
 		w.maxLinesCurLines++
 		w.maxSizeCurSize += len(msg)
 	}
-	w.Unlock()
 	return err
 }
 
@@ -386,7 +392,9 @@ func (w *fileLogWriter) doRotate(logTime time.Time) error {
 	}
 
 	// close fileWriter before rename
-	w.fileWriter.Close()
+	if w.fileWriter != nil {
+		w.fileWriter.Close()
+	}
 
 	// Rename the file to its new found name
 	// even if occurs error,we MUST guarantee to  restart new logger
@@ -448,14 +456,18 @@ func (w *fileLogWriter) deleteOldLog() {
 
 // Destroy close the file description, close file writer.
 func (w *fileLogWriter) Destroy() {
-	w.fileWriter.Close()
+	if w.fileWriter != nil {
+		w.fileWriter.Close()
+	}
 }
 
 // Flush flushes file logger.
 // there are no buffering messages in file logger in memory.
 // flush file means sync file from disk.
 func (w *fileLogWriter) Flush() {
-	w.fileWriter.Sync()
+	if w.fileWriter != nil {
+		w.fileWriter.Sync()
+	}
 }
 
 func init() {

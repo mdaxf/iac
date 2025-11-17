@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -190,13 +191,19 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 
 		folder := adapterconfig["folder"]
 		if folder == nil {
-			folder = "c:\\\\temp"
+			// Use OS-appropriate default folder
+			if runtime.GOOS == "windows" {
+				folder = "C:\\temp"
+			} else {
+				folder = "/tmp"
+			}
 		}
 
+		// Use cross-platform path handling
 		if suffix == "" {
-			fullfilename = fmt.Sprintf("%s\\\\%s_%s.log", folder, logtype, fileNameOnly)
+			fullfilename = filepath.Join(folder.(string), fmt.Sprintf("%s_%s.log", logtype, fileNameOnly))
 		} else {
-			fullfilename = fmt.Sprintf("%s\\\\%s_%s%s", folder, logtype, fileNameOnly, suffix)
+			fullfilename = filepath.Join(folder.(string), fmt.Sprintf("%s_%s%s", logtype, fileNameOnly, suffix))
 		}
 		if adapterconfig["maxlines"] != nil {
 			maxlines = adapterconfig["maxlines"].(int) //maxlines := config["maxlines"].(int)
