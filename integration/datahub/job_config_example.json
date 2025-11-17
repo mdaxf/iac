@@ -1,0 +1,270 @@
+{
+  "description": "DataHub Job Configuration - No Code Required",
+  "jobs": [
+    {
+      "id": "rest-order-to-soap-erp",
+      "name": "REST Order to SOAP ERP Transform",
+      "description": "Automatically transform REST orders to SOAP format and send to ERP",
+      "enabled": true,
+      "type": "transform",
+      "trigger": {
+        "type": "on_receive",
+        "protocol": "REST",
+        "topic": "/api/orders",
+        "condition": {
+          "field": "order.status",
+          "operator": "eq",
+          "value": "confirmed"
+        }
+      },
+      "protocol": "REST",
+      "source": "/api/orders",
+      "destination": "SOAP:http://erp.company.com/OrderService",
+      "mapping_id": "rest-to-soap-order",
+      "routing_rule": "route-orders-to-erp",
+      "priority": 10,
+      "max_retries": 3,
+      "timeout": 60,
+      "auto_route": true,
+      "metadata": {
+        "department": "sales",
+        "system": "erp_integration"
+      }
+    },
+    {
+      "id": "mqtt-sensor-to-rest-analytics",
+      "name": "MQTT Sensor Data to REST Analytics",
+      "description": "Transform MQTT sensor data and send to analytics API",
+      "enabled": true,
+      "type": "transform",
+      "trigger": {
+        "type": "on_receive",
+        "protocol": "MQTT",
+        "topic": "sensors/+/temperature"
+      },
+      "protocol": "MQTT",
+      "source": "sensors/#",
+      "destination": "REST:http://analytics.company.com/api/sensor-data",
+      "mapping_id": "mqtt-sensor-to-rest",
+      "priority": 8,
+      "max_retries": 3,
+      "timeout": 30,
+      "auto_route": true,
+      "metadata": {
+        "department": "iot",
+        "data_type": "sensor_readings"
+      }
+    },
+    {
+      "id": "kafka-consume-user-events",
+      "name": "Kafka User Events Consumer",
+      "description": "Automatically process user events from Kafka",
+      "enabled": true,
+      "type": "receive",
+      "trigger": {
+        "type": "on_schedule",
+        "schedule": "*/5 * * * *"
+      },
+      "protocol": "Kafka",
+      "source": "user-events-topic",
+      "priority": 7,
+      "max_retries": 5,
+      "timeout": 120,
+      "auto_route": true,
+      "metadata": {
+        "consumer_group": "user-events-processor"
+      }
+    },
+    {
+      "id": "tcp-binary-to-json-transform",
+      "name": "TCP Binary to JSON Transform",
+      "description": "Convert binary TCP sensor data to JSON format",
+      "enabled": true,
+      "type": "transform",
+      "trigger": {
+        "type": "on_receive",
+        "protocol": "TCP",
+        "topic": "0.0.0.0:9000"
+      },
+      "protocol": "TCP",
+      "source": "0.0.0.0:9000",
+      "destination": "REST:http://api.company.com/data",
+      "mapping_id": "tcp-to-rest-sensor-data",
+      "priority": 9,
+      "max_retries": 3,
+      "timeout": 30,
+      "auto_route": true,
+      "metadata": {
+        "data_format": "binary",
+        "encoding": "base64"
+      }
+    },
+    {
+      "id": "graphql-mutation-to-kafka-event",
+      "name": "GraphQL Mutation to Kafka Event",
+      "description": "Publish GraphQL mutation results to Kafka",
+      "enabled": true,
+      "type": "send",
+      "trigger": {
+        "type": "on_receive",
+        "protocol": "GraphQL",
+        "topic": "/graphql",
+        "condition": {
+          "field": "data.createUser",
+          "operator": "exists",
+          "value": true
+        }
+      },
+      "protocol": "GraphQL",
+      "source": "/graphql",
+      "destination": "Kafka:user-events-topic",
+      "mapping_id": "graphql-to-kafka-event",
+      "priority": 8,
+      "max_retries": 3,
+      "timeout": 30,
+      "auto_route": true,
+      "metadata": {
+        "event_type": "user_created"
+      }
+    },
+    {
+      "id": "soap-receive-and-route",
+      "name": "SOAP Order Receive and Route",
+      "description": "Receive SOAP orders and route to appropriate systems",
+      "enabled": true,
+      "type": "transform",
+      "trigger": {
+        "type": "on_receive",
+        "protocol": "SOAP",
+        "topic": "http://localhost:8081/OrderService"
+      },
+      "protocol": "SOAP",
+      "source": "http://localhost:8081/OrderService",
+      "routing_rule": "soap-order-routing",
+      "priority": 10,
+      "max_retries": 3,
+      "timeout": 60,
+      "auto_route": true,
+      "metadata": {
+        "service": "order_management"
+      }
+    },
+    {
+      "id": "rest-to-multiple-destinations",
+      "name": "REST to Multiple Destinations",
+      "description": "Fan-out REST data to multiple systems",
+      "enabled": true,
+      "type": "transform",
+      "trigger": {
+        "type": "on_receive",
+        "protocol": "REST",
+        "topic": "/api/notifications"
+      },
+      "protocol": "REST",
+      "source": "/api/notifications",
+      "routing_rule": "fanout-notifications",
+      "priority": 7,
+      "max_retries": 2,
+      "timeout": 45,
+      "auto_route": true,
+      "metadata": {
+        "fanout": true,
+        "destinations": ["email", "sms", "push"]
+      }
+    },
+    {
+      "id": "activemq-to-datahub-route",
+      "name": "ActiveMQ Message Router",
+      "description": "Route ActiveMQ messages through DataHub",
+      "enabled": true,
+      "type": "transform",
+      "trigger": {
+        "type": "on_receive",
+        "protocol": "ActiveMQ",
+        "topic": "orders.queue"
+      },
+      "protocol": "ActiveMQ",
+      "source": "orders.queue",
+      "priority": 8,
+      "max_retries": 3,
+      "timeout": 60,
+      "auto_route": true,
+      "metadata": {
+        "queue_type": "persistent"
+      }
+    },
+    {
+      "id": "scheduled-data-sync",
+      "name": "Scheduled Data Synchronization",
+      "description": "Periodic data sync between systems",
+      "enabled": true,
+      "type": "send",
+      "trigger": {
+        "type": "on_schedule",
+        "schedule": "0 */6 * * *",
+        "config": {
+          "timezone": "UTC"
+        }
+      },
+      "protocol": "REST",
+      "destination": "http://backup.company.com/api/sync",
+      "mapping_id": "data-sync-mapping",
+      "priority": 5,
+      "max_retries": 2,
+      "timeout": 300,
+      "auto_route": false,
+      "metadata": {
+        "sync_type": "incremental",
+        "batch_size": 1000
+      }
+    },
+    {
+      "id": "conditional-routing-example",
+      "name": "Conditional Message Routing",
+      "description": "Route messages based on content",
+      "enabled": true,
+      "type": "route",
+      "trigger": {
+        "type": "on_receive",
+        "protocol": "REST",
+        "topic": "/api/events",
+        "condition": {
+          "field": "event.priority",
+          "operator": "eq",
+          "value": "high"
+        }
+      },
+      "protocol": "REST",
+      "source": "/api/events",
+      "routing_rule": "priority-based-routing",
+      "priority": 10,
+      "max_retries": 5,
+      "timeout": 30,
+      "auto_route": true,
+      "metadata": {
+        "routing_type": "conditional"
+      }
+    }
+  ],
+  "configuration_notes": {
+    "trigger_types": {
+      "on_receive": "Triggered when a message is received from the specified protocol",
+      "on_schedule": "Triggered based on cron schedule",
+      "on_event": "Triggered by system events",
+      "manual": "Manually triggered via API"
+    },
+    "job_types": {
+      "transform": "Transform message using mapping and optionally route",
+      "receive": "Poll for messages and process them",
+      "send": "Send message to destination with optional transformation",
+      "route": "Route message through DataHub routing rules"
+    },
+    "priority_levels": {
+      "1-3": "Low priority",
+      "4-6": "Normal priority",
+      "7-9": "High priority",
+      "10+": "Critical priority"
+    },
+    "usage": "Place this file in config/integration/datahub/jobs.json and it will be loaded automatically. No code required!"
+  }
+}

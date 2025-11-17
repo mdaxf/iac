@@ -1,0 +1,48 @@
+{
+  "client": {
+    "base_url": "https://api.example.com",
+    "timeout": 30,
+    "headers": {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "User-Agent": "IAC-REST-Client/1.0"
+    },
+    "datahub_mode": true
+  },
+  "server": {
+    "port": 8080,
+    "datahub_mode": true
+  },
+  "endpoints": [
+    {
+      "method": "POST",
+      "path": "/api/orders",
+      "description": "Create a new order",
+      "handler": "create_order"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/{id}",
+      "description": "Get order by ID",
+      "handler": "get_order"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/orders/{id}",
+      "description": "Update an order",
+      "handler": "update_order"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/orders/{id}",
+      "description": "Delete an order",
+      "handler": "delete_order"
+    },
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "description": "Health check endpoint",
+      "handler": "health_check"
+    }
+  ]
+}

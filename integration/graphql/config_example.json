@@ -1,0 +1,180 @@
+{
+  "client": {
+    "endpoint": "https://api.example.com/graphql",
+    "timeout": 30,
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer YOUR_TOKEN_HERE"
+    },
+    "datahub_mode": true
+  },
+  "server": {
+    "port": 4000,
+    "datahub_mode": true
+  },
+  "schema": {
+    "types": [
+      {
+        "name": "User",
+        "fields": {
+          "id": "ID!",
+          "email": "String!",
+          "name": "String!",
+          "role": "String",
+          "createdAt": "String"
+        }
+      },
+      {
+        "name": "Order",
+        "fields": {
+          "id": "ID!",
+          "userId": "ID!",
+          "user": "User",
+          "items": "[OrderItem!]!",
+          "totalAmount": "Float!",
+          "status": "String!",
+          "createdAt": "String!"
+        }
+      },
+      {
+        "name": "OrderItem",
+        "fields": {
+          "id": "ID!",
+          "productId": "ID!",
+          "quantity": "Int!",
+          "price": "Float!"
+        }
+      }
+    ],
+    "queries": [
+      {
+        "name": "user",
+        "description": "Get a user by ID",
+        "args": {
+          "id": "ID!"
+        },
+        "returns": "User"
+      },
+      {
+        "name": "users",
+        "description": "Get all users",
+        "args": {
+          "limit": "Int",
+          "offset": "Int"
+        },
+        "returns": "[User!]!"
+      },
+      {
+        "name": "order",
+        "description": "Get an order by ID",
+        "args": {
+          "id": "ID!"
+        },
+        "returns": "Order"
+      },
+      {
+        "name": "orders",
+        "description": "Get orders for a user",
+        "args": {
+          "userId": "ID!",
+          "status": "String"
+        },
+        "returns": "[Order!]!"
+      }
+    ],
+    "mutations": [
+      {
+        "name": "createUser",
+        "description": "Create a new user",
+        "args": {
+          "email": "String!",
+          "name": "String!",
+          "role": "String"
+        },
+        "returns": "User!"
+      },
+      {
+        "name": "updateUser",
+        "description": "Update an existing user",
+        "args": {
+          "id": "ID!",
+          "email": "String",
+          "name": "String",
+          "role": "String"
+        },
+        "returns": "User!"
+      },
+      {
+        "name": "deleteUser",
+        "description": "Delete a user",
+        "args": {
+          "id": "ID!"
+        },
+        "returns": "Boolean!"
+      },
+      {
+        "name": "createOrder",
+        "description": "Create a new order",
+        "args": {
+          "userId": "ID!",
+          "items": "[OrderItemInput!]!",
+          "totalAmount": "Float!"
+        },
+        "returns": "Order!"
+      }
+    ],
+    "subscriptions": [
+      {
+        "name": "orderCreated",
+        "description": "Subscribe to new orders",
+        "args": {
+          "userId": "ID"
+        },
+        "returns": "Order!"
+      },
+      {
+        "name": "userUpdated",
+        "description": "Subscribe to user updates",
+        "args": {
+          "id": "ID!"
+        },
+        "returns": "User!"
+      }
+    ]
+  },
+  "example_queries": {
+    "get_user": {
+      "query": "query GetUser($id: ID!) { user(id: $id) { id email name role createdAt } }",
+      "variables": {
+        "id": "123"
+      }
+    },
+    "get_orders": {
+      "query": "query GetOrders($userId: ID!) { orders(userId: $userId) { id totalAmount status createdAt items { id productId quantity price } } }",
+      "variables": {
+        "userId": "123"
+      }
+    },
+    "create_user": {
+      "query": "mutation CreateUser($email: String!, $name: String!) { createUser(email: $email, name: $name) { id email name createdAt } }",
+      "variables": {
+        "email": "user@example.com",
+        "name": "John Doe"
+      }
+    },
+    "create_order": {
+      "query": "mutation CreateOrder($userId: ID!, $items: [OrderItemInput!]!, $totalAmount: Float!) { createOrder(userId: $userId, items: $items, totalAmount: $totalAmount) { id status totalAmount createdAt } }",
+      "variables": {
+        "userId": "123",
+        "items": [
+          {
+            "productId": "456",
+            "quantity": 2,
+            "price": 29.99
+          }
+        ],
+        "totalAmount": 59.98
+      }
+    }
+  }
+}

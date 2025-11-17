@@ -1,0 +1,426 @@
+{
+  "description": "Complex nested array mapping examples - Orders with Operations, Parts, WIS, Tools",
+  "examples": [
+    {
+      "scenario": "Map orders with nested operations, parts, wis, and tools",
+      "source_schema": {
+        "orders": [
+          {
+            "order_id": "ORD-001",
+            "customer": "ACME Corp",
+            "operations": [
+              {
+                "operation_id": "OP-001",
+                "type": "assembly",
+                "parts": [
+                  {
+                    "part_id": "PT-100",
+                    "quantity": 5,
+                    "wis": [
+                      {"wis_id": "WIS-A", "step": 1, "description": "Prepare surface"},
+                      {"wis_id": "WIS-B", "step": 2, "description": "Apply adhesive"}
+                    ]
+                  },
+                  {
+                    "part_id": "PT-101",
+                    "quantity": 3
+                  }
+                ],
+                "tools": [
+                  {"tool_id": "T-001", "name": "Screwdriver"},
+                  {"tool_id": "T-002", "name": "Wrench"}
+                ]
+              },
+              {
+                "operation_id": "OP-002",
+                "type": "testing",
+                "parts": [
+                  {
+                    "part_id": "PT-200",
+                    "quantity": 1
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "mapping_definition": {
+        "id": "complex-order-mapping",
+        "name": "Complex Order with Nested Arrays",
+        "source_protocol": "REST",
+        "target_protocol": "SOAP",
+        "mappings": [
+          {
+            "source_path": "$.orders",
+            "target_path": "$.ProcessOrders.Orders",
+            "data_type": "array",
+            "required": true,
+            "array_mapping": {
+              "mode": "iterate",
+              "item_mappings": [
+                {
+                  "source_path": ".order_id",
+                  "target_path": "$.OrderNumber",
+                  "data_type": "string",
+                  "required": true
+                },
+                {
+                  "source_path": ".customer",
+                  "target_path": "$.CustomerName",
+                  "data_type": "string",
+                  "required": true
+                },
+                {
+                  "source_path": ".operations",
+                  "target_path": "$.Operations",
+                  "data_type": "array",
+                  "optional": false,
+                  "array_mapping": {
+                    "mode": "iterate",
+                    "item_mappings": [
+                      {
+                        "source_path": ".operation_id",
+                        "target_path": "$.OperationCode",
+                        "data_type": "string",
+                        "required": true
+                      },
+                      {
+                        "source_path": ".type",
+                        "target_path": "$.OperationType",
+                        "data_type": "string",
+                        "required": true
+                      },
+                      {
+                        "source_path": ".parts",
+                        "target_path": "$.PartsList",
+                        "data_type": "array",
+                        "optional": true,
+                        "array_mapping": {
+                          "mode": "iterate",
+                          "item_mappings": [
+                            {
+                              "source_path": ".part_id",
+                              "target_path": "$.PartNumber",
+                              "data_type": "string",
+                              "required": true
+                            },
+                            {
+                              "source_path": ".quantity",
+                              "target_path": "$.Qty",
+                              "data_type": "int",
+                              "required": true
+                            },
+                            {
+                              "source_path": ".wis",
+                              "target_path": "$.WorkInstructions",
+                              "data_type": "array",
+                              "optional": true,
+                              "array_mapping": {
+                                "mode": "iterate",
+                                "sort_by": "step",
+                                "sort_order": "asc",
+                                "item_mappings": [
+                                  {
+                                    "source_path": ".wis_id",
+                                    "target_path": "$.InstructionID",
+                                    "data_type": "string",
+                                    "required": true
+                                  },
+                                  {
+                                    "source_path": ".step",
+                                    "target_path": "$.StepNumber",
+                                    "data_type": "int",
+                                    "required": true
+                                  },
+                                  {
+                                    "source_path": ".description",
+                                    "target_path": "$.StepDescription",
+                                    "data_type": "string",
+                                    "required": true
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "source_path": ".tools",
+                        "target_path": "$.ToolsRequired",
+                        "data_type": "array",
+                        "optional": true,
+                        "array_mapping": {
+                          "mode": "iterate",
+                          "item_mappings": [
+                            {
+                              "source_path": ".tool_id",
+                              "target_path": "$.ToolCode",
+                              "data_type": "string",
+                              "required": true
+                            },
+                            {
+                              "source_path": ".name",
+                              "target_path": "$.ToolName",
+                              "data_type": "string",
+                              "required": true
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "Flatten all parts from all operations into a single parts list",
+      "mapping_definition": {
+        "id": "flatten-all-parts",
+        "name": "Flatten All Parts Across All Operations",
+        "mappings": [
+          {
+            "source_path": "$.orders[*].operations[*].parts",
+            "target_path": "$.AllParts",
+            "data_type": "array",
+            "required": true,
+            "array_mapping": {
+              "mode": "flatten",
+              "item_mappings": [
+                {
+                  "source_path": ".part_id",
+                  "target_path": "$.PartNumber",
+                  "data_type": "string",
+                  "required": true
+                },
+                {
+                  "source_path": ".quantity",
+                  "target_path": "$.Quantity",
+                  "data_type": "int",
+                  "required": true
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "Filter operations by type and only include assembly operations",
+      "mapping_definition": {
+        "id": "filter-assembly-operations",
+        "name": "Filter Only Assembly Operations",
+        "mappings": [
+          {
+            "source_path": "$.orders[0].operations",
+            "target_path": "$.AssemblyOperations",
+            "data_type": "array",
+            "required": true,
+            "array_mapping": {
+              "mode": "filter",
+              "filter_condition": {
+                "field": "type",
+                "operator": "eq",
+                "value": "assembly"
+              },
+              "item_mappings": [
+                {
+                  "source_path": ".operation_id",
+                  "target_path": "$.OperationCode",
+                  "data_type": "string",
+                  "required": true
+                },
+                {
+                  "source_path": ".parts",
+                  "target_path": "$.Parts",
+                  "data_type": "array",
+                  "optional": true,
+                  "array_mapping": {
+                    "mode": "iterate",
+                    "item_mappings": [
+                      {
+                        "source_path": ".part_id",
+                        "target_path": "$.PartID",
+                        "data_type": "string",
+                        "required": true
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "Handle missing optional nodes (wis, tools)",
+      "note": "When nodes are optional, set optional: true to skip if missing",
+      "mapping_definition": {
+        "id": "handle-missing-nodes",
+        "name": "Handle Missing Optional Nodes",
+        "mappings": [
+          {
+            "source_path": "$.orders",
+            "target_path": "$.OrdersData",
+            "data_type": "array",
+            "array_mapping": {
+              "mode": "iterate",
+              "item_mappings": [
+                {
+                  "source_path": ".order_id",
+                  "target_path": "$.ID",
+                  "data_type": "string",
+                  "required": true
+                },
+                {
+                  "source_path": ".operations",
+                  "target_path": "$.Ops",
+                  "data_type": "array",
+                  "array_mapping": {
+                    "mode": "iterate",
+                    "item_mappings": [
+                      {
+                        "source_path": ".operation_id",
+                        "target_path": "$.OpID",
+                        "data_type": "string",
+                        "required": true
+                      },
+                      {
+                        "source_path": ".parts",
+                        "target_path": "$.Parts",
+                        "data_type": "array",
+                        "optional": true,
+                        "default_value": [],
+                        "array_mapping": {
+                          "mode": "iterate",
+                          "item_mappings": [
+                            {
+                              "source_path": ".part_id",
+                              "target_path": "$.ID",
+                              "data_type": "string",
+                              "required": true
+                            },
+                            {
+                              "source_path": ".wis",
+                              "target_path": "$.Instructions",
+                              "data_type": "array",
+                              "optional": true,
+                              "default_value": []
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "source_path": ".tools",
+                        "target_path": "$.Tools",
+                        "data_type": "array",
+                        "optional": true,
+                        "default_value": []
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "Group parts by part_id and aggregate quantities",
+      "mapping_definition": {
+        "id": "group-parts-aggregate",
+        "name": "Group Parts and Aggregate Quantities",
+        "mappings": [
+          {
+            "source_path": "$.orders[*].operations[*].parts",
+            "target_path": "$.PartsInventory",
+            "data_type": "array",
+            "array_mapping": {
+              "mode": "iterate",
+              "group_by": "part_id",
+              "aggregate_func": "sum",
+              "item_mappings": [
+                {
+                  "source_path": ".part_id",
+                  "target_path": "$.PartID",
+                  "data_type": "string",
+                  "required": true
+                },
+                {
+                  "source_path": ".quantity",
+                  "target_path": "$.TotalQuantity",
+                  "data_type": "int",
+                  "required": true
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "Sort and limit results",
+      "mapping_definition": {
+        "id": "sort-limit-parts",
+        "name": "Sort Parts by Quantity and Limit to Top 10",
+        "mappings": [
+          {
+            "source_path": "$.orders[0].operations[0].parts",
+            "target_path": "$.TopParts",
+            "data_type": "array",
+            "array_mapping": {
+              "mode": "iterate",
+              "sort_by": "quantity",
+              "sort_order": "desc",
+              "limit": 10,
+              "item_mappings": [
+                {
+                  "source_path": ".part_id",
+                  "target_path": "$.PartNumber",
+                  "data_type": "string",
+                  "required": true
+                },
+                {
+                  "source_path": ".quantity",
+                  "target_path": "$.Qty",
+                  "data_type": "int",
+                  "required": true
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "array_mapping_modes": {
+    "iterate": "Process each array item individually with item_mappings",
+    "flatten": "Flatten nested arrays into a single level array",
+    "filter": "Filter array items based on filter_condition",
+    "merge": "Merge array of objects into a single object",
+    "expand": "Expand/split objects into array items"
+  },
+  "best_practices": [
+    "Use 'optional: true' for fields that may not exist in all items",
+    "Set 'default_value' for optional fields to provide fallback values",
+    "Use relative paths (starting with .) for item_mappings to reference current array item",
+    "Nest array_mapping configurations for deeply nested arrays",
+    "Use filter_condition to exclude unwanted items early in the transformation",
+    "Apply sort_by and limit for performance when dealing with large arrays",
+    "Use group_by with aggregate_func to summarize data"
+  ],
+  "path_syntax": {
+    "$.orders": "Root level array",
+    "$.orders[0]": "First item in array",
+    "$.orders[*]": "All items in array (JSONPath wildcard)",
+    "$.orders[*].operations[*].parts": "Deeply nested array access",
+    ".part_id": "Relative path within current array item context",
+    "$": "Root reference from within item_mappings"
+  }
+}

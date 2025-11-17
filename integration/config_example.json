@@ -1,0 +1,13 @@
+{
+  "config_path": "./config/integration",
+  "enable_rest": true,
+  "enable_soap": true,
+  "enable_tcp": true,
+  "enable_graphql": true,
+  "enable_datahub": true,
+  "enable_mqtt": false,
+  "enable_kafka": false,
+  "enable_activemq": false,
+  "enable_opcua": false,
+  "enable_signalr": false
+}
