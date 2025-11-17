@@ -93,7 +93,7 @@ func ExecuteWithRecovery(
 
 		// Create structured error if needed
 		if bpmErr, ok := err.(*types.BPMError); ok {
-			if bpmErr.Severity == types.SeverityCritical || bpmErr.Severity == types.SeverityError {
+			if bpmErr.Severity == types.ErrorSeverityCritical || bpmErr.Severity == types.ErrorSeverityError {
 				panic(bpmErr)
 			}
 		} else {

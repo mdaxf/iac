@@ -1,6 +1,7 @@
 package debug
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
@@ -495,5 +496,3 @@ func (dh *DebugHelper) EmitTransactionRollback(reason string) {
 
 	dh.manager.EmitEvent(event)
 }
-
-import "fmt"

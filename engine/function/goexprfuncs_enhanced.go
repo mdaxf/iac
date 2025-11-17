@@ -61,6 +61,7 @@ func (e *EnhancedGoExprExecutor) Execute(
 	program, err := expr.Compile(script, expr.Env(env))
 	if err != nil {
 		return nil, types.NewScriptError(
+			"GoExpression",
 			"Failed to compile Go expression",
 			err,
 		).WithContext(&types.ExecutionContext{
@@ -121,6 +122,7 @@ func (e *EnhancedGoExprExecutor) executeWithContext(
 
 	case err := <-errorChan:
 		return nil, types.NewScriptError(
+			"GoExpression",
 			"Go expression execution failed",
 			err,
 		).WithDetail("error_type", "execution_error")
@@ -177,7 +179,7 @@ func (cf *EnhancedGoExprFuncs) Execute(f *Funcs) {
 				ExecutionTime: startTime,
 			}
 
-			structuredErr := types.NewScriptError(errMsg, nil).
+			structuredErr := types.NewScriptError("GoExpression", errMsg, nil).
 				WithContext(execContext).
 				WithRollbackReason("Go expression execution failed")
 

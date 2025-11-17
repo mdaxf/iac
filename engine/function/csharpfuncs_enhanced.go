@@ -83,8 +83,8 @@ func (e *EnhancedCSharpExecutor) Execute(
 		// Check if it's a timeout
 		if ctx.Err() == context.DeadlineExceeded {
 			return nil, types.NewTimeoutError(
-				fmt.Sprintf("C# execution timed out after %v", e.Config.Timeout),
-				err,
+				"C# execution",
+				e.Config.Timeout,
 			).WithContext(&types.ExecutionContext{
 				FunctionType:  "CSharp",
 				ExecutionTime: startTime,
@@ -98,6 +98,7 @@ func (e *EnhancedCSharpExecutor) Execute(
 		}
 
 		return nil, types.NewScriptError(
+			"C#",
 			"C# execution failed",
 			err,
 		).WithContext(&types.ExecutionContext{
@@ -137,6 +138,7 @@ func (e *EnhancedCSharpExecutor) Execute(
 
 		// Otherwise, return error
 		return nil, types.NewScriptError(
+			"C#",
 			"Failed to parse C# output as JSON",
 			err,
 		).WithDetail("output", string(outputBytes))
@@ -153,7 +155,7 @@ func (e *EnhancedCSharpExecutor) Execute(
 		}
 	}
 
-	e.Log.Performance(fmt.Sprintf("C# code executed in %v", executionTime))
+	e.Log.Info(fmt.Sprintf("C# code executed in %v", executionTime))
 
 	return result, nil
 }
@@ -224,7 +226,7 @@ func (cf *EnhancedCSharpFuncs) Execute(f *Funcs) {
 				ExecutionTime: startTime,
 			}
 
-			structuredErr := types.NewScriptError(errMsg, nil).
+			structuredErr := types.NewScriptError("C#", errMsg, nil).
 				WithContext(execContext).
 				WithRollbackReason("C# code execution failed")
 
@@ -285,7 +287,7 @@ func (cf *EnhancedCSharpFuncs) Execute(f *Funcs) {
 
 		// Trigger rollback if it's a critical error
 		if bpmErr, ok := scriptErr.(*types.BPMError); ok {
-			if bpmErr.Severity == types.SeverityCritical || bpmErr.Severity == types.SeverityError {
+			if bpmErr.Severity == types.ErrorSeverityCritical || bpmErr.Severity == types.ErrorSeverityError {
 				panic(bpmErr)
 			}
 		}
