@@ -320,7 +320,7 @@ func logEntry(entry LogEntry) {
 	case "INFO":
 		log.Info(logMessage)
 	case "WARNING":
-		log.Warning(logMessage)
+		log.Warn(logMessage)
 	case "ERROR":
 		log.Error(logMessage)
 	case "CRITICAL":
