@@ -36,11 +36,12 @@ func (s *SchemaMetadataServiceMultiDB) DiscoverSchema(ctx context.Context, datab
 	}
 	defer db.Close()
 
-	dialect := db.GetDialect()
+	// Get database type for dialect-specific queries
+	dbType := string(db.GetType())
 
 	// Discover tables
-	tablesQuery := GetTablesQuery(dialect, schemaName)
-	rows, err := db.Query(tablesQuery)
+	tablesQuery := GetTablesQuery(dbType, schemaName)
+	rows, err := db.Query(ctx, tablesQuery)
 	if err != nil {
 		return fmt.Errorf("failed to discover tables: %w", err)
 	}
@@ -88,11 +89,12 @@ func (s *SchemaMetadataServiceMultiDB) DiscoverSchema(ctx context.Context, datab
 
 // discoverTableColumns discovers all columns for a specific table
 func (s *SchemaMetadataServiceMultiDB) discoverTableColumns(ctx context.Context, db dbconn.RelationalDB, databaseAlias, schemaName, tableName string) error {
-	dialect := db.GetDialect()
+	// Get database type for dialect-specific queries
+	dbType := string(db.GetType())
 
 	// Get columns query
-	columnsQuery := GetColumnsQuery(dialect, schemaName, tableName)
-	rows, err := db.Query(columnsQuery)
+	columnsQuery := GetColumnsQuery(dbType, schemaName, tableName)
+	rows, err := db.Query(ctx, columnsQuery)
 	if err != nil {
 		return fmt.Errorf("failed to discover columns: %w", err)
 	}
@@ -117,7 +119,7 @@ func (s *SchemaMetadataServiceMultiDB) discoverTableColumns(ctx context.Context,
 		isNullable := column.IsNullable == "YES"
 
 		// Normalize data type to common format
-		normalizedType := NormalizeDataType(dialect, column.DataType)
+		normalizedType := NormalizeDataType(dbType, column.DataType)
 
 		columnMeta := &models.DatabaseSchemaMetadata{
 			DatabaseAlias: databaseAlias,
@@ -149,10 +151,11 @@ func (s *SchemaMetadataServiceMultiDB) DiscoverIndexes(ctx context.Context, data
 	}
 	defer db.Close()
 
-	dialect := db.GetDialect()
-	indexesQuery := GetIndexesQuery(dialect, schemaName, tableName)
+	// Get database type for dialect-specific queries
+	dbType := string(db.GetType())
+	indexesQuery := GetIndexesQuery(dbType, schemaName, tableName)
 
-	rows, err := db.Query(indexesQuery)
+	rows, err := db.Query(ctx, indexesQuery)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover indexes: %w", err)
 	}
@@ -180,7 +183,7 @@ func (s *SchemaMetadataServiceMultiDB) ExecuteQuery(ctx context.Context, databas
 	}
 	// Note: Caller must close db after using rows
 
-	return db.Query(query, args...)
+	return db.Query(ctx, query, args...)
 }
 
 // GetTableMetadata retrieves metadata for all tables in a database

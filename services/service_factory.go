@@ -26,8 +26,11 @@ func NewServiceFactory(poolManager *dbconn.PoolManager, appDB *gorm.DB) (*Servic
 		return nil, fmt.Errorf("poolManager and appDB cannot be nil")
 	}
 
-	// Create database selector with round-robin strategy
-	selector := dbconn.NewDatabaseSelector(poolManager, dbconn.RoundRobinStrategy)
+	// Create database selector
+	selector := dbconn.NewDatabaseSelector(poolManager)
+
+	// Set round-robin strategy
+	selector.SetStrategy(dbconn.StrategyRoundRobin)
 
 	// Create database helper
 	dbHelper := NewDatabaseHelper(selector, appDB)
