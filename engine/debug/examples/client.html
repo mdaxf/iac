@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BPM Debug Monitor</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+        .control-group {
+            display: inline-block;
+            margin-right: 20px;
+            margin-bottom: 10px;
+        }
+        label {
+            display: inline-block;
+            margin-right: 8px;
+            font-weight: 600;
+        }
+        input, select, button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .events {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            height: 600px;
+            overflow-y: auto;
+            background-color: #fafafa;
+        }
+        .event {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .event:hover {
+            background-color: #f0f0f0;
+        }
+        .event-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        .event-type {
+            color: #007bff;
+        }
+        .event-timestamp {
+            color: #666;
+            font-size: 12px;
+        }
+        .event-body {
+            color: #333;
+            margin-top: 8px;
+        }
+        .event-level-DEBUG { border-left: 4px solid #17a2b8; }
+        .event-level-INFO { border-left: 4px solid #28a745; }
+        .event-level-WARNING { border-left: 4px solid #ffc107; }
+        .event-level-ERROR { border-left: 4px solid #dc3545; }
+        .event-data {
+            background-color: #f8f9fa;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 8px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .stat-box {
+            flex: 1;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #007bff;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 BPM Engine Debug Monitor</h1>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="apiUrl">API URL:</label>
+                <input type="text" id="apiUrl" value="http://localhost:8080" style="width: 200px;">
+            </div>
+            <div class="control-group">
+                <label for="sessionId">Session ID:</label>
+                <input type="text" id="sessionId" placeholder="Enter session ID" style="width: 250px;">
+            </div>
+            <div class="control-group">
+                <label for="eventFilter">Event Filter:</label>
+                <select id="eventFilter">
+                    <option value="">All Events</option>
+                    <option value="trancode">TranCode Events</option>
+                    <option value="funcgroup">FuncGroup Events</option>
+                    <option value="function">Function Events</option>
+                    <option value="database">Database Events</option>
+                    <option value="script">Script Events</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <button id="connectBtn" onclick="connect()">Connect</button>
+                <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+                <button onclick="clearEvents()">Clear</button>
+            </div>
+        </div>
+
+        <div id="statusBox" class="status disconnected">
+            Disconnected
+        </div>
+
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-value" id="eventCount">0</div>
+                <div class="stat-label">Total Events</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="functionCount">0</div>
+                <div class="stat-label">Functions Executed</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="avgDuration">0ms</div>
+                <div class="stat-label">Avg Function Time</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="errorCount">0</div>
+                <div class="stat-label">Errors</div>
+            </div>
+        </div>
+
+        <div class="events" id="eventsContainer">
+            <div style="padding: 20px; text-align: center; color: #999;">
+                No events yet. Connect to a debug session to start monitoring.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        let events = [];
+        let functionTimes = [];
+        let functionCount = 0;
+        let errorCount = 0;
+
+        function connect() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const sessionId = document.getElementById('sessionId').value;
+
+            if (!sessionId) {
+                alert('Please enter a session ID');
+                return;
+            }
+
+            // Close existing connection
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            // Build SSE URL
+            const sseUrl = `${apiUrl}/api/debug/stream?sessionID=${encodeURIComponent(sessionId)}`;
+
+            // Create EventSource
+            eventSource = new EventSource(sseUrl);
+
+            // Handle connection open
+            eventSource.addEventListener('connected', function(e) {
+                const data = JSON.parse(e.data);
+                updateStatus(true, `Connected to session: ${data.sessionID}`);
+                console.log('Connected:', data);
+            });
+
+            // Handle messages
+            eventSource.onmessage = function(e) {
+                try {
+                    const event = JSON.parse(e.data);
+                    handleEvent(event);
+                } catch (err) {
+                    console.error('Error parsing event:', err);
+                }
+            };
+
+            // Handle errors
+            eventSource.onerror = function(err) {
+                console.error('EventSource error:', err);
+                updateStatus(false, 'Connection error');
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+            };
+
+            document.getElementById('connectBtn').disabled = true;
+            document.getElementById('disconnectBtn').disabled = false;
+        }
+
+        function disconnect() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            updateStatus(false, 'Disconnected');
+            document.getElementById('connectBtn').disabled = false;
+            document.getElementById('disconnectBtn').disabled = true;
+        }
+
+        function handleEvent(event) {
+            events.push(event);
+
+            // Update stats
+            document.getElementById('eventCount').textContent = events.length;
+
+            if (event.event_type.includes('function.complete')) {
+                functionCount++;
+                document.getElementById('functionCount').textContent = functionCount;
+
+                if (event.execution_time) {
+                    functionTimes.push(event.execution_time / 1000000); // Convert to ms
+                    const avg = functionTimes.reduce((a, b) => a + b, 0) / functionTimes.length;
+                    document.getElementById('avgDuration').textContent = avg.toFixed(2) + 'ms';
+                }
+            }
+
+            if (event.level === 'ERROR' || event.error) {
+                errorCount++;
+                document.getElementById('errorCount').textContent = errorCount;
+            }
+
+            // Display event
+            displayEvent(event);
+        }
+
+        function displayEvent(event) {
+            const container = document.getElementById('eventsContainer');
+
+            // Create event element
+            const eventDiv = document.createElement('div');
+            eventDiv.className = `event event-level-${event.level || 'INFO'}`;
+
+            const timestamp = new Date(event.timestamp).toLocaleTimeString();
+            const step = event.execution_step || '-';
+
+            let html = `
+                <div class="event-header">
+                    <span class="event-type">[${step}] ${event.event_type}</span>
+                    <span class="event-timestamp">${timestamp}</span>
+                </div>
+            `;
+
+            if (event.message) {
+                html += `<div><strong>Message:</strong> ${event.message}</div>`;
+            }
+
+            if (event.function_name) {
+                html += `<div><strong>Function:</strong> ${event.function_name} (${event.function_type || 'N/A'})</div>`;
+            }
+
+            if (event.funcgroup_name) {
+                html += `<div><strong>FuncGroup:</strong> ${event.funcgroup_name}</div>`;
+            }
+
+            if (event.execution_time) {
+                const ms = (event.execution_time / 1000000).toFixed(2);
+                html += `<div><strong>Duration:</strong> ${ms}ms</div>`;
+            }
+
+            if (event.routing_path) {
+                html += `<div><strong>Routing:</strong> ${event.routing_path} (value: ${JSON.stringify(event.routing_value)})</div>`;
+            }
+
+            if (event.inputs && Object.keys(event.inputs).length > 0) {
+                html += `<div class="event-data"><strong>Inputs:</strong>\n${JSON.stringify(event.inputs, null, 2)}</div>`;
+            }
+
+            if (event.outputs && Object.keys(event.outputs).length > 0) {
+                html += `<div class="event-data"><strong>Outputs:</strong>\n${JSON.stringify(event.outputs, null, 2)}</div>`;
+            }
+
+            if (event.error) {
+                html += `<div style="color: #dc3545;"><strong>Error:</strong> ${event.error}</div>`;
+            }
+
+            if (event.metadata && Object.keys(event.metadata).length > 0) {
+                html += `<div class="event-data"><strong>Metadata:</strong>\n${JSON.stringify(event.metadata, null, 2)}</div>`;
+            }
+
+            eventDiv.innerHTML = html;
+
+            // Insert at top
+            if (container.firstChild) {
+                container.insertBefore(eventDiv, container.firstChild);
+            } else {
+                container.appendChild(eventDiv);
+            }
+
+            // Limit number of displayed events
+            while (container.children.length > 100) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        function updateStatus(connected, message) {
+            const statusBox = document.getElementById('statusBox');
+            statusBox.className = `status ${connected ? 'connected' : 'disconnected'}`;
+            statusBox.textContent = message;
+        }
+
+        function clearEvents() {
+            document.getElementById('eventsContainer').innerHTML = '';
+            events = [];
+            functionTimes = [];
+            functionCount = 0;
+            errorCount = 0;
+            document.getElementById('eventCount').textContent = '0';
+            document.getElementById('functionCount').textContent = '0';
+            document.getElementById('avgDuration').textContent = '0ms';
+            document.getElementById('errorCount').textContent = '0';
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (eventSource) {
+                eventSource.close();
+            }
+        });
+    </script>
+</body>
+</html>

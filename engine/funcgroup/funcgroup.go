@@ -93,18 +93,68 @@ func (c *FGroup) Execute() {
 		c.iLog.PerformanceWithDuration("engine.funcgroup.Execute", elapsed)
 	}()
 
+	// ROLLBACK DESIGN: This defer/recover pattern is intentional.
+	// When a function within this group fails, we catch the panic and propagate it up
+	// to ensure the entire transaction is rolled back.
 	defer func() {
 		if r := recover(); r != nil {
+			// Check if this is a structured BPMError
+			if bpmErr, ok := r.(*types.BPMError); ok {
+				// Add function group context if not already present
+				if bpmErr.Context == nil {
+					bpmErr.Context = &types.ExecutionContext{}
+				}
+				bpmErr.Context.FunctionGroup = c.FGobj.Name
 
-			c.iLog.Error(fmt.Sprintf("Panic: %s", r))
-			c.ErrorMessage = fmt.Sprintf("Panic: %s", r)
-			c.DBTx.Rollback()
-			c.CtxCancel()
+				// Log the formatted error
+				c.iLog.Error(bpmErr.GetFormattedError())
+				c.ErrorMessage = bpmErr.Error()
+
+				// Update rollback reason
+				if bpmErr.RollbackReason == "" {
+					bpmErr.WithRollbackReason(fmt.Sprintf("Function group %s failed", c.FGobj.Name))
+				}
+			} else {
+				// Handle non-structured errors
+				errMsg := fmt.Sprintf("Panic in function group %s: %v", c.FGobj.Name, r)
+				c.iLog.Error(errMsg)
+				c.ErrorMessage = errMsg
+
+				// Create a structured error for better tracking
+				execContext := &types.ExecutionContext{
+					FunctionGroup: c.FGobj.Name,
+					ExecutionTime: startTime,
+				}
+				if userNo, ok := c.SystemSession["UserNo"].(string); ok {
+					execContext.UserNo = userNo
+				}
+				if clientID, ok := c.SystemSession["ClientID"].(string); ok {
+					execContext.ClientID = clientID
+				}
+
+				structuredErr := types.NewExecutionError(errMsg, nil).
+					WithContext(execContext).
+					WithRollbackReason(fmt.Sprintf("Unexpected error in function group %s", c.FGobj.Name))
+
+				c.iLog.Error(structuredErr.GetFormattedError())
+			}
+
+			// Rollback and propagate the panic upward
+			c.iLog.Info(fmt.Sprintf("Rolling back transaction due to error in function group %s", c.FGobj.Name))
+			if c.DBTx != nil {
+				c.DBTx.Rollback()
+			}
+			if c.CtxCancel != nil {
+				c.CtxCancel()
+			}
+
 			if c.TestwithSc {
 				tcom.SendTestResultMessageBus("", c.FGobj.ID, "", "End", "",
 					c.Externalinputs, c.Externaloutputs, c.SystemSession, c.UserSession, fmt.Errorf(c.ErrorMessage), c.SystemSession["ClientID"].(string), c.SystemSession["UserNo"].(string))
 			}
-			return
+
+			// Re-panic to propagate to parent transcode
+			panic(r)
 		}
 	}()
 
@@ -268,7 +318,14 @@ func (c *FGroup) CheckRouter(RouterDef types.RouterDef) string {
 		if len(arr) == 2 {
 			c.iLog.Debug(fmt.Sprintf("function variables: %s", logger.ConvertJson(c.funcCachedVariables)))
 			if c.funcCachedVariables[arr[0]] != nil {
-				tempobj := c.funcCachedVariables[arr[0]].(map[string]interface{})
+				// Use safe type assertion to prevent unwanted panics
+				tempobj, err := types.AssertMap(c.funcCachedVariables[arr[0]], fmt.Sprintf("funcCachedVariables[%s]", arr[0]))
+				if err != nil {
+					c.iLog.Error(fmt.Sprintf("Type assertion error in router: %s", err.Error()))
+					// Log the error but don't panic - use default route instead
+					c.iLog.Debug(fmt.Sprintf("Falling back to default function group due to type assertion error"))
+					break // Exit switch and fall through to default function group
+				}
 				c.iLog.Debug(fmt.Sprintf("function variables: %s", logger.ConvertJson(tempobj)))
 				if tempobj[arr[1]] != nil {
 					c.iLog.Debug(fmt.Sprintf("function %s variable %s value: %s", arr[0], arr[1], logger.ConvertJson(tempobj[arr[1]])))

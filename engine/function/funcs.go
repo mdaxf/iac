@@ -122,21 +122,79 @@ func NewFuncs(DocDBCon *documents.DocDB, SignalRClient signalr.Client, dbTx *sql
 // - An error if there was an error in the process.
 
 func (f *Funcs) HandleInputs() ([]string, []string, map[string]interface{}, error) {
-	/*	startTime := time.Now()
-		defer func() {
-			elapsed := time.Since(startTime)
-			f.iLog.PerformanceWithDuration("engine.funcs.HandleInputs", elapsed)
-		}()
-	*/defer func() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.HandleInputs", elapsed)
+	}()
+
+	// ROLLBACK DESIGN: Catch panics and create structured errors
+	defer func() {
 		if err := recover(); err != nil {
-			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.HandleInputs with error: %s", err))
-			f.CancelExecution(fmt.Sprintf("There is error to engine.funcs.HandleInputs with error: %s", err))
+			errMsg := fmt.Sprintf("Panic in HandleInputs: %v", err)
+			f.iLog.Error(errMsg)
+
+			// Create structured error
+			execContext := &types.ExecutionContext{
+				FunctionName:  f.Fobj.Name,
+				FunctionType:  f.Fobj.Functype.String(),
+				ExecutionTime: startTime,
+			}
+
+			structuredErr := types.NewExecutionError(errMsg, nil).
+				WithContext(execContext).
+				WithRollbackReason("Input mapping failed")
+
+			f.iLog.Error(structuredErr.GetFormattedError())
+			f.CancelExecution(errMsg)
+			panic(structuredErr) // Re-panic with structured error
+		}
+	}()
+
+	f.iLog.Info(fmt.Sprintf("Start processing inputs for function %s", f.Fobj.Name))
+	f.iLog.Debug(fmt.Sprintf("function inputs: %s", logger.ConvertJson(f.Fobj.Inputs)))
+
+	// Use the new comprehensive InputMapper for safe type-aware input mapping
+	inputMapper := NewInputMapper(
+		f.SystemSession,
+		f.UserSession,
+		f.Externalinputs,
+		f.FuncCachedVariables,
+		f.iLog,
+	)
+
+	// Map all inputs using the new comprehensive mapper
+	mappedInputs, nameList, valueList, err := inputMapper.MapAllInputs(f.Fobj.Inputs)
+	if err != nil {
+		f.iLog.Error(fmt.Sprintf("Error mapping inputs: %s", err.Error()))
+		return nil, nil, nil, err
+	}
+
+	f.FunctionMappedInputs = mappedInputs
+	f.iLog.Debug(fmt.Sprintf("Successfully mapped %d inputs", len(mappedInputs)))
+
+	return nameList, valueList, mappedInputs, nil
+}
+
+// HandleInputsLegacy is the original HandleInputs implementation kept for backward compatibility
+// This function is deprecated and will be removed in a future version
+// Use HandleInputs instead, which uses the new comprehensive InputMapper
+func (f *Funcs) HandleInputsLegacy() ([]string, []string, map[string]interface{}, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		f.iLog.PerformanceWithDuration("engine.funcs.HandleInputsLegacy", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.HandleInputsLegacy with error: %s", err))
+			f.CancelExecution(fmt.Sprintf("There is error to engine.funcs.HandleInputsLegacy with error: %s", err))
 			return
 		}
 	}()
 
-	f.iLog.Debug(fmt.Sprintf("Start process %s", reflect.ValueOf(f.HandleInputs).Kind().String()))
-
+	f.iLog.Debug(fmt.Sprintf("Start process %s", reflect.ValueOf(f.HandleInputsLegacy).Kind().String()))
 	f.iLog.Debug(fmt.Sprintf("function inputs: %s", logger.ConvertJson(f.Fobj.Inputs)))
 
 	newinputs := make(map[string]interface{})
@@ -144,7 +202,6 @@ func (f *Funcs) HandleInputs() ([]string, []string, map[string]interface{}, erro
 	valuelist := make([]string, len(f.Fobj.Inputs))
 
 	inputs := f.Fobj.Inputs
-	//	newinputs = f.FunctionMappedInputs
 
 	for i, _ := range inputs {
 		//	f.iLog.Debug(fmt.Sprintf("function input: %s, Source: %s", logger.ConvertJson(inputs[i]), inputs[i].Source))
@@ -721,25 +778,14 @@ func customMarshal(v interface{}) string {
 // Returns:
 // - The converted integer value.
 
+// ConverttoInt converts a string to int (uses TypeConverter for better error handling)
 func (f *Funcs) ConverttoInt(str string) int {
-	/*	startTime := time.Now()
-		defer func() {
-			elapsed := time.Since(startTime)
-			f.iLog.PerformanceWithDuration("engine.funcs.ConverttoInt", elapsed)
-		}()
-		defer func() {
-			if err := recover(); err != nil {
-				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoInt with error: %s", err))
-				return
-			}
-		}()
-	*/
-	temp, err := strconv.Atoi(str)
+	result, err := TypeConv.ConvertToInt(str)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Convert %s to int error: %s", str, err.Error()))
+		return 0
 	}
-
-	return temp
+	return result
 }
 
 // ConverttoFloat converts a string to a float64 value.
@@ -751,25 +797,14 @@ func (f *Funcs) ConverttoInt(str string) int {
 // Returns:
 // - The converted float64 value.
 
+// ConverttoFloat converts a string to float64 (uses TypeConverter for better error handling)
 func (f *Funcs) ConverttoFloat(str string) float64 {
-	/*	startTime := time.Now()
-		defer func() {
-			elapsed := time.Since(startTime)
-			f.iLog.PerformanceWithDuration("engine.funcs.ConverttoFloat", elapsed)
-		}()
-		defer func() {
-			if err := recover(); err != nil {
-				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoFloat with error: %s", err))
-				return
-			}
-		}()
-	*/
-	temp, err := strconv.ParseFloat(str, 64)
+	result, err := TypeConv.ConvertToFloat(str)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Convert %s to float error: %s", str, err.Error()))
+		return 0.0
 	}
-
-	return temp
+	return result
 }
 
 // ConverttoBool converts a string to a boolean value.
@@ -782,25 +817,14 @@ func (f *Funcs) ConverttoFloat(str string) float64 {
 // Returns:
 // - bool: The boolean value parsed from the string.
 
+// ConverttoBool converts a string to bool (uses TypeConverter for better error handling)
 func (f *Funcs) ConverttoBool(str string) bool {
-	/*	startTime := time.Now()
-		defer func() {
-			elapsed := time.Since(startTime)
-			f.iLog.PerformanceWithDuration("engine.funcs.ConverttoBool", elapsed)
-		}()
-		defer func() {
-			if err := recover(); err != nil {
-				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoBool with error: %s", err))
-				return
-			}
-		}()
-	*/
-	temp, err := strconv.ParseBool(str)
+	result, err := TypeConv.ConvertToBool(str)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Convert %s to bool error: %s", str, err.Error()))
+		return false
 	}
-
-	return temp
+	return result
 }
 
 // ConverttoDateTime converts a string to a time.Time value.
@@ -813,25 +837,14 @@ func (f *Funcs) ConverttoBool(str string) bool {
 // Returns:
 // - time.Time: The time.Time value parsed from the string.
 
+// ConverttoDateTime converts a string to time.Time (uses TypeConverter for better error handling)
 func (f *Funcs) ConverttoDateTime(str string) time.Time {
-	/*	startTime := time.Now()
-		defer func() {
-			elapsed := time.Since(startTime)
-			f.iLog.PerformanceWithDuration("engine.funcs.ConverttoDatTime", elapsed)
-		}()
-		defer func() {
-			if err := recover(); err != nil {
-				f.iLog.Error(fmt.Sprintf("There is error to engine.funcs.ConverttoDateTime with error: %s", err))
-				return
-			}
-		}()
-	*/
-	temp, err := time.Parse(types.DateTimeFormat, str)
+	result, err := TypeConv.ConvertToDateTime(str)
 	if err != nil {
 		f.iLog.Error(fmt.Sprintf("Convert %s to time error: %s", str, err.Error()))
+		return time.Time{}
 	}
-
-	return temp
+	return result
 }
 
 // SetOutputs sets the outputs of the function.
@@ -989,12 +1002,59 @@ func (f *Funcs) Execute() {
 		f.iLog.PerformanceWithDuration("engine.funcs.Execute", elapsed)
 	}()
 
+	// ROLLBACK DESIGN: This defer/recover pattern is intentional.
+	// When a function fails, we catch the panic and propagate it up
+	// to ensure the entire transaction is rolled back.
 	defer func() {
 		if r := recover(); r != nil {
-			f.iLog.Error(fmt.Sprintf("Panic in Execute: %s", r))
-			f.CancelExecution(fmt.Sprintf("Panic in Execute: %s", r))
-			f.ErrorMessage = fmt.Sprintf("Panic in Execute: %s", r)
-			return
+			// Check if this is a structured BPMError
+			if bpmErr, ok := r.(*types.BPMError); ok {
+				// Add function context if not already present
+				if bpmErr.Context == nil {
+					bpmErr.Context = &types.ExecutionContext{}
+				}
+				bpmErr.Context.FunctionName = f.Fobj.Name
+				bpmErr.Context.FunctionType = f.Fobj.Functype.String()
+
+				// Log the formatted error
+				f.iLog.Error(bpmErr.GetFormattedError())
+				f.ErrorMessage = bpmErr.Error()
+
+				// Update rollback reason if needed
+				if bpmErr.RollbackReason == "" {
+					bpmErr.WithRollbackReason(fmt.Sprintf("Function %s failed", f.Fobj.Name))
+				}
+			} else {
+				// Handle non-structured errors
+				errMsg := fmt.Sprintf("Panic in function %s: %v", f.Fobj.Name, r)
+				f.iLog.Error(errMsg)
+				f.ErrorMessage = errMsg
+
+				// Create a structured error for better tracking
+				execContext := &types.ExecutionContext{
+					FunctionName:  f.Fobj.Name,
+					FunctionType:  f.Fobj.Functype.String(),
+					ExecutionTime: startTime,
+				}
+				if userNo, ok := f.SystemSession["UserNo"].(string); ok {
+					execContext.UserNo = userNo
+				}
+				if clientID, ok := f.SystemSession["ClientID"].(string); ok {
+					execContext.ClientID = clientID
+				}
+
+				structuredErr := types.NewExecutionError(errMsg, nil).
+					WithContext(execContext).
+					WithRollbackReason(fmt.Sprintf("Unexpected error in function %s", f.Fobj.Name))
+
+				f.iLog.Error(structuredErr.GetFormattedError())
+			}
+
+			// Cancel execution
+			f.CancelExecution(f.ErrorMessage)
+
+			// Re-panic to propagate to parent function group
+			panic(r)
 		}
 	}()
 
@@ -1026,11 +1086,23 @@ func (f *Funcs) Execute() {
 			inputmapfuncs.Execute(f)
 
 		case types.GoExpr:
-			goexprfuncs := GoExprFuncs{}
+			// Use enhanced Go expression executor with safety features
+			goexprfuncs := EnhancedGoExprFuncs{}
 			goexprfuncs.Execute(f)
+
 		case types.Javascript:
 			jsfuncs := JSFuncs{}
 			jsfuncs.Execute(f)
+
+		case types.PythonExpr:
+			// NEW: Python expression execution
+			pythonExprFuncs := PythonExprFuncs{}
+			pythonExprFuncs.Execute(f)
+
+		case types.PythonScript:
+			// NEW: Python script execution
+			pythonScriptFuncs := PythonScriptFuncs{}
+			pythonScriptFuncs.Execute(f)
 
 		case types.Query:
 			qfuncs := QueryFuncs{}
