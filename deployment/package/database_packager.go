@@ -501,14 +501,14 @@ func (dp *DatabasePackager) determinePKStrategy(columns []models.ColumnInfo) str
 			return "auto_increment"
 		}
 
-		// Check for UUID/GUID
-		if strings.Contains(dataType, "uuid") || strings.Contains(dataType, "uniqueidentifier") {
-			return "uuid"
-		}
-
 		// Check for sequence (PostgreSQL)
 		if strings.Contains(dataType, "nextval") {
 			return "sequence"
+		}
+
+		// UUID/GUID should be preserved as they are globally unique
+		if strings.Contains(dataType, "uuid") || strings.Contains(dataType, "uniqueidentifier") {
+			return "preserve"
 		}
 	}
 

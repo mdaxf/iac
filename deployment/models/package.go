@@ -105,7 +105,7 @@ type PKMapping struct {
 	PKColumns       []string `json:"pk_columns"`
 	IsAutoIncrement bool     `json:"is_auto_increment"`
 	SequenceName    string   `json:"sequence_name,omitempty"`
-	Strategy        string   `json:"strategy"` // "auto_increment", "sequence", "uuid", "preserve"
+	Strategy        string   `json:"strategy"` // "auto_increment", "sequence", "preserve" (UUIDs use preserve as they are globally unique)
 }
 
 // IDMapping defines how document IDs should be handled

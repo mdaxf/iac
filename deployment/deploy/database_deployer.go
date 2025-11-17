@@ -226,14 +226,6 @@ func (dd *DatabaseDeployer) handlePKStrategy(row map[string]interface{}, pkMappi
 		}
 		return nil, nil
 
-	case "uuid":
-		// Generate new UUID
-		newUUID := uuid.New().String()
-		for _, pkCol := range pkMapping.PKColumns {
-			row[pkCol] = newUUID
-		}
-		return newUUID, nil
-
 	case "sequence":
 		// Let database sequence generate it
 		for _, pkCol := range pkMapping.PKColumns {
@@ -242,7 +234,7 @@ func (dd *DatabaseDeployer) handlePKStrategy(row map[string]interface{}, pkMappi
 		return nil, nil
 
 	case "preserve":
-		// Keep original PK value
+		// Keep original PK value (used for UUIDs and other globally unique identifiers)
 		return dd.extractPKValue(row, pkMapping.PKColumns), nil
 
 	default:

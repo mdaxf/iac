@@ -6,7 +6,8 @@ Comprehensive solution for packaging, deploying, and version controlling databas
 
 ### 1. Database Package System
 - **Multi-Database Support**: MySQL, PostgreSQL, MSSQL, Oracle
-- **Automatic PK Rebuilding**: Intelligently handles primary keys during transfer
+- **Intelligent PK Handling**: Auto-rebuilds sequential IDs, preserves UUIDs (globally unique)
+- **UUID Preservation**: UUIDs are automatically detected and preserved across systems
 - **Relationship Tracking**: Automatically packages and restores foreign key relationships
 - **Parent Data Auto-Include**: Option to automatically include parent records
 - **Flexible Filtering**: WHERE clauses, column exclusions, depth limits
@@ -19,8 +20,9 @@ Comprehensive solution for packaging, deploying, and version controlling databas
 - **DevOps Object Support**: Special handling for TranCode, Workflow, UI_Page, etc.
 
 ### 3. Deployment System
-- **PK Mapping**: Automatic mapping of old PKs to new PKs
-- **Relationship Restoration**: Rebuild all foreign key relationships
+- **Smart PK Mapping**: Automatic mapping for sequential IDs, UUIDs preserved unchanged
+- **Relationship Restoration**: Rebuild all foreign key relationships with new ID mappings
+- **UUID Handling**: Globally unique identifiers (UUIDs) maintain same values across deployments
 - **Batch Processing**: Configurable batch sizes for large datasets
 - **Conflict Resolution**: Skip or update existing records
 - **Dry Run Mode**: Validate packages before deployment
@@ -352,11 +354,24 @@ Content-Type: application/json
 The system supports multiple PK generation strategies:
 
 1. **auto_increment**: Database auto-generates PK (MySQL AUTO_INCREMENT, PostgreSQL SERIAL)
-2. **sequence**: Uses database sequences (PostgreSQL, Oracle)
-3. **uuid**: Generates new UUID for each record
-4. **preserve**: Keeps original PK values (use with caution)
+   - PK is removed from data, database generates new sequential ID
+   - Old PK → New PK mapping is tracked for FK updates
 
-The packager automatically detects the best strategy based on column types.
+2. **sequence**: Uses database sequences (PostgreSQL, Oracle)
+   - PK is removed from data, database sequence generates new ID
+   - Old PK → New PK mapping is tracked for FK updates
+
+3. **preserve**: Keeps original PK values (used for UUIDs and globally unique identifiers)
+   - **UUID/GUID columns are automatically detected and preserved**
+   - UUIDs are globally unique and should NOT be regenerated across systems
+   - Original PK values are maintained in target database
+   - No PK mapping needed as values remain the same
+
+The packager automatically detects the best strategy based on column types:
+- Auto-increment/Serial columns → `auto_increment` strategy
+- Sequence-based columns → `sequence` strategy
+- UUID/GUID columns → `preserve` strategy (UUIDs are globally unique)
+- Other types → `preserve` strategy (default)
 
 ## ID Strategies for Documents
 
