@@ -71,7 +71,7 @@ func (s *SchemaMetadataServiceMultiDB) DiscoverSchema(ctx context.Context, datab
 		}
 
 		if err := s.appDB.WithContext(ctx).
-			Where("database_alias = ? AND table_name = ? AND metadata_type = ?",
+			Where("databasealias = ? AND tablename = ? AND metadatatype = ?",
 				databaseAlias, table.TableName, models.MetadataTypeTable).
 			Assign(tableMeta).
 			FirstOrCreate(tableMeta).Error; err != nil {
@@ -132,7 +132,7 @@ func (s *SchemaMetadataServiceMultiDB) discoverTableColumns(ctx context.Context,
 		}
 
 		if err := s.appDB.WithContext(ctx).
-			Where("database_alias = ? AND table_name = ? AND column_name = ? AND metadata_type = 'column'",
+			Where("databasealias = ? AND tablename = ? AND columnname = ? AND metadatatype = 'column'",
 				databaseAlias, tableName, column.ColumnName).
 			Assign(columnMeta).
 			FirstOrCreate(columnMeta).Error; err != nil {
@@ -191,8 +191,8 @@ func (s *SchemaMetadataServiceMultiDB) GetTableMetadata(ctx context.Context, dat
 	var metadata []models.DatabaseSchemaMetadata
 
 	if err := s.appDB.WithContext(ctx).
-		Where("database_alias = ? AND metadata_type = ?", databaseAlias, models.MetadataTypeTable).
-		Order("table_name").
+		Where("databasealias = ? AND metadatatype = ?", databaseAlias, models.MetadataTypeTable).
+		Order("tablename").
 		Find(&metadata).Error; err != nil {
 		return nil, fmt.Errorf("failed to get table metadata: %w", err)
 	}
@@ -205,9 +205,9 @@ func (s *SchemaMetadataServiceMultiDB) GetColumnMetadata(ctx context.Context, da
 	var metadata []models.DatabaseSchemaMetadata
 
 	if err := s.appDB.WithContext(ctx).
-		Where("database_alias = ? AND table_name = ? AND metadata_type = ?",
+		Where("databasealias = ? AND tablename = ? AND metadatatype = ?",
 			databaseAlias, tableName, models.MetadataTypeColumn).
-		Order("column_name").
+		Order("columnname").
 		Find(&metadata).Error; err != nil {
 		return nil, fmt.Errorf("failed to get column metadata: %w", err)
 	}
@@ -227,7 +227,7 @@ func (s *SchemaMetadataServiceMultiDB) UpdateMetadata(ctx context.Context, id st
 		return nil
 	}
 
-	updates["updated_at"] = gorm.Expr("CURRENT_TIMESTAMP")
+	updates["modifiedon"] = gorm.Expr("CURRENT_TIMESTAMP")
 
 	if err := s.appDB.WithContext(ctx).
 		Model(&models.DatabaseSchemaMetadata{}).
@@ -243,13 +243,13 @@ func (s *SchemaMetadataServiceMultiDB) UpdateMetadata(ctx context.Context, id st
 func (s *SchemaMetadataServiceMultiDB) GetSchemaContext(ctx context.Context, databaseAlias string, tableNames []string) (string, error) {
 	var metadata []models.DatabaseSchemaMetadata
 
-	query := s.appDB.WithContext(ctx).Where("database_alias = ?", databaseAlias)
+	query := s.appDB.WithContext(ctx).Where("databasealias = ?", databaseAlias)
 
 	if len(tableNames) > 0 {
-		query = query.Where("table_name IN ?", tableNames)
+		query = query.Where("tablename IN ?", tableNames)
 	}
 
-	if err := query.Order("table_name, metadata_type DESC, column_name").Find(&metadata).Error; err != nil {
+	if err := query.Order("tablename, metadatatype DESC, columnname").Find(&metadata).Error; err != nil {
 		return "", fmt.Errorf("failed to get schema context: %w", err)
 	}
 

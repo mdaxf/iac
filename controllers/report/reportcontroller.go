@@ -367,8 +367,8 @@ func (rc *ReportController) ExecuteReport(c *gin.Context) {
 	// For now, just mark as success
 	elapsed := time.Since(startTime)
 	rc.service.UpdateExecution(execution.ID, map[string]interface{}{
-		"execution_status":  "success",
-		"execution_time_ms": int(elapsed.Milliseconds()),
+		"executionstatus":  "success",
+		"executiontimems": int(elapsed.Milliseconds()),
 	})
 
 	rc.service.UpdateLastExecutedAt(reportID)
