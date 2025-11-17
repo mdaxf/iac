@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -170,65 +171,167 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 		level = 3
 	}
 	fullfilename := ""
-	maxlines := 1000000
-	maxsize := 1024 * 1024 * 1024
+	// More reasonable defaults for production use:
+	// - 100MB max file size (instead of 1GB) for better manageability
+	// - 500K lines max (instead of 1M) to keep files searchable
+	// Note: maxsize is in KB, will be converted to bytes when passed to logger
+	maxlines := 500000
+	maxsizeKB := 102400    // 100 MB in KB (100 * 1024)
+	maxsizeBytes := 0      // Will be calculated from maxsizeKB
 	//	fmt.Println(fmt.Sprintf(`{"level":%d}, %d`, level, logadapter))
 	if logadapter == "file" || logadapter == "multifile" {
 		adapterconfig := make(map[string]interface{})
+
+		// Try to get adapter-specific config in order of preference:
+		// 1. config["adapterconfig"] (new format)
+		// 2. config["file"] or config["multifile"] (legacy format matching adapter name)
+		// 3. Fall back to entire config
 		if config["adapterconfig"] != nil {
-			adapterconfig = config["adapterconfig"].(map[string]interface{})
-		} else {
+			// Safe type assertion with check
+			if cfg, ok := config["adapterconfig"].(map[string]interface{}); ok {
+				adapterconfig = cfg
+			}
+		} else if config[logadapter.(string)] != nil {
+			// Check for config under adapter name (e.g., config["file"])
+			if cfg, ok := config[logadapter.(string)].(map[string]interface{}); ok {
+				adapterconfig = cfg
+			}
+		}
+
+		// If still empty, fall back to entire config
+		if len(adapterconfig) == 0 {
 			adapterconfig = config
 		}
 
-		filename := adapterconfig["file"]
-		if filename == nil {
-			filename = "iac.log"
-		}
-		suffix := filepath.Ext(filename.(string))
-		fileNameOnly := strings.TrimSuffix(filename.(string), suffix)
+		// Debug output to help diagnose configuration issues
+		fmt.Printf("Logger %s config - adapterconfig keys: %v\n", logtype, getMapKeys(adapterconfig))
 
-		folder := adapterconfig["folder"]
-		if folder == nil {
-			folder = "c:\\\\temp"
+		// Safe type conversion for filename
+		filenameStr := "iac.log"
+		if filename := adapterconfig["file"]; filename != nil {
+			if fn, ok := filename.(string); ok {
+				filenameStr = fn
+			}
+		}
+		suffix := filepath.Ext(filenameStr)
+		fileNameOnly := strings.TrimSuffix(filenameStr, suffix)
+
+		// Safe type conversion for folder
+		folderStr := ""
+		if folder := adapterconfig["folder"]; folder != nil {
+			if f, ok := folder.(string); ok {
+				folderStr = f
+			}
+		}
+		if folderStr == "" {
+			// Use OS-appropriate default folder
+			if runtime.GOOS == "windows" {
+				folderStr = "C:\\temp"
+			} else {
+				folderStr = "/tmp"
+			}
 		}
 
+		// Use cross-platform path handling
 		if suffix == "" {
-			fullfilename = fmt.Sprintf("%s\\\\%s_%s.log", folder, logtype, fileNameOnly)
+			fullfilename = filepath.Join(folderStr, fmt.Sprintf("%s_%s.log", logtype, fileNameOnly))
 		} else {
-			fullfilename = fmt.Sprintf("%s\\\\%s_%s%s", folder, logtype, fileNameOnly, suffix)
-		}
-		if adapterconfig["maxlines"] != nil {
-			maxlines = adapterconfig["maxlines"].(int) //maxlines := config["maxlines"].(int)
+			fullfilename = filepath.Join(folderStr, fmt.Sprintf("%s_%s%s", logtype, fileNameOnly, suffix))
 		}
 
-		if adapterconfig["maxsize"] != nil {
-			maxsize = adapterconfig["maxsize"].(int)
+		// Safe type conversion for maxlines (handles int, float64, string)
+		if adapterconfig["maxlines"] != nil {
+			maxlines = com.ConverttoIntwithDefault(adapterconfig["maxlines"], maxlines)
+			// Validate maxlines: warn if too large
+			if maxlines > 5000000 {
+				fmt.Printf("Warning: maxlines=%d is very large, consider using a smaller value (recommended: 500000)\n", maxlines)
+			}
 		}
+
+		// Safe type conversion for maxsize (handles int, float64, string)
+		// Note: maxsize in config is in KB, we convert to bytes for the logger
+		if adapterconfig["maxsize"] != nil {
+			maxsizeKB = com.ConverttoIntwithDefault(adapterconfig["maxsize"], maxsizeKB)
+			// Validate maxsize: warn if too large (> 500 MB = 512000 KB)
+			if maxsizeKB > 512000 {
+				fmt.Printf("Warning: maxsize=%d KB (%.0f MB) is very large, consider using a smaller value (recommended: 102400 KB = 100 MB)\n",
+					maxsizeKB, float64(maxsizeKB)/1024)
+			}
+		}
+
+		// Convert maxsize from KB to bytes for the logger
+		maxsizeBytes = maxsizeKB * 1024
+
+		// Debug output showing the resolved log file path
+		fmt.Printf("Logger %s will write to: %s (maxlines=%d, maxsize=%d KB / %d bytes)\n",
+			logtype, fullfilename, maxlines, maxsizeKB, maxsizeBytes)
 	} else if logadapter == "documentdb" {
 		conn := "mongodb://localhost:27017"
 		db := "IAC_Cache"
 		collection := "cache"
 		adapterconfig := make(map[string]interface{})
+
+		// Try to get adapter-specific config in order of preference:
+		// 1. config["adapterconfig"]
+		// 2. config["documentdb"] (legacy format)
+		// 3. Fall back to entire config
 		if config["adapterconfig"] != nil {
-			adapterconfig = config["adapterconfig"].(map[string]interface{})
-		} else {
+			// Safe type assertion with check
+			if cfg, ok := config["adapterconfig"].(map[string]interface{}); ok {
+				adapterconfig = cfg
+			}
+		} else if config["documentdb"] != nil {
+			// Check for config under "documentdb" key
+			if cfg, ok := config["documentdb"].(map[string]interface{}); ok {
+				adapterconfig = cfg
+			}
+		}
+
+		// If still empty, fall back to entire config
+		if len(adapterconfig) == 0 {
 			adapterconfig = config
 		}
 
+		// For documentdb, check if there's a nested documentdb config
+		documentdbcfg := adapterconfig
 		if adapterconfig["documentdb"] != nil {
-			documentdbcfg := adapterconfig["documentdb"].(map[string]interface{})
-			if documentdbcfg["conn"] != nil {
-				conn = documentdbcfg["conn"].(string)
-			}
-			if documentdbcfg["db"] != nil {
-				db = documentdbcfg["db"].(string)
-			}
-			if documentdbcfg["collection"] != nil {
-				collection = documentdbcfg["collection"].(string)
+			// Safe type assertion with check
+			if cfg, ok := adapterconfig["documentdb"].(map[string]interface{}); ok {
+				documentdbcfg = cfg
 			}
 		}
-		loger.SetLogger(logs.AdapterDocumentDB, fmt.Sprintf(`{"level":"%d", "conn":"%s", "db":"%s", "collection":"%s", "Perf": "%b", "Threhold": %d}`, level, conn, db, collection, performance, performancethrehold))
+
+		// Extract connection parameters
+		if documentdbcfg["conn"] != nil {
+			if c, ok := documentdbcfg["conn"].(string); ok {
+				conn = c
+			}
+		}
+		if documentdbcfg["db"] != nil {
+			if d, ok := documentdbcfg["db"].(string); ok {
+				db = d
+			}
+		}
+		if documentdbcfg["collection"] != nil {
+			if col, ok := documentdbcfg["collection"].(string); ok {
+				collection = col
+			}
+		}
+
+		// Create config using json.Marshal to properly handle special characters
+		docdbConfig := map[string]interface{}{
+			"level":      level,
+			"conn":       conn,
+			"db":         db,
+			"collection": collection,
+			"Perf":       performance,
+			"Threhold":   performancethrehold,
+		}
+		if configJSON, err := json.Marshal(docdbConfig); err == nil {
+			loger.SetLogger(logs.AdapterDocumentDB, string(configJSON))
+		} else {
+			fmt.Printf("Error marshaling documentdb logger config: %v\n", err)
+		}
 		return
 	}
 
@@ -236,10 +339,34 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 	case "console":
 		loger.SetLogger(logs.AdapterConsole, fmt.Sprintf(`{"level":%d, "Perf": "%b", "Threhold": %d}`, level, performance, performancethrehold))
 	case "file":
-		//	logs.SetLogger(logs.AdapterFile, `{"filename":"test.log"}`)
-		loger.SetLogger(logs.AdapterFile, fmt.Sprintf(`{"level":"%d","filename":"%s","maxlines":"%d","maxsize":"%d","Perf": "%b", "Threhold": %d}`, level, fullfilename, maxlines, maxsize, performance, performancethrehold))
+		// Create config using json.Marshal to properly escape paths
+		// Note: maxsizeBytes is already in bytes (converted from KB in config)
+		fileConfig := map[string]interface{}{
+			"level":    level,
+			"filename": fullfilename,
+			"maxlines": maxlines,
+			"maxsize":  maxsizeBytes,
+			"Perf":     performance,
+			"Threhold": performancethrehold,
+		}
+		if configJSON, err := json.Marshal(fileConfig); err == nil {
+			loger.SetLogger(logs.AdapterFile, string(configJSON))
+		} else {
+			fmt.Printf("Error marshaling file logger config: %v\n", err)
+		}
 	case "multifile":
-		loger.SetLogger(logs.AdapterMultiFile, fmt.Sprintf(`{"filename":"%s","level":"%s", "Perf": "%b", "Threhold": %d}`, fullfilename, level, performance, performancethrehold))
+		// Create config using json.Marshal to properly escape paths
+		multiFileConfig := map[string]interface{}{
+			"filename": fullfilename,
+			"level":    level,
+			"Perf":     performance,
+			"Threhold": performancethrehold,
+		}
+		if configJSON, err := json.Marshal(multiFileConfig); err == nil {
+			loger.SetLogger(logs.AdapterMultiFile, string(configJSON))
+		} else {
+			fmt.Printf("Error marshaling multifile logger config: %v\n", err)
+		}
 	case "smtp":
 		loger.SetLogger(logs.AdapterMail, fmt.Sprintf(`{"username":"%s","password":"%s","host":"%s","subject":"%s","sendTos":"%s","level":"%d","Perf": "%b", "Threhold": %d}`, config["username"], config["password"], config["host"], config["subject"], config["sendTos"], level, performance, performancethrehold))
 	case "conn":
@@ -471,4 +598,13 @@ func ConvertJson(jobj interface{}) string {
 		return ""
 	}
 	return string(jsonString)
+}
+
+// Helper function to get map keys for debugging
+func getMapKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
