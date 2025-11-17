@@ -1,0 +1,12 @@
+{
+  "jobs": {
+    "enabled": true,
+    "workers": 5,
+    "poll_interval": 5,
+    "max_retries": 3,
+    "scheduler_check_interval": 60,
+    "use_redis": true,
+    "job_history_retention_days": 90,
+    "enable_metrics": true
+  }
+}

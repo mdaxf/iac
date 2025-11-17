@@ -2,3 +2,5 @@
 apiconfig.json
 configuration.json
 iac.exe
+iac-server.exe
+local.settings.json
