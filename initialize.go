@@ -488,8 +488,15 @@ func initializedDocuments() {
 	}
 
 	// Initialize legacy connection (for backward compatibility)
+	ilog.Info(fmt.Sprintf("Initializing legacy document database: type=%s, connection=%s, database=%s", DatabaseType, DatabaseConnection, DatabaseName))
 	documents.ConnectDB(DatabaseType, DatabaseConnection, DatabaseName)
-	ilog.Info("Legacy document database connection initialized")
+
+	// Verify legacy connection
+	if documents.DocDBCon != nil {
+		ilog.Info("Legacy document database connection initialized successfully")
+	} else {
+		ilog.Error("Legacy document database connection failed - DocDBCon is nil")
+	}
 
 	// Initialize new database system
 	// Parse connection string to extract host and port

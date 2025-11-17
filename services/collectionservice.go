@@ -69,8 +69,19 @@ func (s *CollectionService) getDocumentDB() (documents.DocumentDB, error) {
 }
 
 // isLegacyMode checks if we should use legacy DocDBCon
+// Returns true if GlobalInitializer is not available OR if it failed to initialize
+// and DocDBCon is available
 func (s *CollectionService) isLegacyMode() bool {
-	return dbinitializer.GlobalInitializer == nil && documents.DocDBCon != nil
+	// If GlobalInitializer is available and working, use new mode
+	if dbinitializer.GlobalInitializer != nil {
+		_, err := dbinitializer.GlobalInitializer.GetDocumentDB()
+		if err == nil {
+			return false // New mode works, use it
+		}
+	}
+
+	// Fall back to legacy if DocDBCon is available
+	return documents.DocDBCon != nil
 }
 
 // QueryCollection queries a collection with pagination and filtering
@@ -97,14 +108,21 @@ func (s *CollectionService) QueryCollection(collectionName string, opts *QueryOp
 
 	// Check if using legacy mode
 	if s.isLegacyMode() {
+		s.iLog.Debug("QueryCollection: Using legacy database mode")
 		return s.queryCollectionLegacy(collectionName, opts)
 	}
 
 	// Get document database (new mode)
+	s.iLog.Debug("QueryCollection: Using new database interface mode")
 	docDB, err := s.getDocumentDB()
 	if err != nil {
 		s.iLog.Error(fmt.Sprintf("Failed to get document database: %v", err))
-		return nil, err
+		// Try legacy as final fallback
+		if documents.DocDBCon != nil {
+			s.iLog.Info("Falling back to legacy mode after new mode failed")
+			return s.queryCollectionLegacy(collectionName, opts)
+		}
+		return nil, fmt.Errorf("database not initialized: %w", err)
 	}
 
 	ctx := context.Background()
@@ -152,8 +170,10 @@ func (s *CollectionService) QueryCollection(collectionName string, opts *QueryOp
 // queryCollectionLegacy handles queries using the legacy DocDBCon
 func (s *CollectionService) queryCollectionLegacy(collectionName string, opts *QueryOptions) (*QueryResult, error) {
 	if documents.DocDBCon == nil {
-		return nil, fmt.Errorf("database not initialized")
+		return nil, fmt.Errorf("database not initialized: both GlobalInitializer and legacy DocDBCon are nil. Please ensure database initialization is called at startup")
 	}
+
+	s.iLog.Debug("Using legacy database mode for collection query")
 
 	// Convert filter and projection to bson.M
 	filter := bson.M{}
