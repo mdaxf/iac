@@ -26,6 +26,7 @@ import (
 	"github.com/mdaxf/iac/deployment/devops"
 	"github.com/mdaxf/iac/deployment/models"
 	packagemgr "github.com/mdaxf/iac/deployment/package"
+	"github.com/mdaxf/iac/deployment/repository"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/logger"
 )
@@ -35,6 +36,7 @@ type PackageDatabaseRequest struct {
 	Name          string                `json:"name"`
 	Version       string                `json:"version"`
 	Description   string                `json:"description"`
+	Environment   string                `json:"environment"`   // dev, staging, production
 	Filter        models.PackageFilter  `json:"filter"`
 }
 
@@ -43,6 +45,7 @@ type PackageDocumentRequest struct {
 	Name          string                `json:"name"`
 	Version       string                `json:"version"`
 	Description   string                `json:"description"`
+	Environment   string                `json:"environment"`   // dev, staging, production
 	Filter        models.PackageFilter  `json:"filter"`
 }
 
@@ -105,6 +108,38 @@ func PackageDatabase(w http.ResponseWriter, r *http.Request) {
 
 	pkg.Description = req.Description
 
+	// Save package to database
+	repo := repository.NewPackageRepository(user, dbTx)
+	packageRecord, err := repo.SavePackage(pkg, req.Environment)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to save package: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Record pack action
+	now := time.Now()
+	packAction := &repository.PackageActionRecord{
+		PackageID:         pkg.ID,
+		ActionType:        repository.ActionTypePack,
+		ActionStatus:      repository.ActionStatusCompleted,
+		SourceEnvironment: req.Environment,
+		PerformedBy:       user,
+		PerformedAt:       now,
+		StartedAt:         &startTime,
+		CompletedAt:       &now,
+		TablesProcessed:   len(pkg.DatabaseData.Tables),
+	}
+
+	// Calculate records processed
+	for _, table := range pkg.DatabaseData.Tables {
+		packAction.RecordsProcessed += table.RowCount
+		packAction.RecordsSucceeded += table.RowCount
+	}
+
+	if err := repo.SaveAction(packAction); err != nil {
+		iLog.Warn(fmt.Sprintf("Failed to save pack action: %v", err))
+	}
+
 	// Export package
 	data, err := packager.ExportPackage(pkg)
 	if err != nil {
@@ -114,12 +149,22 @@ func PackageDatabase(w http.ResponseWriter, r *http.Request) {
 
 	dbTx.Commit()
 
-	// Return package
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s-v%s.json", pkg.Name, pkg.Version))
-	w.Write(data)
+	// Return package with metadata
+	response := map[string]interface{}{
+		"package_id":   packageRecord.ID,
+		"name":         packageRecord.Name,
+		"version":      packageRecord.Version,
+		"checksum":     packageRecord.Checksum,
+		"file_size":    packageRecord.FileSize,
+		"tables":       len(pkg.DatabaseData.Tables),
+		"records":      packAction.RecordsProcessed,
+		"package_data": data,
+	}
 
-	iLog.Info(fmt.Sprintf("Database packaged: %s v%s", pkg.Name, pkg.Version))
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+
+	iLog.Info(fmt.Sprintf("Database packaged and saved: %s v%s (ID: %s)", pkg.Name, pkg.Version, pkg.ID))
 }
 
 // PackageDocuments packages document collections
