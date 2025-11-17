@@ -58,7 +58,8 @@ func (f *DocumentDBFactory) RegisterDriver(dbType DocDBType, constructor DocDBCo
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.drivers[dbType] = constructor
-	f.iLog.Info(fmt.Sprintf("Registered document database driver: %s", dbType))
+	// Note: Skip logging during init to avoid nil pointer issues
+	// The logger may not be fully initialized during package init time
 }
 
 // NewDocumentDB creates a new document database instance
