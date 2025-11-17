@@ -171,8 +171,11 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 		level = 3
 	}
 	fullfilename := ""
-	maxlines := 1000000
-	maxsize := 1024 * 1024 * 1024
+	// More reasonable defaults for production use:
+	// - 100MB max file size (instead of 1GB) for better manageability
+	// - 500K lines max (instead of 1M) to keep files searchable
+	maxlines := 500000
+	maxsize := 100 * 1024 * 1024 // 100 MB
 	//	fmt.Println(fmt.Sprintf(`{"level":%d}, %d`, level, logadapter))
 	if logadapter == "file" || logadapter == "multifile" {
 		adapterconfig := make(map[string]interface{})
@@ -206,11 +209,20 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 			fullfilename = filepath.Join(folder.(string), fmt.Sprintf("%s_%s%s", logtype, fileNameOnly, suffix))
 		}
 		if adapterconfig["maxlines"] != nil {
-			maxlines = adapterconfig["maxlines"].(int) //maxlines := config["maxlines"].(int)
+			maxlines = adapterconfig["maxlines"].(int)
+			// Validate maxlines: warn if too large
+			if maxlines > 5000000 {
+				fmt.Printf("Warning: maxlines=%d is very large, consider using a smaller value (recommended: 500000)\n", maxlines)
+			}
 		}
 
 		if adapterconfig["maxsize"] != nil {
 			maxsize = adapterconfig["maxsize"].(int)
+			// Validate maxsize: warn if too large
+			if maxsize > 500*1024*1024 { // > 500 MB
+				fmt.Printf("Warning: maxsize=%d bytes (%.0f MB) is very large, consider using a smaller value (recommended: 100 MB)\n",
+					maxsize, float64(maxsize)/(1024*1024))
+			}
 		}
 	} else if logadapter == "documentdb" {
 		conn := "mongodb://localhost:27017"

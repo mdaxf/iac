@@ -83,17 +83,17 @@ type fileLogWriter struct {
 func newFileWriter() Logger {
 	w := &fileLogWriter{
 		Daily:      true,
-		MaxDays:    7,
+		MaxDays:    7,    // Keep logs for 7 days
 		Hourly:     false,
-		MaxHours:   168,
+		MaxHours:   168,  // 7 days in hours
 		Rotate:     true,
 		RotatePerm: "0440",
 		Level:      LevelTrace,
 		Perm:       "0660",
 		DirPerm:    "0770",
-		MaxLines:   10000000,
-		MaxFiles:   999,
-		MaxSize:    1 << 28,
+		MaxLines:   500000,  // Reduced from 10M to 500K for better manageability
+		MaxFiles:   50,      // Reduced from 999 to 50 to limit disk usage (~12.5 GB max)
+		MaxSize:    100 << 20, // 100 MB (changed from 256 MB for more frequent rotation)
 	}
 	w.logFormatter = w
 	return w
@@ -153,6 +153,17 @@ func (w *fileLogWriter) Init(config string) error {
 		}
 		w.logFormatter = fmtr
 	}
+
+	// Validate configuration for reasonable limits
+	if w.MaxFiles > 100 {
+		fmt.Printf("Warning: MaxFiles=%d may consume significant disk space. Estimated max: %.2f GB\n",
+			w.MaxFiles, float64(w.MaxFiles*w.MaxSize)/(1024*1024*1024))
+	}
+	if w.MaxSize > 500*1024*1024 { // > 500 MB
+		fmt.Printf("Warning: MaxSize=%d bytes (%.0f MB) is very large, consider smaller files for better performance\n",
+			w.MaxSize, float64(w.MaxSize)/(1024*1024))
+	}
+
 	err = w.startLogger()
 	if err != nil {
 		fmt.Println("fileLogWriter.Init startLogger error, %s", err)
