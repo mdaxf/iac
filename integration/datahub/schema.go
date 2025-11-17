@@ -47,6 +47,31 @@ type FieldMapping struct {
 	Required        bool        `json:"required"`
 	TransformFunc   string      `json:"transform_func,omitempty"` // Built-in function name
 	CustomScript    string      `json:"custom_script,omitempty"`  // JavaScript/Lua script for complex transforms
+
+	// Array mapping configuration
+	ArrayMapping    *ArrayMapping   `json:"array_mapping,omitempty"`    // Configuration for array iteration
+	NestedMappings  []FieldMapping  `json:"nested_mappings,omitempty"`  // Mappings for nested objects/arrays
+	Optional        bool            `json:"optional,omitempty"`         // Skip if source doesn't exist
+}
+
+// ArrayMapping defines how to handle array transformations
+type ArrayMapping struct {
+	Mode            string            `json:"mode"`              // iterate, flatten, expand, filter, merge
+	ItemMappings    []FieldMapping    `json:"item_mappings"`     // Mappings to apply to each array item
+	FilterCondition *MappingCondition `json:"filter_condition,omitempty"` // Condition to filter array items
+	SortBy          string            `json:"sort_by,omitempty"` // Field to sort by
+	SortOrder       string            `json:"sort_order,omitempty"` // asc, desc
+	Limit           int               `json:"limit,omitempty"`   // Limit number of items
+	GroupBy         string            `json:"group_by,omitempty"` // Field to group by
+	AggregateFunc   string            `json:"aggregate_func,omitempty"` // sum, avg, count, min, max
+}
+
+// ArrayIterationContext tracks the current position during array iteration
+type ArrayIterationContext struct {
+	CurrentIndex int
+	ParentPath   string
+	ItemData     interface{}
+	Metadata     map[string]interface{}
 }
 
 // TransformRule defines a transformation to apply to the message

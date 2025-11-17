@@ -132,6 +132,10 @@ func (te *TransformEngine) applyFieldMapping(sourceJSON string, targetBody map[s
 	} else {
 		result := gjson.Get(sourceJSON, mapping.SourcePath)
 		if !result.Exists() {
+			// Handle optional fields
+			if mapping.Optional {
+				return nil // Skip this mapping
+			}
 			if mapping.Required && mapping.DefaultValue == nil {
 				return fmt.Errorf("source path %s not found", mapping.SourcePath)
 			}
@@ -139,6 +143,16 @@ func (te *TransformEngine) applyFieldMapping(sourceJSON string, targetBody map[s
 		} else {
 			value = result.Value()
 		}
+	}
+
+	// Handle array mapping if configured
+	if mapping.ArrayMapping != nil && mapping.DataType == "array" {
+		return te.applyArrayMapping(sourceJSON, targetBody, mapping)
+	}
+
+	// Handle nested mappings for objects
+	if len(mapping.NestedMappings) > 0 && mapping.DataType == "object" {
+		return te.applyNestedMapping(sourceJSON, targetBody, mapping)
 	}
 
 	// Apply transformation function if specified

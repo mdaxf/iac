@@ -259,6 +259,7 @@ The Data Hub is a central message transformation and routing engine that enables
 - **Protocol Agnostic**: Works with any protocol adapter
 - **Message Transformation**: Transform messages between different schemas
 - **Schema Mapping**: Define field-level mappings with JSONPath/XPath
+- **Array Mapping**: Advanced nested array iteration and transformation
 - **Built-in Functions**: 20+ transformation functions (date, string, number, binary)
 - **Custom Scripts**: JavaScript/Lua support for complex transformations
 - **Routing Rules**: Conditional message routing
@@ -344,6 +345,124 @@ Define how messages should be transformed:
 
 **Array/Object Functions:**
 - `array_join`, `array_filter`, `object_merge`
+
+### Advanced Array Mapping
+
+The DataHub supports comprehensive array mapping for complex nested data structures. This is essential for transforming messages with multiple levels of arrays, such as Orders → Operations → Parts → WIS/Tools.
+
+**Array Mapping Modes:**
+- **iterate**: Process each array item with item-specific mappings
+- **flatten**: Flatten nested arrays into a single array
+- **filter**: Filter array items based on conditions
+- **merge**: Merge array of objects into a single object
+- **expand**: Expand objects into array items
+
+**Key Features:**
+- Unlimited nesting depth (arrays within arrays)
+- Optional node handling (gracefully handle missing fields)
+- Filtering, sorting, and limiting
+- Grouping and aggregation
+- Relative and absolute path references
+
+**Example: Nested Array Mapping**
+
+Source structure: Orders → Operations → Parts → WIS
+
+```json
+{
+  "source_path": "$.orders",
+  "target_path": "$.ProcessOrders",
+  "data_type": "array",
+  "array_mapping": {
+    "mode": "iterate",
+    "item_mappings": [
+      {
+        "source_path": ".order_id",
+        "target_path": "$.OrderNumber",
+        "data_type": "string",
+        "required": true
+      },
+      {
+        "source_path": ".operations",
+        "target_path": "$.Operations",
+        "data_type": "array",
+        "optional": true,
+        "array_mapping": {
+          "mode": "iterate",
+          "item_mappings": [
+            {
+              "source_path": ".operation_id",
+              "target_path": "$.OpCode",
+              "data_type": "string"
+            },
+            {
+              "source_path": ".parts",
+              "target_path": "$.Parts",
+              "data_type": "array",
+              "optional": true,
+              "array_mapping": {
+                "mode": "iterate",
+                "item_mappings": [
+                  {
+                    "source_path": ".part_id",
+                    "target_path": "$.PartNumber",
+                    "data_type": "string"
+                  },
+                  {
+                    "source_path": ".wis",
+                    "target_path": "$.WorkInstructions",
+                    "data_type": "array",
+                    "optional": true,
+                    "default_value": []
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
+**Handling Missing/Optional Nodes:**
+
+Use `optional: true` and `default_value` for fields that may not exist:
+
+```json
+{
+  "source_path": ".tools",
+  "target_path": "$.ToolsRequired",
+  "data_type": "array",
+  "optional": true,
+  "default_value": []
+}
+```
+
+**Additional Array Operations:**
+
+```json
+{
+  "array_mapping": {
+    "mode": "iterate",
+    "sort_by": "priority",
+    "sort_order": "desc",
+    "limit": 10,
+    "filter_condition": {
+      "field": "status",
+      "operator": "eq",
+      "value": "active"
+    },
+    "group_by": "part_id",
+    "aggregate_func": "sum"
+  }
+}
+```
+
+For detailed array mapping documentation and complex examples, see:
+- `integration/datahub/ARRAY_MAPPING_GUIDE.md` - Comprehensive guide
+- `integration/datahub/complex_array_mapping_example.json` - Real-world examples
 
 ### Routing Rules
 
