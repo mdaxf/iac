@@ -267,6 +267,11 @@ func (dd *DocumentDeployer) handleIDStrategy(doc map[string]interface{}, idMappi
 
 // updateDocument updates an existing document
 func (dd *DocumentDeployer) updateDocument(ctx context.Context, collection *mongo.Collection, doc map[string]interface{}, idField string, idValue interface{}) error {
+	// Validate idField to prevent NoSQL injection
+	if idField != "_id" && idField != "id" {
+		return fmt.Errorf("invalid ID field name: %s (only '_id' and 'id' are allowed)", idField)
+	}
+
 	filter := bson.M{idField: idValue}
 
 	// Remove ID from update document
@@ -285,6 +290,12 @@ func (dd *DocumentDeployer) updateDocument(ctx context.Context, collection *mong
 
 // documentExists checks if a document exists
 func (dd *DocumentDeployer) documentExists(ctx context.Context, collection *mongo.Collection, idField string, idValue interface{}) (bool, error) {
+	// Validate idField to prevent NoSQL injection
+	// Only allow standard MongoDB ID field names
+	if idField != "_id" && idField != "id" {
+		return false, fmt.Errorf("invalid ID field name: %s (only '_id' and 'id' are allowed)", idField)
+	}
+
 	filter := bson.M{idField: idValue}
 
 	count, err := collection.CountDocuments(ctx, filter)
@@ -303,6 +314,12 @@ func (dd *DocumentDeployer) rebuildReferences(references []models.DocumentRefere
 	defer cancel()
 
 	for _, ref := range references {
+		// Validate field names to prevent NoSQL injection
+		if err := dd.validateFieldName(ref.SourceField); err != nil {
+			dd.logger.Error(fmt.Sprintf("Invalid source field in reference: %v", err))
+			continue
+		}
+
 		// Get source collection mappings
 		sourceMappings, ok := dd.idMappings[ref.SourceCollection]
 		if !ok {
@@ -416,6 +433,28 @@ func (dd *DocumentDeployer) validatePackage(pkg *models.Package, options models.
 		for _, ref := range pkg.DocumentData.References {
 			dd.logger.Debug(fmt.Sprintf("Validating reference: %s.%s -> %s",
 				ref.SourceCollection, ref.SourceField, ref.TargetCollection))
+		}
+	}
+
+	return nil
+}
+
+// validateFieldName validates MongoDB field names to prevent NoSQL injection
+// Field names must not start with $ (MongoDB operator) and should not contain null bytes
+func (dd *DocumentDeployer) validateFieldName(fieldName string) error {
+	if fieldName == "" {
+		return fmt.Errorf("field name cannot be empty")
+	}
+
+	// Check for MongoDB operators (fields starting with $)
+	if len(fieldName) > 0 && fieldName[0] == '$' {
+		return fmt.Errorf("field name cannot start with '$': %s", fieldName)
+	}
+
+	// Check for null bytes
+	for i := 0; i < len(fieldName); i++ {
+		if fieldName[i] == 0 {
+			return fmt.Errorf("field name cannot contain null bytes: %s", fieldName)
 		}
 	}
 
