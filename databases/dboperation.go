@@ -33,6 +33,28 @@ type DBOperation struct {
 	User       string
 }
 
+// GetDialect returns the dialect for the current database type
+// This provides automatic database type support by using the factory pattern
+func (db *DBOperation) GetDialect() Dialect {
+	dialect, err := GetFactory().GetDialect(DBType(DatabaseType))
+	if err != nil {
+		db.iLog.Error(fmt.Sprintf("Failed to get dialect for database type %s: %v", DatabaseType, err))
+		// Return MySQL dialect as default for backward compatibility
+		return NewMySQLDialect()
+	}
+	return dialect
+}
+
+// GetPlaceholder returns the database-specific placeholder for parameter n
+func (db *DBOperation) GetPlaceholder(n int) string {
+	return db.GetDialect().Placeholder(n)
+}
+
+// QuoteIdentifier returns the database-specific quoted identifier
+func (db *DBOperation) QuoteIdentifier(name string) string {
+	return db.GetDialect().QuoteIdentifier(name)
+}
+
 // NewDBOperation creates a new instance of DBOperation.
 // It takes the following parameters:
 // - User: the name of the user performing the database operation.
@@ -767,9 +789,10 @@ func (db *DBOperation) TableUpdate_v2(TableName string, Columns []string, Values
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(com.DBTransactionTimeout))
 	defer cancel()
 
-	// --- Build SET clause ---
+	// --- Build SET clause with database-specific placeholders ---
 	var setClauses []string
 	var args []interface{}
+	paramIndex := 1 // Parameter index for placeholders
 
 	for i, col := range Columns {
 		val := Values[i]
@@ -780,11 +803,9 @@ func (db *DBOperation) TableUpdate_v2(TableName string, Columns []string, Values
 			continue
 		}
 
-		// Parameterized
-		placeholder := "?"
-		if DatabaseType == "sqlserver" {
-			placeholder = fmt.Sprintf("@p%d", i+1)
-		}
+		// Use dialect-specific placeholder for database portability
+		placeholder := db.GetPlaceholder(paramIndex)
+		paramIndex++
 
 		setClauses = append(setClauses, fmt.Sprintf("%s = %s", col, placeholder))
 		args = append(args, val)

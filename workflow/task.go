@@ -94,7 +94,9 @@ func (wft *WorkFlowTask) UpdateTaskStatus(newstatus int64) error {
 		datatypes = []int{int(1), int(0)}
 	}
 
-	Where := fmt.Sprintf("id = %d", wft.WorkFlowTaskID)
+	// Use dialect-specific identifier quoting for database portability
+	idColumn := dbop.QuoteIdentifier("id")
+	Where := fmt.Sprintf("%s = %d", idColumn, wft.WorkFlowTaskID)
 	_, err = dbop.TableUpdate("workflow_tasks", Columns, Values, datatypes, Where)
 	if err != nil {
 		wft.iLog.Error(fmt.Sprintf("Error in updating workflow tasks: %s", err))
@@ -237,7 +239,9 @@ func (wft *WorkFlowTask) UpdateProcessData(extprocessdata map[string]interface{}
 	Columns := []string{"processdata"}
 	Values := []string{string(jsonData)}
 	datatypes := []int{int(0)}
-	Where := fmt.Sprintf("ID = %d", wft.WorkFlowTaskID)
+	// Use dialect-specific identifier quoting for database portability
+	idColumn := dbop.QuoteIdentifier("ID")
+	Where := fmt.Sprintf("%s = %d", idColumn, wft.WorkFlowTaskID)
 	_, err = dbop.TableUpdate("workflow_tasks", Columns, Values, datatypes, Where)
 	if err != nil {
 		wft.iLog.Error(fmt.Sprintf("Error in updating workflow tasks: %s", err))
@@ -367,7 +371,9 @@ func (wft *WorkFlowTask) CompleteTask() error {
 	Columns := []string{"status", "completedDate"}
 	Values := []string{fmt.Sprintf("%d", 5), time.Now().UTC().Format("2006-01-02 15:04:05")}
 	datatypes := []int{int(1), int(0)}
-	Where := fmt.Sprintf("id = %d", wft.WorkFlowTaskID)
+	// Use dialect-specific identifier quoting for database portability
+	idColumn := dbop.QuoteIdentifier("id")
+	Where := fmt.Sprintf("%s = %d", idColumn, wft.WorkFlowTaskID)
 	_, err = dbop.TableUpdate("workflow_tasks", Columns, Values, datatypes, Where)
 	if err != nil {
 		wft.iLog.Error(fmt.Sprintf("Error in updating workflow tasks: %s", err))
@@ -652,7 +658,9 @@ func ValidateAndCompleteWorkFlow(WorkFlowEntityID int64, idbTx *sql.Tx, DocDBCon
 		Columns := []string{"status", "completeddate"}
 		Values := []string{fmt.Sprintf("%d", 5), time.Now().UTC().Format("2006-01-02 15:04:05")}
 		datatypes := []int{int(1), int(0)}
-		Where := fmt.Sprintf("id = %d", WorkFlowEntityID)
+		// Use dialect-specific identifier quoting for database portability
+		idColumn := dbop.QuoteIdentifier("id")
+		Where := fmt.Sprintf("%s = %d", idColumn, WorkFlowEntityID)
 		_, err = dbop.TableUpdate("workflow_entities", Columns, Values, datatypes, Where)
 
 		if err != nil {
@@ -862,7 +870,9 @@ func ExecuteTaskTranCode(workflowtaskid int64, TranCodeName string, data map[str
 	Columns := []string{"processdata"}
 	Values := []string{fmt.Sprintf("%s", ProcessData)}
 	datatypes := []int{int(0)}
-	Where := fmt.Sprintf("ID = %d", workflowtaskid)
+	// Use dialect-specific identifier quoting for database portability
+	idColumn := dbop.QuoteIdentifier("ID")
+	Where := fmt.Sprintf("%s = %d", idColumn, workflowtaskid)
 	_, err = dbop.TableUpdate("workflow_tasks", Columns, Values, datatypes, Where)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error in updating workflow tasks: %s", err))

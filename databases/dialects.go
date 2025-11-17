@@ -116,6 +116,138 @@ func (d *MySQLDialect) TranslateUpsert(table string, columns []string, conflictC
 	)
 }
 
+// DDL Generation Methods for MySQL
+
+func (d *MySQLDialect) CreateTableDDL(schema *TableSchema) string {
+	var ddl strings.Builder
+	ddl.WriteString("CREATE TABLE ")
+	ddl.WriteString(d.QuoteIdentifier(schema.TableName))
+	ddl.WriteString(" (\n")
+
+	// Add columns
+	for i, col := range schema.Columns {
+		if i > 0 {
+			ddl.WriteString(",\n")
+		}
+		ddl.WriteString("  ")
+		ddl.WriteString(d.QuoteIdentifier(col.Name))
+		ddl.WriteString(" ")
+		ddl.WriteString(d.DataTypeMapping(col.DataType))
+
+		if col.MaxLength != nil && (col.DataType == "string" || col.DataType == "VARCHAR") {
+			ddl.WriteString(fmt.Sprintf("(%d)", *col.MaxLength))
+		}
+		if col.Precision != nil && col.Scale != nil {
+			ddl.WriteString(fmt.Sprintf("(%d,%d)", *col.Precision, *col.Scale))
+		}
+
+		if !col.IsNullable {
+			ddl.WriteString(" NOT NULL")
+		}
+		if col.DefaultValue != nil {
+			ddl.WriteString(" DEFAULT ")
+			ddl.WriteString(*col.DefaultValue)
+		}
+		if col.Comment != "" {
+			ddl.WriteString(" COMMENT '")
+			ddl.WriteString(strings.ReplaceAll(col.Comment, "'", "''"))
+			ddl.WriteString("'")
+		}
+	}
+
+	// Add primary key
+	if len(schema.PrimaryKeys) > 0 {
+		ddl.WriteString(",\n  PRIMARY KEY (")
+		for i, pk := range schema.PrimaryKeys {
+			if i > 0 {
+				ddl.WriteString(", ")
+			}
+			ddl.WriteString(d.QuoteIdentifier(pk))
+		}
+		ddl.WriteString(")")
+	}
+
+	ddl.WriteString("\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci")
+	return ddl.String()
+}
+
+func (d *MySQLDialect) AddColumnDDL(tableName string, column *ColumnInfo) string {
+	var ddl strings.Builder
+	ddl.WriteString("ALTER TABLE ")
+	ddl.WriteString(d.QuoteIdentifier(tableName))
+	ddl.WriteString(" ADD COLUMN ")
+	ddl.WriteString(d.QuoteIdentifier(column.Name))
+	ddl.WriteString(" ")
+	ddl.WriteString(d.DataTypeMapping(column.DataType))
+
+	if column.MaxLength != nil {
+		ddl.WriteString(fmt.Sprintf("(%d)", *column.MaxLength))
+	}
+	if !column.IsNullable {
+		ddl.WriteString(" NOT NULL")
+	}
+	if column.DefaultValue != nil {
+		ddl.WriteString(" DEFAULT ")
+		ddl.WriteString(*column.DefaultValue)
+	}
+	return ddl.String()
+}
+
+func (d *MySQLDialect) DropColumnDDL(tableName, columnName string) string {
+	return fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s",
+		d.QuoteIdentifier(tableName),
+		d.QuoteIdentifier(columnName))
+}
+
+func (d *MySQLDialect) AlterColumnDDL(tableName string, column *ColumnInfo) string {
+	var ddl strings.Builder
+	ddl.WriteString("ALTER TABLE ")
+	ddl.WriteString(d.QuoteIdentifier(tableName))
+	ddl.WriteString(" MODIFY COLUMN ")
+	ddl.WriteString(d.QuoteIdentifier(column.Name))
+	ddl.WriteString(" ")
+	ddl.WriteString(d.DataTypeMapping(column.DataType))
+
+	if column.MaxLength != nil {
+		ddl.WriteString(fmt.Sprintf("(%d)", *column.MaxLength))
+	}
+	if !column.IsNullable {
+		ddl.WriteString(" NOT NULL")
+	}
+	if column.DefaultValue != nil {
+		ddl.WriteString(" DEFAULT ")
+		ddl.WriteString(*column.DefaultValue)
+	}
+	return ddl.String()
+}
+
+func (d *MySQLDialect) CreateIndexDDL(tableName string, index *IndexInfo) string {
+	var ddl strings.Builder
+	if index.IsUnique {
+		ddl.WriteString("CREATE UNIQUE INDEX ")
+	} else {
+		ddl.WriteString("CREATE INDEX ")
+	}
+	ddl.WriteString(d.QuoteIdentifier(index.Name))
+	ddl.WriteString(" ON ")
+	ddl.WriteString(d.QuoteIdentifier(tableName))
+	ddl.WriteString(" (")
+	for i, col := range index.Columns {
+		if i > 0 {
+			ddl.WriteString(", ")
+		}
+		ddl.WriteString(d.QuoteIdentifier(col))
+	}
+	ddl.WriteString(")")
+	return ddl.String()
+}
+
+func (d *MySQLDialect) DropIndexDDL(tableName, indexName string) string {
+	return fmt.Sprintf("DROP INDEX %s ON %s",
+		d.QuoteIdentifier(indexName),
+		d.QuoteIdentifier(tableName))
+}
+
 // PostgreSQLDialect implements PostgreSQL-specific SQL operations
 type PostgreSQLDialect struct{}
 
@@ -227,6 +359,126 @@ func (d *PostgreSQLDialect) TranslateUpsert(table string, columns []string, conf
 		strings.Join(quotedConflict, ", "),
 		strings.Join(updates, ", "),
 	)
+}
+
+// DDL Generation Methods for PostgreSQL
+
+func (d *PostgreSQLDialect) CreateTableDDL(schema *TableSchema) string {
+	var ddl strings.Builder
+	ddl.WriteString("CREATE TABLE ")
+	ddl.WriteString(d.QuoteIdentifier(schema.TableName))
+	ddl.WriteString(" (\n")
+
+	// Add columns
+	for i, col := range schema.Columns {
+		if i > 0 {
+			ddl.WriteString(",\n")
+		}
+		ddl.WriteString("  ")
+		ddl.WriteString(d.QuoteIdentifier(col.Name))
+		ddl.WriteString(" ")
+		ddl.WriteString(d.DataTypeMapping(col.DataType))
+
+		if col.MaxLength != nil && (col.DataType == "string" || col.DataType == "VARCHAR") {
+			ddl.WriteString(fmt.Sprintf("(%d)", *col.MaxLength))
+		}
+		if col.Precision != nil && col.Scale != nil {
+			ddl.WriteString(fmt.Sprintf("(%d,%d)", *col.Precision, *col.Scale))
+		}
+
+		if !col.IsNullable {
+			ddl.WriteString(" NOT NULL")
+		}
+		if col.DefaultValue != nil {
+			ddl.WriteString(" DEFAULT ")
+			ddl.WriteString(*col.DefaultValue)
+		}
+	}
+
+	// Add primary key
+	if len(schema.PrimaryKeys) > 0 {
+		ddl.WriteString(",\n  PRIMARY KEY (")
+		for i, pk := range schema.PrimaryKeys {
+			if i > 0 {
+				ddl.WriteString(", ")
+			}
+			ddl.WriteString(d.QuoteIdentifier(pk))
+		}
+		ddl.WriteString(")")
+	}
+
+	ddl.WriteString("\n)")
+	return ddl.String()
+}
+
+func (d *PostgreSQLDialect) AddColumnDDL(tableName string, column *ColumnInfo) string {
+	var ddl strings.Builder
+	ddl.WriteString("ALTER TABLE ")
+	ddl.WriteString(d.QuoteIdentifier(tableName))
+	ddl.WriteString(" ADD COLUMN ")
+	ddl.WriteString(d.QuoteIdentifier(column.Name))
+	ddl.WriteString(" ")
+	ddl.WriteString(d.DataTypeMapping(column.DataType))
+
+	if column.MaxLength != nil {
+		ddl.WriteString(fmt.Sprintf("(%d)", *column.MaxLength))
+	}
+	if !column.IsNullable {
+		ddl.WriteString(" NOT NULL")
+	}
+	if column.DefaultValue != nil {
+		ddl.WriteString(" DEFAULT ")
+		ddl.WriteString(*column.DefaultValue)
+	}
+	return ddl.String()
+}
+
+func (d *PostgreSQLDialect) DropColumnDDL(tableName, columnName string) string {
+	return fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s",
+		d.QuoteIdentifier(tableName),
+		d.QuoteIdentifier(columnName))
+}
+
+func (d *PostgreSQLDialect) AlterColumnDDL(tableName string, column *ColumnInfo) string {
+	// PostgreSQL uses ALTER COLUMN for type changes
+	var ddl strings.Builder
+	ddl.WriteString("ALTER TABLE ")
+	ddl.WriteString(d.QuoteIdentifier(tableName))
+	ddl.WriteString(" ALTER COLUMN ")
+	ddl.WriteString(d.QuoteIdentifier(column.Name))
+	ddl.WriteString(" TYPE ")
+	ddl.WriteString(d.DataTypeMapping(column.DataType))
+
+	if column.MaxLength != nil {
+		ddl.WriteString(fmt.Sprintf("(%d)", *column.MaxLength))
+	}
+	return ddl.String()
+}
+
+func (d *PostgreSQLDialect) CreateIndexDDL(tableName string, index *IndexInfo) string {
+	var ddl strings.Builder
+	if index.IsUnique {
+		ddl.WriteString("CREATE UNIQUE INDEX ")
+	} else {
+		ddl.WriteString("CREATE INDEX ")
+	}
+	ddl.WriteString(d.QuoteIdentifier(index.Name))
+	ddl.WriteString(" ON ")
+	ddl.WriteString(d.QuoteIdentifier(tableName))
+	ddl.WriteString(" (")
+	for i, col := range index.Columns {
+		if i > 0 {
+			ddl.WriteString(", ")
+		}
+		ddl.WriteString(d.QuoteIdentifier(col))
+	}
+	ddl.WriteString(")")
+	return ddl.String()
+}
+
+func (d *PostgreSQLDialect) DropIndexDDL(tableName, indexName string) string {
+	// PostgreSQL doesn't need table name for DROP INDEX
+	return fmt.Sprintf("DROP INDEX %s", d.QuoteIdentifier(indexName))
 }
 
 // MSSQLDialect implements MSSQL/SQL Server-specific SQL operations
@@ -390,4 +642,249 @@ func (d *OracleDialect) TranslatePagination(query string, limit, offset int) str
 func (d *OracleDialect) TranslateUpsert(table string, columns []string, conflictColumns []string) string {
 	// Oracle uses MERGE statement
 	return fmt.Sprintf("MERGE INTO %s ...", d.QuoteIdentifier(table))
+}
+
+// DDL Generation Methods for MSSQL
+
+func (d *MSSQLDialect) CreateTableDDL(schema *TableSchema) string {
+	var ddl strings.Builder
+	ddl.WriteString("CREATE TABLE ")
+	ddl.WriteString(d.QuoteIdentifier(schema.TableName))
+	ddl.WriteString(" (\n")
+
+	// Add columns
+	for i, col := range schema.Columns {
+		if i > 0 {
+			ddl.WriteString(",\n")
+		}
+		ddl.WriteString("  ")
+		ddl.WriteString(d.QuoteIdentifier(col.Name))
+		ddl.WriteString(" ")
+		ddl.WriteString(d.DataTypeMapping(col.DataType))
+
+		if col.MaxLength != nil && (col.DataType == "string" || col.DataType == "NVARCHAR") {
+			ddl.WriteString(fmt.Sprintf("(%d)", *col.MaxLength))
+		}
+		if col.Precision != nil && col.Scale != nil {
+			ddl.WriteString(fmt.Sprintf("(%d,%d)", *col.Precision, *col.Scale))
+		}
+
+		if !col.IsNullable {
+			ddl.WriteString(" NOT NULL")
+		}
+		if col.DefaultValue != nil {
+			ddl.WriteString(" DEFAULT ")
+			ddl.WriteString(*col.DefaultValue)
+		}
+	}
+
+	// Add primary key
+	if len(schema.PrimaryKeys) > 0 {
+		ddl.WriteString(",\n  PRIMARY KEY (")
+		for i, pk := range schema.PrimaryKeys {
+			if i > 0 {
+				ddl.WriteString(", ")
+			}
+			ddl.WriteString(d.QuoteIdentifier(pk))
+		}
+		ddl.WriteString(")")
+	}
+
+	ddl.WriteString("\n)")
+	return ddl.String()
+}
+
+func (d *MSSQLDialect) AddColumnDDL(tableName string, column *ColumnInfo) string {
+	var ddl strings.Builder
+	ddl.WriteString("ALTER TABLE ")
+	ddl.WriteString(d.QuoteIdentifier(tableName))
+	ddl.WriteString(" ADD ")
+	ddl.WriteString(d.QuoteIdentifier(column.Name))
+	ddl.WriteString(" ")
+	ddl.WriteString(d.DataTypeMapping(column.DataType))
+
+	if column.MaxLength != nil {
+		ddl.WriteString(fmt.Sprintf("(%d)", *column.MaxLength))
+	}
+	if !column.IsNullable {
+		ddl.WriteString(" NOT NULL")
+	}
+	if column.DefaultValue != nil {
+		ddl.WriteString(" DEFAULT ")
+		ddl.WriteString(*column.DefaultValue)
+	}
+	return ddl.String()
+}
+
+func (d *MSSQLDialect) DropColumnDDL(tableName, columnName string) string {
+	return fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s",
+		d.QuoteIdentifier(tableName),
+		d.QuoteIdentifier(columnName))
+}
+
+func (d *MSSQLDialect) AlterColumnDDL(tableName string, column *ColumnInfo) string {
+	var ddl strings.Builder
+	ddl.WriteString("ALTER TABLE ")
+	ddl.WriteString(d.QuoteIdentifier(tableName))
+	ddl.WriteString(" ALTER COLUMN ")
+	ddl.WriteString(d.QuoteIdentifier(column.Name))
+	ddl.WriteString(" ")
+	ddl.WriteString(d.DataTypeMapping(column.DataType))
+
+	if column.MaxLength != nil {
+		ddl.WriteString(fmt.Sprintf("(%d)", *column.MaxLength))
+	}
+	if !column.IsNullable {
+		ddl.WriteString(" NOT NULL")
+	}
+	return ddl.String()
+}
+
+func (d *MSSQLDialect) CreateIndexDDL(tableName string, index *IndexInfo) string {
+	var ddl strings.Builder
+	if index.IsUnique {
+		ddl.WriteString("CREATE UNIQUE INDEX ")
+	} else {
+		ddl.WriteString("CREATE INDEX ")
+	}
+	ddl.WriteString(d.QuoteIdentifier(index.Name))
+	ddl.WriteString(" ON ")
+	ddl.WriteString(d.QuoteIdentifier(tableName))
+	ddl.WriteString(" (")
+	for i, col := range index.Columns {
+		if i > 0 {
+			ddl.WriteString(", ")
+		}
+		ddl.WriteString(d.QuoteIdentifier(col))
+	}
+	ddl.WriteString(")")
+	return ddl.String()
+}
+
+func (d *MSSQLDialect) DropIndexDDL(tableName, indexName string) string {
+	return fmt.Sprintf("DROP INDEX %s ON %s",
+		d.QuoteIdentifier(indexName),
+		d.QuoteIdentifier(tableName))
+}
+
+// DDL Generation Methods for Oracle
+
+func (d *OracleDialect) CreateTableDDL(schema *TableSchema) string {
+	var ddl strings.Builder
+	ddl.WriteString("CREATE TABLE ")
+	ddl.WriteString(d.QuoteIdentifier(schema.TableName))
+	ddl.WriteString(" (\n")
+
+	// Add columns
+	for i, col := range schema.Columns {
+		if i > 0 {
+			ddl.WriteString(",\n")
+		}
+		ddl.WriteString("  ")
+		ddl.WriteString(d.QuoteIdentifier(col.Name))
+		ddl.WriteString(" ")
+		ddl.WriteString(d.DataTypeMapping(col.DataType))
+
+		if col.MaxLength != nil && (col.DataType == "string" || col.DataType == "VARCHAR2") {
+			ddl.WriteString(fmt.Sprintf("(%d)", *col.MaxLength))
+		}
+		if col.Precision != nil && col.Scale != nil {
+			ddl.WriteString(fmt.Sprintf("(%d,%d)", *col.Precision, *col.Scale))
+		}
+
+		if !col.IsNullable {
+			ddl.WriteString(" NOT NULL")
+		}
+		if col.DefaultValue != nil {
+			ddl.WriteString(" DEFAULT ")
+			ddl.WriteString(*col.DefaultValue)
+		}
+	}
+
+	// Add primary key
+	if len(schema.PrimaryKeys) > 0 {
+		ddl.WriteString(",\n  PRIMARY KEY (")
+		for i, pk := range schema.PrimaryKeys {
+			if i > 0 {
+				ddl.WriteString(", ")
+			}
+			ddl.WriteString(d.QuoteIdentifier(pk))
+		}
+		ddl.WriteString(")")
+	}
+
+	ddl.WriteString("\n)")
+	return ddl.String()
+}
+
+func (d *OracleDialect) AddColumnDDL(tableName string, column *ColumnInfo) string {
+	var ddl strings.Builder
+	ddl.WriteString("ALTER TABLE ")
+	ddl.WriteString(d.QuoteIdentifier(tableName))
+	ddl.WriteString(" ADD ")
+	ddl.WriteString(d.QuoteIdentifier(column.Name))
+	ddl.WriteString(" ")
+	ddl.WriteString(d.DataTypeMapping(column.DataType))
+
+	if column.MaxLength != nil {
+		ddl.WriteString(fmt.Sprintf("(%d)", *column.MaxLength))
+	}
+	if !column.IsNullable {
+		ddl.WriteString(" NOT NULL")
+	}
+	if column.DefaultValue != nil {
+		ddl.WriteString(" DEFAULT ")
+		ddl.WriteString(*column.DefaultValue)
+	}
+	return ddl.String()
+}
+
+func (d *OracleDialect) DropColumnDDL(tableName, columnName string) string {
+	return fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s",
+		d.QuoteIdentifier(tableName),
+		d.QuoteIdentifier(columnName))
+}
+
+func (d *OracleDialect) AlterColumnDDL(tableName string, column *ColumnInfo) string {
+	var ddl strings.Builder
+	ddl.WriteString("ALTER TABLE ")
+	ddl.WriteString(d.QuoteIdentifier(tableName))
+	ddl.WriteString(" MODIFY ")
+	ddl.WriteString(d.QuoteIdentifier(column.Name))
+	ddl.WriteString(" ")
+	ddl.WriteString(d.DataTypeMapping(column.DataType))
+
+	if column.MaxLength != nil {
+		ddl.WriteString(fmt.Sprintf("(%d)", *column.MaxLength))
+	}
+	if !column.IsNullable {
+		ddl.WriteString(" NOT NULL")
+	}
+	return ddl.String()
+}
+
+func (d *OracleDialect) CreateIndexDDL(tableName string, index *IndexInfo) string {
+	var ddl strings.Builder
+	if index.IsUnique {
+		ddl.WriteString("CREATE UNIQUE INDEX ")
+	} else {
+		ddl.WriteString("CREATE INDEX ")
+	}
+	ddl.WriteString(d.QuoteIdentifier(index.Name))
+	ddl.WriteString(" ON ")
+	ddl.WriteString(d.QuoteIdentifier(tableName))
+	ddl.WriteString(" (")
+	for i, col := range index.Columns {
+		if i > 0 {
+			ddl.WriteString(", ")
+		}
+		ddl.WriteString(d.QuoteIdentifier(col))
+	}
+	ddl.WriteString(")")
+	return ddl.String()
+}
+
+func (d *OracleDialect) DropIndexDDL(tableName, indexName string) string {
+	// Oracle doesn't need table name for DROP INDEX
+	return fmt.Sprintf("DROP INDEX %s", d.QuoteIdentifier(indexName))
 }

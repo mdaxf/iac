@@ -367,7 +367,9 @@ func (f *LCController) updatelngcontent(db *dbconn.DBOperation, id int, text str
 	Values[n] = User
 	datatypes[n] = 1
 
-	Where = fmt.Sprintf("id = '%d' ", id)
+	// Use dialect-specific identifier quoting for database portability
+	idColumn := db.QuoteIdentifier("id")
+	Where = fmt.Sprintf("%s = '%d' ", idColumn, id)
 
 	_, err := db.TableUpdate("language_codes", Columns, Values, datatypes, Where)
 	if err != nil {
