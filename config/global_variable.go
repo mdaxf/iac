@@ -50,4 +50,17 @@ type GlobalConfig struct {
 	Transaction        map[string]interface{}   `json:"transaction"`
 	AppServer          map[string]interface{}   `json:"appserver"`
 	Services           []map[string]interface{} `json:"services"`
+	JobsConfig         JobsConfiguration        `json:"jobs"`
+}
+
+// JobsConfiguration holds the configuration for the background job system
+type JobsConfiguration struct {
+	Enabled                 bool `json:"enabled"`
+	Workers                 int  `json:"workers"`
+	PollInterval            int  `json:"poll_interval"`
+	MaxRetries              int  `json:"max_retries"`
+	SchedulerCheckInterval  int  `json:"scheduler_check_interval"`
+	UseRedis                bool `json:"use_redis"`
+	JobHistoryRetentionDays int  `json:"job_history_retention_days"`
+	EnableMetrics           bool `json:"enable_metrics"`
 }
