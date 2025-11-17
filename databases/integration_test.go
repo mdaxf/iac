@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mdaxf/iac/databases"
+	dbconn "github.com/mdaxf/iac/databases"
 	_ "github.com/denisenkom/go-mssqldb"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
@@ -107,7 +107,7 @@ func TestDatabaseConnection(t *testing.T) {
 				t.Skipf("Skipping %s tests (SKIP_%s_TESTS=true)", dbType, dbType)
 			}
 
-			dbConfig := databases.DBConfig{
+			dbConfig := dbconn.DBConfig{
 				Type:         config.Type,
 				Host:         config.Host,
 				Port:         config.Port,
@@ -125,7 +125,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 
 			// Create database instance
-			db, err := databases.NewRelationalDB(dbConfig)
+			db, err := dbconn.NewRelationalDB(dbConfig)
 			if err != nil {
 				t.Fatalf("Failed to create %s database: %v", dbType, err)
 			}
@@ -363,8 +363,8 @@ func TestDatabaseFeatureDetection(t *testing.T) {
 
 // Helper functions
 
-func setupDatabase(t *testing.T, config TestConfig) databases.RelationalDB {
-	dbConfig := databases.DBConfig{
+func setupDatabase(t *testing.T, config TestConfig) dbconn.RelationalDB {
+	dbConfig := dbconn.DBConfig{
 		Type:         config.Type,
 		Host:         config.Host,
 		Port:         config.Port,
@@ -381,7 +381,7 @@ func setupDatabase(t *testing.T, config TestConfig) databases.RelationalDB {
 		dbConfig.Options["sslmode"] = config.SSLMode
 	}
 
-	db, err := databases.NewRelationalDB(dbConfig)
+	db, err := dbconn.NewRelationalDB(dbConfig)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
 	}
@@ -393,7 +393,7 @@ func setupDatabase(t *testing.T, config TestConfig) databases.RelationalDB {
 	return db
 }
 
-func cleanupTable(db databases.RelationalDB, tableName string) {
+func cleanupTable(db dbconn.RelationalDB, tableName string) {
 	dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)
 	db.Exec(dropSQL)
 }

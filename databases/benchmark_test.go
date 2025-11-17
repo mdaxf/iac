@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mdaxf/iac/databases"
+	dbconn "github.com/mdaxf/iac/databases"
 )
 
 // BenchmarkDatabaseConnection benchmarks connection establishment
@@ -33,7 +33,7 @@ func BenchmarkDatabaseConnection(b *testing.B) {
 				b.Skip("Database not available")
 			}
 
-			dbConfig := databases.DBConfig{
+			dbConfig := dbconn.DBConfig{
 				Type:         config.Type,
 				Host:         config.Host,
 				Port:         config.Port,
@@ -52,7 +52,7 @@ func BenchmarkDatabaseConnection(b *testing.B) {
 
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				db, err := databases.NewRelationalDB(dbConfig)
+				db, err := dbconn.NewRelationalDB(dbConfig)
 				if err != nil {
 					b.Fatalf("Failed to create database: %v", err)
 				}
@@ -367,8 +367,8 @@ func skipTest(dbType string) bool {
 }
 
 // Helper to convert testing.B to testing.T interface
-func setupDatabase(tb testing.TB, config TestConfig) databases.RelationalDB {
-	dbConfig := databases.DBConfig{
+func setupDatabase(tb testing.TB, config TestConfig) dbconn.RelationalDB {
+	dbConfig := dbconn.DBConfig{
 		Type:         config.Type,
 		Host:         config.Host,
 		Port:         config.Port,
@@ -385,7 +385,7 @@ func setupDatabase(tb testing.TB, config TestConfig) databases.RelationalDB {
 		dbConfig.Options["sslmode"] = config.SSLMode
 	}
 
-	db, err := databases.NewRelationalDB(dbConfig)
+	db, err := dbconn.NewRelationalDB(dbConfig)
 	if err != nil {
 		tb.Fatalf("Failed to create database: %v", err)
 	}
