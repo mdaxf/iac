@@ -61,11 +61,9 @@ func (dqm *DistributedQueueManager) EnqueueJob(ctx context.Context, jobID string
 		return fmt.Errorf("failed to marshal queue item: %w", err)
 	}
 
-	// Use sorted set with priority as score for priority queue
-	score := float64(priority*1000000000 - time.Now().Unix()) // Higher priority first, then FIFO
-
 	// In this implementation, we'll use a list for simplicity
 	// For production, consider using Redis sorted sets or lists with proper priority handling
+	// Score calculation: float64(int64(priority)*1000000000 - time.Now().Unix()) // Higher priority first, then FIFO
 	err = dqm.cache.Put(ctx, fmt.Sprintf("%s:%s", JobQueueKey, jobID), string(queueItemJSON), 24*time.Hour)
 	if err != nil {
 		dqm.logger.Error(fmt.Sprintf("Failed to enqueue job %s: %v", jobID, err))
@@ -98,7 +96,7 @@ func (dqm *DistributedQueueManager) DequeueJob(ctx context.Context) (string, err
 	// Remove from pending list
 	err = dqm.cache.Delete(ctx, listKey)
 	if err != nil {
-		dqm.logger.Warning(fmt.Sprintf("Failed to remove job %s from pending list: %v", jobIDStr, err))
+		dqm.logger.Info(fmt.Sprintf("Failed to remove job %s from pending list: %v", jobIDStr, err))
 	}
 
 	dqm.logger.Debug(fmt.Sprintf("Dequeued job %s", jobIDStr))
@@ -136,7 +134,7 @@ func (dqm *DistributedQueueManager) AcquireLock(ctx context.Context, jobID strin
 		// Check if lock exists
 		exists, err := dqm.cache.IsExist(ctx, lockKey)
 		if err != nil {
-			dqm.logger.Warning(fmt.Sprintf("Failed to check lock existence: %v", err))
+			dqm.logger.Info(fmt.Sprintf("Failed to check lock existence: %v", err))
 			time.Sleep(LockRetryDelay)
 			continue
 		}
@@ -148,7 +146,7 @@ func (dqm *DistributedQueueManager) AcquireLock(ctx context.Context, jobID strin
 				dqm.logger.Info(fmt.Sprintf("Acquired lock for job %s (instance: %s)", jobID, dqm.instanceID))
 				return true, nil
 			}
-			dqm.logger.Warning(fmt.Sprintf("Failed to create lock: %v", err))
+			dqm.logger.Info(fmt.Sprintf("Failed to create lock: %v", err))
 		} else {
 			// Lock exists, check if it's expired
 			lockData, err := dqm.cache.Get(ctx, lockKey)
@@ -195,7 +193,7 @@ func (dqm *DistributedQueueManager) ReleaseLock(ctx context.Context, jobID strin
 		if lockDataStr, ok := lockData.(string); ok {
 			json.Unmarshal([]byte(lockDataStr), &lock)
 			if lock.InstanceID != dqm.instanceID {
-				dqm.logger.Warning(fmt.Sprintf("Attempted to release lock for job %s owned by different instance", jobID))
+				dqm.logger.Info(fmt.Sprintf("Attempted to release lock for job %s owned by different instance", jobID))
 				return fmt.Errorf("lock owned by different instance")
 			}
 		}

@@ -121,7 +121,7 @@ func (mqa *MessageQueueAdapter) Push(message LegacyMessage) error {
 	if mqa.queueManager != nil {
 		err = mqa.queueManager.EnqueueJob(ctx, job.ID, job.Priority)
 		if err != nil {
-			mqa.logger.Warning(fmt.Sprintf("Failed to enqueue job %s in cache: %v", job.ID, err))
+			mqa.logger.Info(fmt.Sprintf("Failed to enqueue job %s in cache: %v", job.ID, err))
 			// Don't fail - job is in database and will be picked up by polling
 		}
 	}
@@ -132,8 +132,6 @@ func (mqa *MessageQueueAdapter) Push(message LegacyMessage) error {
 
 // PushBatch converts multiple legacy Messages to QueueJobs
 func (mqa *MessageQueueAdapter) PushBatch(messages []LegacyMessage) error {
-	ctx := context.Background()
-
 	successCount := 0
 	errorCount := 0
 
@@ -179,7 +177,7 @@ func (mqa *MessageQueueAdapter) MigrateFromLegacyJobHistory(ctx context.Context,
 		// Extract message from legacy document
 		messageData, ok := doc["message"].(map[string]interface{})
 		if !ok {
-			mqa.logger.Warning("Skipping document with invalid message structure")
+			mqa.logger.Info("Skipping document with invalid message structure")
 			continue
 		}
 

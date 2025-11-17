@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/mdaxf/iac/config"
-	"github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/engine/trancode"
 	"github.com/mdaxf/iac/logger"
@@ -416,7 +415,7 @@ func (jw *JobWorker) saveToLegacyJobHistory(ctx context.Context, job *models.Que
 	// Save to Job_History collection
 	_, err := jw.docDB.InsertCollection("Job_History", legacyHistory)
 	if err != nil {
-		jw.logger.Warning(fmt.Sprintf("Failed to save to legacy Job_History collection: %v", err))
+		jw.logger.Info(fmt.Sprintf("Failed to save to legacy Job_History collection: %v", err))
 	} else {
 		jw.logger.Debug(fmt.Sprintf("Saved job %s to legacy Job_History collection", job.ID))
 	}

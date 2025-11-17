@@ -98,7 +98,7 @@ func (ijc *IntegrationJobCreator) CreateJobFromMessage(
 	}
 
 	// Save to database
-	err := ijc.jobService.CreateQueueJob(ctx, job)
+	err = ijc.jobService.CreateQueueJob(ctx, job)
 	if err != nil {
 		ijc.logger.Error(fmt.Sprintf("Failed to create job from message: %v", err))
 		return nil, fmt.Errorf("failed to create job: %w", err)

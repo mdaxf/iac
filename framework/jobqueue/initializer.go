@@ -53,8 +53,8 @@ func InitializeJobSystem(
 
 		// Health check
 		if err := GlobalQueueManager.HealthCheck(ctx); err != nil {
-			logger.Warning(fmt.Sprintf("Queue manager health check failed: %v - continuing without cache", err))
-			logger.Warning("Job system will run in single-instance mode without distributed locking")
+			logger.Info(fmt.Sprintf("Queue manager health check failed: %v - continuing without cache", err))
+			logger.Info("Job system will run in single-instance mode without distributed locking")
 			GlobalQueueManager = nil
 		} else {
 			cacheType := "configured cache"
@@ -64,8 +64,8 @@ func InitializeJobSystem(
 			logger.Info(fmt.Sprintf("Queue manager using %s for distributed coordination", cacheType))
 		}
 	} else {
-		logger.Warning("No cache configured - job system will run in single-instance mode")
-		logger.Warning("For distributed processing across multiple instances, configure a cache (Redis, Memcache, etc.)")
+		logger.Info("No cache configured - job system will run in single-instance mode")
+		logger.Info("For distributed processing across multiple instances, configure a cache (Redis, Memcache, etc.)")
 	}
 
 	// Initialize job worker

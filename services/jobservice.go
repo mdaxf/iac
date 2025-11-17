@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/mdaxf/iac/config"
-	"github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac/models"
 
@@ -60,22 +59,20 @@ func (js *JobService) CreateQueueJob(ctx context.Context, job *models.QueueJob) 
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	_, err = databases.TableInsert(
-		"queue_jobs",
-		[]string{
-			"id", "typeid", "method", "protocol", "direction", "handler", "metadata", "payload",
-			"result", "statusid", "priority", "maxretries", "retrycount", "scheduledat",
-			"startedat", "completedat", "lasterror", "parentjobid", "active", "referenceid",
-			"createdby", "createdon", "modifiedby", "modifiedon", "rowversionstamp",
-		},
-		[]interface{}{
-			job.ID, job.TypeID, job.Method, job.Protocol, job.Direction, job.Handler, string(metadataJSON), job.Payload,
-			job.Result, job.StatusID, job.Priority, job.MaxRetries, job.RetryCount, job.ScheduledAt,
-			job.StartedAt, job.CompletedAt, job.LastError, job.ParentJobID, job.Active, job.ReferenceID,
-			job.CreatedBy, job.CreatedOn, job.ModifiedBy, job.ModifiedOn, job.RowVersionStamp,
-		},
-		js.db,
-		ctx,
+	query := `
+		INSERT INTO queue_jobs (
+			id, typeid, method, protocol, direction, handler, metadata, payload,
+			result, statusid, priority, maxretries, retrycount, scheduledat,
+			startedat, completedat, lasterror, parentjobid, active, referenceid,
+			createdby, createdon, modifiedby, modifiedon, rowversionstamp
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+	_, err = js.db.ExecContext(ctx, query,
+		job.ID, job.TypeID, job.Method, job.Protocol, job.Direction, job.Handler, string(metadataJSON), job.Payload,
+		job.Result, job.StatusID, job.Priority, job.MaxRetries, job.RetryCount, job.ScheduledAt,
+		job.StartedAt, job.CompletedAt, job.LastError, job.ParentJobID, job.Active, job.ReferenceID,
+		job.CreatedBy, job.CreatedOn, job.ModifiedBy, job.ModifiedOn, job.RowVersionStamp,
 	)
 
 	if err != nil {
@@ -89,33 +86,33 @@ func (js *JobService) CreateQueueJob(ctx context.Context, job *models.QueueJob) 
 
 // UpdateQueueJobStatus updates the status of a queue job
 func (js *JobService) UpdateQueueJobStatus(ctx context.Context, jobID string, statusID int, result string, errorMsg string) error {
-	updateData := map[string]interface{}{
-		"statusid":   statusID,
-		"modifiedon": time.Now(),
-	}
+	now := time.Now()
+
+	query := `UPDATE queue_jobs SET statusid = ?, modifiedon = ?`
+	args := []interface{}{statusID, now}
 
 	if result != "" {
-		updateData["result"] = result
+		query += `, result = ?`
+		args = append(args, result)
 	}
 
 	if errorMsg != "" {
-		updateData["lasterror"] = errorMsg
+		query += `, lasterror = ?`
+		args = append(args, errorMsg)
 	}
 
 	if statusID == int(models.JobStatusProcessing) {
-		updateData["startedat"] = time.Now()
+		query += `, startedat = ?`
+		args = append(args, now)
 	} else if statusID == int(models.JobStatusCompleted) || statusID == int(models.JobStatusFailed) || statusID == int(models.JobStatusCancelled) {
-		updateData["completedat"] = time.Now()
+		query += `, completedat = ?`
+		args = append(args, now)
 	}
 
-	_, err := databases.TableUpdate(
-		"queue_jobs",
-		updateData,
-		map[string]interface{}{"id": jobID},
-		js.db,
-		ctx,
-	)
+	query += ` WHERE id = ?`
+	args = append(args, jobID)
 
+	_, err := js.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		js.iLog.Error(fmt.Sprintf("Failed to update job status: %v", err))
 		return fmt.Errorf("failed to update job status: %w", err)
@@ -182,7 +179,7 @@ func (js *JobService) GetNextPendingJob(ctx context.Context) (*models.QueueJob, 
 
 	if metadataJSON != "" {
 		if err := json.Unmarshal([]byte(metadataJSON), &job.Metadata); err != nil {
-			js.iLog.Warning(fmt.Sprintf("Failed to unmarshal metadata for job %s: %v", job.ID, err))
+			js.iLog.Debug(fmt.Sprintf("Failed to unmarshal metadata for job %s: %v", job.ID, err))
 		}
 	}
 
@@ -215,22 +212,20 @@ func (js *JobService) CreateJobHistory(ctx context.Context, history *models.JobH
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	_, err = databases.TableInsert(
-		"job_histories",
-		[]string{
-			"id", "jobid", "executionid", "statusid", "startedat", "completedat",
-			"duration", "result", "errormessage", "retryattempt", "executedby",
-			"inputdata", "outputdata", "metadata", "active", "referenceid",
-			"createdby", "createdon", "modifiedby", "modifiedon", "rowversionstamp",
-		},
-		[]interface{}{
-			history.ID, history.JobID, history.ExecutionID, history.StatusID, history.StartedAt, history.CompletedAt,
-			history.Duration, history.Result, history.ErrorMessage, history.RetryAttempt, history.ExecutedBy,
-			history.InputData, history.OutputData, string(metadataJSON), history.Active, history.ReferenceID,
-			history.CreatedBy, history.CreatedOn, history.ModifiedBy, history.ModifiedOn, history.RowVersionStamp,
-		},
-		js.db,
-		ctx,
+	query := `
+		INSERT INTO job_histories (
+			id, jobid, executionid, statusid, startedat, completedat,
+			duration, result, errormessage, retryattempt, executedby,
+			inputdata, outputdata, metadata, active, referenceid,
+			createdby, createdon, modifiedby, modifiedon, rowversionstamp
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+	_, err = js.db.ExecContext(ctx, query,
+		history.ID, history.JobID, history.ExecutionID, history.StatusID, history.StartedAt, history.CompletedAt,
+		history.Duration, history.Result, history.ErrorMessage, history.RetryAttempt, history.ExecutedBy,
+		history.InputData, history.OutputData, string(metadataJSON), history.Active, history.ReferenceID,
+		history.CreatedBy, history.CreatedOn, history.ModifiedBy, history.ModifiedOn, history.RowVersionStamp,
 	)
 
 	if err != nil {
@@ -275,7 +270,7 @@ func (js *JobService) GetJobByID(ctx context.Context, jobID string) (*models.Que
 
 	if metadataJSON != "" {
 		if err := json.Unmarshal([]byte(metadataJSON), &job.Metadata); err != nil {
-			js.iLog.Warning(fmt.Sprintf("Failed to unmarshal metadata for job %s: %v", job.ID, err))
+			js.iLog.Debug(fmt.Sprintf("Failed to unmarshal metadata for job %s: %v", job.ID, err))
 		}
 	}
 
@@ -323,7 +318,7 @@ func (js *JobService) GetScheduledJobs(ctx context.Context) ([]*models.Job, erro
 
 		if metadataJSON != "" {
 			if err := json.Unmarshal([]byte(metadataJSON), &job.Metadata); err != nil {
-				js.iLog.Warning(fmt.Sprintf("Failed to unmarshal metadata for job %s: %v", job.ID, err))
+				js.iLog.Debug(fmt.Sprintf("Failed to unmarshal metadata for job %s: %v", job.ID, err))
 			}
 		}
 
@@ -335,13 +330,6 @@ func (js *JobService) GetScheduledJobs(ctx context.Context) ([]*models.Job, erro
 
 // UpdateScheduledJobNextRun updates the next run time for a scheduled job
 func (js *JobService) UpdateScheduledJobNextRun(ctx context.Context, jobID string, nextRunAt time.Time) error {
-	updateData := map[string]interface{}{
-		"nextrunat":      nextRunAt,
-		"lastrunat":      time.Now(),
-		"executioncount": "executioncount + 1", // This will be handled specially
-		"modifiedon":     time.Now(),
-	}
-
 	query := `
 		UPDATE jobs
 		SET nextrunat = ?, lastrunat = ?, executioncount = executioncount + 1, modifiedon = ?
