@@ -1,0 +1,137 @@
+{
+  "id": "pkg-doc-123e4567-e89b-12d3-a456-426614174000",
+  "name": "WorkflowPackage",
+  "description": "Workflow and TranCode definitions",
+  "version": "2.0.0",
+  "package_type": "document",
+  "created_at": "2024-01-15T11:00:00Z",
+  "created_by": "developer",
+  "metadata": {
+    "environment": "staging",
+    "exported_from": "mongodb-staging"
+  },
+  "document_data": {
+    "collections": [
+      {
+        "collection_name": "TranCode",
+        "documents": [
+          {
+            "_id": "507f1f77bcf86cd799439011",
+            "name": "UserValidation",
+            "code": "USR_VAL_001",
+            "description": "Validates user input",
+            "functions": [
+              {
+                "name": "validateEmail",
+                "type": "validation",
+                "config": {
+                  "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+                }
+              }
+            ],
+            "status": "active",
+            "version": 3,
+            "created_at": "2024-01-10T10:00:00Z",
+            "updated_at": "2024-01-15T09:30:00Z"
+          }
+        ],
+        "document_count": 1,
+        "id_field": "_id",
+        "index_info": [
+          {
+            "name": "code_1",
+            "keys": {
+              "code": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "status_1",
+            "keys": {
+              "status": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "collection_name": "Workflow",
+        "documents": [
+          {
+            "_id": "507f1f77bcf86cd799439012",
+            "name": "UserRegistrationFlow",
+            "code": "WF_USER_REG",
+            "nodes": [
+              {
+                "id": "node1",
+                "type": "start",
+                "label": "Start"
+              },
+              {
+                "id": "node2",
+                "type": "trancode",
+                "label": "Validate Input",
+                "trancode_id": "507f1f77bcf86cd799439011"
+              },
+              {
+                "id": "node3",
+                "type": "end",
+                "label": "End"
+              }
+            ],
+            "links": [
+              {
+                "from": "node1",
+                "to": "node2"
+              },
+              {
+                "from": "node2",
+                "to": "node3"
+              }
+            ],
+            "status": "active",
+            "created_at": "2024-01-12T14:00:00Z"
+          }
+        ],
+        "document_count": 1,
+        "id_field": "_id",
+        "index_info": [
+          {
+            "name": "code_1",
+            "keys": {
+              "code": 1
+            },
+            "unique": true
+          }
+        ]
+      }
+    ],
+    "id_mappings": {
+      "TranCode": {
+        "collection_name": "TranCode",
+        "id_field": "_id",
+        "id_type": "objectid",
+        "strategy": "regenerate"
+      },
+      "Workflow": {
+        "collection_name": "Workflow",
+        "id_field": "_id",
+        "id_type": "objectid",
+        "strategy": "regenerate"
+      }
+    },
+    "references": [
+      {
+        "id": "ref-001",
+        "source_collection": "Workflow",
+        "source_field": "nodes.trancode_id",
+        "target_collection": "TranCode",
+        "target_id_field": "_id",
+        "reference_type": "array"
+      }
+    ],
+    "skip_ids": false,
+    "database_type": "mongodb",
+    "database_name": "IAC_CFG"
+  }
+}
