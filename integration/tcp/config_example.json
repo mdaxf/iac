@@ -1,0 +1,58 @@
+{
+  "client": {
+    "host": "localhost",
+    "port": 9000,
+    "timeout": 30,
+    "datahub_mode": true,
+    "auto_reconnect": true,
+    "delimiter": "\\n"
+  },
+  "server": {
+    "host": "0.0.0.0",
+    "port": 9000,
+    "datahub_mode": true,
+    "delimiter": "\\n"
+  },
+  "protocols": {
+    "binary": {
+      "description": "Binary protocol for sensor data",
+      "format": {
+        "device_id": {
+          "type": "bytes",
+          "length": 8,
+          "offset": 0
+        },
+        "timestamp": {
+          "type": "uint32",
+          "length": 4,
+          "offset": 8
+        },
+        "temperature": {
+          "type": "float32",
+          "length": 4,
+          "offset": 12
+        },
+        "humidity": {
+          "type": "float32",
+          "length": 4,
+          "offset": 16
+        },
+        "checksum": {
+          "type": "uint16",
+          "length": 2,
+          "offset": 20
+        }
+      },
+      "total_length": 22
+    },
+    "text": {
+      "description": "Text-based protocol with delimiter",
+      "delimiter": "\\n",
+      "format": "JSON"
+    }
+  },
+  "examples": {
+    "binary_message": "Base64: AQEBAQEBAQEBAAEAAAAAQEAAAEBBAAABAD4=",
+    "text_message": "{\"device_id\":\"sensor-001\",\"temperature\":25.5,\"humidity\":60.2,\"timestamp\":1640000000}\\n"
+  }
+}

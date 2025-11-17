@@ -1,0 +1,292 @@
+{
+  "mappings": [
+    {
+      "id": "rest-to-soap-order",
+      "name": "REST Order to SOAP Order Transformation",
+      "description": "Transforms REST API order format to SOAP web service order format",
+      "source_protocol": "REST",
+      "source_schema": "OrderV1",
+      "target_protocol": "SOAP",
+      "target_schema": "OrderServiceV2",
+      "mappings": [
+        {
+          "source_path": "$.order.id",
+          "target_path": "//OrderRequest/OrderID",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "source_path": "$.order.customer.email",
+          "target_path": "//OrderRequest/Customer/EmailAddress",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "source_path": "$.order.customer.name",
+          "target_path": "//OrderRequest/Customer/FullName",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "source_path": "$.order.items[*]",
+          "target_path": "//OrderRequest/Items/Item",
+          "data_type": "array",
+          "required": true
+        },
+        {
+          "source_path": "$.order.total_amount",
+          "target_path": "//OrderRequest/TotalAmount",
+          "data_type": "float",
+          "required": true,
+          "transform_func": "round_to_2_decimals"
+        },
+        {
+          "source_path": "$.order.created_at",
+          "target_path": "//OrderRequest/OrderDate",
+          "data_type": "date",
+          "required": true,
+          "transform_func": "iso8601_to_soap_datetime"
+        },
+        {
+          "source_path": "",
+          "target_path": "//OrderRequest/OrderSource",
+          "data_type": "string",
+          "default_value": "REST_API",
+          "required": true
+        }
+      ],
+      "transformations": [
+        {
+          "type": "enrich",
+          "description": "Add processing timestamp",
+          "config": {
+            "target_path": "//OrderRequest/ProcessedAt",
+            "value": "{{current_timestamp}}"
+          },
+          "order": 1
+        },
+        {
+          "type": "filter",
+          "description": "Remove test orders",
+          "config": {
+            "condition": "$.order.is_test == true",
+            "action": "reject"
+          },
+          "order": 2
+        }
+      ],
+      "conditions": [
+        {
+          "field": "$.order.type",
+          "operator": "eq",
+          "value": "standard"
+        }
+      ],
+      "priority": 100,
+      "active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    },
+    {
+      "id": "graphql-to-kafka-event",
+      "name": "GraphQL Mutation to Kafka Event",
+      "description": "Transforms GraphQL mutation results into Kafka event messages",
+      "source_protocol": "GraphQL",
+      "source_schema": "UserMutationResponse",
+      "target_protocol": "Kafka",
+      "target_schema": "UserEventV1",
+      "mappings": [
+        {
+          "source_path": "$.data.createUser.id",
+          "target_path": "$.userId",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "source_path": "$.data.createUser.email",
+          "target_path": "$.userEmail",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "source_path": "$.data.createUser.profile",
+          "target_path": "$.userProfile",
+          "data_type": "object",
+          "required": false
+        },
+        {
+          "source_path": "",
+          "target_path": "$.eventType",
+          "data_type": "string",
+          "default_value": "USER_CREATED",
+          "required": true
+        },
+        {
+          "source_path": "",
+          "target_path": "$.eventTimestamp",
+          "data_type": "date",
+          "transform_func": "current_timestamp_iso8601",
+          "required": true
+        }
+      ],
+      "transformations": [
+        {
+          "type": "enrich",
+          "description": "Add event metadata",
+          "config": {
+            "fields": {
+              "$.eventVersion": "1.0",
+              "$.eventSource": "graphql-api"
+            }
+          },
+          "order": 1
+        }
+      ],
+      "priority": 90,
+      "active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    },
+    {
+      "id": "tcp-to-rest-sensor-data",
+      "name": "TCP Sensor Data to REST API",
+      "description": "Transforms binary TCP sensor data to REST API JSON format",
+      "source_protocol": "TCP",
+      "source_schema": "SensorBinaryV1",
+      "target_protocol": "REST",
+      "target_schema": "SensorDataV1",
+      "mappings": [
+        {
+          "source_path": "$.device_id",
+          "target_path": "$.sensor.deviceId",
+          "data_type": "string",
+          "required": true,
+          "transform_func": "bytes_to_hex"
+        },
+        {
+          "source_path": "$.temperature",
+          "target_path": "$.sensor.readings.temperature",
+          "data_type": "float",
+          "required": true,
+          "transform_func": "bytes_to_float32"
+        },
+        {
+          "source_path": "$.humidity",
+          "target_path": "$.sensor.readings.humidity",
+          "data_type": "float",
+          "required": true,
+          "transform_func": "bytes_to_float32"
+        },
+        {
+          "source_path": "$.timestamp",
+          "target_path": "$.sensor.timestamp",
+          "data_type": "date",
+          "required": true,
+          "transform_func": "unix_timestamp_to_iso8601"
+        }
+      ],
+      "transformations": [
+        {
+          "type": "enrich",
+          "description": "Add sensor location",
+          "config": {
+            "lookup_table": "sensor_locations",
+            "lookup_key": "$.sensor.deviceId",
+            "target_path": "$.sensor.location"
+          },
+          "order": 1
+        }
+      ],
+      "priority": 80,
+      "active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    },
+    {
+      "id": "mqtt-to-messagebus",
+      "name": "MQTT to Internal Message Bus",
+      "description": "Routes MQTT messages to internal message bus with topic mapping",
+      "source_protocol": "MQTT",
+      "source_schema": "GenericMQTT",
+      "target_protocol": "MessageBus",
+      "target_schema": "InternalEvent",
+      "mappings": [
+        {
+          "source_path": "$.topic",
+          "target_path": "$.channel",
+          "data_type": "string",
+          "required": true,
+          "transform_func": "mqtt_topic_to_channel"
+        },
+        {
+          "source_path": "$.payload",
+          "target_path": "$.data",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "source_path": "$.qos",
+          "target_path": "$.metadata.qos",
+          "data_type": "int",
+          "required": false
+        }
+      ],
+      "priority": 70,
+      "active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  ],
+  "routing_rules": [
+    {
+      "id": "route-orders-to-erp",
+      "name": "Route Orders to ERP System",
+      "source": "REST:/api/orders",
+      "destination": "SOAP:http://erp.company.com/OrderService",
+      "conditions": [
+        {
+          "field": "$.order.status",
+          "operator": "eq",
+          "value": "confirmed"
+        }
+      ],
+      "mapping_id": "rest-to-soap-order",
+      "priority": 100,
+      "active": true
+    },
+    {
+      "id": "route-user-events-to-kafka",
+      "name": "Route User Events to Kafka",
+      "source": "GraphQL:/graphql",
+      "destination": "Kafka:user-events-topic",
+      "conditions": [
+        {
+          "field": "$.data.createUser",
+          "operator": "exists",
+          "value": true
+        }
+      ],
+      "mapping_id": "graphql-to-kafka-event",
+      "priority": 90,
+      "active": true
+    },
+    {
+      "id": "route-sensor-data",
+      "name": "Route Sensor Data to Analytics",
+      "source": "TCP:0.0.0.0:9000",
+      "destination": "REST:http://analytics.company.com/api/sensor-data",
+      "mapping_id": "tcp-to-rest-sensor-data",
+      "priority": 80,
+      "active": true
+    },
+    {
+      "id": "route-mqtt-to-bus",
+      "name": "Route MQTT to Message Bus",
+      "source": "MQTT:devices/#",
+      "destination": "MessageBus:device-events",
+      "mapping_id": "mqtt-to-messagebus",
+      "priority": 70,
+      "active": true
+    }
+  ]
+}

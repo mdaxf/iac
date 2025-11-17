@@ -1,0 +1,90 @@
+{
+  "client": {
+    "url": "http://soapservice.example.com/OrderService",
+    "namespace": "http://schemas.xmlsoap.org/soap/envelope/",
+    "timeout": 30,
+    "headers": {
+      "Content-Type": "text/xml; charset=utf-8"
+    },
+    "datahub_mode": true
+  },
+  "server": {
+    "port": 8081,
+    "datahub_mode": true
+  },
+  "operations": [
+    {
+      "action": "http://example.com/OrderService/CreateOrder",
+      "description": "Create a new order",
+      "handler": "create_order",
+      "request_schema": {
+        "OrderRequest": {
+          "OrderID": "string",
+          "Customer": {
+            "EmailAddress": "string",
+            "FullName": "string"
+          },
+          "Items": {
+            "Item": [
+              {
+                "ProductID": "string",
+                "Quantity": "int",
+                "Price": "float"
+              }
+            ]
+          },
+          "TotalAmount": "float",
+          "OrderDate": "datetime"
+        }
+      },
+      "response_schema": {
+        "OrderResponse": {
+          "OrderID": "string",
+          "Status": "string",
+          "Message": "string"
+        }
+      }
+    },
+    {
+      "action": "http://example.com/OrderService/GetOrder",
+      "description": "Get order by ID",
+      "handler": "get_order",
+      "request_schema": {
+        "GetOrderRequest": {
+          "OrderID": "string"
+        }
+      },
+      "response_schema": {
+        "GetOrderResponse": {
+          "Order": {
+            "OrderID": "string",
+            "Status": "string",
+            "TotalAmount": "float"
+          }
+        }
+      }
+    },
+    {
+      "action": "http://example.com/OrderService/CancelOrder",
+      "description": "Cancel an order",
+      "handler": "cancel_order",
+      "request_schema": {
+        "CancelOrderRequest": {
+          "OrderID": "string",
+          "Reason": "string"
+        }
+      },
+      "response_schema": {
+        "CancelOrderResponse": {
+          "Success": "bool",
+          "Message": "string"
+        }
+      }
+    }
+  ],
+  "wsdl": {
+    "service_name": "OrderService",
+    "target_namespace": "http://example.com/OrderService",
+    "port_type": "OrderServicePort"
+  }
+}
