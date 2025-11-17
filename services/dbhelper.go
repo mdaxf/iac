@@ -33,8 +33,10 @@ func (h *DatabaseHelper) GetAppDB() *gorm.DB {
 // This uses the database selector to choose the appropriate database
 func (h *DatabaseHelper) GetUserDB(ctx context.Context, databaseAlias string) (dbconn.RelationalDB, error) {
 	dbCtx := &dbconn.DatabaseContext{
-		DatabaseAlias: databaseAlias,
-		OperationType: "read", // Default to read
+		Operation: dbconn.OperationRead,
+		Metadata: map[string]interface{}{
+			"database_alias": databaseAlias,
+		},
 	}
 
 	return h.selector.SelectDatabase(dbCtx)
@@ -43,18 +45,21 @@ func (h *DatabaseHelper) GetUserDB(ctx context.Context, databaseAlias string) (d
 // GetUserDBForWrite gets a database connection for write operations
 func (h *DatabaseHelper) GetUserDBForWrite(ctx context.Context, databaseAlias string) (dbconn.RelationalDB, error) {
 	dbCtx := &dbconn.DatabaseContext{
-		DatabaseAlias: databaseAlias,
-		OperationType: "write",
+		Operation: dbconn.OperationWrite,
+		Metadata: map[string]interface{}{
+			"database_alias": databaseAlias,
+		},
 	}
 
 	return h.selector.SelectDatabase(dbCtx)
 }
 
 // ExecuteDialectQuery executes a query using the appropriate dialect
-func (h *DatabaseHelper) ExecuteDialectQuery(ctx context.Context, db dbconn.RelationalDB, queryFunc func(dialect string) string, args ...interface{}) (*sql.Rows, error) {
-	dialect := db.GetDialect()
-	query := queryFunc(dialect)
-	return db.Query(query, args...)
+func (h *DatabaseHelper) ExecuteDialectQuery(ctx context.Context, db dbconn.RelationalDB, queryFunc func(dialectName string) string, args ...interface{}) (*sql.Rows, error) {
+	// Get dialect name from database type
+	dialectName := string(db.GetType())
+	query := queryFunc(dialectName)
+	return db.Query(ctx, query, args...)
 }
 
 // CurrentTimestampExpr returns the appropriate current timestamp expression for the dialect

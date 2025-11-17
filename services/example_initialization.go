@@ -21,9 +21,12 @@ func Example1_BasicInitialization() {
 		log.Fatalf("Failed to initialize databases: %v", err)
 	}
 
-	// Step 2: Get the pool manager and app database
-	poolManager := dbInit.GetPoolManager()
-	appDB := dbInit.GetGORMDB()
+	// Step 2: Get the pool manager
+	poolManager := dbInit.PoolManager
+
+	// Note: You would need to create/inject your own GORM DB for app tables
+	// This is just an example - in production, initialize GORM separately
+	var appDB *gorm.DB // Initialize your GORM DB here
 
 	// Step 3: Create service factory
 	serviceFactory, err := NewServiceFactory(poolManager, appDB)
@@ -72,13 +75,13 @@ func Example2_CustomDatabaseQuery(serviceFactory *ServiceFactory) {
 	}
 	defer db.Close()
 
-	// Get the dialect
-	dialect := db.GetDialect()
-	fmt.Printf("Database dialect: %s\n", dialect)
+	// Get the database type to determine dialect
+	dbType := string(db.GetType())
+	fmt.Printf("Database type: %s\n", dbType)
 
 	// Execute a dialect-aware query
 	var query string
-	switch dialect {
+	switch dbType {
 	case "mysql":
 		query = "SELECT * FROM customers LIMIT 10"
 	case "postgres":
@@ -89,7 +92,7 @@ func Example2_CustomDatabaseQuery(serviceFactory *ServiceFactory) {
 		query = "SELECT * FROM customers FETCH FIRST 10 ROWS ONLY"
 	}
 
-	rows, err := db.Query(query)
+	rows, err := db.Query(ctx, query)
 	if err != nil {
 		log.Fatalf("Query failed: %v", err)
 	}
@@ -113,34 +116,34 @@ func Example3_DialectAwareQueries(serviceFactory *ServiceFactory) {
 	}
 	defer db.Close()
 
-	dialect := db.GetDialect()
+	dbType := string(db.GetType())
 
 	// Build a query with pagination
 	baseQuery := "SELECT * FROM customers ORDER BY id"
-	paginationClause := LimitOffsetClause(dialect, 10, 20) // limit 10, offset 20
+	paginationClause := LimitOffsetClause(dbType, 10, 20) // limit 10, offset 20
 	fullQuery := fmt.Sprintf("%s %s", baseQuery, paginationClause)
 
-	rows, err := db.Query(fullQuery)
+	rows, err := db.Query(ctx, fullQuery)
 	if err != nil {
 		log.Fatalf("Query failed: %v", err)
 	}
 	defer rows.Close()
 
 	// Build a query with case-insensitive search
-	likeOp := LikeOperator(dialect, false) // case-insensitive
+	likeOp := LikeOperator(dbType, false) // case-insensitive
 	searchQuery := fmt.Sprintf("SELECT * FROM customers WHERE name %s ?", likeOp)
 
-	rows2, err := db.Query(searchQuery, "%john%")
+	rows2, err := db.Query(ctx, searchQuery, "%john%")
 	if err != nil {
 		log.Fatalf("Search query failed: %v", err)
 	}
 	defer rows2.Close()
 
 	// Build a query with JSON extraction
-	jsonExtract := JSONExtractExpr(dialect, "metadata", "email")
+	jsonExtract := JSONExtractExpr(dbType, "metadata", "email")
 	jsonQuery := fmt.Sprintf("SELECT id, %s as email FROM customers", jsonExtract)
 
-	rows3, err := db.Query(jsonQuery)
+	rows3, err := db.Query(ctx, jsonQuery)
 	if err != nil {
 		log.Fatalf("JSON query failed: %v", err)
 	}
@@ -248,15 +251,15 @@ func Example5_ServiceWithCustomLogic(serviceFactory *ServiceFactory) {
 	}
 	defer db.Close()
 
-	dialect := db.GetDialect()
+	dbType := string(db.GetType())
 
 	// Build dialect-aware query
 	query := fmt.Sprintf(
 		"SELECT * FROM customers WHERE status = ? %s",
-		LimitOffsetClause(dialect, 100, 0),
+		LimitOffsetClause(dbType, 100, 0),
 	)
 
-	rows, err := db.Query(query, "active")
+	rows, err := db.Query(ctx, query, "active")
 	if err != nil {
 		log.Fatalf("Query failed: %v", err)
 	}
@@ -338,19 +341,24 @@ func Example7_HealthChecksAndMonitoring(serviceFactory *ServiceFactory) {
 			continue
 		}
 
-		// Get dialect
-		dialect := db.GetDialect()
+		// Get database type
+		dbType := string(db.GetType())
 
 		// Check features
-		features := []string{"transactions", "jsonb", "cte", "window_functions", "fulltext"}
+		features := []dbconn.Feature{
+			dbconn.FeatureCTE,
+			dbconn.FeatureJSON,
+			dbconn.FeatureWindowFunctions,
+			dbconn.FeatureFullTextSearch,
+		}
 		supported := make([]string, 0)
 		for _, feature := range features {
 			if db.SupportsFeature(feature) {
-				supported = append(supported, feature)
+				supported = append(supported, string(feature))
 			}
 		}
 
-		fmt.Printf("Database: %s, Dialect: %s, Healthy: ✓, Features: %v\n", alias, dialect, supported)
+		fmt.Printf("Database: %s, Type: %s, Healthy: ✓, Features: %v\n", alias, dbType, supported)
 		db.Close()
 	}
 }
