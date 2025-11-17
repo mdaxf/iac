@@ -3,7 +3,7 @@ package services
 import (
 	"fmt"
 
-	"github.com/mdaxf/iac/databases"
+	dbconn "github.com/mdaxf/iac/databases"
 	"gorm.io/gorm"
 )
 
@@ -21,13 +21,13 @@ type ServiceFactory struct {
 }
 
 // NewServiceFactory creates a new service factory
-func NewServiceFactory(poolManager *databases.PoolManager, appDB *gorm.DB) (*ServiceFactory, error) {
+func NewServiceFactory(poolManager *dbconn.PoolManager, appDB *gorm.DB) (*ServiceFactory, error) {
 	if poolManager == nil || appDB == nil {
 		return nil, fmt.Errorf("poolManager and appDB cannot be nil")
 	}
 
 	// Create database selector with round-robin strategy
-	selector := databases.NewDatabaseSelector(poolManager, databases.RoundRobinStrategy)
+	selector := dbconn.NewDatabaseSelector(poolManager, dbconn.RoundRobinStrategy)
 
 	// Create database helper
 	dbHelper := NewDatabaseHelper(selector, appDB)

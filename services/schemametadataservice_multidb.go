@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mdaxf/iac/databases"
+	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/models"
 	"gorm.io/gorm"
 )
@@ -87,7 +87,7 @@ func (s *SchemaMetadataServiceMultiDB) DiscoverSchema(ctx context.Context, datab
 }
 
 // discoverTableColumns discovers all columns for a specific table
-func (s *SchemaMetadataServiceMultiDB) discoverTableColumns(ctx context.Context, db databases.RelationalDB, databaseAlias, schemaName, tableName string) error {
+func (s *SchemaMetadataServiceMultiDB) discoverTableColumns(ctx context.Context, db dbconn.RelationalDB, databaseAlias, schemaName, tableName string) error {
 	dialect := db.GetDialect()
 
 	// Get columns query

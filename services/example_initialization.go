@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/mdaxf/iac/databases"
+	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/dbinitializer"
 	"gorm.io/gorm"
 )

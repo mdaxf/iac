@@ -22,7 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mdaxf/iac/databases"
 	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/logger"
@@ -40,9 +39,9 @@ import (
 
 // DatabaseInitializer manages database initialization
 type DatabaseInitializer struct {
-	RelationalDBs map[string]databases.RelationalDB
+	RelationalDBs map[string]dbconn.RelationalDB
 	DocumentDBs   map[string]documents.DocumentDB
-	PoolManager   *databases.PoolManager
+	PoolManager   *dbconn.PoolManager
 	DocManager    *documents.DocDBManager
 	iLog          logger.Log
 }
@@ -50,9 +49,9 @@ type DatabaseInitializer struct {
 // NewDatabaseInitializer creates a new database initializer
 func NewDatabaseInitializer() *DatabaseInitializer {
 	return &DatabaseInitializer{
-		RelationalDBs: make(map[string]databases.RelationalDB),
+		RelationalDBs: make(map[string]dbconn.RelationalDB),
 		DocumentDBs:   make(map[string]documents.DocumentDB),
-		PoolManager:   databases.GetPoolManager(),
+		PoolManager:   dbconn.GetPoolManager(),
 		DocManager:    documents.GetDocDBManager(),
 		iLog:          logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "DatabaseInitializer"},
 	}
@@ -87,10 +86,10 @@ func (di *DatabaseInitializer) initRelationalDatabases() error {
 		primaryType = "mysql" // Default to MySQL
 	}
 
-	primaryConfig := di.loadRelationalDBConfig("DB", databases.DBType(primaryType))
+	primaryConfig := di.loadRelationalDBConfig("DB", dbconn.DBType(primaryType))
 
 	// Create and connect primary database
-	primaryDB, err := databases.NewRelationalDB(primaryConfig)
+	primaryDB, err := dbconn.NewRelationalDB(primaryConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create primary database: %w", err)
 	}
@@ -116,7 +115,7 @@ func (di *DatabaseInitializer) initRelationalDatabases() error {
 			replicaType = primaryType
 		}
 
-		replicaConfig := di.loadRelationalDBConfig(prefix, databases.DBType(replicaType))
+		replicaConfig := di.loadRelationalDBConfig(prefix, dbconn.DBType(replicaType))
 		replicaName := fmt.Sprintf("replica_%d", i)
 
 		// Add replica to pool manager
@@ -158,8 +157,8 @@ func (di *DatabaseInitializer) initDocumentDatabases() error {
 }
 
 // loadRelationalDBConfig loads relational database config from environment
-func (di *DatabaseInitializer) loadRelationalDBConfig(prefix string, dbType databases.DBType) *databases.DBConfig {
-	config := &databases.DBConfig{
+func (di *DatabaseInitializer) loadRelationalDBConfig(prefix string, dbType dbconn.DBType) *dbconn.DBConfig {
+	config := &dbconn.DBConfig{
 		Type:     dbType,
 		Host:     di.getEnvString(prefix+"_HOST", "localhost"),
 		Port:     di.getEnvInt(prefix+"_PORT", di.getDefaultPort(dbType)),
@@ -202,15 +201,15 @@ func (di *DatabaseInitializer) loadDocumentDBConfig(prefix string, dbType docume
 }
 
 // getDefaultPort returns the default port for a database type
-func (di *DatabaseInitializer) getDefaultPort(dbType databases.DBType) int {
+func (di *DatabaseInitializer) getDefaultPort(dbType dbconn.DBType) int {
 	switch dbType {
-	case databases.DBTypeMySQL:
+	case dbconn.DBTypeMySQL:
 		return 3306
-	case databases.DBTypePostgreSQL:
+	case dbconn.DBTypePostgreSQL:
 		return 5432
-	case databases.DBTypeMSSQL:
+	case dbconn.DBTypeMSSQL:
 		return 1433
-	case databases.DBTypeOracle:
+	case dbconn.DBTypeOracle:
 		return 1521
 	default:
 		return 3306
@@ -281,12 +280,12 @@ func (di *DatabaseInitializer) Shutdown() error {
 }
 
 // GetPrimaryDB returns the primary relational database
-func (di *DatabaseInitializer) GetPrimaryDB() (databases.RelationalDB, error) {
+func (di *DatabaseInitializer) GetPrimaryDB() (dbconn.RelationalDB, error) {
 	return di.PoolManager.GetPrimary()
 }
 
 // GetReplicaDB returns a replica database for read operations
-func (di *DatabaseInitializer) GetReplicaDB() (databases.RelationalDB, error) {
+func (di *DatabaseInitializer) GetReplicaDB() (dbconn.RelationalDB, error) {
 	return di.PoolManager.GetReplica()
 }
 
@@ -324,7 +323,7 @@ func (di *DatabaseInitializer) InitializeWithConfig(config *DatabaseConfig) erro
 
 	// Initialize relational databases
 	if config.Primary != nil {
-		primaryDB, err := databases.NewRelationalDB(config.Primary)
+		primaryDB, err := dbconn.NewRelationalDB(config.Primary)
 		if err != nil {
 			return fmt.Errorf("failed to create primary database: %w", err)
 		}
@@ -372,8 +371,8 @@ func (di *DatabaseInitializer) InitializeWithConfig(config *DatabaseConfig) erro
 
 // DatabaseConfig represents complete database configuration
 type DatabaseConfig struct {
-	Primary    *databases.DBConfig
-	Replicas   []*databases.DBConfig
+	Primary    *dbconn.DBConfig
+	Replicas   []*dbconn.DBConfig
 	DocumentDB *documents.DocDBConfig
 }
 

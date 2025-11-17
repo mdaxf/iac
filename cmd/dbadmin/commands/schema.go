@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mdaxf/iac/databases"
+	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/services"
 	"github.com/spf13/cobra"
 )
@@ -41,7 +41,7 @@ func newSchemaDiscoverCommand() *cobra.Command{
 		Short: "Discover database schema",
 		Long:  `Discover all tables and columns in a database`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config := databases.DBConfig{
+			config := dbconn.DBConfig{
 				Type:         dbType,
 				Host:         host,
 				Port:         port,
@@ -60,7 +60,7 @@ func newSchemaDiscoverCommand() *cobra.Command{
 
 			fmt.Printf("Discovering schema for %s database...\n", dbType)
 
-			db, err := databases.NewRelationalDB(config)
+			db, err := dbconn.NewRelationalDB(config)
 			if err != nil {
 				return fmt.Errorf("failed to create database: %w", err)
 			}
@@ -181,7 +181,7 @@ func newSchemaListCommand() *cobra.Command {
 		Short: "List all databases/schemas",
 		Long:  `List all available databases or schemas`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config := databases.DBConfig{
+			config := dbconn.DBConfig{
 				Type:         dbType,
 				Host:         host,
 				Port:         port,
@@ -194,7 +194,7 @@ func newSchemaListCommand() *cobra.Command {
 				Options:      make(map[string]string),
 			}
 
-			db, err := databases.NewRelationalDB(config)
+			db, err := dbconn.NewRelationalDB(config)
 			if err != nil {
 				return fmt.Errorf("failed to create database: %w", err)
 			}

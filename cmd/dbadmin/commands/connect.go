@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mdaxf/iac/databases"
+	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +27,7 @@ func NewConnectCommand() *cobra.Command {
 		Short: "Test database connection",
 		Long:  `Test connection to a database and verify credentials`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config := databases.DBConfig{
+			config := dbconn.DBConfig{
 				Type:         dbType,
 				Host:         host,
 				Port:         port,
@@ -46,7 +46,7 @@ func NewConnectCommand() *cobra.Command {
 
 			fmt.Printf("Connecting to %s database at %s:%d...\n", dbType, host, port)
 
-			db, err := databases.NewRelationalDB(config)
+			db, err := dbconn.NewRelationalDB(config)
 			if err != nil {
 				return fmt.Errorf("failed to create database instance: %w", err)
 			}

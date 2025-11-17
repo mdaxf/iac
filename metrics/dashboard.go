@@ -20,17 +20,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mdaxf/iac/databases"
+	dbconn "github.com/mdaxf/iac/databases"
 )
 
 // Dashboard provides HTTP endpoints for database metrics
 type Dashboard struct {
-	collector *databases.MetricsCollector
+	collector *dbconn.MetricsCollector
 	mu        sync.RWMutex
 }
 
 // NewDashboard creates a new metrics dashboard
-func NewDashboard(collector *databases.MetricsCollector) *Dashboard {
+func NewDashboard(collector *dbconn.MetricsCollector) *Dashboard {
 	return &Dashboard{
 		collector: collector,
 	}
@@ -244,7 +244,7 @@ func (d *Dashboard) collectDatabaseMetrics(dbType string) *DatabaseMetrics {
 }
 
 // getStatus determines the status of a database
-func (d *Dashboard) getStatus(m *databases.QueryMetrics) string {
+func (d *Dashboard) getStatus(m *dbconn.QueryMetrics) string {
 	if m.TotalErrors > 0 && float64(m.TotalErrors)/float64(m.TotalQueries) > 0.1 {
 		return "unhealthy"
 	}
@@ -255,7 +255,7 @@ func (d *Dashboard) getStatus(m *databases.QueryMetrics) string {
 }
 
 // calculateErrorRate calculates the error rate
-func (d *Dashboard) calculateErrorRate(m *databases.QueryMetrics) float64 {
+func (d *Dashboard) calculateErrorRate(m *dbconn.QueryMetrics) float64 {
 	if m.TotalQueries == 0 {
 		return 0
 	}
@@ -437,7 +437,7 @@ const dashboardHTML = `
 
                 // Render databases
                 const databases = document.getElementById('databases');
-                databases.innerHTML = Object.entries(data.databases).map(([type, db]) => \`
+                dbconn.innerHTML = Object.entries(data.databases).map(([type, db]) => \`
                     <div class="db-card">
                         <div class="db-header">
                             <div class="db-name">\${type.toUpperCase()}</div>

@@ -5,19 +5,19 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/mdaxf/iac/databases"
+	dbconn "github.com/mdaxf/iac/databases"
 	"gorm.io/gorm"
 )
 
 // DatabaseHelper provides multi-database support for services
 // It wraps the database selector and provides dialect-aware operations
 type DatabaseHelper struct {
-	selector *databases.DatabaseSelector
+	selector *dbconn.DatabaseSelector
 	gormDB   *gorm.DB // GORM DB for IAC application's own tables
 }
 
 // NewDatabaseHelper creates a new database helper
-func NewDatabaseHelper(selector *databases.DatabaseSelector, gormDB *gorm.DB) *DatabaseHelper {
+func NewDatabaseHelper(selector *dbconn.DatabaseSelector, gormDB *gorm.DB) *DatabaseHelper {
 	return &DatabaseHelper{
 		selector: selector,
 		gormDB:   gormDB,
@@ -31,8 +31,8 @@ func (h *DatabaseHelper) GetAppDB() *gorm.DB {
 
 // GetUserDB gets a database connection for a user's database
 // This uses the database selector to choose the appropriate database
-func (h *DatabaseHelper) GetUserDB(ctx context.Context, databaseAlias string) (databases.RelationalDB, error) {
-	dbCtx := &databases.DatabaseContext{
+func (h *DatabaseHelper) GetUserDB(ctx context.Context, databaseAlias string) (dbconn.RelationalDB, error) {
+	dbCtx := &dbconn.DatabaseContext{
 		DatabaseAlias: databaseAlias,
 		OperationType: "read", // Default to read
 	}
@@ -41,8 +41,8 @@ func (h *DatabaseHelper) GetUserDB(ctx context.Context, databaseAlias string) (d
 }
 
 // GetUserDBForWrite gets a database connection for write operations
-func (h *DatabaseHelper) GetUserDBForWrite(ctx context.Context, databaseAlias string) (databases.RelationalDB, error) {
-	dbCtx := &databases.DatabaseContext{
+func (h *DatabaseHelper) GetUserDBForWrite(ctx context.Context, databaseAlias string) (dbconn.RelationalDB, error) {
+	dbCtx := &dbconn.DatabaseContext{
 		DatabaseAlias: databaseAlias,
 		OperationType: "write",
 	}
@@ -51,7 +51,7 @@ func (h *DatabaseHelper) GetUserDBForWrite(ctx context.Context, databaseAlias st
 }
 
 // ExecuteDialectQuery executes a query using the appropriate dialect
-func (h *DatabaseHelper) ExecuteDialectQuery(ctx context.Context, db databases.RelationalDB, queryFunc func(dialect string) string, args ...interface{}) (*sql.Rows, error) {
+func (h *DatabaseHelper) ExecuteDialectQuery(ctx context.Context, db dbconn.RelationalDB, queryFunc func(dialect string) string, args ...interface{}) (*sql.Rows, error) {
 	dialect := db.GetDialect()
 	query := queryFunc(dialect)
 	return db.Query(query, args...)
