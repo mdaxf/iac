@@ -15,6 +15,7 @@
 package documents
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"regexp"
