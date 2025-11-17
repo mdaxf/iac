@@ -16,13 +16,7 @@ package documents
 
 import (
 	"context"
-	"errors"
 	"time"
-)
-
-// Common errors
-var (
-	ErrConnectionFailed = errors.New("connection to database failed")
 )
 
 // DocumentDB defines the interface for document database operations
