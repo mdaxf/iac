@@ -17,8 +17,20 @@
 // Data Operations:
 //   - Single and batch read operations
 //   - Single and batch write operations
-//   - Historical data access (ReadHistory)
 //   - Type-safe value handling with automatic variant conversion
+//
+// Historical Data Operations:
+//   - Read raw historical data (ReadHistory)
+//   - Read modified historical data (ReadHistoryModified)
+//   - Read processed/aggregated data with 18+ aggregate functions (ReadHistoryProcessed)
+//   - Read values at specific timestamps (ReadHistoryAtTime)
+//   - Read historical events (ReadHistoryEvents)
+//   - Write/insert historical data (WriteHistory)
+//   - Update/replace historical data (UpdateHistory)
+//   - Delete historical data by time range (DeleteHistory)
+//   - Delete historical data at specific times (DeleteHistoryAtTime)
+//   - Delete historical events (DeleteHistoryEvents)
+//   - Support for Average, Min, Max, Count, Total, StdDev, and more aggregates
 //
 // Browse and Discovery:
 //   - Node browsing with automatic continuation point handling
@@ -839,6 +851,51 @@ func (c *OPCClient) CallMethod(objectID, methodID string, inputArgs ...interface
 	return outputs, nil
 }
 
+// HistoryReadType defines the type of historical read operation
+type HistoryReadType int
+
+const (
+	HistoryReadRaw       HistoryReadType = iota // Read raw historical data
+	HistoryReadModified                         // Read modified historical data
+	HistoryReadProcessed                        // Read processed/aggregated data
+	HistoryReadAtTime                           // Read values at specific times
+)
+
+// AggregateType defines common OPC UA aggregate functions
+type AggregateType uint32
+
+const (
+	AggregateAverage       AggregateType = 2341 // Average aggregate
+	AggregateCount         AggregateType = 2342 // Count aggregate
+	AggregateMinimum       AggregateType = 2346 // Minimum aggregate
+	AggregateMaximum       AggregateType = 2347 // Maximum aggregate
+	AggregateRange         AggregateType = 2348 // Range aggregate
+	AggregateTotal         AggregateType = 2355 // Total aggregate
+	AggregateStandardDev   AggregateType = 2351 // Standard deviation
+	AggregateTimeAverage   AggregateType = 2341 // Time-weighted average
+	AggregateInterpolative AggregateType = 2340 // Interpolative aggregate
+	AggregateDurationGood  AggregateType = 2340 // Duration in good state
+	AggregateDurationBad   AggregateType = 2342 // Duration in bad state
+	AggregatePercentGood   AggregateType = 2361 // Percent good
+	AggregatePercentBad    AggregateType = 2362 // Percent bad
+	AggregateStart         AggregateType = 2363 // Start value
+	AggregateEnd           AggregateType = 2364 // End value
+	AggregateDelta         AggregateType = 2365 // Delta
+	AggregateStartBound    AggregateType = 2366 // Start bound
+	AggregateEndBound      AggregateType = 2367 // End bound
+	AggregateDeltaBounds   AggregateType = 2368 // Delta bounds
+)
+
+// HistoryUpdateType defines the type of historical update operation
+type HistoryUpdateType int
+
+const (
+	HistoryUpdateInsert  HistoryUpdateType = 1 // Insert new historical data
+	HistoryUpdateReplace HistoryUpdateType = 2 // Replace existing historical data
+	HistoryUpdateUpdate  HistoryUpdateType = 3 // Update existing historical data
+	HistoryUpdateDelete  HistoryUpdateType = 4 // Delete historical data
+)
+
 // ReadHistory reads historical data for a node
 func (c *OPCClient) ReadHistory(nodeID string, startTime, endTime time.Time, maxValues uint32) ([]*ua.DataValue, error) {
 	c.iLog.Debug(fmt.Sprintf("Reading history for node %s from %v to %v", nodeID, startTime, endTime))
@@ -890,6 +947,466 @@ func (c *OPCClient) ReadHistory(nodeID string, startTime, endTime time.Time, max
 
 	c.iLog.Debug(fmt.Sprintf("Retrieved %d historical values", len(historyData.DataValues)))
 	return historyData.DataValues, nil
+}
+
+// ReadHistoryModified reads modified historical data (data that was changed after initial recording)
+func (c *OPCClient) ReadHistoryModified(nodeID string, startTime, endTime time.Time, maxValues uint32) ([]*ua.DataValue, error) {
+	c.iLog.Debug(fmt.Sprintf("Reading modified history for node %s from %v to %v", nodeID, startTime, endTime))
+
+	id, err := ua.ParseNodeID(nodeID)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("Invalid node ID: %v", err))
+		return nil, err
+	}
+
+	req := &ua.HistoryReadRequest{
+		TimestampsToReturn: ua.TimestampsToReturnBoth,
+		HistoryReadDetails: &ua.ReadRawModifiedDetails{
+			IsReadModified:   true, // Read modified values
+			StartTime:        startTime,
+			EndTime:          endTime,
+			NumValuesPerNode: maxValues,
+			ReturnBounds:     true,
+		},
+		NodesToRead: []*ua.HistoryReadValueID{
+			{
+				NodeID: id,
+			},
+		},
+	}
+
+	resp, err := c.Client.HistoryRead(c.ctx, req)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("History read modified failed: %v", err))
+		return nil, err
+	}
+
+	if len(resp.Results) == 0 {
+		return nil, fmt.Errorf("no results returned from history read")
+	}
+
+	result := resp.Results[0]
+	if result.StatusCode != ua.StatusOK {
+		err := fmt.Errorf("history read modified failed with status: %v", result.StatusCode)
+		c.iLog.Error(err.Error())
+		return nil, err
+	}
+
+	historyData, ok := result.HistoryData.(*ua.HistoryData)
+	if !ok {
+		return nil, fmt.Errorf("unexpected history data type")
+	}
+
+	c.iLog.Debug(fmt.Sprintf("Retrieved %d modified historical values", len(historyData.DataValues)))
+	return historyData.DataValues, nil
+}
+
+// ReadHistoryProcessed reads processed/aggregated historical data
+func (c *OPCClient) ReadHistoryProcessed(nodeID string, startTime, endTime time.Time, processingInterval time.Duration, aggregateType AggregateType) ([]*ua.DataValue, error) {
+	c.iLog.Debug(fmt.Sprintf("Reading processed history for node %s from %v to %v with interval %v", nodeID, startTime, endTime, processingInterval))
+
+	id, err := ua.ParseNodeID(nodeID)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("Invalid node ID: %v", err))
+		return nil, err
+	}
+
+	// Create aggregate node ID
+	aggregateNodeID := ua.NewNumericNodeID(0, uint32(aggregateType))
+
+	req := &ua.HistoryReadRequest{
+		TimestampsToReturn: ua.TimestampsToReturnBoth,
+		HistoryReadDetails: &ua.ReadProcessedDetails{
+			StartTime:          startTime,
+			EndTime:            endTime,
+			ProcessingInterval: float64(processingInterval.Milliseconds()),
+			AggregateType:      []*ua.NodeID{aggregateNodeID},
+		},
+		NodesToRead: []*ua.HistoryReadValueID{
+			{
+				NodeID: id,
+			},
+		},
+	}
+
+	resp, err := c.Client.HistoryRead(c.ctx, req)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("History read processed failed: %v", err))
+		return nil, err
+	}
+
+	if len(resp.Results) == 0 {
+		return nil, fmt.Errorf("no results returned from history read processed")
+	}
+
+	result := resp.Results[0]
+	if result.StatusCode != ua.StatusOK {
+		err := fmt.Errorf("history read processed failed with status: %v", result.StatusCode)
+		c.iLog.Error(err.Error())
+		return nil, err
+	}
+
+	historyData, ok := result.HistoryData.(*ua.HistoryData)
+	if !ok {
+		return nil, fmt.Errorf("unexpected history data type")
+	}
+
+	c.iLog.Debug(fmt.Sprintf("Retrieved %d processed historical values", len(historyData.DataValues)))
+	return historyData.DataValues, nil
+}
+
+// ReadHistoryAtTime reads historical values at specific timestamps
+func (c *OPCClient) ReadHistoryAtTime(nodeID string, timestamps []time.Time, useSimpleBounds bool) ([]*ua.DataValue, error) {
+	c.iLog.Debug(fmt.Sprintf("Reading history at specific times for node %s (%d timestamps)", nodeID, len(timestamps)))
+
+	id, err := ua.ParseNodeID(nodeID)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("Invalid node ID: %v", err))
+		return nil, err
+	}
+
+	req := &ua.HistoryReadRequest{
+		TimestampsToReturn: ua.TimestampsToReturnBoth,
+		HistoryReadDetails: &ua.ReadAtTimeDetails{
+			ReqTimes:        timestamps,
+			UseSimpleBounds: useSimpleBounds,
+		},
+		NodesToRead: []*ua.HistoryReadValueID{
+			{
+				NodeID: id,
+			},
+		},
+	}
+
+	resp, err := c.Client.HistoryRead(c.ctx, req)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("History read at time failed: %v", err))
+		return nil, err
+	}
+
+	if len(resp.Results) == 0 {
+		return nil, fmt.Errorf("no results returned from history read at time")
+	}
+
+	result := resp.Results[0]
+	if result.StatusCode != ua.StatusOK {
+		err := fmt.Errorf("history read at time failed with status: %v", result.StatusCode)
+		c.iLog.Error(err.Error())
+		return nil, err
+	}
+
+	historyData, ok := result.HistoryData.(*ua.HistoryData)
+	if !ok {
+		return nil, fmt.Errorf("unexpected history data type")
+	}
+
+	c.iLog.Debug(fmt.Sprintf("Retrieved %d historical values at specified times", len(historyData.DataValues)))
+	return historyData.DataValues, nil
+}
+
+// ReadHistoryEvents reads historical events for a node
+func (c *OPCClient) ReadHistoryEvents(nodeID string, startTime, endTime time.Time, maxValues uint32, eventFilter *ua.EventFilter) ([]*ua.HistoryEventFieldList, error) {
+	c.iLog.Debug(fmt.Sprintf("Reading historical events for node %s from %v to %v", nodeID, startTime, endTime))
+
+	id, err := ua.ParseNodeID(nodeID)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("Invalid node ID: %v", err))
+		return nil, err
+	}
+
+	// Use default event filter if none provided
+	if eventFilter == nil {
+		eventFilter = createDefaultEventFilter()
+	}
+
+	req := &ua.HistoryReadRequest{
+		TimestampsToReturn: ua.TimestampsToReturnBoth,
+		HistoryReadDetails: &ua.ReadEventDetails{
+			StartTime:        startTime,
+			EndTime:          endTime,
+			NumValuesPerNode: maxValues,
+			Filter:           eventFilter,
+		},
+		NodesToRead: []*ua.HistoryReadValueID{
+			{
+				NodeID: id,
+			},
+		},
+	}
+
+	resp, err := c.Client.HistoryRead(c.ctx, req)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("History read events failed: %v", err))
+		return nil, err
+	}
+
+	if len(resp.Results) == 0 {
+		return nil, fmt.Errorf("no results returned from history read events")
+	}
+
+	result := resp.Results[0]
+	if result.StatusCode != ua.StatusOK {
+		err := fmt.Errorf("history read events failed with status: %v", result.StatusCode)
+		c.iLog.Error(err.Error())
+		return nil, err
+	}
+
+	historyEvent, ok := result.HistoryData.(*ua.HistoryEvent)
+	if !ok {
+		return nil, fmt.Errorf("unexpected history data type, expected HistoryEvent")
+	}
+
+	c.iLog.Debug(fmt.Sprintf("Retrieved %d historical events", len(historyEvent.Events)))
+	return historyEvent.Events, nil
+}
+
+// WriteHistory inserts historical data values for a node
+func (c *OPCClient) WriteHistory(nodeID string, dataValues []*ua.DataValue) ([]ua.StatusCode, error) {
+	c.iLog.Debug(fmt.Sprintf("Writing %d historical values for node %s", len(dataValues), nodeID))
+
+	id, err := ua.ParseNodeID(nodeID)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("Invalid node ID: %v", err))
+		return nil, err
+	}
+
+	req := &ua.HistoryUpdateRequest{
+		HistoryUpdateDetails: []*ua.ExtensionObject{
+			{
+				EncodingMask: ua.ExtensionObjectBinary,
+				TypeID: &ua.ExpandedNodeID{
+					NodeID: ua.NewNumericNodeID(0, id.UpdateDataDetails_Encoding_DefaultBinary),
+				},
+				Value: &ua.UpdateDataDetails{
+					NodeID:               id,
+					PerformInsertReplace: ua.PerformUpdateTypeInsert,
+					UpdateValues:         dataValues,
+				},
+			},
+		},
+	}
+
+	resp, err := c.Client.HistoryUpdate(c.ctx, req)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("History write failed: %v", err))
+		return nil, err
+	}
+
+	if len(resp.Results) == 0 {
+		return nil, fmt.Errorf("no results returned from history write")
+	}
+
+	result := resp.Results[0]
+	updateResult, ok := result.(*ua.HistoryUpdateResult)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type")
+	}
+
+	c.iLog.Debug(fmt.Sprintf("History write completed with status: %v", updateResult.StatusCode))
+	return updateResult.OperationResults, nil
+}
+
+// UpdateHistory replaces existing historical data values for a node
+func (c *OPCClient) UpdateHistory(nodeID string, dataValues []*ua.DataValue) ([]ua.StatusCode, error) {
+	c.iLog.Debug(fmt.Sprintf("Updating %d historical values for node %s", len(dataValues), nodeID))
+
+	id, err := ua.ParseNodeID(nodeID)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("Invalid node ID: %v", err))
+		return nil, err
+	}
+
+	req := &ua.HistoryUpdateRequest{
+		HistoryUpdateDetails: []*ua.ExtensionObject{
+			{
+				EncodingMask: ua.ExtensionObjectBinary,
+				TypeID: &ua.ExpandedNodeID{
+					NodeID: ua.NewNumericNodeID(0, id.UpdateDataDetails_Encoding_DefaultBinary),
+				},
+				Value: &ua.UpdateDataDetails{
+					NodeID:               id,
+					PerformInsertReplace: ua.PerformUpdateTypeReplace,
+					UpdateValues:         dataValues,
+				},
+			},
+		},
+	}
+
+	resp, err := c.Client.HistoryUpdate(c.ctx, req)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("History update failed: %v", err))
+		return nil, err
+	}
+
+	if len(resp.Results) == 0 {
+		return nil, fmt.Errorf("no results returned from history update")
+	}
+
+	result := resp.Results[0]
+	updateResult, ok := result.(*ua.HistoryUpdateResult)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type")
+	}
+
+	c.iLog.Debug(fmt.Sprintf("History update completed with status: %v", updateResult.StatusCode))
+	return updateResult.OperationResults, nil
+}
+
+// DeleteHistory deletes historical data for a node within a time range
+func (c *OPCClient) DeleteHistory(nodeID string, startTime, endTime time.Time) (ua.StatusCode, error) {
+	c.iLog.Debug(fmt.Sprintf("Deleting historical data for node %s from %v to %v", nodeID, startTime, endTime))
+
+	id, err := ua.ParseNodeID(nodeID)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("Invalid node ID: %v", err))
+		return ua.StatusBad, err
+	}
+
+	req := &ua.HistoryUpdateRequest{
+		HistoryUpdateDetails: []*ua.ExtensionObject{
+			{
+				EncodingMask: ua.ExtensionObjectBinary,
+				TypeID: &ua.ExpandedNodeID{
+					NodeID: ua.NewNumericNodeID(0, id.DeleteRawModifiedDetails_Encoding_DefaultBinary),
+				},
+				Value: &ua.DeleteRawModifiedDetails{
+					NodeID:           id,
+					IsDeleteModified: false,
+					StartTime:        startTime,
+					EndTime:          endTime,
+				},
+			},
+		},
+	}
+
+	resp, err := c.Client.HistoryUpdate(c.ctx, req)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("History delete failed: %v", err))
+		return ua.StatusBad, err
+	}
+
+	if len(resp.Results) == 0 {
+		return ua.StatusBad, fmt.Errorf("no results returned from history delete")
+	}
+
+	result := resp.Results[0]
+	updateResult, ok := result.(*ua.HistoryUpdateResult)
+	if !ok {
+		return ua.StatusBad, fmt.Errorf("unexpected result type")
+	}
+
+	c.iLog.Debug(fmt.Sprintf("History delete completed with status: %v", updateResult.StatusCode))
+	return updateResult.StatusCode, nil
+}
+
+// DeleteHistoryAtTime deletes historical data at specific timestamps
+func (c *OPCClient) DeleteHistoryAtTime(nodeID string, timestamps []time.Time) ([]ua.StatusCode, error) {
+	c.iLog.Debug(fmt.Sprintf("Deleting historical data for node %s at %d specific times", nodeID, len(timestamps)))
+
+	id, err := ua.ParseNodeID(nodeID)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("Invalid node ID: %v", err))
+		return nil, err
+	}
+
+	req := &ua.HistoryUpdateRequest{
+		HistoryUpdateDetails: []*ua.ExtensionObject{
+			{
+				EncodingMask: ua.ExtensionObjectBinary,
+				TypeID: &ua.ExpandedNodeID{
+					NodeID: ua.NewNumericNodeID(0, id.DeleteAtTimeDetails_Encoding_DefaultBinary),
+				},
+				Value: &ua.DeleteAtTimeDetails{
+					NodeID:   id,
+					ReqTimes: timestamps,
+				},
+			},
+		},
+	}
+
+	resp, err := c.Client.HistoryUpdate(c.ctx, req)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("History delete at time failed: %v", err))
+		return nil, err
+	}
+
+	if len(resp.Results) == 0 {
+		return nil, fmt.Errorf("no results returned from history delete at time")
+	}
+
+	result := resp.Results[0]
+	updateResult, ok := result.(*ua.HistoryUpdateResult)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type")
+	}
+
+	c.iLog.Debug(fmt.Sprintf("History delete at time completed with status: %v", updateResult.StatusCode))
+	return updateResult.OperationResults, nil
+}
+
+// DeleteHistoryEvents deletes historical events for a node
+func (c *OPCClient) DeleteHistoryEvents(nodeID string, eventIDs [][]byte) ([]ua.StatusCode, error) {
+	c.iLog.Debug(fmt.Sprintf("Deleting %d historical events for node %s", len(eventIDs), nodeID))
+
+	id, err := ua.ParseNodeID(nodeID)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("Invalid node ID: %v", err))
+		return nil, err
+	}
+
+	req := &ua.HistoryUpdateRequest{
+		HistoryUpdateDetails: []*ua.ExtensionObject{
+			{
+				EncodingMask: ua.ExtensionObjectBinary,
+				TypeID: &ua.ExpandedNodeID{
+					NodeID: ua.NewNumericNodeID(0, id.DeleteEventDetails_Encoding_DefaultBinary),
+				},
+				Value: &ua.DeleteEventDetails{
+					NodeID:   id,
+					EventIDs: eventIDs,
+				},
+			},
+		},
+	}
+
+	resp, err := c.Client.HistoryUpdate(c.ctx, req)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("History delete events failed: %v", err))
+		return nil, err
+	}
+
+	if len(resp.Results) == 0 {
+		return nil, fmt.Errorf("no results returned from history delete events")
+	}
+
+	result := resp.Results[0]
+	updateResult, ok := result.(*ua.HistoryUpdateResult)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type")
+	}
+
+	c.iLog.Debug(fmt.Sprintf("History delete events completed with status: %v", updateResult.StatusCode))
+	return updateResult.OperationResults, nil
+}
+
+// createDefaultEventFilter creates a default event filter for historical event reading
+func createDefaultEventFilter() *ua.EventFilter {
+	// Define common event fields
+	fieldNames := []string{"EventId", "EventType", "SourceName", "Time", "Message", "Severity"}
+	selects := make([]*ua.SimpleAttributeOperand, len(fieldNames))
+
+	for i, name := range fieldNames {
+		selects[i] = &ua.SimpleAttributeOperand{
+			TypeDefinitionID: ua.NewNumericNodeID(0, id.BaseEventType),
+			BrowsePath:       []*ua.QualifiedName{{NamespaceIndex: 0, Name: name}},
+			AttributeID:      ua.AttributeIDValue,
+		}
+	}
+
+	return &ua.EventFilter{
+		SelectClauses: selects,
+		WhereClause:   &ua.ContentFilter{}, // No filtering
+	}
 }
 
 // BrowseWithPath translates a browse path to node IDs
