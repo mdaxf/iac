@@ -174,8 +174,10 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 	// More reasonable defaults for production use:
 	// - 100MB max file size (instead of 1GB) for better manageability
 	// - 500K lines max (instead of 1M) to keep files searchable
+	// Note: maxsize is in KB, will be converted to bytes when passed to logger
 	maxlines := 500000
-	maxsize := 100 * 1024 * 1024 // 100 MB
+	maxsizeKB := 102400    // 100 MB in KB (100 * 1024)
+	maxsizeBytes := 0      // Will be calculated from maxsizeKB
 	//	fmt.Println(fmt.Sprintf(`{"level":%d}, %d`, level, logadapter))
 	if logadapter == "file" || logadapter == "multifile" {
 		adapterconfig := make(map[string]interface{})
@@ -237,9 +239,6 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 			fullfilename = filepath.Join(folderStr, fmt.Sprintf("%s_%s%s", logtype, fileNameOnly, suffix))
 		}
 
-		// Debug output showing the resolved log file path
-		fmt.Printf("Logger %s will write to: %s (maxlines=%d, maxsize=%d)\n", logtype, fullfilename, maxlines, maxsize)
-
 		// Safe type conversion for maxlines (handles int, float64, string)
 		if adapterconfig["maxlines"] != nil {
 			maxlines = com.ConverttoIntwithDefault(adapterconfig["maxlines"], maxlines)
@@ -250,14 +249,22 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 		}
 
 		// Safe type conversion for maxsize (handles int, float64, string)
+		// Note: maxsize in config is in KB, we convert to bytes for the logger
 		if adapterconfig["maxsize"] != nil {
-			maxsize = com.ConverttoIntwithDefault(adapterconfig["maxsize"], maxsize)
-			// Validate maxsize: warn if too large
-			if maxsize > 500*1024*1024 { // > 500 MB
-				fmt.Printf("Warning: maxsize=%d bytes (%.0f MB) is very large, consider using a smaller value (recommended: 100 MB)\n",
-					maxsize, float64(maxsize)/(1024*1024))
+			maxsizeKB = com.ConverttoIntwithDefault(adapterconfig["maxsize"], maxsizeKB)
+			// Validate maxsize: warn if too large (> 500 MB = 512000 KB)
+			if maxsizeKB > 512000 {
+				fmt.Printf("Warning: maxsize=%d KB (%.0f MB) is very large, consider using a smaller value (recommended: 102400 KB = 100 MB)\n",
+					maxsizeKB, float64(maxsizeKB)/1024)
 			}
 		}
+
+		// Convert maxsize from KB to bytes for the logger
+		maxsizeBytes = maxsizeKB * 1024
+
+		// Debug output showing the resolved log file path
+		fmt.Printf("Logger %s will write to: %s (maxlines=%d, maxsize=%d KB / %d bytes)\n",
+			logtype, fullfilename, maxlines, maxsizeKB, maxsizeBytes)
 	} else if logadapter == "documentdb" {
 		conn := "mongodb://localhost:27017"
 		db := "IAC_Cache"
@@ -333,11 +340,12 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 		loger.SetLogger(logs.AdapterConsole, fmt.Sprintf(`{"level":%d, "Perf": "%b", "Threhold": %d}`, level, performance, performancethrehold))
 	case "file":
 		// Create config using json.Marshal to properly escape paths
+		// Note: maxsizeBytes is already in bytes (converted from KB in config)
 		fileConfig := map[string]interface{}{
 			"level":    level,
 			"filename": fullfilename,
 			"maxlines": maxlines,
-			"maxsize":  maxsize,
+			"maxsize":  maxsizeBytes,
 			"Perf":     performance,
 			"Threhold": performancethrehold,
 		}
