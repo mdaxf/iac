@@ -184,9 +184,13 @@ The service automatically detects which mode to use based on initialization. No 
 
 ## Migration Guide
 
-### For Existing Code:
+> **📖 For a complete step-by-step migration guide, see [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)**
 
-#### Option 1: Use New Format (Recommended)
+### Quick Migration Overview
+
+#### For Existing Code:
+
+##### Option 1: Use New Format (Recommended)
 ```go
 // Old way
 collectionitems, err := documents.DocDBCon.QueryCollection(collectionName, nil, projection)
@@ -199,8 +203,10 @@ result, err := service.QueryCollection(collectionName, &services.QueryOptions{
 })
 ```
 
-#### Option 2: Keep Old Code
+##### Option 2: Keep Old Code (Automatic Fallback)
 Old code continues to work with backward compatibility layer in the service.
+
+The service automatically detects if you're using legacy `documents.DocDBCon` and provides full backward compatibility.
 
 ### For API Clients:
 

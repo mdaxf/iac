@@ -24,6 +24,7 @@ import (
 	config "github.com/mdaxf/iac/config"
 	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/databases/orm"
+	"github.com/mdaxf/iac/dbinitializer"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/framework/cache"
 
@@ -44,6 +45,10 @@ import (
 
 	"github.com/mdaxf/iac/integration/activemq"
 	"github.com/mdaxf/iac/integration/kafka"
+
+	// Import document database adapters
+	_ "github.com/mdaxf/iac/documents/mongodb"
+	_ "github.com/mdaxf/iac/documents/postgres"
 )
 
 var err error
@@ -447,6 +452,7 @@ func initializeloger() error {
 // initializedDocuments initializes the documents for the application.
 // It retrieves the document configuration from the global configuration and connects to the specified database.
 // If any required configuration is missing, it logs an error and returns.
+// This function now initializes both legacy and new database systems for backward compatibility.
 
 func initializedDocuments() {
 	startTime := time.Now()
@@ -481,8 +487,133 @@ func initializedDocuments() {
 		return
 	}
 
+	// Initialize legacy connection (for backward compatibility)
 	documents.ConnectDB(DatabaseType, DatabaseConnection, DatabaseName)
+	ilog.Info("Legacy document database connection initialized")
 
+	// Initialize new database system
+	// Parse connection string to extract host and port
+	host, port := parseMongoDBConnectionString(DatabaseConnection)
+
+	// Create configuration for new system
+	docDBConfig := &documents.DocDBConfig{
+		Type:        documents.DocDBType(DatabaseType),
+		Host:        host,
+		Port:        port,
+		Database:    DatabaseName,
+		MaxPoolSize: 100,
+		MinPoolSize: 10,
+		ConnTimeout: 30,
+	}
+
+	// Add authentication if present in connection string
+	// MongoDB connection strings can include username:password
+	if username, password := extractMongoDBCredentials(DatabaseConnection); username != "" {
+		docDBConfig.Username = username
+		docDBConfig.Password = password
+		docDBConfig.AuthSource = "admin" // Default auth source
+	}
+
+	// Initialize the new database initializer
+	dbinitializer.GlobalInitializer = dbinitializer.NewDatabaseInitializer()
+
+	// Create custom config with document database
+	dbConfig := &dbinitializer.DatabaseConfig{
+		DocumentDB: docDBConfig,
+	}
+
+	// Initialize with the config
+	if err := dbinitializer.GlobalInitializer.InitializeWithConfig(dbConfig); err != nil {
+		ilog.Error(fmt.Sprintf("Failed to initialize new document database system: %v", err))
+		ilog.Info("Falling back to legacy mode only")
+	} else {
+		ilog.Info("New document database system initialized successfully")
+		dbinitializer.GlobalInitializer.PrintDatabaseInfo()
+	}
+
+}
+
+// parseMongoDBConnectionString extracts host and port from MongoDB connection string
+// Supports formats: mongodb://host:port, mongodb://host, etc.
+func parseMongoDBConnectionString(connStr string) (string, int) {
+	// Default values
+	host := "localhost"
+	port := 27017
+
+	// Remove protocol prefix
+	if len(connStr) > 10 && connStr[:10] == "mongodb://" {
+		connStr = connStr[10:]
+	}
+
+	// Remove anything after /
+	if slashIdx := indexByte(connStr, '/'); slashIdx != -1 {
+		connStr = connStr[:slashIdx]
+	}
+
+	// Remove @ if present (username:password@host:port format)
+	if atIdx := indexByte(connStr, '@'); atIdx != -1 {
+		connStr = connStr[atIdx+1:]
+	}
+
+	// Split host:port
+	if colonIdx := indexByte(connStr, ':'); colonIdx != -1 {
+		host = connStr[:colonIdx]
+		// Parse port
+		if portStr := connStr[colonIdx+1:]; portStr != "" {
+			if parsedPort := parsePort(portStr); parsedPort > 0 {
+				port = parsedPort
+			}
+		}
+	} else {
+		host = connStr
+	}
+
+	return host, port
+}
+
+// extractMongoDBCredentials extracts username and password from MongoDB connection string
+func extractMongoDBCredentials(connStr string) (string, string) {
+	username := ""
+	password := ""
+
+	// Remove protocol prefix
+	if len(connStr) > 10 && connStr[:10] == "mongodb://" {
+		connStr = connStr[10:]
+	}
+
+	// Check for @ symbol indicating credentials
+	if atIdx := indexByte(connStr, '@'); atIdx != -1 {
+		credentials := connStr[:atIdx]
+		if colonIdx := indexByte(credentials, ':'); colonIdx != -1 {
+			username = credentials[:colonIdx]
+			password = credentials[colonIdx+1:]
+		}
+	}
+
+	return username, password
+}
+
+// Helper function to find byte in string (since strings.IndexByte may not be available)
+func indexByte(s string, c byte) int {
+	for i := 0; i < len(s); i++ {
+		if s[i] == c {
+			return i
+		}
+	}
+	return -1
+}
+
+// Helper function to parse port string to int
+func parsePort(s string) int {
+	port := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] >= '0' && s[i] <= '9' {
+			port = port*10 + int(s[i]-'0')
+		} else {
+			return 0
+		}
+	}
+	return port
 }
 
 // initializeMqttClient initializes the MQTT clients by reading the configuration file "mqttconfig.json" and creating MqttClient instances based on the configuration.
