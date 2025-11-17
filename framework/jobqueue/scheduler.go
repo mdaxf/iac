@@ -9,7 +9,7 @@ import (
 
 	"github.com/mdaxf/iac/config"
 	"github.com/mdaxf/iac/databases"
-	"github.com/mdaxf/iac/framework/logs"
+	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac/models"
 	"github.com/mdaxf/iac/services"
 
@@ -21,7 +21,7 @@ type JobScheduler struct {
 	jobService      *services.JobService
 	queueManager    *DistributedQueueManager
 	db              *sql.DB
-	logger          logs.Logger
+	logger          logger.Log
 	cron            *cron.Cron
 	running         bool
 	mu              sync.RWMutex
@@ -42,7 +42,7 @@ func NewJobScheduler(db *sql.DB, queueManager *DistributedQueueManager) *JobSche
 		jobService:    services.NewJobService(db),
 		queueManager:  queueManager,
 		db:            db,
-		logger:        logs.Logger{ModuleName: "JobScheduler"},
+		logger:        logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "JobScheduler"},
 		cron:          cron.New(cron.WithSeconds()),
 		checkInterval: checkInterval,
 		scheduledJobs: make(map[string]cron.EntryID),

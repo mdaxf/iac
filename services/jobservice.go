@@ -9,7 +9,7 @@ import (
 
 	"github.com/mdaxf/iac/config"
 	"github.com/mdaxf/iac/databases"
-	"github.com/mdaxf/iac/framework/logs"
+	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac/models"
 
 	"github.com/google/uuid"
@@ -17,15 +17,15 @@ import (
 
 // JobService provides methods for managing jobs
 type JobService struct {
-	db     *sql.DB
-	logger logs.Logger
+	db   *sql.DB
+	iLog logger.Log
 }
 
 // NewJobService creates a new job service instance
 func NewJobService(db *sql.DB) *JobService {
 	return &JobService{
-		db:     db,
-		logger: logs.Logger{ModuleName: "JobService"},
+		db:   db,
+		iLog: logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "JobService"},
 	}
 }
 
@@ -33,7 +33,7 @@ func NewJobService(db *sql.DB) *JobService {
 func (js *JobService) CreateQueueJob(ctx context.Context, job *models.QueueJob) error {
 	startTime := time.Now()
 	defer func() {
-		js.logger.Debug(fmt.Sprintf("CreateQueueJob completed in %v", time.Since(startTime)))
+		js.iLog.Debug(fmt.Sprintf("CreateQueueJob completed in %v", time.Since(startTime)))
 	}()
 
 	if job.ID == "" {
@@ -60,15 +60,6 @@ func (js *JobService) CreateQueueJob(ctx context.Context, job *models.QueueJob) 
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	query := `
-		INSERT INTO queue_jobs (
-			id, typeid, method, protocol, direction, handler, metadata, payload,
-			result, statusid, priority, maxretries, retrycount, scheduledat,
-			startedat, completedat, lasterror, parentjobid, active, referenceid,
-			createdby, createdon, modifiedby, modifiedon, rowversionstamp
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`
-
 	_, err = databases.TableInsert(
 		"queue_jobs",
 		[]string{
@@ -88,11 +79,11 @@ func (js *JobService) CreateQueueJob(ctx context.Context, job *models.QueueJob) 
 	)
 
 	if err != nil {
-		js.logger.Error(fmt.Sprintf("Failed to create queue job: %v", err))
+		js.iLog.Error(fmt.Sprintf("Failed to create queue job: %v", err))
 		return fmt.Errorf("failed to create queue job: %w", err)
 	}
 
-	js.logger.Info(fmt.Sprintf("Created queue job: %s (Handler: %s, Priority: %d)", job.ID, job.Handler, job.Priority))
+	js.iLog.Info(fmt.Sprintf("Created queue job: %s (Handler: %s, Priority: %d)", job.ID, job.Handler, job.Priority))
 	return nil
 }
 
@@ -126,7 +117,7 @@ func (js *JobService) UpdateQueueJobStatus(ctx context.Context, jobID string, st
 	)
 
 	if err != nil {
-		js.logger.Error(fmt.Sprintf("Failed to update job status: %v", err))
+		js.iLog.Error(fmt.Sprintf("Failed to update job status: %v", err))
 		return fmt.Errorf("failed to update job status: %w", err)
 	}
 
@@ -139,7 +130,7 @@ func (js *JobService) IncrementRetryCount(ctx context.Context, jobID string) err
 
 	_, err := js.db.ExecContext(ctx, query, time.Now(), jobID)
 	if err != nil {
-		js.logger.Error(fmt.Sprintf("Failed to increment retry count: %v", err))
+		js.iLog.Error(fmt.Sprintf("Failed to increment retry count: %v", err))
 		return fmt.Errorf("failed to increment retry count: %w", err)
 	}
 
@@ -185,13 +176,13 @@ func (js *JobService) GetNextPendingJob(ctx context.Context) (*models.QueueJob, 
 	}
 
 	if err != nil {
-		js.logger.Error(fmt.Sprintf("Failed to get next pending job: %v", err))
+		js.iLog.Error(fmt.Sprintf("Failed to get next pending job: %v", err))
 		return nil, fmt.Errorf("failed to get next pending job: %w", err)
 	}
 
 	if metadataJSON != "" {
 		if err := json.Unmarshal([]byte(metadataJSON), &job.Metadata); err != nil {
-			js.logger.Warning(fmt.Sprintf("Failed to unmarshal metadata for job %s: %v", job.ID, err))
+			js.iLog.Warning(fmt.Sprintf("Failed to unmarshal metadata for job %s: %v", job.ID, err))
 		}
 	}
 
@@ -243,7 +234,7 @@ func (js *JobService) CreateJobHistory(ctx context.Context, history *models.JobH
 	)
 
 	if err != nil {
-		js.logger.Error(fmt.Sprintf("Failed to create job history: %v", err))
+		js.iLog.Error(fmt.Sprintf("Failed to create job history: %v", err))
 		return fmt.Errorf("failed to create job history: %w", err)
 	}
 
@@ -278,13 +269,13 @@ func (js *JobService) GetJobByID(ctx context.Context, jobID string) (*models.Que
 	}
 
 	if err != nil {
-		js.logger.Error(fmt.Sprintf("Failed to get job by ID: %v", err))
+		js.iLog.Error(fmt.Sprintf("Failed to get job by ID: %v", err))
 		return nil, fmt.Errorf("failed to get job by ID: %w", err)
 	}
 
 	if metadataJSON != "" {
 		if err := json.Unmarshal([]byte(metadataJSON), &job.Metadata); err != nil {
-			js.logger.Warning(fmt.Sprintf("Failed to unmarshal metadata for job %s: %v", job.ID, err))
+			js.iLog.Warning(fmt.Sprintf("Failed to unmarshal metadata for job %s: %v", job.ID, err))
 		}
 	}
 
@@ -308,7 +299,7 @@ func (js *JobService) GetScheduledJobs(ctx context.Context) ([]*models.Job, erro
 
 	rows, err := js.db.QueryContext(ctx, query, true, true, time.Now(), time.Now())
 	if err != nil {
-		js.logger.Error(fmt.Sprintf("Failed to get scheduled jobs: %v", err))
+		js.iLog.Error(fmt.Sprintf("Failed to get scheduled jobs: %v", err))
 		return nil, fmt.Errorf("failed to get scheduled jobs: %w", err)
 	}
 	defer rows.Close()
@@ -326,13 +317,13 @@ func (js *JobService) GetScheduledJobs(ctx context.Context) ([]*models.Job, erro
 		)
 
 		if err != nil {
-			js.logger.Error(fmt.Sprintf("Failed to scan scheduled job: %v", err))
+			js.iLog.Error(fmt.Sprintf("Failed to scan scheduled job: %v", err))
 			continue
 		}
 
 		if metadataJSON != "" {
 			if err := json.Unmarshal([]byte(metadataJSON), &job.Metadata); err != nil {
-				js.logger.Warning(fmt.Sprintf("Failed to unmarshal metadata for job %s: %v", job.ID, err))
+				js.iLog.Warning(fmt.Sprintf("Failed to unmarshal metadata for job %s: %v", job.ID, err))
 			}
 		}
 
@@ -359,7 +350,7 @@ func (js *JobService) UpdateScheduledJobNextRun(ctx context.Context, jobID strin
 
 	_, err := js.db.ExecContext(ctx, query, nextRunAt, time.Now(), time.Now(), jobID)
 	if err != nil {
-		js.logger.Error(fmt.Sprintf("Failed to update scheduled job next run: %v", err))
+		js.iLog.Error(fmt.Sprintf("Failed to update scheduled job next run: %v", err))
 		return fmt.Errorf("failed to update scheduled job next run: %w", err)
 	}
 

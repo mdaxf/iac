@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mdaxf/iac/framework/logs"
+	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac/models"
 	"github.com/mdaxf/iac/services"
 )
@@ -16,7 +16,7 @@ import (
 type IntegrationJobCreator struct {
 	jobService   *services.JobService
 	queueManager *DistributedQueueManager
-	logger       logs.Logger
+	logger       logger.Log
 }
 
 // NewIntegrationJobCreator creates a new integration job creator
@@ -24,7 +24,7 @@ func NewIntegrationJobCreator(db *sql.DB, queueManager *DistributedQueueManager)
 	return &IntegrationJobCreator{
 		jobService:   services.NewJobService(db),
 		queueManager: queueManager,
-		logger:       logs.Logger{ModuleName: "IntegrationJobCreator"},
+		logger:       logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "IntegrationJobCreator"},
 	}
 }
 

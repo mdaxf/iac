@@ -8,7 +8,7 @@ import (
 	"github.com/mdaxf/iac/config"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/framework/cache"
-	"github.com/mdaxf/iac/framework/logs"
+	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac-signalr/signalr"
 )
 
@@ -30,7 +30,7 @@ func InitializeJobSystem(
 	signalRClient signalr.Client,
 ) error {
 
-	logger := logs.Logger{ModuleName: "JobSystemInitializer"}
+	logger := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "JobSystemInitializer"}
 
 	// Check if job system is enabled
 	if !config.GlobalConfiguration.JobsConfig.Enabled {
@@ -102,7 +102,7 @@ func InitializeJobSystem(
 
 // ShutdownJobSystem gracefully shuts down the job system
 func ShutdownJobSystem() error {
-	logger := logs.Logger{ModuleName: "JobSystemInitializer"}
+	logger := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "JobSystemInitializer"}
 
 	if !JobSystemInitialized {
 		logger.Info("Job system not initialized, skipping shutdown")
@@ -157,7 +157,7 @@ func validateJobConfiguration() error {
 }
 
 // printJobSystemStatus prints the current status of the job system
-func printJobSystemStatus(logger logs.Logger) {
+func printJobSystemStatus(logger logger.Log) {
 	logger.Info("========================================")
 	logger.Info("Background Job System Status")
 	logger.Info("========================================")

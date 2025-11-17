@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/mdaxf/iac/framework/cache"
-	"github.com/mdaxf/iac/framework/logs"
+	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac/models"
 
 	"github.com/google/uuid"
@@ -29,7 +29,7 @@ const (
 type DistributedQueueManager struct {
 	cache      cache.Cache
 	instanceID string
-	logger     logs.Logger
+	logger     logger.Log
 }
 
 // NewDistributedQueueManager creates a new distributed queue manager
@@ -37,7 +37,7 @@ func NewDistributedQueueManager(cache cache.Cache) *DistributedQueueManager {
 	return &DistributedQueueManager{
 		cache:      cache,
 		instanceID: uuid.New().String(),
-		logger:     logs.Logger{ModuleName: "DistributedQueueManager"},
+		logger:     logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "DistributedQueueManager"},
 	}
 }
 

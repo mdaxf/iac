@@ -12,7 +12,7 @@ import (
 	"github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/engine/trancode"
-	"github.com/mdaxf/iac/framework/logs"
+	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac-signalr/signalr"
 	"github.com/mdaxf/iac/models"
 	"github.com/mdaxf/iac/services"
@@ -26,7 +26,7 @@ type JobWorker struct {
 	db              *sql.DB
 	docDB           *documents.DocDB
 	signalRClient   signalr.Client
-	logger          logs.Logger
+	logger          logger.Log
 	running         bool
 	mu              sync.RWMutex
 	workerCount     int
@@ -41,7 +41,7 @@ type JobWorker struct {
 // Worker represents a single worker goroutine
 type Worker struct {
 	id     int
-	logger logs.Logger
+	logger logger.Log
 }
 
 // NewJobWorker creates a new job worker
@@ -77,7 +77,7 @@ func NewJobWorker(
 		db:              db,
 		docDB:           docDB,
 		signalRClient:   signalRClient,
-		logger:          logs.Logger{ModuleName: "JobWorker"},
+		logger:          logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "JobWorker"},
 		workerCount:     workerCount,
 		pollInterval:    pollInterval,
 		maxRetries:      maxRetries,
@@ -104,7 +104,7 @@ func (jw *JobWorker) Start(ctx context.Context) error {
 	for i := 0; i < jw.workerCount; i++ {
 		worker := &Worker{
 			id:     i + 1,
-			logger: logs.Logger{ModuleName: fmt.Sprintf("Worker-%d", i+1)},
+			logger: logger.Log{ModuleName: fmt.Sprintf("Worker-%d", i+1)},
 		}
 		jw.workers[i] = worker
 		go jw.runWorker(worker)

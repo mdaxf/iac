@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/mdaxf/iac/documents"
-	"github.com/mdaxf/iac/framework/logs"
+	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac-signalr/signalr"
 	"github.com/mdaxf/iac/models"
 	"github.com/mdaxf/iac/services"
@@ -35,7 +35,7 @@ type MessageQueueAdapter struct {
 	jobService    *services.JobService
 	queueManager  *DistributedQueueManager
 	jobCreator    *IntegrationJobCreator
-	logger        logs.Logger
+	logger        logger.Log
 	db            *sql.DB
 	docDB         *documents.DocDB
 	signalRClient signalr.Client
@@ -56,7 +56,7 @@ func NewMessageQueueAdapter(
 		jobService:    services.NewJobService(db),
 		queueManager:  queueManager,
 		jobCreator:    NewIntegrationJobCreator(db, queueManager),
-		logger:        logs.Logger{ModuleName: "MessageQueueAdapter"},
+		logger:        logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "MessageQueueAdapter"},
 		db:            db,
 		docDB:         docDB,
 		signalRClient: signalRClient,
