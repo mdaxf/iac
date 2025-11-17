@@ -1,10 +1,165 @@
 package models
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"time"
 )
+
+// Time is a custom time type that can handle both []uint8 and time.Time scanning
+type Time struct {
+	time.Time
+}
+
+// Scan implements the sql.Scanner interface
+func (t *Time) Scan(value interface{}) error {
+	if value == nil {
+		*t = Time{Time: time.Time{}}
+		return nil
+	}
+
+	switch v := value.(type) {
+	case time.Time:
+		*t = Time{Time: v}
+		return nil
+	case []byte:
+		// Parse byte array as string datetime
+		parsed, err := time.Parse("2006-01-02 15:04:05", string(v))
+		if err != nil {
+			// Try alternative formats
+			parsed, err = time.Parse(time.RFC3339, string(v))
+			if err != nil {
+				parsed, err = time.Parse("2006-01-02T15:04:05Z07:00", string(v))
+				if err != nil {
+					return fmt.Errorf("cannot parse time: %v", err)
+				}
+			}
+		}
+		*t = Time{Time: parsed}
+		return nil
+	case string:
+		// Parse string datetime
+		parsed, err := time.Parse("2006-01-02 15:04:05", v)
+		if err != nil {
+			// Try alternative formats
+			parsed, err = time.Parse(time.RFC3339, v)
+			if err != nil {
+				parsed, err = time.Parse("2006-01-02T15:04:05Z07:00", v)
+				if err != nil {
+					return fmt.Errorf("cannot parse time: %v", err)
+				}
+			}
+		}
+		*t = Time{Time: parsed}
+		return nil
+	default:
+		return fmt.Errorf("cannot scan type %T into Time", value)
+	}
+}
+
+// Value implements the driver.Valuer interface
+func (t Time) Value() (driver.Value, error) {
+	return t.Time, nil
+}
+
+// MarshalJSON implements json.Marshaler
+func (t Time) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.Time)
+}
+
+// UnmarshalJSON implements json.Unmarshaler
+func (t *Time) UnmarshalJSON(data []byte) error {
+	var parsed time.Time
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		return err
+	}
+	*t = Time{Time: parsed}
+	return nil
+}
+
+// NullableTime is a custom nullable time type that can handle both []uint8 and time.Time scanning
+type NullableTime struct {
+	sql.NullTime
+}
+
+// Scan implements the sql.Scanner interface
+func (nt *NullableTime) Scan(value interface{}) error {
+	if value == nil {
+		nt.Valid = false
+		return nil
+	}
+
+	switch v := value.(type) {
+	case time.Time:
+		nt.Time = v
+		nt.Valid = true
+		return nil
+	case []byte:
+		// Parse byte array as string datetime
+		t, err := time.Parse("2006-01-02 15:04:05", string(v))
+		if err != nil {
+			// Try alternative formats
+			t, err = time.Parse(time.RFC3339, string(v))
+			if err != nil {
+				t, err = time.Parse("2006-01-02T15:04:05Z07:00", string(v))
+				if err != nil {
+					return fmt.Errorf("cannot parse time: %v", err)
+				}
+			}
+		}
+		nt.Time = t
+		nt.Valid = true
+		return nil
+	case string:
+		// Parse string datetime
+		t, err := time.Parse("2006-01-02 15:04:05", v)
+		if err != nil {
+			// Try alternative formats
+			t, err = time.Parse(time.RFC3339, v)
+			if err != nil {
+				t, err = time.Parse("2006-01-02T15:04:05Z07:00", v)
+				if err != nil {
+					return fmt.Errorf("cannot parse time: %v", err)
+				}
+			}
+		}
+		nt.Time = t
+		nt.Valid = true
+		return nil
+	default:
+		return fmt.Errorf("cannot scan type %T into NullableTime", value)
+	}
+}
+
+// Value implements the driver.Valuer interface
+func (nt NullableTime) Value() (driver.Value, error) {
+	if !nt.Valid {
+		return nil, nil
+	}
+	return nt.Time, nil
+}
+
+// MarshalJSON implements json.Marshaler
+func (nt NullableTime) MarshalJSON() ([]byte, error) {
+	if !nt.Valid {
+		return []byte("null"), nil
+	}
+	return json.Marshal(nt.Time)
+}
+
+// UnmarshalJSON implements json.Unmarshaler
+func (nt *NullableTime) UnmarshalJSON(data []byte) error {
+	var t time.Time
+	if err := json.Unmarshal(data, &t); err != nil {
+		nt.Valid = false
+		return err
+	}
+	nt.Time = t
+	nt.Valid = true
+	return nil
+}
 
 // ReportType represents the type of report
 type ReportType string
@@ -122,13 +277,13 @@ type Report struct {
 	Shares      []ReportShare      `json:"shares,omitempty" gorm:"foreignKey:ReportID;constraint:OnDelete:CASCADE"`
 
 	// Standard IAC audit fields (must be at end)
-	Active           bool      `json:"active" gorm:"column:active;default:true"`
-	ReferenceID      string    `json:"referenceid" gorm:"column:referenceid;type:varchar(36)"`
-	CreatedBy        string    `json:"createdby" gorm:"column:createdby;type:varchar(45)"`
-	CreatedOn        time.Time `json:"createdon" gorm:"column:createdon;autoCreateTime"`
-	ModifiedBy       string    `json:"modifiedby" gorm:"column:modifiedby;type:varchar(45)"`
-	ModifiedOn       time.Time `json:"modifiedon" gorm:"column:modifiedon;autoUpdateTime"`
-	RowVersionStamp  int       `json:"rowversionstamp" gorm:"column:rowversionstamp;default:1"`
+	Active           bool   `json:"active" gorm:"column:active;default:true"`
+	ReferenceID      string `json:"referenceid" gorm:"column:referenceid;type:varchar(36)"`
+	CreatedBy        string `json:"createdby" gorm:"column:createdby;type:varchar(45)"`
+	CreatedOn        Time   `json:"createdon" gorm:"column:createdon;autoCreateTime"`
+	ModifiedBy       string `json:"modifiedby" gorm:"column:modifiedby;type:varchar(45)"`
+	ModifiedOn       Time   `json:"modifiedon" gorm:"column:modifiedon;autoUpdateTime"`
+	RowVersionStamp  int    `json:"rowversionstamp" gorm:"column:rowversionstamp;default:1"`
 }
 
 // TableName specifies the table name
@@ -139,7 +294,7 @@ func (Report) TableName() string {
 // ReportDatasource represents a data source for a report
 type ReportDatasource struct {
 	ID             string  `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
-	ReportID       string  `json:"reportid" gorm:"type:varchar(36);not null"`
+	ReportID       string  `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
 	Alias          string  `json:"alias" gorm:"type:varchar(100);not null"`
 	DatabaseAlias  string  `json:"databasealias" gorm:"type:varchar(100)"`
 	QueryType      string  `json:"querytype" gorm:"type:varchar(20);default:'visual'"`
@@ -153,13 +308,13 @@ type ReportDatasource struct {
 	Parameters     JSONMap `json:"parameters" gorm:"type:json"`
 
 	// Standard IAC audit fields (must be at end)
-	Active          bool      `json:"active" gorm:"default:true"`
-	ReferenceID     string    `json:"referenceid" gorm:"type:varchar(36)"`
-	CreatedBy       string    `json:"createdby" gorm:"type:varchar(45)"`
-	CreatedOn       time.Time `json:"createdon" gorm:"autoCreateTime"`
-	ModifiedBy      string    `json:"modifiedby" gorm:"type:varchar(45)"`
-	ModifiedOn      time.Time `json:"modifiedon" gorm:"autoUpdateTime"`
-	RowVersionStamp int       `json:"rowversionstamp" gorm:"default:1"`
+	Active          bool   `json:"active" gorm:"default:true"`
+	ReferenceID     string `json:"referenceid" gorm:"type:varchar(36)"`
+	CreatedBy       string `json:"createdby" gorm:"type:varchar(45)"`
+	CreatedOn       Time   `json:"createdon" gorm:"autoCreateTime"`
+	ModifiedBy      string `json:"modifiedby" gorm:"type:varchar(45)"`
+	ModifiedOn      Time   `json:"modifiedon" gorm:"autoUpdateTime"`
+	RowVersionStamp int    `json:"rowversionstamp" gorm:"default:1"`
 }
 
 // TableName specifies the table name
@@ -170,7 +325,7 @@ func (ReportDatasource) TableName() string {
 // ReportComponent represents a visual component in a report
 type ReportComponent struct {
 	ID                    string        `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
-	ReportID              string        `json:"reportid" gorm:"type:varchar(36);not null"`
+	ReportID              string        `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
 	ComponentType         ComponentType `json:"componenttype" gorm:"type:enum('table','chart','barcode','sub_report','text','image','drill_down');not null"`
 	Name                  string        `json:"name" gorm:"type:varchar(255);not null"`
 	X                     float64       `json:"x" gorm:"type:decimal(10,2);default:0"`
@@ -191,13 +346,13 @@ type ReportComponent struct {
 	IsVisible             bool          `json:"isvisible" gorm:"default:true"`
 
 	// Standard IAC audit fields (must be at end)
-	Active          bool      `json:"active" gorm:"default:true"`
-	ReferenceID     string    `json:"referenceid" gorm:"type:varchar(36)"`
-	CreatedBy       string    `json:"createdby" gorm:"type:varchar(45)"`
-	CreatedOn       time.Time `json:"createdon" gorm:"autoCreateTime"`
-	ModifiedBy      string    `json:"modifiedby" gorm:"type:varchar(45)"`
-	ModifiedOn      time.Time `json:"modifiedon" gorm:"autoUpdateTime"`
-	RowVersionStamp int       `json:"rowversionstamp" gorm:"default:1"`
+	Active          bool   `json:"active" gorm:"default:true"`
+	ReferenceID     string `json:"referenceid" gorm:"type:varchar(36)"`
+	CreatedBy       string `json:"createdby" gorm:"type:varchar(45)"`
+	CreatedOn       Time   `json:"createdon" gorm:"autoCreateTime"`
+	ModifiedBy      string `json:"modifiedby" gorm:"type:varchar(45)"`
+	ModifiedOn      Time   `json:"modifiedon" gorm:"autoUpdateTime"`
+	RowVersionStamp int    `json:"rowversionstamp" gorm:"default:1"`
 }
 
 // TableName specifies the table name
@@ -208,7 +363,7 @@ func (ReportComponent) TableName() string {
 // ReportParameter represents an input parameter for a report
 type ReportParameter struct {
 	ID              string        `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
-	ReportID        string        `json:"reportid" gorm:"type:varchar(36);not null"`
+	ReportID        string        `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
 	Name            string        `json:"name" gorm:"type:varchar(100);not null"`
 	DisplayName     string        `json:"displayname" gorm:"type:varchar(100)"`
 	ParameterType   ParameterType `json:"parametertype" gorm:"type:enum('text','number','date','datetime','select','multi_select','boolean');default:'text'"`
@@ -221,13 +376,13 @@ type ReportParameter struct {
 	SortOrder       int           `json:"sortorder" gorm:"default:0"`
 
 	// Standard IAC audit fields (must be at end)
-	Active          bool      `json:"active" gorm:"default:true"`
-	ReferenceID     string    `json:"referenceid" gorm:"type:varchar(36)"`
-	CreatedBy       string    `json:"createdby" gorm:"type:varchar(45)"`
-	CreatedOn       time.Time `json:"createdon" gorm:"autoCreateTime"`
-	ModifiedBy      string    `json:"modifiedby" gorm:"type:varchar(45)"`
-	ModifiedOn      time.Time `json:"modifiedon" gorm:"autoUpdateTime"`
-	RowVersionStamp int       `json:"rowversionstamp" gorm:"default:1"`
+	Active          bool   `json:"active" gorm:"default:true"`
+	ReferenceID     string `json:"referenceid" gorm:"type:varchar(36)"`
+	CreatedBy       string `json:"createdby" gorm:"type:varchar(45)"`
+	CreatedOn       Time   `json:"createdon" gorm:"autoCreateTime"`
+	ModifiedBy      string `json:"modifiedby" gorm:"type:varchar(45)"`
+	ModifiedOn      Time   `json:"modifiedon" gorm:"autoUpdateTime"`
+	RowVersionStamp int    `json:"rowversionstamp" gorm:"default:1"`
 }
 
 // TableName specifies the table name
@@ -238,7 +393,7 @@ func (ReportParameter) TableName() string {
 // ReportExecution represents a report execution record
 type ReportExecution struct {
 	ID              string    `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
-	ReportID        string    `json:"reportid" gorm:"type:varchar(36);not null"`
+	ReportID        string    `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
 	ExecutedBy      string    `json:"executedby" gorm:"type:varchar(36)"`
 	ExecutionStatus string    `json:"executionstatus" gorm:"type:varchar(20);default:'pending'"`
 	ExecutionTimeMs int       `json:"executiontimems"`
@@ -250,13 +405,13 @@ type ReportExecution struct {
 	RowCount        int       `json:"rowcount"`
 
 	// Standard IAC audit fields (must be at end)
-	Active          bool      `json:"active" gorm:"default:true"`
-	ReferenceID     string    `json:"referenceid" gorm:"type:varchar(36)"`
-	CreatedBy       string    `json:"createdby" gorm:"type:varchar(45)"`
-	CreatedOn       time.Time `json:"createdon" gorm:"autoCreateTime"`
-	ModifiedBy      string    `json:"modifiedby" gorm:"type:varchar(45)"`
-	ModifiedOn      time.Time `json:"modifiedon" gorm:"autoUpdateTime"`
-	RowVersionStamp int       `json:"rowversionstamp" gorm:"default:1"`
+	Active          bool   `json:"active" gorm:"default:true"`
+	ReferenceID     string `json:"referenceid" gorm:"type:varchar(36)"`
+	CreatedBy       string `json:"createdby" gorm:"type:varchar(45)"`
+	CreatedOn       Time   `json:"createdon" gorm:"autoCreateTime"`
+	ModifiedBy      string `json:"modifiedby" gorm:"type:varchar(45)"`
+	ModifiedOn      Time   `json:"modifiedon" gorm:"autoUpdateTime"`
+	RowVersionStamp int    `json:"rowversionstamp" gorm:"default:1"`
 }
 
 // TableName specifies the table name
@@ -267,7 +422,7 @@ func (ReportExecution) TableName() string {
 // ReportShare represents report sharing permissions
 type ReportShare struct {
 	ID         string     `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
-	ReportID   string     `json:"reportid" gorm:"type:varchar(36);not null"`
+	ReportID   string     `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
 	SharedBy   string     `json:"sharedby" gorm:"type:varchar(36)"`
 	SharedWith string     `json:"sharedwith" gorm:"type:varchar(36)"`
 	CanView    bool       `json:"canview" gorm:"default:true"`
@@ -278,13 +433,13 @@ type ReportShare struct {
 	ExpiresAt  *time.Time `json:"expiresat"`
 
 	// Standard IAC audit fields (must be at end)
-	Active          bool      `json:"active" gorm:"default:true"`
-	ReferenceID     string    `json:"referenceid" gorm:"type:varchar(36)"`
-	CreatedBy       string    `json:"createdby" gorm:"type:varchar(45)"`
-	CreatedOn       time.Time `json:"createdon" gorm:"autoCreateTime"`
-	ModifiedBy      string    `json:"modifiedby" gorm:"type:varchar(45)"`
-	ModifiedOn      time.Time `json:"modifiedon" gorm:"autoUpdateTime"`
-	RowVersionStamp int       `json:"rowversionstamp" gorm:"default:1"`
+	Active          bool   `json:"active" gorm:"default:true"`
+	ReferenceID     string `json:"referenceid" gorm:"type:varchar(36)"`
+	CreatedBy       string `json:"createdby" gorm:"type:varchar(45)"`
+	CreatedOn       Time   `json:"createdon" gorm:"autoCreateTime"`
+	ModifiedBy      string `json:"modifiedby" gorm:"type:varchar(45)"`
+	ModifiedOn      Time   `json:"modifiedon" gorm:"autoUpdateTime"`
+	RowVersionStamp int    `json:"rowversionstamp" gorm:"default:1"`
 }
 
 // TableName specifies the table name
@@ -309,13 +464,13 @@ type ReportTemplate struct {
 	IsSystem          bool    `json:"issystem" gorm:"default:false"`
 
 	// Standard IAC audit fields (must be at end)
-	Active          bool      `json:"active" gorm:"default:true"`
-	ReferenceID     string    `json:"referenceid" gorm:"type:varchar(36)"`
-	CreatedBy       string    `json:"createdby" gorm:"type:varchar(45)"`
-	CreatedOn       time.Time `json:"createdon" gorm:"autoCreateTime"`
-	ModifiedBy      string    `json:"modifiedby" gorm:"type:varchar(45)"`
-	ModifiedOn      time.Time `json:"modifiedon" gorm:"autoUpdateTime"`
-	RowVersionStamp int       `json:"rowversionstamp" gorm:"default:1"`
+	Active          bool   `json:"active" gorm:"default:true"`
+	ReferenceID     string `json:"referenceid" gorm:"type:varchar(36)"`
+	CreatedBy       string `json:"createdby" gorm:"type:varchar(45)"`
+	CreatedOn       Time   `json:"createdon" gorm:"autoCreateTime"`
+	ModifiedBy      string `json:"modifiedby" gorm:"type:varchar(45)"`
+	ModifiedOn      Time   `json:"modifiedon" gorm:"autoUpdateTime"`
+	RowVersionStamp int    `json:"rowversionstamp" gorm:"default:1"`
 }
 
 // TableName specifies the table name
@@ -326,7 +481,7 @@ func (ReportTemplate) TableName() string {
 // ReportSchedule represents a scheduled report execution
 type ReportSchedule struct {
 	ID             string     `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
-	ReportID       string     `json:"reportid" gorm:"type:varchar(36);not null"`
+	ReportID       string     `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
 	ScheduleName   string     `json:"schedulename" gorm:"type:varchar(255)"`
 	CronExpression string     `json:"cronexpression" gorm:"type:varchar(100);not null"`
 	Timezone       string     `json:"timezone" gorm:"type:varchar(50);default:'UTC'"`
@@ -338,13 +493,13 @@ type ReportSchedule struct {
 	NextRunAt      *time.Time `json:"nextrunat"`
 
 	// Standard IAC audit fields (must be at end)
-	Active          bool      `json:"active" gorm:"default:true"`
-	ReferenceID     string    `json:"referenceid" gorm:"type:varchar(36)"`
-	CreatedBy       string    `json:"createdby" gorm:"type:varchar(45)"`
-	CreatedOn       time.Time `json:"createdon" gorm:"autoCreateTime"`
-	ModifiedBy      string    `json:"modifiedby" gorm:"type:varchar(45)"`
-	ModifiedOn      time.Time `json:"modifiedon" gorm:"autoUpdateTime"`
-	RowVersionStamp int       `json:"rowversionstamp" gorm:"default:1"`
+	Active          bool   `json:"active" gorm:"default:true"`
+	ReferenceID     string `json:"referenceid" gorm:"type:varchar(36)"`
+	CreatedBy       string `json:"createdby" gorm:"type:varchar(45)"`
+	CreatedOn       Time   `json:"createdon" gorm:"autoCreateTime"`
+	ModifiedBy      string `json:"modifiedby" gorm:"type:varchar(45)"`
+	ModifiedOn      Time   `json:"modifiedon" gorm:"autoUpdateTime"`
+	RowVersionStamp int    `json:"rowversionstamp" gorm:"default:1"`
 }
 
 // TableName specifies the table name
