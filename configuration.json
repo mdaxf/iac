@@ -1,115 +1,118 @@
 {
-    "instance":"IAC_Instance",
-    "name":"IAC",
-    "version":"1.0.0",
-    "description":"IAC is a framework for building web applications with Go.",
-    "author":"IAC",
-    "singalrconfig":{
-        "serverwc": "ws://127.0.0.1:8222",
-        "server": "http://127.0.0.1:8222",
-        "hub": "/iacmessagebus"
-    },
-    "transaction":{
-        "timeout": 30
-    },
-    "database":{
-        "type":"mysql",        
-        "connection": "user:iacf12345678@tcp(localhost:3306)/iac25?timeout=5s",
-        "maxidleconns":5,
-        "maxopenconns":10,
-        "timeout": 5
-    },
-    "altdatabases":[
+    "altdatabases": [
         {
+            "connection": "user:iacf12345678@tcp(localhost:3306)/iac25",
             "name": "conn1",
-            "type":"mysql",
-            "connection":"user:iacf12345678@tcp(localhost:3306)/iac"
+            "type": "mysql"
         }
- ],
-    "documentdb":{
-        "type": "mongodb",
-        "connection": "mongodb://localhost:27017",
-        "database": "IAC_CFG"
+    ],
+    "appserver": {
+        "apikey": "ahbcgj",
+        "url": "http://127.0.0.1:8080"
     },
-    "webserver":{
-        "port": 8000,
-        "paths":{
-            "portal": {                
-                "path":"../iac-ui/portal",
-                "home":"../iac-ui/portal/uipage.html"},
-            "portal2": {            
-                "path":"../iac-whiteboard/.next",
-                "home":"../iac-whiteboard/.next"}
-        },
-        "proxy":{
-            "draw": "http://localhost:3000"
-        },
-        "headers":{
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "POST, OPTIONS, GET, PUT, DELETE",
-            "Access-Control-Allow-Headers": "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization",
-            "Access-Control-Expose-Headers": "Content-Length",
-            "Content-Type": "application/json; charset=utf-8"            
-        }
-    },
-    "appserver":{
-        "url": "http://127.0.0.1:8080",
-        "apikey": "ahbcgj"
-    },
-    "log":{
-        "adapter": "console", 
-        "level": "debug",
-        "performance": true,
-        "performancethread": 1,
-        "file":{
-            "folder": "c:\\temp\\iac_loger", 
-            "file": "iac.log",
-            "maxlines":10000,
-            "maxsize": 1024},
-        "console":{},
-        "multiplefile":{
-            "folder": "c:\\temp\\iac_loger", 
-            "file": "iac.log",
-            "maxlines":10000,
-            "maxsize": 1024,
-            "maxfiles": 10
-        },
-        "documentdb":{
-            "conn": "mongodb://localhost:27017",
-            "db": "IAC_CACHE",
-            "collection": "logger"
-        }
-    },
-    "cache":{
+    "author": "IAC",
+    "cache": {
         "adapter": "memory",
-        "interval": 7200, 
-        "objectinterval": 1800,
-        "testsessiontimeout": 900,       
-        "redis":{
-            "key": "collectionname",
-            "conn": 6379,
-            "password": "",
-            "dbNum": 0,
-            "thePassWord": 3600
+        "documentdb": {
+            "collection": "cache",
+            "conn": "mongodb://localhost:27017",
+            "db": "IAC_CACHE"
         },
-        "memcache":{
+        "file": {
+            "CachePath": "./cache",
+            "DirectoryLevel": 2,
+            "EmbedExpiry": 120,
+            "FileSuffix": ".cache"
+        },
+        "interval": 7200,
+        "memcache": {
             "conn": "127.0.0.1:11211"
         },
-        "file":{
-            "CachePath": "./cache",
-            "FileSuffix": ".cache",
-            "DirectoryLevel": 2,
-            "EmbedExpiry": 120
+        "objectinterval": 1800,
+        "redis": {
+            "conn": 6379,
+            "dbNum": 0,
+            "key": "collectionname",
+            "password": "",
+            "thePassWord": 3600
         },
-        "documentdb":{
-            "conn": "mongodb://localhost:27017",
-            "db": "IAC_CACHE",
-            "collection": "cache"
-        }
+        "testsessiontimeout": 900
     },
-    "translation":{
+    "database": {
+        "connection": "user:iacf12345678@tcp(localhost:3306)/iac25?timeout=5s",
+        "maxidleconns": 5,
+        "maxopenconns": 10,
+        "timeout": 5,
+        "type": "mysql"
+    },
+    "description": "IAC is a framework for building web applications with Go.",
+    "documentdb": {
+        "connection": "mongodb://localhost:27017",
+        "database": "IAC_CFG",
+        "type": "mongodb"
+    },
+    "instance": "IAC_Instance",
+    "log": {
+        "adapter": "console",
+        "console": {},
+        "documentdb": {
+            "collection": "logger",
+            "conn": "mongodb://localhost:27017",
+            "db": "IAC_CACHE"
+        },
+        "file": {
+            "file": "iac.log",
+            "folder": "c:\\temp\\iac_loger",
+            "maxlines": 10000,
+            "maxsize": 1024
+        },
+        "level": "debug",
+        "multiplefile": {
+            "file": "iac.log",
+            "folder": "c:\\temp\\iac_loger",
+            "maxfiles": 10,
+            "maxlines": 10000,
+            "maxsize": 1024
+        },
+        "performance": true,
+        "performancethread": 1
+    },
+    "name": "IAC",
+    "singalrconfig": {
+        "hub": "/iacmessagebus",
+        "server": "http://127.0.0.1:8222",
+        "serverwc": "ws://127.0.0.1:8222"
+    },
+    "transaction": {
+        "timeout": 30
+    },
+    "translation": {
         "autopopulate": true,
         "cache": true
+    },
+    "version": "1.0.0",
+    "webserver": {
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Headers": "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization",
+            "Access-Control-Allow-Methods": "POST, OPTIONS, GET, PUT, DELETE",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Expose-Headers": "Content-Length",
+            "Content-Type": "application/json; charset=utf-8"
+        },
+        "paths": {
+            "portal": {
+                "home": "../iac-ui/portal/uipage.html",
+                "path": "../iac-ui/portal"
+            },
+            "portal2": {
+                "home": "../iac-whiteboard/.next",
+                "path": "../iac-whiteboard/.next"
+            }
+        },
+        "port": 8000,
+        "proxy": {
+            "draw": "http://localhost:3000"
+        }
     }
 }
