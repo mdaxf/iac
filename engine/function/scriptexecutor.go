@@ -36,10 +36,10 @@ func DefaultScriptConfig() *ScriptExecutionConfig {
 
 // ScriptExecutionResult holds the result of script execution
 type ScriptExecutionResult struct {
-	Outputs      map[string]interface{}
+	Outputs       map[string]interface{}
 	ExecutionTime time.Duration
 	MemoryUsed    int64
-	Error        error
+	Error         error
 }
 
 // ExecuteScriptWithTimeout executes a script with timeout and returns structured result
@@ -93,8 +93,8 @@ func ExecuteScriptWithTimeout(
 	case <-timeoutCtx.Done():
 		executionTime := time.Since(startTime)
 		timeoutErr := types.NewTimeoutError(
-			fmt.Sprintf("Script execution timed out after %v", timeout),
-			fmt.Errorf("context deadline exceeded"),
+			fmt.Sprintf("Script execution (%s)", executor.GetType()),
+			timeout,
 		).WithContext(&types.ExecutionContext{
 			FunctionType:  executor.GetType(),
 			ExecutionTime: startTime,
@@ -210,6 +210,7 @@ func ScriptErrorHandler(
 
 	// Create new script error
 	scriptErr := types.NewScriptError(
+		scriptType,
 		fmt.Sprintf("%s script execution failed", scriptType),
 		err,
 	).WithContext(&types.ExecutionContext{

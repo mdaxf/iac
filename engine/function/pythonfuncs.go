@@ -404,7 +404,7 @@ func (cf *PythonExprFuncs) Execute(f *Funcs) {
 		f.iLog.Error(scriptErr.Error())
 
 		if bpmErr, ok := scriptErr.(*types.BPMError); ok {
-			if bpmErr.Severity == types.SeverityCritical || bpmErr.Severity == types.SeverityError {
+			if bpmErr.Severity == types.ErrorSeverityCritical || bpmErr.Severity == types.ErrorSeverityError {
 				panic(bpmErr)
 			}
 		}
@@ -512,7 +512,7 @@ func (cf *PythonScriptFuncs) Execute(f *Funcs) {
 		f.iLog.Error(scriptErr.Error())
 
 		if bpmErr, ok := scriptErr.(*types.BPMError); ok {
-			if bpmErr.Severity == types.SeverityCritical || bpmErr.Severity == types.SeverityError {
+			if bpmErr.Severity == types.ErrorSeverityCritical || bpmErr.Severity == types.ErrorSeverityError {
 				panic(bpmErr)
 			}
 		}

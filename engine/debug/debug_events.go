@@ -175,6 +175,12 @@ func (de *DebugEvent) SetLevel(level string) *DebugEvent {
 	return de
 }
 
+// WithLevel sets the log level of the event (alias for SetLevel for consistency)
+func (de *DebugEvent) WithLevel(level string) *DebugEvent {
+	de.Level = level
+	return de
+}
+
 // ToJSON converts the event to JSON
 func (de *DebugEvent) ToJSON() ([]byte, error) {
 	return json.Marshal(de)

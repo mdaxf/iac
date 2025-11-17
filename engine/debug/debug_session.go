@@ -266,9 +266,7 @@ func (dh *DebugHelper) EmitTranCodeComplete(duration time.Duration, outputs map[
 		WithStep(dh.nextStep()).
 		WithOutputs(outputs).
 		WithMessage("TranCode execution completed").
-		WithMetadata(map[string]interface{}{
-			"duration_ms": duration.Milliseconds(),
-		})
+		WithMetadata("duration_ms", duration.Milliseconds())
 
 	dh.manager.EmitEvent(event)
 }
@@ -299,9 +297,7 @@ func (dh *DebugHelper) EmitFuncGroupComplete(funcGroupName string, duration time
 		WithFuncGroup(funcGroupName).
 		WithStep(dh.nextStep()).
 		WithMessage(fmt.Sprintf("FuncGroup '%s' execution completed", funcGroupName)).
-		WithMetadata(map[string]interface{}{
-			"duration_ms": duration.Milliseconds(),
-		})
+		WithMetadata("duration_ms", duration.Milliseconds())
 
 	dh.manager.EmitEvent(event)
 }
@@ -405,10 +401,8 @@ func (dh *DebugHelper) EmitDatabaseQuery(funcGroupName, functionName, query stri
 		WithFunction(functionName, "").
 		WithStep(dh.nextStep()).
 		WithMessage(fmt.Sprintf("Database query executed in %v", duration)).
-		WithMetadata(map[string]interface{}{
-			"query":       query,
-			"duration_ms": duration.Milliseconds(),
-		})
+		WithMetadata("query", query).
+		WithMetadata("duration_ms", duration.Milliseconds())
 
 	dh.manager.EmitEvent(event)
 }
@@ -425,11 +419,9 @@ func (dh *DebugHelper) EmitScriptExecution(funcGroupName, functionName, scriptTy
 		WithFunction(functionName, scriptType).
 		WithStep(dh.nextStep()).
 		WithMessage(fmt.Sprintf("%s script executed in %v", scriptType, duration)).
-		WithMetadata(map[string]interface{}{
-			"script_type": scriptType,
-			"script":      script,
-			"duration_ms": duration.Milliseconds(),
-		})
+		WithMetadata("script_type", scriptType).
+		WithMetadata("script", script).
+		WithMetadata("duration_ms", duration.Milliseconds())
 
 	dh.manager.EmitEvent(event)
 }
@@ -489,9 +481,7 @@ func (dh *DebugHelper) EmitTransactionRollback(reason string) {
 		WithTranCode(dh.tranCodeName, dh.tranCodeVersion).
 		WithStep(dh.nextStep()).
 		WithMessage(fmt.Sprintf("Database transaction rolled back: %s", reason)).
-		WithMetadata(map[string]interface{}{
-			"rollback_reason": reason,
-		})
+		WithMetadata("rollback_reason", reason)
 
 	dh.manager.EmitEvent(event)
 }
