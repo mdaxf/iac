@@ -297,6 +297,11 @@ func (jw *JobWorker) executeJob(ctx context.Context, worker *Worker, job *models
 		worker.logger.Error(fmt.Sprintf("Failed to create job history: %v", err))
 	}
 
+	// Save to DocumentDB Job_History collection for backward compatibility
+	if jw.docDB != nil {
+		jw.saveToLegacyJobHistory(ctx, job, history, result, err)
+	}
+
 	// Clear cached data for completed job (if queue manager is available)
 	if history.StatusID == int(models.JobStatusCompleted) && jw.queueManager != nil {
 		jw.queueManager.ClearJobData(ctx, job.ID)
@@ -366,5 +371,53 @@ func (jw *JobWorker) GetStatus() map[string]interface{} {
 		"worker_count": jw.workerCount,
 		"poll_interval": jw.pollInterval.String(),
 		"max_retries":  jw.maxRetries,
+	}
+}
+
+// saveToLegacyJobHistory saves job execution to DocumentDB Job_History collection
+// for backward compatibility with framework/queue system
+func (jw *JobWorker) saveToLegacyJobHistory(ctx context.Context, job *models.QueueJob, history *models.JobHistory, result string, jobErr error) {
+	// Create legacy message structure
+	message := map[string]interface{}{
+		"Id":          job.ID,
+		"UUID":        job.Metadata["uuid"],
+		"Retry":       job.MaxRetries,
+		"Execute":     job.RetryCount,
+		"Topic":       job.Metadata["topic"],
+		"PayLoad":     job.Payload,
+		"Handler":     job.Handler,
+		"CreatedOn":   job.CreatedOn,
+		"ExecutedOn":  history.StartedAt,
+		"CompletedOn": history.CompletedAt,
+	}
+
+	status := "Success"
+	errorMessage := ""
+	if jobErr != nil {
+		status = "Failed"
+		errorMessage = jobErr.Error()
+	}
+
+	// Create legacy job history document
+	legacyHistory := map[string]interface{}{
+		"message":      message,
+		"executedon":   history.StartedAt,
+		"executedby":   history.ExecutedBy,
+		"status":       status,
+		"errormessage": errorMessage,
+		"messagequeue": job.Metadata["queue_name"],
+		"outputs":      result,
+		"jobid":        job.ID,
+		"executionid":  history.ExecutionID,
+		"duration":     history.Duration,
+		"retryattempt": history.RetryAttempt,
+	}
+
+	// Save to Job_History collection
+	_, err := jw.docDB.InsertCollection("Job_History", legacyHistory)
+	if err != nil {
+		jw.logger.Warning(fmt.Sprintf("Failed to save to legacy Job_History collection: %v", err))
+	} else {
+		jw.logger.Debug(fmt.Sprintf("Saved job %s to legacy Job_History collection", job.ID))
 	}
 }

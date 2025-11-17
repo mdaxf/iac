@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/mdaxf/iac/framework/logs"
 	"github.com/mdaxf/iac/models"
@@ -43,27 +44,42 @@ func (ijc *IntegrationJobCreator) CreateJobFromMessage(
 	ijc.logger.Debug(fmt.Sprintf("Creating job from integration message: topic=%s, handler=%s, method=%s, protocol=%s, direction=%s",
 		topic, handler, method, protocol, direction))
 
-	// Convert payload to JSON string
+	// Convert payload to JSON string and create payload structure compatible with legacy system
 	var payloadStr string
+	var rawPayload string
+
 	switch v := payload.(type) {
 	case string:
-		payloadStr = v
+		rawPayload = v
 	case []byte:
-		payloadStr = string(v)
+		rawPayload = string(v)
 	default:
 		payloadJSON, err := json.Marshal(payload)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal payload: %w", err)
 		}
-		payloadStr = string(payloadJSON)
+		rawPayload = string(payloadJSON)
 	}
 
-	// Create metadata
+	// Create payload in legacy-compatible format (Topic/Payload structure)
+	legacyPayload := map[string]interface{}{
+		"Topic":   topic,
+		"Payload": rawPayload,
+	}
+
+	legacyPayloadJSON, err := json.Marshal(legacyPayload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal legacy payload: %w", err)
+	}
+	payloadStr = string(legacyPayloadJSON)
+
+	// Create metadata with legacy fields for backward compatibility
 	metadata := models.JobMetadata{
 		"source":   "integration",
 		"topic":    topic,
 		"protocol": protocol,
 		"method":   method,
+		"uuid":     fmt.Sprintf("%s-%d", handler, time.Now().UnixNano()),
 	}
 
 	// Create queue job
