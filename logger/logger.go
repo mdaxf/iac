@@ -180,44 +180,61 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 	if logadapter == "file" || logadapter == "multifile" {
 		adapterconfig := make(map[string]interface{})
 		if config["adapterconfig"] != nil {
-			adapterconfig = config["adapterconfig"].(map[string]interface{})
+			// Safe type assertion with check
+			if cfg, ok := config["adapterconfig"].(map[string]interface{}); ok {
+				adapterconfig = cfg
+			} else {
+				adapterconfig = config
+			}
 		} else {
 			adapterconfig = config
 		}
 
-		filename := adapterconfig["file"]
-		if filename == nil {
-			filename = "iac.log"
+		// Safe type conversion for filename
+		filenameStr := "iac.log"
+		if filename := adapterconfig["file"]; filename != nil {
+			if fn, ok := filename.(string); ok {
+				filenameStr = fn
+			}
 		}
-		suffix := filepath.Ext(filename.(string))
-		fileNameOnly := strings.TrimSuffix(filename.(string), suffix)
+		suffix := filepath.Ext(filenameStr)
+		fileNameOnly := strings.TrimSuffix(filenameStr, suffix)
 
-		folder := adapterconfig["folder"]
-		if folder == nil {
+		// Safe type conversion for folder
+		folderStr := ""
+		if folder := adapterconfig["folder"]; folder != nil {
+			if f, ok := folder.(string); ok {
+				folderStr = f
+			}
+		}
+		if folderStr == "" {
 			// Use OS-appropriate default folder
 			if runtime.GOOS == "windows" {
-				folder = "C:\\temp"
+				folderStr = "C:\\temp"
 			} else {
-				folder = "/tmp"
+				folderStr = "/tmp"
 			}
 		}
 
 		// Use cross-platform path handling
 		if suffix == "" {
-			fullfilename = filepath.Join(folder.(string), fmt.Sprintf("%s_%s.log", logtype, fileNameOnly))
+			fullfilename = filepath.Join(folderStr, fmt.Sprintf("%s_%s.log", logtype, fileNameOnly))
 		} else {
-			fullfilename = filepath.Join(folder.(string), fmt.Sprintf("%s_%s%s", logtype, fileNameOnly, suffix))
+			fullfilename = filepath.Join(folderStr, fmt.Sprintf("%s_%s%s", logtype, fileNameOnly, suffix))
 		}
+
+		// Safe type conversion for maxlines (handles int, float64, string)
 		if adapterconfig["maxlines"] != nil {
-			maxlines = adapterconfig["maxlines"].(int)
+			maxlines = com.ConverttoIntwithDefault(adapterconfig["maxlines"], maxlines)
 			// Validate maxlines: warn if too large
 			if maxlines > 5000000 {
 				fmt.Printf("Warning: maxlines=%d is very large, consider using a smaller value (recommended: 500000)\n", maxlines)
 			}
 		}
 
+		// Safe type conversion for maxsize (handles int, float64, string)
 		if adapterconfig["maxsize"] != nil {
-			maxsize = adapterconfig["maxsize"].(int)
+			maxsize = com.ConverttoIntwithDefault(adapterconfig["maxsize"], maxsize)
 			// Validate maxsize: warn if too large
 			if maxsize > 500*1024*1024 { // > 500 MB
 				fmt.Printf("Warning: maxsize=%d bytes (%.0f MB) is very large, consider using a smaller value (recommended: 100 MB)\n",
@@ -230,21 +247,34 @@ func setLogger(loger *logs.IACLogger, config map[string]interface{}, logtype str
 		collection := "cache"
 		adapterconfig := make(map[string]interface{})
 		if config["adapterconfig"] != nil {
-			adapterconfig = config["adapterconfig"].(map[string]interface{})
+			// Safe type assertion with check
+			if cfg, ok := config["adapterconfig"].(map[string]interface{}); ok {
+				adapterconfig = cfg
+			} else {
+				adapterconfig = config
+			}
 		} else {
 			adapterconfig = config
 		}
 
 		if adapterconfig["documentdb"] != nil {
-			documentdbcfg := adapterconfig["documentdb"].(map[string]interface{})
-			if documentdbcfg["conn"] != nil {
-				conn = documentdbcfg["conn"].(string)
-			}
-			if documentdbcfg["db"] != nil {
-				db = documentdbcfg["db"].(string)
-			}
-			if documentdbcfg["collection"] != nil {
-				collection = documentdbcfg["collection"].(string)
+			// Safe type assertion with check
+			if documentdbcfg, ok := adapterconfig["documentdb"].(map[string]interface{}); ok {
+				if documentdbcfg["conn"] != nil {
+					if c, ok := documentdbcfg["conn"].(string); ok {
+						conn = c
+					}
+				}
+				if documentdbcfg["db"] != nil {
+					if d, ok := documentdbcfg["db"].(string); ok {
+						db = d
+					}
+				}
+				if documentdbcfg["collection"] != nil {
+					if col, ok := documentdbcfg["collection"].(string); ok {
+						collection = col
+					}
+				}
 			}
 		}
 		loger.SetLogger(logs.AdapterDocumentDB, fmt.Sprintf(`{"level":"%d", "conn":"%s", "db":"%s", "collection":"%s", "Perf": "%b", "Threhold": %d}`, level, conn, db, collection, performance, performancethrehold))
