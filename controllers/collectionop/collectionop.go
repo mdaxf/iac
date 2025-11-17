@@ -17,11 +17,20 @@ import (
 	"github.com/mdaxf/iac/logger"
 
 	"github.com/mdaxf/iac/documents"
+	"github.com/mdaxf/iac/services"
 
 	"github.com/mdaxf/iac/controllers/common"
 )
 
 type CollectionController struct {
+	collectionService *services.CollectionService
+}
+
+// NewCollectionController creates a new collection controller instance
+func NewCollectionController() *CollectionController {
+	return &CollectionController{
+		collectionService: services.NewCollectionService(),
+	}
 }
 
 type CollectionData struct {
@@ -30,6 +39,11 @@ type CollectionData struct {
 	Operation      string                 `json:"operation"`
 	Keys           []string               `json:"keys"`
 	ID             string                 `id`
+	// Pagination fields
+	PageSize int                    `json:"pagesize"`
+	Page     int                    `json:"page"`
+	Filter   map[string]interface{} `json:"filter"`
+	Sort     map[string]int         `json:"sort"`
 }
 
 // GetListofCollectionData retrieves a list of collection data.
@@ -46,36 +60,6 @@ func (c *CollectionController) GetListofCollectionData(ctx *gin.Context) {
 		iLog.PerformanceWithDuration("collectionop.GetListofCollectionData", elapsed)
 	}()
 
-	/*	defer func() {
-			err := recover()
-			if err != nil {
-				iLog.Error(fmt.Sprintf("Panic Error: %v", err))
-				ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
-			}
-		}()
-	*/
-	/*
-		_, user, clientid, err := common.GetRequestUser(ctx)
-		if err != nil {
-			iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		iLog.ClientID = clientid
-		iLog.User = user
-
-		iLog.Debug(fmt.Sprintf("Get collection list from respository"))
-
-		body, err := ioutil.ReadAll(ctx.Request.Body)
-		if err != nil {
-			iLog.Error(fmt.Sprintf("Error reading body: %v", err))
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		defer ctx.Request.Body.Close()
-
-		iLog.Debug(fmt.Sprintf("Get collection list from respository with body: %s", body))
-	*/
 	body, clientid, user, err := common.GetRequestBodyandUser(ctx)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
@@ -86,11 +70,7 @@ func (c *CollectionController) GetListofCollectionData(ctx *gin.Context) {
 	iLog.User = user
 
 	var data CollectionData
-	/*if err := ctx.BindJSON(&data); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	*/
+
 	iLog.Debug(fmt.Sprintf("Get collection list from respository with body: %s", body))
 
 	err = json.Unmarshal(body, &data)
@@ -103,37 +83,70 @@ func (c *CollectionController) GetListofCollectionData(ctx *gin.Context) {
 	collectionName := data.CollectionName
 	operation := data.Operation
 	items := data.Data
-	/*
-		condition := map[string]interface{}{}
-		for _, key := range Keys {
-			condition[key] = 1
-		}
-	*/
-	jsonData, err := json.Marshal(items)
-	if err != nil {
-		iLog.Error(fmt.Sprintf("Error marshaling json: %v", err))
-	}
 
-	iLog.Debug(fmt.Sprintf("Collection Name: %s, operation: %s data: %s", collectionName, operation, jsonData))
+	iLog.Debug(fmt.Sprintf("Collection Name: %s, operation: %s, page: %d, pagesize: %d",
+		collectionName, operation, data.Page, data.PageSize))
 
 	if collectionName == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid collection name"})
 		return
 	}
 
-	projection, _ := c.buildProjectionFromJSON(jsonData, "projection")
+	// Build query filter from root elements
+	// Support both the old "data" field and the new "filter" field
+	filter := data.Filter
+	if filter == nil && items != nil {
+		// Extract filter from data.projection if it exists, otherwise use empty filter
+		jsonData, _ := json.Marshal(items)
+		filterFromData, _ := c.buildProjectionFromJSON(jsonData, "filter")
+		if filterFromData != nil {
+			filter = convertBsonMToMap(filterFromData)
+		}
+	}
 
-	collectionitems, err := documents.DocDBCon.QueryCollection(collectionName, nil, projection)
+	// Build projection
+	var projection map[string]interface{}
+	if items != nil {
+		jsonData, _ := json.Marshal(items)
+		projectionBson, _ := c.buildProjectionFromJSON(jsonData, "projection")
+		if projectionBson != nil {
+			projection = convertBsonMToMap(projectionBson)
+		}
+	}
 
+	// Initialize collection service if not already done
+	if c.collectionService == nil {
+		c.collectionService = services.NewCollectionService()
+	}
+
+	// Build query options with pagination support
+	queryOpts := &services.QueryOptions{
+		Filter:     filter,
+		Projection: projection,
+		PageSize:   data.PageSize,
+		Page:       data.Page,
+		Sort:       data.Sort,
+	}
+
+	// Query collection with pagination
+	result, err := c.collectionService.QueryCollection(collectionName, queryOpts)
 	if err != nil {
-
 		iLog.Error(fmt.Sprintf("failed to retrieve the list from collection: %v", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	iLog.Debug(fmt.Sprintf("Get collection list from respository with data: %s", logger.ConvertJson(collectionitems)))
 
-	ctx.JSON(http.StatusOK, gin.H{"data": collectionitems})
+	iLog.Debug(fmt.Sprintf("Get collection list from respository: total=%d, page=%d, pagesize=%d",
+		result.TotalCount, result.Page, result.PageSize))
+
+	// Return paginated response
+	ctx.JSON(http.StatusOK, gin.H{
+		"data":        result.Data,
+		"total_count": result.TotalCount,
+		"page":        result.Page,
+		"page_size":   result.PageSize,
+		"total_pages": result.TotalPages,
+	})
 }
 
 // GetDetailCollectionData retrieves the detail data of a collection.
@@ -1030,4 +1043,12 @@ func ValidateIfObjectExist(collectionname string, filter bson.M, User string) (b
 		return false, nil
 	}
 	return true, nil
+}
+
+// convertBsonMToMap converts bson.M to map[string]interface{}
+func convertBsonMToMap(m bson.M) map[string]interface{} {
+	if m == nil {
+		return nil
+	}
+	return map[string]interface{}(m)
 }
