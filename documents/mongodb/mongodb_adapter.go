@@ -233,7 +233,7 @@ func (m *MongoDBAdapter) InsertOne(ctx context.Context, collection string, docum
 }
 
 // InsertMany inserts multiple documents
-func (m *MongoDBAdapter) InsertMany(ctx context.Context, collection string, documents []interface{}) ([]string, error) {
+func (m *MongoDBAdapter) InsertMany(ctx context.Context, collection string, docs []interface{}) ([]string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -242,7 +242,7 @@ func (m *MongoDBAdapter) InsertMany(ctx context.Context, collection string, docu
 	}
 
 	coll := m.database.Collection(collection)
-	result, err := coll.InsertMany(ctx, documents)
+	result, err := coll.InsertMany(ctx, docs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert documents: %w", err)
 	}

@@ -281,7 +281,7 @@ func (p *PostgresJSONBAdapter) InsertOne(ctx context.Context, collection string,
 }
 
 // InsertMany inserts multiple documents
-func (p *PostgresJSONBAdapter) InsertMany(ctx context.Context, collection string, documents []interface{}) ([]string, error) {
+func (p *PostgresJSONBAdapter) InsertMany(ctx context.Context, collection string, docs []interface{}) ([]string, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
@@ -305,8 +305,8 @@ func (p *PostgresJSONBAdapter) InsertMany(ctx context.Context, collection string
 	}
 	defer stmt.Close()
 
-	ids := make([]string, 0, len(documents))
-	for _, doc := range documents {
+	ids := make([]string, 0, len(docs))
+	for _, doc := range docs {
 		jsonData, err := json.Marshal(doc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal document: %w", err)
