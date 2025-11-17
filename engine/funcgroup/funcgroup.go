@@ -324,7 +324,7 @@ func (c *FGroup) CheckRouter(RouterDef types.RouterDef) string {
 					c.iLog.Error(fmt.Sprintf("Type assertion error in router: %s", err.Error()))
 					// Log the error but don't panic - use default route instead
 					c.iLog.Debug(fmt.Sprintf("Falling back to default function group due to type assertion error"))
-					continue // Continue to default function group
+					break // Exit switch and fall through to default function group
 				}
 				c.iLog.Debug(fmt.Sprintf("function variables: %s", logger.ConvertJson(tempobj)))
 				if tempobj[arr[1]] != nil {
