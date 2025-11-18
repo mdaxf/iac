@@ -39,7 +39,7 @@
         "testsessiontimeout": 900
     },
     "database": {
-        "connection": "user:iacf12345678@tcp(localhost:3306)/iac25?timeout=5s",
+        "connection": "user:iacf12345678@tcp(localhost:3306)/iac25",
         "maxidleconns": 5,
         "maxopenconns": 10,
         "timeout": 5,

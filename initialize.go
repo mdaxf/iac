@@ -156,17 +156,14 @@ func initializeDatabase() {
 	dbconn.DatabaseType = databaseconfig["type"].(string)
 	dbconn.DatabaseConnection = databaseconfig["connection"].(string)
 
-	// Ensure MySQL connection strings have parseTime parameter
-	if dbconn.DatabaseType == "mysql" {
-		if !strings.Contains(dbconn.DatabaseConnection, "parseTime") {
-			separator := "?"
-			if strings.Contains(dbconn.DatabaseConnection, "?") {
-				separator = "&"
-			}
-			dbconn.DatabaseConnection += separator + "parseTime=True&loc=Local"
-			ilog.Info("Added parseTime=True parameter to MySQL connection string")
+	// Log the connection string (without password for security)
+	sanitizedConn := dbconn.DatabaseConnection
+	if idx := strings.Index(sanitizedConn, "@"); idx > 0 {
+		if colonIdx := strings.Index(sanitizedConn, ":"); colonIdx > 0 && colonIdx < idx {
+			sanitizedConn = sanitizedConn[:colonIdx+1] + "****" + sanitizedConn[idx:]
 		}
 	}
+	ilog.Info(fmt.Sprintf("Database connection string: %s", sanitizedConn))
 
 	// set the maximum idle connections, default to 5 if not provided or if the value is not a float64
 	if databaseconfig["maxidleconns"] == nil {
