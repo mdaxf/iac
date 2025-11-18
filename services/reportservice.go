@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -142,8 +143,36 @@ func (s *ReportService) GetDatasources(reportID string) ([]models.ReportDatasour
 
 // UpdateDatasource updates a datasource
 func (s *ReportService) UpdateDatasource(id string, updates map[string]interface{}) error {
-	updates["modifiedon"] = time.Now()
-	return s.DB.Model(&models.ReportDatasource{}).Where("id = ?", id).Updates(updates).Error
+	// JSON fields that need special handling for serialization
+	jsonFields := []string{"selectedtables", "selectedfields", "joins", "filters", "sorting", "grouping", "parameters"}
+
+	processedUpdates := make(map[string]interface{})
+
+	for key, value := range updates {
+		// Check if this is a JSON field
+		isJSONField := false
+		for _, jf := range jsonFields {
+			if key == jf {
+				isJSONField = true
+				break
+			}
+		}
+
+		if isJSONField && value != nil {
+			// Serialize JSON fields to []byte for GORM
+			jsonBytes, err := json.Marshal(value)
+			if err != nil {
+				return fmt.Errorf("error serializing %s: %v", key, err)
+			}
+			processedUpdates[key] = jsonBytes
+		} else {
+			// Non-JSON fields pass through as-is
+			processedUpdates[key] = value
+		}
+	}
+
+	processedUpdates["modifiedon"] = time.Now()
+	return s.DB.Model(&models.ReportDatasource{}).Where("id = ?", id).Updates(processedUpdates).Error
 }
 
 // DeleteDatasource deletes a datasource
