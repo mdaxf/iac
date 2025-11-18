@@ -191,9 +191,13 @@ func initializeDatabase() {
 	}
 
 	// connect to the database (legacy method)
+	ilog.Info(fmt.Sprintf("Connecting to database - Type: %s", dbconn.DatabaseType))
 	err := dbconn.ConnectDB()
 	if err != nil {
 		ilog.Error(fmt.Sprintf("initialize Database error: %s", err.Error()))
+		ilog.Error("Database connection failed - GORM features will not be available")
+	} else {
+		ilog.Info("Database connection established successfully")
 	}
 
 	// Register main database with ORM as "default" alias
