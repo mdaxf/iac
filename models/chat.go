@@ -162,8 +162,8 @@ type BusinessEntity struct {
 	TableMappings      JSONMap            `json:"tablemappings" gorm:"column:tablemappings;type:json"`
 	ColumnMappings     JSONMap            `json:"columnmappings" gorm:"column:columnmappings;type:json"`
 	CalculationFormula string             `json:"calculationformula" gorm:"column:calculationformula;type:text"`
-	Synonyms           JSONMap            `json:"synonyms" gorm:"column:synonyms;type:json"`
-	Examples           JSONMap            `json:"examples" gorm:"column:examples;type:json"`
+	Synonyms           json.RawMessage    `json:"synonyms" gorm:"column:synonyms;type:json"`
+	Examples           json.RawMessage    `json:"examples" gorm:"column:examples;type:json"`
 
 	// Standard IAC audit fields (must be at end)
 	Active          bool      `json:"active" gorm:"column:active;default:true"`
@@ -182,16 +182,16 @@ func (BusinessEntity) TableName() string {
 
 // QueryTemplate represents reusable query patterns
 type QueryTemplate struct {
-	ID                     string   `json:"id" gorm:"column:id;primaryKey;type:varchar(36);default:(UUID())"`
-	DatabaseAlias          string   `json:"databasealias" gorm:"column:databasealias;type:varchar(100);not null"`
-	TemplateName           string   `json:"templatename" gorm:"column:templatename;type:varchar(255);not null"`
-	Description            string   `json:"description" gorm:"column:description;type:text"`
-	NaturalLanguagePattern string   `json:"naturallanguagepattern" gorm:"column:naturallanguagepattern;type:text"`
-	SQLTemplate            string   `json:"sqltemplate" gorm:"column:sqltemplate;type:text;not null"`
-	ExampleQuestions       JSONMap  `json:"examplequestions" gorm:"column:examplequestions;type:json"`
-	Parameters             JSONMap  `json:"parameters" gorm:"column:parameters;type:json"`
-	UsageCount             int      `json:"usagecount" gorm:"column:usagecount;default:0"`
-	SuccessRate            *float64 `json:"successrate" gorm:"column:successrate;type:decimal(3,2)"`
+	ID                     string          `json:"id" gorm:"column:id;primaryKey;type:varchar(36);default:(UUID())"`
+	DatabaseAlias          string          `json:"databasealias" gorm:"column:databasealias;type:varchar(100);not null"`
+	TemplateName           string          `json:"templatename" gorm:"column:templatename;type:varchar(255);not null"`
+	Description            string          `json:"description" gorm:"column:description;type:text"`
+	NaturalLanguagePattern string          `json:"naturallanguagepattern" gorm:"column:naturallanguagepattern;type:text"`
+	SQLTemplate            string          `json:"sqltemplate" gorm:"column:sqltemplate;type:text;not null"`
+	ExampleQuestions       json.RawMessage `json:"examplequestions" gorm:"column:examplequestions;type:json"`
+	Parameters             JSONMap         `json:"parameters" gorm:"column:parameters;type:json"`
+	UsageCount             int             `json:"usagecount" gorm:"column:usagecount;default:0"`
+	SuccessRate            *float64        `json:"successrate" gorm:"column:successrate;type:decimal(3,2)"`
 
 	// Standard IAC audit fields (must be at end)
 	Active          bool      `json:"active" gorm:"column:active;default:true"`
