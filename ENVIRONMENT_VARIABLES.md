@@ -20,9 +20,54 @@ IAC uses a combination of configuration files and environment variables. **Envir
 
 The system loads configuration in the following priority order (highest to lowest):
 
-1. **Environment Variables** - Set in your shell or container environment
-2. **Configuration File** (`apiconfig.json`) - Default values
-3. **Hardcoded Defaults** - Built-in fallback values
+1. **Environment Variables** - Set in your shell or container environment (highest priority)
+2. **Local Configuration File** (`apiconfig.local.json`) - Optional local overrides (git-ignored)
+3. **Base Configuration File** (`apiconfig.json`) - Default values (tracked in git)
+4. **Hardcoded Defaults** - Built-in fallback values (lowest priority)
+
+### How Configuration Loading Works
+
+1. **Base Config**: Load `apiconfig.json` (tracked in git, contains all controllers and default values)
+2. **Local Override** (optional): If `apiconfig.local.json` exists, override only root-level settings:
+   - `port` - HTTP server port
+   - `timeout` - Request timeout
+   - `apikey` - API key for authentication
+   - `openaikey` - OpenAI API key
+   - `openaimodel` - OpenAI model name
+   - `portal` - Portal configuration
+   - **Note**: Controllers and endpoints are NOT overridden, they always come from `apiconfig.json`
+3. **Environment Variables**: Apply environment variable overrides (takes final precedence)
+
+## Local Configuration Override
+
+You can create an optional `apiconfig.local.json` file to override configuration settings without modifying the tracked `apiconfig.json` file. This file is in `.gitignore` and won't be committed.
+
+### Creating apiconfig.local.json
+
+Copy the example and customize:
+
+```bash
+cp apiconfig.local.json.example apiconfig.local.json
+# Edit with your local values
+```
+
+Example `apiconfig.local.json` (only specify fields you want to override):
+
+```json
+{
+  "port": 8081,
+  "apikey": "my-local-api-key",
+  "openaikey": "sk-local-xxxxxxxxxxxxx",
+  "openaimodel": "gpt-4-turbo"
+}
+```
+
+**Important Notes:**
+- This file is **optional** - IAC works fine without it
+- Only root-level fields are overridden (port, timeout, apikey, openaikey, openaimodel, portal)
+- Controllers and endpoints always come from `apiconfig.json` (not overridden)
+- Environment variables still take precedence over `apiconfig.local.json`
+- The file is git-ignored, safe for local secrets
 
 ## Usage Examples
 
@@ -114,12 +159,36 @@ spec:
             name: iac-secrets
 ```
 
+## When to Use Each Configuration Method
+
+Choose the right configuration method for your use case:
+
+### Use Environment Variables When:
+- Deploying to production/staging/cloud environments
+- Using Docker or Kubernetes
+- Running in CI/CD pipelines
+- Need different values per environment
+- **Recommended for production deployments**
+
+### Use apiconfig.local.json When:
+- Local development with custom settings
+- Need to override port or timeout locally
+- Want to test with different OpenAI models
+- Don't want to set environment variables in your shell
+- **Good for local development convenience**
+
+### Use apiconfig.json When:
+- Defining default values for all environments
+- Adding or modifying API endpoints/controllers
+- Setting default port, timeout, model
+- **This is the source of truth for API structure**
+
 ## Security Best Practices
 
 1. **Never commit secrets to Git**
-   - The `apiconfig.json` file now tracks with empty values
-   - Use environment variables for all sensitive data
-   - Add `apiconfig.local.json` to `.gitignore` if you need a local override
+   - The `apiconfig.json` file now tracks with empty values for secrets
+   - Use environment variables or `apiconfig.local.json` for all sensitive data
+   - `apiconfig.local.json` is already in `.gitignore`
 
 2. **Use different credentials per environment**
    - Development, staging, and production should use separate API keys

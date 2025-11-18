@@ -61,6 +61,7 @@ type Portal struct {
 }
 
 var apiconfig = "apiconfig.json"
+var apiconfigLocal = "apiconfig.local.json"
 var gconfig = "configuration.json"
 
 var MQTTClients map[string]*mqttclient.MqttClient
@@ -68,6 +69,7 @@ var Kakfas map[string]*kafka.KafkaConsumer
 var ActiveMQs map[string]*activemq.ActiveMQ
 
 func LoadConfig() (*Config, error) {
+	// Load base configuration from apiconfig.json
 	data, err := ioutil.ReadFile(apiconfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read configuration file: %v", err)
@@ -76,6 +78,37 @@ func LoadConfig() (*Config, error) {
 	var config Config
 	if err := json.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse configuration file: %v", err)
+	}
+
+	// Check if local override exists
+	if localData, err := ioutil.ReadFile(apiconfigLocal); err == nil {
+		var localConfig Config
+		if err := json.Unmarshal(localData, &localConfig); err != nil {
+			fmt.Printf("Warning: failed to parse %s: %v\n", apiconfigLocal, err)
+		} else {
+			// Override only root-level configuration, preserve controllers
+			if localConfig.Port != 0 {
+				config.Port = localConfig.Port
+			}
+			if localConfig.Timeout != 0 {
+				config.Timeout = localConfig.Timeout
+			}
+			if localConfig.ApiKey != "" {
+				config.ApiKey = localConfig.ApiKey
+			}
+			if localConfig.OpenAiKey != "" {
+				config.OpenAiKey = localConfig.OpenAiKey
+			}
+			if localConfig.OpenAiModel != "" {
+				config.OpenAiModel = localConfig.OpenAiModel
+			}
+			// Override Portal if any field is set
+			if localConfig.Portal.Port != 0 || localConfig.Portal.Path != "" ||
+				localConfig.Portal.Home != "" || localConfig.Portal.Logon != "" {
+				config.Portal = localConfig.Portal
+			}
+			fmt.Printf("  - Applied local configuration overrides from %s\n", apiconfigLocal)
+		}
 	}
 
 	// Load API key from environment variable first, fallback to config file

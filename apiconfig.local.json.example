@@ -1,0 +1,13 @@
+{
+  "port": 8081,
+  "timeout": 200000000,
+  "apikey": "local-api-key",
+  "openaikey": "sk-local-test-key",
+  "openaimodel": "gpt-4-turbo",
+  "portal": {
+    "port": 3001,
+    "path": "/local-portal",
+    "home": "/home",
+    "logon": "/login"
+  }
+}
