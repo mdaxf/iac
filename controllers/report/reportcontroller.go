@@ -174,48 +174,115 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 		if datasourcesArray, ok := datasourcesRaw.([]interface{}); ok {
 			for _, dsRaw := range datasourcesArray {
 				if dsMap, ok := dsRaw.(map[string]interface{}); ok {
-					// Convert map to JSON and back to struct for proper type handling
-					dsJSON, err := json.Marshal(dsMap)
-					if err != nil {
-						iLog.Error(fmt.Sprintf("Error marshalling datasource: %v", err))
-						continue
-					}
+					// Extract datasource ID to determine if this is update or create
+					dsID, _ := dsMap["id"].(string)
 
-					var datasource models.ReportDatasource
-					if err := json.Unmarshal(dsJSON, &datasource); err != nil {
-						iLog.Error(fmt.Sprintf("Error unmarshalling datasource: %v", err))
-						continue
-					}
-
-					// Set the report ID
-					datasource.ReportID = reportID
-					datasource.ModifiedBy = user
-
-					// Update or create datasource
-					if datasource.ID != "" {
-						// Update existing datasource
+					if dsID != "" {
+						// Update existing datasource - work directly with the map
 						dsUpdates := make(map[string]interface{})
-						dsUpdates["alias"] = datasource.Alias
-						dsUpdates["databasealias"] = datasource.DatabaseAlias
-						dsUpdates["querytype"] = datasource.QueryType
-						dsUpdates["customsql"] = datasource.CustomSQL
-						dsUpdates["selectedtables"] = datasource.SelectedTables
-						dsUpdates["selectedfields"] = datasource.SelectedFields
-						dsUpdates["joins"] = datasource.Joins
-						dsUpdates["filters"] = datasource.Filters
-						dsUpdates["sorting"] = datasource.Sorting
-						dsUpdates["grouping"] = datasource.Grouping
-						dsUpdates["parameters"] = datasource.Parameters
-						dsUpdates["modifiedby"] = user
 
-						if err := rc.service.UpdateDatasource(datasource.ID, dsUpdates); err != nil {
-							iLog.Error(fmt.Sprintf("Error updating datasource %s: %v", datasource.ID, err))
+						// Copy scalar fields
+						if v, ok := dsMap["alias"]; ok {
+							dsUpdates["alias"] = v
+						}
+						if v, ok := dsMap["databasealias"]; ok {
+							dsUpdates["databasealias"] = v
+						}
+						if v, ok := dsMap["querytype"]; ok {
+							dsUpdates["querytype"] = v
+						}
+						if v, ok := dsMap["customsql"]; ok {
+							dsUpdates["customsql"] = v
+						}
+
+						// Copy JSON fields (arrays/objects) as-is - they'll be serialized by GORM
+						if v, ok := dsMap["selectedtables"]; ok {
+							dsUpdates["selectedtables"] = v
+						}
+						if v, ok := dsMap["selectedfields"]; ok {
+							dsUpdates["selectedfields"] = v
+						}
+						if v, ok := dsMap["joins"]; ok {
+							dsUpdates["joins"] = v
+						}
+						if v, ok := dsMap["filters"]; ok {
+							dsUpdates["filters"] = v
+						}
+						if v, ok := dsMap["sorting"]; ok {
+							dsUpdates["sorting"] = v
+						}
+						if v, ok := dsMap["grouping"]; ok {
+							dsUpdates["grouping"] = v
+						}
+						if v, ok := dsMap["parameters"]; ok {
+							dsUpdates["parameters"] = v
+						}
+
+						dsUpdates["modifiedby"] = user
+						dsUpdates["reportid"] = reportID
+
+						if err := rc.service.UpdateDatasource(dsID, dsUpdates); err != nil {
+							iLog.Error(fmt.Sprintf("Error updating datasource %s: %v", dsID, err))
 						}
 					} else {
 						// Create new datasource
-						datasource.CreatedBy = user
-						if err := rc.service.AddDatasource(&datasource); err != nil {
+						// For create, we build a minimal struct and let GORM handle the JSON fields
+						datasource := &models.ReportDatasource{
+							ReportID:   reportID,
+							CreatedBy:  user,
+							ModifiedBy: user,
+						}
+
+						// Set scalar fields if present
+						if v, ok := dsMap["alias"].(string); ok {
+							datasource.Alias = v
+						}
+						if v, ok := dsMap["databasealias"].(string); ok {
+							datasource.DatabaseAlias = v
+						}
+						if v, ok := dsMap["querytype"].(string); ok {
+							datasource.QueryType = v
+						}
+						if v, ok := dsMap["customsql"].(string); ok {
+							datasource.CustomSQL = v
+						}
+
+						if err := rc.service.AddDatasource(datasource); err != nil {
 							iLog.Error(fmt.Sprintf("Error creating datasource: %v", err))
+							continue
+						}
+
+						// After creation, update the complex JSON fields using the update path
+						if datasource.ID != "" {
+							dsUpdates := make(map[string]interface{})
+
+							if v, ok := dsMap["selectedtables"]; ok {
+								dsUpdates["selectedtables"] = v
+							}
+							if v, ok := dsMap["selectedfields"]; ok {
+								dsUpdates["selectedfields"] = v
+							}
+							if v, ok := dsMap["joins"]; ok {
+								dsUpdates["joins"] = v
+							}
+							if v, ok := dsMap["filters"]; ok {
+								dsUpdates["filters"] = v
+							}
+							if v, ok := dsMap["sorting"]; ok {
+								dsUpdates["sorting"] = v
+							}
+							if v, ok := dsMap["grouping"]; ok {
+								dsUpdates["grouping"] = v
+							}
+							if v, ok := dsMap["parameters"]; ok {
+								dsUpdates["parameters"] = v
+							}
+
+							if len(dsUpdates) > 0 {
+								if err := rc.service.UpdateDatasource(datasource.ID, dsUpdates); err != nil {
+									iLog.Error(fmt.Sprintf("Error updating new datasource JSON fields %s: %v", datasource.ID, err))
+								}
+							}
 						}
 					}
 				}
