@@ -323,26 +323,40 @@ func (s *SchemaMetadataService) GetTableDetail(ctx context.Context, databaseAlia
 
 // ExecuteVisualQuery converts a visual query structure to SQL and executes it
 func (s *SchemaMetadataService) ExecuteVisualQuery(ctx context.Context, databaseAlias string, visualQuery map[string]interface{}) (map[string]interface{}, error) {
-	// This is a placeholder implementation
-	// In production, you would:
-	// 1. Parse the visual query structure
-	// 2. Generate SQL based on the structure
-	// 3. Execute against the target database
-	// 4. Return formatted results
+	// Parse the visual query structure
+	vq, err := ParseVisualQuery(visualQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse visual query: %w", err)
+	}
 
-	return nil, fmt.Errorf("visual query execution not yet implemented - requires database connection pool integration")
+	// Generate SQL from visual query
+	sqlQuery, args, err := vq.GenerateSQL()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate SQL: %w", err)
+	}
+
+	// Execute the generated SQL
+	return s.executeQueryWithResults(ctx, databaseAlias, sqlQuery, args...)
 }
 
 // ExecuteCustomSQL executes a custom SQL query
 func (s *SchemaMetadataService) ExecuteCustomSQL(ctx context.Context, databaseAlias string, sqlQuery string) (map[string]interface{}, error) {
-	// This is a placeholder implementation
-	// In production, you would:
-	// 1. Validate the SQL for safety
-	// 2. Get database connection from pool using databaseAlias
-	// 3. Execute the query
-	// 4. Return results with metadata
+	// Validate the SQL first
+	validation, err := s.ValidateSQL(ctx, databaseAlias, sqlQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate SQL: %w", err)
+	}
 
-	return nil, fmt.Errorf("custom SQL execution not yet implemented - requires database connection pool integration")
+	// Check if validation passed
+	if valid, ok := validation["valid"].(bool); !ok || !valid {
+		if errMsg, ok := validation["error"].(string); ok {
+			return nil, fmt.Errorf("SQL validation failed: %s", errMsg)
+		}
+		return nil, fmt.Errorf("SQL validation failed")
+	}
+
+	// Execute the query
+	return s.executeQueryWithResults(ctx, databaseAlias, sqlQuery)
 }
 
 // ValidateSQL validates SQL syntax without executing it
@@ -384,5 +398,85 @@ func (s *SchemaMetadataService) ValidateSQL(ctx context.Context, databaseAlias s
 	return map[string]interface{}{
 		"valid":   true,
 		"message": "SQL query is valid",
+	}, nil
+}
+
+// executeQueryWithResults executes a SQL query and returns formatted results
+func (s *SchemaMetadataService) executeQueryWithResults(ctx context.Context, databaseAlias string, sqlQuery string, args ...interface{}) (map[string]interface{}, error) {
+	// Use GORM's Raw query to execute the SQL
+	// NOTE: For now, this executes against the application's database
+	// In a multi-database setup, you would get the connection from a pool based on databaseAlias
+
+	var results []map[string]interface{}
+
+	// Execute the query using GORM
+	rows, err := s.db.WithContext(ctx).Raw(sqlQuery, args...).Rows()
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute query: %w", err)
+	}
+	defer rows.Close()
+
+	// Get column names
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get columns: %w", err)
+	}
+
+	// Get column types
+	columnTypes, err := rows.ColumnTypes()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get column types: %w", err)
+	}
+
+	// Build metadata about columns
+	columnMetadata := make([]map[string]interface{}, len(columns))
+	for i, col := range columns {
+		columnMetadata[i] = map[string]interface{}{
+			"name": col,
+			"type": columnTypes[i].DatabaseTypeName(),
+		}
+	}
+
+	// Fetch all rows
+	for rows.Next() {
+		// Create a slice of interface{} to hold the values
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range columns {
+			valuePtrs[i] = &values[i]
+		}
+
+		// Scan the row
+		if err := rows.Scan(valuePtrs...); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		// Create a map for this row
+		row := make(map[string]interface{})
+		for i, col := range columns {
+			var v interface{}
+			val := values[i]
+			b, ok := val.([]byte)
+			if ok {
+				v = string(b)
+			} else {
+				v = val
+			}
+			row[col] = v
+		}
+		results = append(results, row)
+	}
+
+	// Check for errors from iterating over rows
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
+	// Return formatted response
+	return map[string]interface{}{
+		"columns": columnMetadata,
+		"rows":    results,
+		"count":   len(results),
+		"query":   sqlQuery,
 	}, nil
 }
