@@ -1427,3 +1427,331 @@ func contains(slice []string, str string) bool {
 	}
 	return false
 }
+
+// getStoredProcedures retrieves list of stored procedures from a database
+func (sc *SchemaController) getStoredProcedures(alias string, schemaName string, iLog *logger.Log) ([]map[string]interface{}, error) {
+	// Get database connection for alias
+	db, err := orm.GetDB(alias)
+	if err != nil {
+		return nil, fmt.Errorf("error getting database for alias '%s': %v", alias, err)
+	}
+
+	// Determine database type and schema
+	dbType, currentSchema := sc.detectDatabaseType(db, schemaName, iLog)
+
+	var query string
+	var args []interface{}
+
+	switch dbType {
+	case "postgresql":
+		// PostgreSQL: Query information_schema.routines for functions (PostgreSQL uses functions instead of procedures)
+		query = `
+			SELECT
+				routine_name as name,
+				routine_schema as schema,
+				routine_schema || '.' || routine_name as full_name,
+				COALESCE(routine_comment, '') as description,
+				created as created,
+				last_altered as modified
+			FROM information_schema.routines
+			WHERE routine_type = 'FUNCTION'
+				AND routine_schema = ?
+			ORDER BY routine_name
+		`
+		args = []interface{}{currentSchema}
+
+	case "mysql":
+		// MySQL: Use SHOW PROCEDURE STATUS
+		query = `
+			SELECT
+				name,
+				db as schema,
+				CONCAT(db, '.', name) as full_name,
+				COALESCE(comment, '') as description,
+				created,
+				modified
+			FROM mysql.proc
+			WHERE db = ?
+				AND type = 'PROCEDURE'
+			ORDER BY name
+		`
+		args = []interface{}{currentSchema}
+
+	case "sqlserver":
+		// SQL Server: Query sys.procedures
+		if schemaName == "" {
+			schemaName = "dbo"
+		}
+		query = `
+			SELECT
+				p.name,
+				SCHEMA_NAME(p.schema_id) as schema,
+				SCHEMA_NAME(p.schema_id) + '.' + p.name as full_name,
+				COALESCE(CAST(ep.value AS NVARCHAR(MAX)), '') as description,
+				p.create_date as created,
+				p.modify_date as modified
+			FROM sys.procedures p
+			LEFT JOIN sys.extended_properties ep
+				ON ep.major_id = p.object_id
+				AND ep.minor_id = 0
+				AND ep.name = 'MS_Description'
+			WHERE SCHEMA_NAME(p.schema_id) = ?
+			ORDER BY p.name
+		`
+		args = []interface{}{schemaName}
+
+	default:
+		// Fallback: Try standard INFORMATION_SCHEMA
+		query = `
+			SELECT
+				routine_name as name,
+				routine_schema as schema,
+				routine_schema || '.' || routine_name as full_name,
+				'' as description,
+				created as created,
+				last_altered as modified
+			FROM information_schema.routines
+			WHERE routine_type IN ('PROCEDURE', 'FUNCTION')
+				AND routine_schema = ?
+			ORDER BY routine_name
+		`
+		args = []interface{}{currentSchema}
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error querying stored procedures: %v", err)
+	}
+	defer rows.Close()
+
+	procedures := []map[string]interface{}{}
+	for rows.Next() {
+		var name, schema, fullName, description string
+		var created, modified interface{}
+
+		err := rows.Scan(&name, &schema, &fullName, &description, &created, &modified)
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error scanning procedure: %v", err))
+			continue
+		}
+
+		procedure := map[string]interface{}{
+			"name":        name,
+			"schema":      schema,
+			"fullName":    fullName,
+			"description": description,
+			"created":     created,
+			"modified":    modified,
+		}
+		procedures = append(procedures, procedure)
+	}
+
+	return procedures, nil
+}
+
+// getProcedureMetadata retrieves parameters and metadata for a stored procedure
+func (sc *SchemaController) getProcedureMetadata(alias string, procedureName string, schemaName string, iLog *logger.Log) (map[string]interface{}, error) {
+	// Get database connection for alias
+	db, err := orm.GetDB(alias)
+	if err != nil {
+		return nil, fmt.Errorf("error getting database for alias '%s': %v", alias, err)
+	}
+
+	// Determine database type and schema
+	dbType, currentSchema := sc.detectDatabaseType(db, schemaName, iLog)
+
+	// Parse procedure name (handle schema.procedure format)
+	procSchema := currentSchema
+	procName := procedureName
+	if strings.Contains(procedureName, ".") {
+		parts := strings.SplitN(procedureName, ".", 2)
+		procSchema = parts[0]
+		procName = parts[1]
+	}
+
+	var query string
+	var args []interface{}
+
+	switch dbType {
+	case "postgresql":
+		// PostgreSQL: Query information_schema.parameters
+		query = `
+			SELECT
+				parameter_name as name,
+				data_type,
+				parameter_mode as direction,
+				CASE WHEN is_nullable = 'YES' THEN true ELSE false END as is_nullable,
+				parameter_default as default_value,
+				ordinal_position,
+				character_maximum_length as max_length
+			FROM information_schema.parameters
+			WHERE specific_schema = ?
+				AND specific_name = ?
+			ORDER BY ordinal_position
+		`
+		args = []interface{}{procSchema, procName}
+
+	case "mysql":
+		// MySQL: Query information_schema.parameters
+		query = `
+			SELECT
+				PARAMETER_NAME as name,
+				DATA_TYPE as data_type,
+				PARAMETER_MODE as direction,
+				CASE WHEN IS_NULLABLE = 'YES' THEN true ELSE false END as is_nullable,
+				NULL as default_value,
+				ORDINAL_POSITION as ordinal_position,
+				CHARACTER_MAXIMUM_LENGTH as max_length
+			FROM information_schema.parameters
+			WHERE SPECIFIC_SCHEMA = ?
+				AND SPECIFIC_NAME = ?
+			ORDER BY ORDINAL_POSITION
+		`
+		args = []interface{}{procSchema, procName}
+
+	case "sqlserver":
+		// SQL Server: Query sys.parameters
+		query = `
+			SELECT
+				p.name,
+				TYPE_NAME(p.system_type_id) as data_type,
+				CASE WHEN p.is_output = 1 THEN 'OUT' ELSE 'IN' END as direction,
+				CASE WHEN p.is_nullable = 1 THEN true ELSE false END as is_nullable,
+				p.default_value,
+				p.parameter_id as ordinal_position,
+				p.max_length
+			FROM sys.parameters p
+			WHERE p.object_id = OBJECT_ID(?)
+			ORDER BY p.parameter_id
+		`
+		fullProcName := procSchema + "." + procName
+		args = []interface{}{fullProcName}
+
+	default:
+		// Fallback: Try standard INFORMATION_SCHEMA
+		query = `
+			SELECT
+				parameter_name as name,
+				data_type,
+				parameter_mode as direction,
+				CASE WHEN is_nullable = 'YES' THEN 1 ELSE 0 END as is_nullable,
+				parameter_default as default_value,
+				ordinal_position,
+				character_maximum_length as max_length
+			FROM information_schema.parameters
+			WHERE specific_schema = ?
+				AND specific_name = ?
+			ORDER BY ordinal_position
+		`
+		args = []interface{}{procSchema, procName}
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error querying procedure parameters: %v", err)
+	}
+	defer rows.Close()
+
+	parameters := []map[string]interface{}{}
+	for rows.Next() {
+		var name, dataType, direction string
+		var isNullable interface{}
+		var defaultValue, maxLength interface{}
+		var ordinalPosition int
+
+		err := rows.Scan(&name, &dataType, &direction, &isNullable, &defaultValue, &ordinalPosition, &maxLength)
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error scanning parameter: %v", err))
+			continue
+		}
+
+		// Normalize direction (IN, OUT, INOUT)
+		if direction == "" {
+			direction = "IN"
+		}
+
+		parameter := map[string]interface{}{
+			"name":            name,
+			"dataType":        dataType,
+			"direction":       direction,
+			"isNullable":      isNullable,
+			"defaultValue":    defaultValue,
+			"ordinalPosition": ordinalPosition,
+			"maxLength":       maxLength,
+		}
+		parameters = append(parameters, parameter)
+	}
+
+	// Build metadata response
+	metadata := map[string]interface{}{
+		"name":          procName,
+		"schema":        procSchema,
+		"fullName":      procSchema + "." + procName,
+		"description":   "",
+		"parameters":    parameters,
+		"returnType":    "TABLE",
+		"resultColumns": []map[string]interface{}{}, // Could be enhanced to detect result columns
+	}
+
+	return metadata, nil
+}
+
+// detectDatabaseType detects the database type and returns current schema
+func (sc *SchemaController) detectDatabaseType(db *sql.DB, schemaName string, iLog *logger.Log) (string, string) {
+	// Try to detect database type
+	var dbType string
+	var currentSchema string
+
+	// Try MySQL detection
+	var mysqlVersion string
+	err := db.QueryRow("SELECT VERSION()").Scan(&mysqlVersion)
+	if err == nil && strings.Contains(strings.ToLower(mysqlVersion), "mysql") {
+		dbType = "mysql"
+		if schemaName == "" {
+			db.QueryRow("SELECT DATABASE()").Scan(&currentSchema)
+		} else {
+			currentSchema = schemaName
+		}
+		return dbType, currentSchema
+	}
+
+	// Try PostgreSQL detection
+	var pgVersion string
+	err = db.QueryRow("SELECT version()").Scan(&pgVersion)
+	if err == nil && strings.Contains(strings.ToLower(pgVersion), "postgresql") {
+		dbType = "postgresql"
+		if schemaName == "" {
+			db.QueryRow("SELECT current_schema()").Scan(&currentSchema)
+		} else {
+			currentSchema = schemaName
+		}
+		if currentSchema == "" {
+			currentSchema = "public"
+		}
+		return dbType, currentSchema
+	}
+
+	// Try SQL Server detection
+	var serverProperty string
+	err = db.QueryRow("SELECT SERVERPROPERTY('ProductVersion')").Scan(&serverProperty)
+	if err == nil {
+		dbType = "sqlserver"
+		if schemaName == "" {
+			currentSchema = "dbo"
+		} else {
+			currentSchema = schemaName
+		}
+		return dbType, currentSchema
+	}
+
+	// Default fallback
+	dbType = "unknown"
+	if schemaName == "" {
+		currentSchema = "public"
+	} else {
+		currentSchema = schemaName
+	}
+
+	iLog.Warn(fmt.Sprintf("Could not detect database type, using fallback. Schema: %s", currentSchema))
+	return dbType, currentSchema
+}

@@ -315,6 +315,16 @@
           "method": "POST",
           "path": "/database/relationships",
           "handler": "GetDatabaseRelationships"
+        },
+        {
+          "method": "POST",
+          "path": "/database/procedures",
+          "handler": "GetDatabaseProcedures"
+        },
+        {
+          "method": "POST",
+          "path": "/database/procedures/metadata",
+          "handler": "GetProcedureMetadata"
         }
       ]
     },

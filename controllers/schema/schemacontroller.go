@@ -657,3 +657,104 @@ func (sc *SchemaController) GetDatabaseRelationships(c *gin.Context) {
 	iLog.Debug(fmt.Sprintf("Found %d relationships", len(relationships)))
 	c.JSON(http.StatusOK, gin.H{"relationships": relationships})
 }
+
+// GetDatabaseProcedures returns list of stored procedures from a database
+func (sc *SchemaController) GetDatabaseProcedures(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "schema.GetDatabaseProcedures"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("controllers.schema.GetDatabaseProcedures", elapsed)
+	}()
+
+	body, clientid, user, err := common.GetRequestBodyandUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	var request struct {
+		Alias  string `json:"alias"`
+		Schema string `json:"schema,omitempty"`
+	}
+
+	err = json.Unmarshal(body, &request)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error unmarshaling request: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if request.Alias == "" {
+		request.Alias = "default"
+	}
+
+	iLog.Debug(fmt.Sprintf("Fetching stored procedures for database alias: %s, schema: %s", request.Alias, request.Schema))
+
+	procedures, err := sc.getStoredProcedures(request.Alias, request.Schema, &iLog)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error getting stored procedures: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Debug(fmt.Sprintf("Found %d stored procedures", len(procedures)))
+	c.JSON(http.StatusOK, procedures)
+}
+
+// GetProcedureMetadata returns parameters and metadata for a stored procedure
+func (sc *SchemaController) GetProcedureMetadata(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "schema.GetProcedureMetadata"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("controllers.schema.GetProcedureMetadata", elapsed)
+	}()
+
+	body, clientid, user, err := common.GetRequestBodyandUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	var request struct {
+		Alias         string `json:"alias"`
+		ProcedureName string `json:"procedureName"`
+		Schema        string `json:"schema,omitempty"`
+	}
+
+	err = json.Unmarshal(body, &request)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error unmarshaling request: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if request.Alias == "" {
+		request.Alias = "default"
+	}
+
+	if request.ProcedureName == "" {
+		iLog.Error("Procedure name is required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "procedureName is required"})
+		return
+	}
+
+	iLog.Debug(fmt.Sprintf("Fetching metadata for procedure: %s, alias: %s, schema: %s", request.ProcedureName, request.Alias, request.Schema))
+
+	metadata, err := sc.getProcedureMetadata(request.Alias, request.ProcedureName, request.Schema, &iLog)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error getting procedure metadata: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Debug(fmt.Sprintf("Found %d parameters for procedure %s", len(metadata["parameters"].([]map[string]interface{})), request.ProcedureName))
+	c.JSON(http.StatusOK, metadata)
+}
