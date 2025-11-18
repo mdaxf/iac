@@ -219,3 +219,119 @@ func (c *SchemaMetadataController) GetDatabaseMetadata(ctx *gin.Context) {
 		"count":   len(metadata),
 	})
 }
+
+// GetTableDetail retrieves detailed information about a specific table
+// GET /api/schema-metadata/databases/:dbName/tables/:tableName
+func (c *SchemaMetadataController) GetTableDetail(ctx *gin.Context) {
+	databaseAlias := ctx.Param("dbName")
+	tableName := ctx.Param("tableName")
+	schemaName := ctx.Query("schema")
+
+	if databaseAlias == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "database alias is required"})
+		return
+	}
+
+	if tableName == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "table name is required"})
+		return
+	}
+
+	tableDetail, err := c.service.GetTableDetail(ctx.Request.Context(), databaseAlias, tableName, schemaName)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    tableDetail,
+	})
+}
+
+// ExecuteVisualQuery executes a visual query structure
+// POST /api/schema-metadata/databases/:dbName/query/visual
+func (c *SchemaMetadataController) ExecuteVisualQuery(ctx *gin.Context) {
+	databaseAlias := ctx.Param("dbName")
+
+	if databaseAlias == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "database alias is required"})
+		return
+	}
+
+	var visualQuery map[string]interface{}
+	if err := ctx.ShouldBindJSON(&visualQuery); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	result, err := c.service.ExecuteVisualQuery(ctx.Request.Context(), databaseAlias, visualQuery)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    result,
+	})
+}
+
+// ExecuteCustomSQL executes a custom SQL query
+// POST /api/schema-metadata/databases/:dbName/query/sql
+func (c *SchemaMetadataController) ExecuteCustomSQL(ctx *gin.Context) {
+	databaseAlias := ctx.Param("dbName")
+
+	if databaseAlias == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "database alias is required"})
+		return
+	}
+
+	var request struct {
+		SQL string `json:"sql" binding:"required"`
+	}
+
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	result, err := c.service.ExecuteCustomSQL(ctx.Request.Context(), databaseAlias, request.SQL)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    result,
+	})
+}
+
+// ValidateSQL validates SQL syntax without executing
+// POST /api/schema-metadata/databases/:dbName/query/validate
+func (c *SchemaMetadataController) ValidateSQL(ctx *gin.Context) {
+	databaseAlias := ctx.Param("dbName")
+
+	if databaseAlias == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "database alias is required"})
+		return
+	}
+
+	var request struct {
+		SQL string `json:"sql" binding:"required"`
+	}
+
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	result, err := c.service.ValidateSQL(ctx.Request.Context(), databaseAlias, request.SQL)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, result)
+}

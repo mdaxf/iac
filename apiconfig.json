@@ -713,6 +713,26 @@
           "handler": "GetDatabaseMetadata"
         },
         {
+          "method": "GET",
+          "path": "/databases/:dbName/tables/:tableName",
+          "handler": "GetTableDetail"
+        },
+        {
+          "method": "POST",
+          "path": "/databases/:dbName/query/visual",
+          "handler": "ExecuteVisualQuery"
+        },
+        {
+          "method": "POST",
+          "path": "/databases/:dbName/query/sql",
+          "handler": "ExecuteCustomSQL"
+        },
+        {
+          "method": "POST",
+          "path": "/databases/:dbName/query/validate",
+          "handler": "ValidateSQL"
+        },
+        {
           "method": "POST",
           "path": "/context",
           "handler": "GetSchemaContext"

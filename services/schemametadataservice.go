@@ -273,3 +273,112 @@ func (s *SchemaMetadataService) GetDatabaseMetadata(ctx context.Context, databas
 
 	return metadata, nil
 }
+
+// GetTableDetail retrieves detailed information about a specific table including its columns
+func (s *SchemaMetadataService) GetTableDetail(ctx context.Context, databaseAlias, tableName, schemaName string) (map[string]interface{}, error) {
+	var metadata []models.DatabaseSchemaMetadata
+
+	query := s.db.WithContext(ctx).
+		Where("databasealias = ? AND tablename = ?", databaseAlias, tableName)
+
+	if err := query.Order("metadatatype DESC, columnname").Find(&metadata).Error; err != nil {
+		return nil, fmt.Errorf("failed to get table detail: %w", err)
+	}
+
+	if len(metadata) == 0 {
+		return nil, fmt.Errorf("table not found: %s", tableName)
+	}
+
+	// Build response structure
+	result := map[string]interface{}{
+		"table_name": tableName,
+		"schema":     schemaName,
+		"fields":     []map[string]interface{}{},
+	}
+
+	fields := []map[string]interface{}{}
+	for _, meta := range metadata {
+		if meta.MetadataType == models.MetadataTypeColumn {
+			field := map[string]interface{}{
+				"name":      meta.Column,
+				"data_type": meta.DataType,
+			}
+			if meta.IsNullable != nil {
+				field["is_nullable"] = *meta.IsNullable
+			}
+			if meta.ColumnComment != "" {
+				field["comment"] = meta.ColumnComment
+			}
+			fields = append(fields, field)
+		}
+	}
+	result["fields"] = fields
+
+	return result, nil
+}
+
+// ExecuteVisualQuery converts a visual query structure to SQL and executes it
+func (s *SchemaMetadataService) ExecuteVisualQuery(ctx context.Context, databaseAlias string, visualQuery map[string]interface{}) (map[string]interface{}, error) {
+	// This is a placeholder implementation
+	// In production, you would:
+	// 1. Parse the visual query structure
+	// 2. Generate SQL based on the structure
+	// 3. Execute against the target database
+	// 4. Return formatted results
+
+	return nil, fmt.Errorf("visual query execution not yet implemented - requires database connection pool integration")
+}
+
+// ExecuteCustomSQL executes a custom SQL query
+func (s *SchemaMetadataService) ExecuteCustomSQL(ctx context.Context, databaseAlias string, sqlQuery string) (map[string]interface{}, error) {
+	// This is a placeholder implementation
+	// In production, you would:
+	// 1. Validate the SQL for safety
+	// 2. Get database connection from pool using databaseAlias
+	// 3. Execute the query
+	// 4. Return results with metadata
+
+	return nil, fmt.Errorf("custom SQL execution not yet implemented - requires database connection pool integration")
+}
+
+// ValidateSQL validates SQL syntax without executing it
+func (s *SchemaMetadataService) ValidateSQL(ctx context.Context, databaseAlias string, sqlQuery string) (map[string]interface{}, error) {
+	// Basic validation checks
+	if strings.TrimSpace(sqlQuery) == "" {
+		return map[string]interface{}{
+			"valid": false,
+			"error": "SQL query cannot be empty",
+		}, nil
+	}
+
+	// Check for dangerous operations
+	dangerousKeywords := []string{"DROP", "DELETE", "TRUNCATE", "ALTER", "CREATE"}
+	upperSQL := strings.ToUpper(sqlQuery)
+	for _, keyword := range dangerousKeywords {
+		if strings.Contains(upperSQL, keyword) {
+			return map[string]interface{}{
+				"valid":   false,
+				"error":   fmt.Sprintf("Query contains potentially dangerous keyword: %s", keyword),
+				"warning": "Only SELECT queries are allowed in the query builder",
+			}, nil
+		}
+	}
+
+	// Check if it's a SELECT query
+	if !strings.HasPrefix(strings.TrimSpace(upperSQL), "SELECT") {
+		return map[string]interface{}{
+			"valid": false,
+			"error": "Only SELECT queries are supported in the query builder",
+		}, nil
+	}
+
+	// In production, you would also:
+	// 1. Use database-specific EXPLAIN to validate syntax
+	// 2. Check table/column existence
+	// 3. Validate permissions
+
+	return map[string]interface{}{
+		"valid":   true,
+		"message": "SQL query is valid",
+	}, nil
+}
