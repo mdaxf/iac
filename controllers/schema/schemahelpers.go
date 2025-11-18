@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/mdaxf/iac/config"
 	dbconn "github.com/mdaxf/iac/databases"
@@ -1247,10 +1248,6 @@ func (sc *SchemaController) replaceParameters(sqlQuery string, parameters map[st
 	processedSQL := sqlQuery
 	args := []interface{}{}
 
-	// Find all @paramName placeholders
-	paramRegex := `@(\w+)`
-	re := strings.NewReplacer()
-
 	// Build replacements
 	for paramName, paramValue := range parameters {
 		placeholder := "@" + paramName
@@ -1292,7 +1289,6 @@ func (sc *SchemaController) validateQuery(alias string, sqlQuery string, iLog *l
 	}
 
 	// Detect parameters
-	paramRegex := `@(\w+)`
 	params := []string{}
 	for _, match := range strings.Split(sqlQuery, "@") {
 		if len(match) > 0 {
@@ -1389,7 +1385,9 @@ func (sc *SchemaController) getRelationshipsWithAlias(alias string, tables []str
 			strings.Join(placeholders, ","),
 			strings.Join(placeholders, ","))
 		// Duplicate the tables for the second IN clause
-		args = append(args, tables...)
+		for _, table := range tables {
+			args = append(args, table)
+		}
 	}
 
 	rows, err := db.Query(query, args...)
