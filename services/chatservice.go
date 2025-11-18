@@ -302,8 +302,9 @@ Respond with JSON only, no additional text.`, schemaContext, question)
 
 	// Parse SQL response
 	var result Text2SQLResponse
-	if err := json.Unmarshal([]byte(openAIResp.Choices[0].Message.Content), &result); err != nil {
-		return nil, err
+	cleanedContent := cleanJSONResponse(openAIResp.Choices[0].Message.Content)
+	if err := json.Unmarshal([]byte(cleanedContent), &result); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON response: %w (content: %s)", err, cleanedContent)
 	}
 
 	return &result, nil
@@ -514,4 +515,33 @@ func sqrt(x float64) float64 {
 		z -= (z*z - x) / (2 * z)
 	}
 	return z
+}
+
+// cleanJSONResponse removes markdown code blocks and cleans the JSON response
+func cleanJSONResponse(content string) string {
+	// Trim whitespace
+	content = strings.TrimSpace(content)
+
+	// Remove markdown code blocks (```json...``` or ```...```)
+	if strings.HasPrefix(content, "```") {
+		// Find the first newline after ```
+		startIdx := strings.Index(content, "\n")
+		if startIdx == -1 {
+			// No newline found, try removing just the ```
+			content = strings.TrimPrefix(content, "```json")
+			content = strings.TrimPrefix(content, "```")
+		} else {
+			// Remove everything up to and including the first newline
+			content = content[startIdx+1:]
+		}
+
+		// Remove trailing ```
+		if strings.HasSuffix(content, "```") {
+			content = content[:len(content)-3]
+		}
+
+		content = strings.TrimSpace(content)
+	}
+
+	return content
 }
