@@ -16,9 +16,12 @@ package gormdb
 
 import (
 	"fmt"
+	"strings"
 
 	dbconn "github.com/mdaxf/iac/databases"
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -37,20 +40,35 @@ func InitGormDB() error {
 		return fmt.Errorf("database connection is not alive: %v. Please check database connectivity", err)
 	}
 
-	// Get DSN from the existing connection
-	// We'll need to reconstruct it or get it from config
-	// For now, use a basic initialization
-
-	// Open GORM with MySQL driver using the existing connection
+	// Determine the database type and initialize GORM with the appropriate driver
+	dbType := strings.ToLower(dbconn.DatabaseType)
+	var dialector gorm.Dialector
 	var err error
-	DB, err = gorm.Open(mysql.New(mysql.Config{
-		Conn: dbconn.DB,
-	}), &gorm.Config{
+
+	switch dbType {
+	case "mysql":
+		dialector = mysql.New(mysql.Config{
+			Conn: dbconn.DB,
+		})
+	case "postgres", "postgresql":
+		dialector = postgres.New(postgres.Config{
+			Conn: dbconn.DB,
+		})
+	case "sqlserver", "mssql":
+		dialector = sqlserver.New(sqlserver.Config{
+			Conn: dbconn.DB,
+		})
+	default:
+		return fmt.Errorf("unsupported database type for GORM: %s. Supported types: mysql, postgres, sqlserver", dbType)
+	}
+
+	// Open GORM with the appropriate driver
+	DB, err = gorm.Open(dialector, &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to initialize GORM: %v", err)
+		return fmt.Errorf("failed to initialize GORM with %s driver: %v", dbType, err)
 	}
 
 	// Verify GORM DB is working
