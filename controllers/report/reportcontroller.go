@@ -169,6 +169,61 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 		return
 	}
 
+	// Handle datasources separately if included in the request
+	if datasourcesRaw, hasDatasources := updates["datasources"]; hasDatasources {
+		if datasourcesArray, ok := datasourcesRaw.([]interface{}); ok {
+			for _, dsRaw := range datasourcesArray {
+				if dsMap, ok := dsRaw.(map[string]interface{}); ok {
+					// Convert map to JSON and back to struct for proper type handling
+					dsJSON, err := json.Marshal(dsMap)
+					if err != nil {
+						iLog.Error(fmt.Sprintf("Error marshalling datasource: %v", err))
+						continue
+					}
+
+					var datasource models.ReportDatasource
+					if err := json.Unmarshal(dsJSON, &datasource); err != nil {
+						iLog.Error(fmt.Sprintf("Error unmarshalling datasource: %v", err))
+						continue
+					}
+
+					// Set the report ID
+					datasource.ReportID = reportID
+					datasource.ModifiedBy = user
+
+					// Update or create datasource
+					if datasource.ID != "" {
+						// Update existing datasource
+						dsUpdates := make(map[string]interface{})
+						dsUpdates["alias"] = datasource.Alias
+						dsUpdates["databasealias"] = datasource.DatabaseAlias
+						dsUpdates["querytype"] = datasource.QueryType
+						dsUpdates["customsql"] = datasource.CustomSQL
+						dsUpdates["selectedtables"] = datasource.SelectedTables
+						dsUpdates["selectedfields"] = datasource.SelectedFields
+						dsUpdates["joins"] = datasource.Joins
+						dsUpdates["filters"] = datasource.Filters
+						dsUpdates["sorting"] = datasource.Sorting
+						dsUpdates["grouping"] = datasource.Grouping
+						dsUpdates["parameters"] = datasource.Parameters
+						dsUpdates["modifiedby"] = user
+
+						if err := rc.service.UpdateDatasource(datasource.ID, dsUpdates); err != nil {
+							iLog.Error(fmt.Sprintf("Error updating datasource %s: %v", datasource.ID, err))
+						}
+					} else {
+						// Create new datasource
+						datasource.CreatedBy = user
+						if err := rc.service.AddDatasource(&datasource); err != nil {
+							iLog.Error(fmt.Sprintf("Error creating datasource: %v", err))
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Update the report (UpdateReport will filter out relationship fields)
 	if err := rc.service.UpdateReport(reportID, updates); err != nil {
 		iLog.Error(fmt.Sprintf("Error updating report: %v", err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update report"})

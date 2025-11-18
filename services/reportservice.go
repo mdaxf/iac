@@ -89,10 +89,29 @@ func (s *ReportService) ListReports(userID string, isPublic bool, reportType str
 
 // UpdateReport updates an existing report
 func (s *ReportService) UpdateReport(id string, updates map[string]interface{}) error {
-	// Add updated_at timestamp
-	updates["modifiedon"] = time.Now()
+	// Filter out relationship fields - these should be updated through their dedicated endpoints
+	// to avoid GORM trying to pass complex nested structures as SQL parameters
+	relationshipFields := []string{"datasources", "components", "parameters", "executions", "shares"}
+	filteredUpdates := make(map[string]interface{})
 
-	return s.DB.Model(&models.Report{}).Where("id = ?", id).Updates(updates).Error
+	for key, value := range updates {
+		// Skip relationship fields
+		isRelationship := false
+		for _, relField := range relationshipFields {
+			if key == relField {
+				isRelationship = true
+				break
+			}
+		}
+		if !isRelationship {
+			filteredUpdates[key] = value
+		}
+	}
+
+	// Add updated_at timestamp
+	filteredUpdates["modifiedon"] = time.Now()
+
+	return s.DB.Model(&models.Report{}).Where("id = ?", id).Updates(filteredUpdates).Error
 }
 
 // DeleteReport soft deletes a report
