@@ -193,11 +193,18 @@ func (s *ChatService) getSchemaContext(databaseAlias, question string) (string, 
 func (s *ChatService) getRelevantBusinessEntities(databaseAlias, question string) ([]models.BusinessEntity, error) {
 	var entities []models.BusinessEntity
 
-	// Use full-text search for now (vector search would be better)
+	// Try full-text search first (requires FULLTEXT index)
 	err := s.DB.Where("databasealias = ?", databaseAlias).
 		Where("MATCH(entityname, description) AGAINST(? IN NATURAL LANGUAGE MODE)", question).
 		Limit(5).
 		Find(&entities).Error
+
+	// If FULLTEXT search fails (no index or other error), fall back to simple query
+	if err != nil || len(entities) == 0 {
+		err = s.DB.Where("databasealias = ?", databaseAlias).
+			Limit(10).
+			Find(&entities).Error
+	}
 
 	return entities, err
 }
@@ -206,11 +213,20 @@ func (s *ChatService) getRelevantBusinessEntities(databaseAlias, question string
 func (s *ChatService) getRelevantTableMetadata(databaseAlias, question string) ([]models.DatabaseSchemaMetadata, error) {
 	var metadata []models.DatabaseSchemaMetadata
 
-	// Use full-text search for now
+	// Try full-text search first (requires FULLTEXT index)
 	err := s.DB.Where("databasealias = ?", databaseAlias).
 		Where("MATCH(description, columncomment) AGAINST(? IN NATURAL LANGUAGE MODE)", question).
 		Limit(10).
 		Find(&metadata).Error
+
+	// If FULLTEXT search fails (no index or other error), fall back to get all tables
+	if err != nil || len(metadata) == 0 {
+		// Get all tables and some columns for the database
+		err = s.DB.Where("databasealias = ?", databaseAlias).
+			Order("tablename, metadatatype DESC").
+			Limit(50).
+			Find(&metadata).Error
+	}
 
 	return metadata, err
 }
@@ -227,9 +243,10 @@ CORE PRINCIPLES:
 5. Provide clear explanations for your reasoning
 
 RESPONSE FORMAT (JSON):
+You MUST ALWAYS respond with valid JSON in this exact format, even if you cannot generate a perfect query:
 {
-  "sql": "The generated SQL query",
-  "explanation": "Clear explanation of what the query does",
+  "sql": "The generated SQL query (or empty string if cannot generate)",
+  "explanation": "Clear explanation of what the query does or why it cannot be generated",
   "confidence": 0.95,
   "tables_used": ["table1", "table2"],
   "columns_used": ["column1", "column2"],
@@ -237,7 +254,10 @@ RESPONSE FORMAT (JSON):
   "query_type": "SELECT"
 }
 
+If schema information is limited or missing, make reasonable assumptions based on common database patterns and still return valid JSON with low confidence.
+
 IMPORTANT:
+- ALWAYS return valid JSON, never plain text
 - Only generate SELECT queries (read-only)
 - Never generate INSERT, UPDATE, DELETE, DROP, ALTER, or other dangerous operations
 - Add LIMIT clause if not specified (default: 100)
@@ -304,6 +324,10 @@ Respond with JSON only, no additional text.`, schemaContext, question)
 	var result Text2SQLResponse
 	cleanedContent := cleanJSONResponse(openAIResp.Choices[0].Message.Content)
 	if err := json.Unmarshal([]byte(cleanedContent), &result); err != nil {
+		// If JSON parsing fails and content looks like plain text, provide helpful error
+		if !strings.HasPrefix(strings.TrimSpace(cleanedContent), "{") {
+			return nil, fmt.Errorf("AI returned plain text instead of JSON. This usually means insufficient schema information. Response: %s", cleanedContent)
+		}
 		return nil, fmt.Errorf("failed to parse JSON response: %w (content: %s)", err, cleanedContent)
 	}
 
