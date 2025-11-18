@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -155,6 +156,15 @@ func initializeDatabase() {
 	dbconn.DatabaseType = databaseconfig["type"].(string)
 	dbconn.DatabaseConnection = databaseconfig["connection"].(string)
 
+	// Log the connection string (without password for security)
+	sanitizedConn := dbconn.DatabaseConnection
+	if idx := strings.Index(sanitizedConn, "@"); idx > 0 {
+		if colonIdx := strings.Index(sanitizedConn, ":"); colonIdx > 0 && colonIdx < idx {
+			sanitizedConn = sanitizedConn[:colonIdx+1] + "****" + sanitizedConn[idx:]
+		}
+	}
+	ilog.Info(fmt.Sprintf("Database connection string: %s", sanitizedConn))
+
 	// set the maximum idle connections, default to 5 if not provided or if the value is not a float64
 	if databaseconfig["maxidleconns"] == nil {
 		dbconn.MaxIdleConns = 5
@@ -178,9 +188,13 @@ func initializeDatabase() {
 	}
 
 	// connect to the database (legacy method)
+	ilog.Info(fmt.Sprintf("Connecting to database - Type: %s", dbconn.DatabaseType))
 	err := dbconn.ConnectDB()
 	if err != nil {
 		ilog.Error(fmt.Sprintf("initialize Database error: %s", err.Error()))
+		ilog.Error("Database connection failed - GORM features will not be available")
+	} else {
+		ilog.Info("Database connection established successfully")
 	}
 
 	// Register main database with ORM as "default" alias

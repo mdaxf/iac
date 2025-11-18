@@ -249,7 +249,7 @@ func (s *ReportService) RevokeShare(id string) error {
 // GetShareByToken retrieves a share by token
 func (s *ReportService) GetShareByToken(token string) (*models.ReportShare, error) {
 	var share models.ReportShare
-	err := s.DB.Where("share_token = ? AND active = ?", token, true).First(&share).Error
+	err := s.DB.Where("sharetoken = ? AND active = ?", token, true).First(&share).Error
 	if err != nil {
 		return nil, err
 	}

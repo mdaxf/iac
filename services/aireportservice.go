@@ -345,32 +345,3 @@ func (s *AIReportService) isDateString(str string) bool {
 
 	return false
 }
-
-// cleanJSONResponse removes markdown code blocks and cleans the JSON response
-func cleanJSONResponse(content string) string {
-	// Trim whitespace
-	content = strings.TrimSpace(content)
-
-	// Remove markdown code blocks (```json...``` or ```...```)
-	if strings.HasPrefix(content, "```") {
-		// Find the first newline after ```
-		startIdx := strings.Index(content, "\n")
-		if startIdx == -1 {
-			// No newline found, try removing just the ```
-			content = strings.TrimPrefix(content, "```json")
-			content = strings.TrimPrefix(content, "```")
-		} else {
-			// Remove everything up to and including the first newline
-			content = content[startIdx+1:]
-		}
-
-		// Remove trailing ```
-		if strings.HasSuffix(content, "```") {
-			content = content[:len(content)-3]
-		}
-
-		content = strings.TrimSpace(content)
-	}
-
-	return content
-}

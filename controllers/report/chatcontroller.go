@@ -23,6 +23,19 @@ type ChatController struct {
 
 // NewChatController creates a new chat controller
 func NewChatController() *ChatController {
+	// Check if GORM DB is initialized
+	if gormdb.DB == nil {
+		iLog := logger.Log{
+			ModuleName:     logger.API,
+			User:           "System",
+			ControllerName: "chat",
+		}
+		iLog.Error("Failed to create ChatController: gormdb.DB is nil. GORM database may not be initialized properly.")
+		return &ChatController{
+			service: nil, // Service will be nil, endpoints should check this
+		}
+	}
+
 	return &ChatController{
 		service: services.NewChatService(gormdb.DB, config.OpenAiKey, config.OpenAiModel),
 	}
@@ -58,6 +71,13 @@ func (cc *ChatController) CreateConversation(c *gin.Context) {
 		return
 	}
 
+	// Check if service is initialized
+	if cc.service == nil {
+		iLog.Error("ChatService is not initialized - database may not be connected")
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Chat service is not available. Database may not be initialized."})
+		return
+	}
+
 	conversation, err := cc.service.CreateConversation(user, request.DatabaseAlias, request.Title, request.AutoExecuteQuery)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error creating conversation: %v", err))
@@ -77,6 +97,12 @@ func (cc *ChatController) GetConversation(c *gin.Context) {
 		return
 	}
 
+	// Check if service is initialized
+	if cc.service == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Chat service is not available. Database may not be initialized."})
+		return
+	}
+
 	conversation, err := cc.service.GetConversation(conversationID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Conversation not found"})
@@ -91,6 +117,12 @@ func (cc *ChatController) ListConversations(c *gin.Context) {
 	_, _, user, err := common.GetRequestBodyandUser(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Check if service is initialized
+	if cc.service == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Chat service is not available. Database may not be initialized."})
 		return
 	}
 
@@ -113,6 +145,12 @@ func (cc *ChatController) DeleteConversation(c *gin.Context) {
 	conversationID := c.Param("id")
 	if conversationID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Conversation ID is required"})
+		return
+	}
+
+	// Check if service is initialized
+	if cc.service == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Chat service is not available. Database may not be initialized."})
 		return
 	}
 
@@ -165,6 +203,13 @@ func (cc *ChatController) SendMessage(c *gin.Context) {
 		return
 	}
 
+	// Check if service is initialized
+	if cc.service == nil {
+		iLog.Error("ChatService is not initialized - database may not be connected")
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Chat service is not available. Database may not be initialized."})
+		return
+	}
+
 	// Process message and generate AI response
 	response, err := cc.service.ProcessMessage(
 		c.Request.Context(),
@@ -206,6 +251,13 @@ func (cc *ChatController) CreateSchemaEmbedding(c *gin.Context) {
 		return
 	}
 
+	// Check if service is initialized
+	if cc.service == nil {
+		iLog.Error("ChatService is not initialized - database may not be connected")
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Chat service is not available. Database may not be initialized."})
+		return
+	}
+
 	// Create embedding
 	embedding, err := cc.service.CreateEmbedding(c.Request.Context(), request.EntityText)
 	if err != nil {
@@ -243,6 +295,12 @@ func (cc *ChatController) SearchSchema(c *gin.Context) {
 
 	if err := json.Unmarshal(body, &request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// Check if service is initialized
+	if cc.service == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Chat service is not available. Database may not be initialized."})
 		return
 	}
 

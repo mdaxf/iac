@@ -16,9 +16,11 @@ package gormdb
 
 import (
 	"fmt"
+	"strings"
 
 	dbconn "github.com/mdaxf/iac/databases"
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -29,23 +31,51 @@ var DB *gorm.DB
 // InitGormDB initializes the GORM database connection using the existing SQL connection
 func InitGormDB() error {
 	if dbconn.DB == nil {
-		return fmt.Errorf("database connection not initialized")
+		return fmt.Errorf("database connection not initialized - dbconn.DB is nil. Please check if ConnectDB() was called successfully")
 	}
 
-	// Get DSN from the existing connection
-	// We'll need to reconstruct it or get it from config
-	// For now, use a basic initialization
+	// Test the connection first
+	if err := dbconn.DB.Ping(); err != nil {
+		return fmt.Errorf("database connection is not alive: %v. Please check database connectivity", err)
+	}
 
-	// Open GORM with MySQL driver using the existing connection
+	// Determine the database type and initialize GORM with the appropriate driver
+	dbType := strings.ToLower(dbconn.DatabaseType)
+	var dialector gorm.Dialector
 	var err error
-	DB, err = gorm.Open(mysql.New(mysql.Config{
-		Conn: dbconn.DB,
-	}), &gorm.Config{
+
+	switch dbType {
+	case "mysql":
+		dialector = mysql.New(mysql.Config{
+			Conn: dbconn.DB,
+		})
+	case "postgres", "postgresql":
+		dialector = postgres.New(postgres.Config{
+			Conn: dbconn.DB,
+		})
+	case "sqlserver", "mssql":
+		return fmt.Errorf("GORM does not support SQL Server due to driver conflicts. SQL Server is supported via the legacy database layer")
+	default:
+		return fmt.Errorf("unsupported database type for GORM: %s. Supported types: mysql, postgres", dbType)
+	}
+
+	// Open GORM with the appropriate driver
+	DB, err = gorm.Open(dialector, &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to initialize GORM: %v", err)
+		return fmt.Errorf("failed to initialize GORM with %s driver: %v", dbType, err)
+	}
+
+	// Verify GORM DB is working
+	sqlDB, err := DB.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get underlying sql.DB from GORM: %v", err)
+	}
+
+	if err := sqlDB.Ping(); err != nil {
+		return fmt.Errorf("GORM database connection test failed: %v", err)
 	}
 
 	return nil
