@@ -196,3 +196,26 @@ func (c *SchemaMetadataController) GetSchemaContext(ctx *gin.Context) {
 		"context": context,
 	})
 }
+
+// GetDatabaseMetadata retrieves complete metadata (tables and columns) for a database
+// GET /api/schema-metadata/databases/:dbName/metadata
+func (c *SchemaMetadataController) GetDatabaseMetadata(ctx *gin.Context) {
+	databaseAlias := ctx.Param("dbName")
+
+	if databaseAlias == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "database alias is required"})
+		return
+	}
+
+	metadata, err := c.service.GetDatabaseMetadata(ctx.Request.Context(), databaseAlias)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    metadata,
+		"count":   len(metadata),
+	})
+}

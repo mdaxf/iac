@@ -259,3 +259,17 @@ func (s *SchemaMetadataService) SearchMetadata(ctx context.Context, databaseAlia
 
 	return metadata, nil
 }
+
+// GetDatabaseMetadata retrieves complete metadata (tables and columns) for a database
+func (s *SchemaMetadataService) GetDatabaseMetadata(ctx context.Context, databaseAlias string) ([]models.DatabaseSchemaMetadata, error) {
+	var metadata []models.DatabaseSchemaMetadata
+
+	if err := s.db.WithContext(ctx).
+		Where("databasealias = ?", databaseAlias).
+		Order("tablename, metadatatype DESC, columnname").
+		Find(&metadata).Error; err != nil {
+		return nil, fmt.Errorf("failed to get database metadata: %w", err)
+	}
+
+	return metadata, nil
+}

@@ -708,6 +708,11 @@
           "handler": "GetDatabases"
         },
         {
+          "method": "GET",
+          "path": "/databases/:dbName/metadata",
+          "handler": "GetDatabaseMetadata"
+        },
+        {
           "method": "POST",
           "path": "/context",
           "handler": "GetSchemaContext"
