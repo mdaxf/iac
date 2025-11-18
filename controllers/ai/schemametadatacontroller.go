@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mdaxf/iac/gormdb"
+	"github.com/mdaxf/iac/models"
 	"github.com/mdaxf/iac/services"
 )
 
@@ -209,14 +210,25 @@ func (c *SchemaMetadataController) GetDatabaseMetadata(ctx *gin.Context) {
 
 	metadata, err := c.service.GetDatabaseMetadata(ctx.Request.Context(), databaseAlias)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		// Provide helpful error message if table doesn't exist
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error":   err.Error(),
+			"message": "Database schema metadata table may not be initialized. Please run schema discovery first.",
+			"hint":    "POST /api/schema-metadata/discover with database_alias and database_name",
+		})
 		return
+	}
+
+	// Return empty array if no metadata found (not an error)
+	if metadata == nil {
+		metadata = []models.DatabaseSchemaMetadata{}
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    metadata,
 		"count":   len(metadata),
+		"message": len(metadata) == 0 ? "No metadata found. Run schema discovery to populate." : "",
 	})
 }
 

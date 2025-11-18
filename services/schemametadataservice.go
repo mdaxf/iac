@@ -264,13 +264,17 @@ func (s *SchemaMetadataService) SearchMetadata(ctx context.Context, databaseAlia
 func (s *SchemaMetadataService) GetDatabaseMetadata(ctx context.Context, databaseAlias string) ([]models.DatabaseSchemaMetadata, error) {
 	var metadata []models.DatabaseSchemaMetadata
 
+	// Use Find which returns empty slice if no records found (not an error)
 	if err := s.db.WithContext(ctx).
 		Where("databasealias = ?", databaseAlias).
 		Order("tablename, metadatatype DESC, columnname").
 		Find(&metadata).Error; err != nil {
+		// Only return error for actual database errors, not "record not found"
 		return nil, fmt.Errorf("failed to get database metadata: %w", err)
 	}
 
+	// Return empty slice if no metadata found (not an error condition)
+	// The frontend should handle empty results gracefully
 	return metadata, nil
 }
 
