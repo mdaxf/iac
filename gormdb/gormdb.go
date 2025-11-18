@@ -21,7 +21,6 @@ import (
 	dbconn "github.com/mdaxf/iac/databases"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -55,11 +54,9 @@ func InitGormDB() error {
 			Conn: dbconn.DB,
 		})
 	case "sqlserver", "mssql":
-		dialector = sqlserver.New(sqlserver.Config{
-			Conn: dbconn.DB,
-		})
+		return fmt.Errorf("GORM does not support SQL Server due to driver conflicts. SQL Server is supported via the legacy database layer")
 	default:
-		return fmt.Errorf("unsupported database type for GORM: %s. Supported types: mysql, postgres, sqlserver", dbType)
+		return fmt.Errorf("unsupported database type for GORM: %s. Supported types: mysql, postgres", dbType)
 	}
 
 	// Open GORM with the appropriate driver
