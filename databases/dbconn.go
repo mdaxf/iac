@@ -45,7 +45,7 @@ var (
 		server=%s;port=%d;user id=%s;password=%s;database=%s
 	*/
 	//DatabaseConnection = "server=xxx;user id=xx;password=xxx;database=xxx"  //sqlserver
-	DatabaseConnection = "user:iacf12345678@tcp(localhost:3306)/iac"
+	DatabaseConnection = "user:iacf12345678@tcp(localhost:3306)/iac?charset=utf8mb4&parseTime=True&loc=Local"
 	MaxIdleConns       = 5
 	MaxOpenConns       = 10
 	once               sync.Once
