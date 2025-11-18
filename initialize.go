@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -154,6 +155,18 @@ func initializeDatabase() {
 	// set the database type and connection string
 	dbconn.DatabaseType = databaseconfig["type"].(string)
 	dbconn.DatabaseConnection = databaseconfig["connection"].(string)
+
+	// Ensure MySQL connection strings have parseTime parameter
+	if dbconn.DatabaseType == "mysql" {
+		if !strings.Contains(dbconn.DatabaseConnection, "parseTime") {
+			separator := "?"
+			if strings.Contains(dbconn.DatabaseConnection, "?") {
+				separator = "&"
+			}
+			dbconn.DatabaseConnection += separator + "parseTime=True&loc=Local"
+			ilog.Info("Added parseTime=True parameter to MySQL connection string")
+		}
+	}
 
 	// set the maximum idle connections, default to 5 if not provided or if the value is not a float64
 	if databaseconfig["maxidleconns"] == nil {

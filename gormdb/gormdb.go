@@ -29,7 +29,12 @@ var DB *gorm.DB
 // InitGormDB initializes the GORM database connection using the existing SQL connection
 func InitGormDB() error {
 	if dbconn.DB == nil {
-		return fmt.Errorf("database connection not initialized")
+		return fmt.Errorf("database connection not initialized - dbconn.DB is nil. Please check if ConnectDB() was called successfully")
+	}
+
+	// Test the connection first
+	if err := dbconn.DB.Ping(); err != nil {
+		return fmt.Errorf("database connection is not alive: %v. Please check database connectivity", err)
 	}
 
 	// Get DSN from the existing connection
@@ -46,6 +51,16 @@ func InitGormDB() error {
 
 	if err != nil {
 		return fmt.Errorf("failed to initialize GORM: %v", err)
+	}
+
+	// Verify GORM DB is working
+	sqlDB, err := DB.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get underlying sql.DB from GORM: %v", err)
+	}
+
+	if err := sqlDB.Ping(); err != nil {
+		return fmt.Errorf("GORM database connection test failed: %v", err)
 	}
 
 	return nil
