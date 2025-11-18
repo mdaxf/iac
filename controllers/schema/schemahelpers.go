@@ -1126,3 +1126,306 @@ func (sc *SchemaController) getDatabaseAliases(iLog *logger.Log) []string {
 	iLog.Info(fmt.Sprintf("Database aliases available: %v", aliases))
 	return aliases
 }
+
+// executeQuery executes a SQL query with parameters and returns results
+func (sc *SchemaController) executeQuery(alias string, sqlQuery string, parameters map[string]interface{}, limit int, iLog *logger.Log) (map[string]interface{}, error) {
+	startTime := time.Now()
+
+	// Get database connection for alias
+	db, err := orm.GetDB(alias)
+	if err != nil {
+		return nil, fmt.Errorf("error getting database for alias '%s': %v", alias, err)
+	}
+
+	// Safety check - only allow SELECT queries
+	normalizedSQL := strings.ToUpper(strings.TrimSpace(sqlQuery))
+	if !strings.HasPrefix(normalizedSQL, "SELECT") {
+		return nil, fmt.Errorf("only SELECT queries are allowed")
+	}
+
+	// Check for dangerous operations
+	dangerousOps := []string{"DROP", "DELETE", "TRUNCATE", "INSERT", "UPDATE", "ALTER", "CREATE", "EXEC", "EXECUTE"}
+	for _, op := range dangerousOps {
+		if strings.Contains(normalizedSQL, op) {
+			return nil, fmt.Errorf("query contains forbidden operation: %s", op)
+		}
+	}
+
+	// Replace parameter placeholders (@paramName) with actual values
+	processedSQL, args, err := sc.replaceParameters(sqlQuery, parameters)
+	if err != nil {
+		return nil, fmt.Errorf("error processing parameters: %v", err)
+	}
+
+	// Add LIMIT clause if not present
+	if !strings.Contains(normalizedSQL, "LIMIT") && !strings.Contains(normalizedSQL, "TOP") {
+		processedSQL = fmt.Sprintf("%s LIMIT %d", processedSQL, limit)
+	}
+
+	iLog.Debug(fmt.Sprintf("Executing query: %s", processedSQL))
+
+	// Execute query with timeout
+	rows, err := db.Query(processedSQL, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error executing query: %v", err)
+	}
+	defer rows.Close()
+
+	// Get column names and types
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("error getting columns: %v", err)
+	}
+
+	columnTypes, err := rows.ColumnTypes()
+	if err != nil {
+		return nil, fmt.Errorf("error getting column types: %v", err)
+	}
+
+	// Build fields array with metadata
+	fields := make([]map[string]interface{}, 0, len(columns))
+	for i, col := range columns {
+		fieldInfo := map[string]interface{}{
+			"name":     col,
+			"dataType": columnTypes[i].DatabaseTypeName(),
+		}
+		fields = append(fields, fieldInfo)
+	}
+
+	// Read all rows
+	var resultRows []map[string]interface{}
+	for rows.Next() {
+		// Create slice of interface{} to hold each column
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range columns {
+			valuePtrs[i] = &values[i]
+		}
+
+		// Scan the row
+		if err := rows.Scan(valuePtrs...); err != nil {
+			iLog.Error(fmt.Sprintf("Error scanning row: %v", err))
+			continue
+		}
+
+		// Create a map for this row
+		rowData := make(map[string]interface{})
+		for i, col := range columns {
+			var v interface{}
+			val := values[i]
+			b, ok := val.([]byte)
+			if ok {
+				v = string(b)
+			} else {
+				v = val
+			}
+			rowData[col] = v
+		}
+		resultRows = append(resultRows, rowData)
+	}
+
+	executionTime := time.Since(startTime).Milliseconds()
+
+	// Build response
+	result := map[string]interface{}{
+		"columns":         columns,
+		"rows":            resultRows,
+		"totalRows":       len(resultRows),
+		"executionTimeMs": executionTime,
+		"fields":          fields,
+	}
+
+	return result, nil
+}
+
+// replaceParameters replaces @paramName placeholders with ? and returns ordered args
+func (sc *SchemaController) replaceParameters(sqlQuery string, parameters map[string]interface{}) (string, []interface{}, error) {
+	if parameters == nil || len(parameters) == 0 {
+		return sqlQuery, []interface{}{}, nil
+	}
+
+	processedSQL := sqlQuery
+	args := []interface{}{}
+
+	// Find all @paramName placeholders
+	paramRegex := `@(\w+)`
+	re := strings.NewReplacer()
+
+	// Build replacements
+	for paramName, paramValue := range parameters {
+		placeholder := "@" + paramName
+		if strings.Contains(processedSQL, placeholder) {
+			processedSQL = strings.Replace(processedSQL, placeholder, "?", -1)
+			args = append(args, paramValue)
+		}
+	}
+
+	return processedSQL, args, nil
+}
+
+// validateQuery validates SQL syntax without executing
+func (sc *SchemaController) validateQuery(alias string, sqlQuery string, iLog *logger.Log) map[string]interface{} {
+	result := map[string]interface{}{
+		"valid":              true,
+		"errors":             []string{},
+		"warnings":           []string{},
+		"detectedParameters": []string{},
+	}
+
+	// Basic validation
+	normalizedSQL := strings.ToUpper(strings.TrimSpace(sqlQuery))
+
+	// Check if it's a SELECT query
+	if !strings.HasPrefix(normalizedSQL, "SELECT") {
+		result["valid"] = false
+		result["errors"] = append(result["errors"].([]string), "Only SELECT queries are allowed")
+		return result
+	}
+
+	// Check for dangerous operations
+	dangerousOps := []string{"DROP", "DELETE", "TRUNCATE", "INSERT", "UPDATE", "ALTER", "CREATE", "EXEC", "EXECUTE"}
+	for _, op := range dangerousOps {
+		if strings.Contains(normalizedSQL, op) {
+			result["valid"] = false
+			result["errors"] = append(result["errors"].([]string), fmt.Sprintf("Query contains forbidden operation: %s", op))
+		}
+	}
+
+	// Detect parameters
+	paramRegex := `@(\w+)`
+	params := []string{}
+	for _, match := range strings.Split(sqlQuery, "@") {
+		if len(match) > 0 {
+			// Extract parameter name (alphanumeric and underscore)
+			paramName := ""
+			for _, char := range match {
+				if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '_' {
+					paramName += string(char)
+				} else {
+					break
+				}
+			}
+			if paramName != "" && !contains(params, paramName) {
+				params = append(params, paramName)
+			}
+		}
+	}
+	result["detectedParameters"] = params
+
+	// Warning if no LIMIT clause
+	if !strings.Contains(normalizedSQL, "LIMIT") && !strings.Contains(normalizedSQL, "TOP") {
+		result["warnings"] = append(result["warnings"].([]string), "Query does not include LIMIT clause, may return large result set")
+	}
+
+	// Try to use database EXPLAIN to validate syntax (optional)
+	db, err := orm.GetDB(alias)
+	if err != nil {
+		result["warnings"] = append(result["warnings"].([]string), fmt.Sprintf("Could not connect to database for syntax validation: %v", err))
+		return result
+	}
+
+	// Try EXPLAIN (works for most SQL databases)
+	explainSQL := "EXPLAIN " + sqlQuery
+	_, err = db.Query(explainSQL)
+	if err != nil {
+		result["valid"] = false
+		result["errors"] = append(result["errors"].([]string), fmt.Sprintf("Syntax error: %v", err))
+	}
+
+	return result
+}
+
+// getRelationshipsWithAlias retrieves foreign key relationships for tables from a specific database alias
+func (sc *SchemaController) getRelationshipsWithAlias(alias string, tables []string, schemaName string, iLog *logger.Log) ([]map[string]interface{}, error) {
+	// Get database connection for alias
+	db, err := orm.GetDB(alias)
+	if err != nil {
+		return nil, fmt.Errorf("error getting database for alias '%s': %v", alias, err)
+	}
+
+	// If no schema provided, get current schema
+	if schemaName == "" {
+		var currentSchema string
+		err := db.QueryRow("SELECT DATABASE()").Scan(&currentSchema)
+		if err != nil {
+			// Try PostgreSQL syntax
+			err = db.QueryRow("SELECT current_schema()").Scan(&currentSchema)
+			if err != nil {
+				iLog.Warn(fmt.Sprintf("Could not determine current schema: %v, using 'public'", err))
+				schemaName = "public"
+			} else {
+				schemaName = currentSchema
+			}
+		} else {
+			schemaName = currentSchema
+		}
+	}
+
+	// Build query to get foreign key relationships
+	query := `
+		SELECT
+			rc.constraint_name,
+			kcu.table_name AS source_table,
+			kcu.column_name AS source_column,
+			kcu.referenced_table_name AS target_table,
+			kcu.referenced_column_name AS target_column
+		FROM information_schema.referential_constraints rc
+		JOIN information_schema.key_column_usage kcu
+			ON rc.constraint_name = kcu.constraint_name
+			AND rc.constraint_schema = kcu.constraint_schema
+		WHERE kcu.table_schema = ?
+	`
+
+	args := []interface{}{schemaName}
+
+	// Filter by specific tables if provided
+	if len(tables) > 0 {
+		placeholders := make([]string, len(tables))
+		for i := range tables {
+			placeholders[i] = "?"
+			args = append(args, tables[i])
+		}
+		query += fmt.Sprintf(" AND (kcu.table_name IN (%s) OR kcu.referenced_table_name IN (%s))",
+			strings.Join(placeholders, ","),
+			strings.Join(placeholders, ","))
+		// Duplicate the tables for the second IN clause
+		args = append(args, tables...)
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error querying relationships: %v", err)
+	}
+	defer rows.Close()
+
+	relationships := []map[string]interface{}{}
+	for rows.Next() {
+		var constraintName, sourceTable, sourceColumn, targetTable, targetColumn string
+		err := rows.Scan(&constraintName, &sourceTable, &sourceColumn, &targetTable, &targetColumn)
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error scanning relationship: %v", err))
+			continue
+		}
+
+		relationship := map[string]interface{}{
+			"constraintName": constraintName,
+			"sourceTable":    sourceTable,
+			"sourceColumn":   sourceColumn,
+			"targetTable":    targetTable,
+			"targetColumn":   targetColumn,
+		}
+		relationships = append(relationships, relationship)
+	}
+
+	return relationships, nil
+}
+
+// contains checks if a string slice contains a string
+func contains(slice []string, str string) bool {
+	for _, s := range slice {
+		if s == str {
+			return true
+		}
+	}
+	return false
+}

@@ -285,6 +285,36 @@
           "method": "POST",
           "path": "/dataset/batch",
           "handler": "GenerateDatasetSchemas"
+        },
+        {
+          "method": "GET",
+          "path": "/aliases",
+          "handler": "GetDatabaseAliases"
+        },
+        {
+          "method": "POST",
+          "path": "/database/tables",
+          "handler": "GetDatabaseTables"
+        },
+        {
+          "method": "POST",
+          "path": "/database/columns",
+          "handler": "GetDatabaseColumns"
+        },
+        {
+          "method": "POST",
+          "path": "/database/query",
+          "handler": "ExecuteDatabaseQuery"
+        },
+        {
+          "method": "POST",
+          "path": "/database/query/validate",
+          "handler": "ValidateDatabaseQuery"
+        },
+        {
+          "method": "POST",
+          "path": "/database/relationships",
+          "handler": "GetDatabaseRelationships"
         }
       ]
     },
