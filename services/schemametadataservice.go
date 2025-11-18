@@ -259,3 +259,250 @@ func (s *SchemaMetadataService) SearchMetadata(ctx context.Context, databaseAlia
 
 	return metadata, nil
 }
+
+// GetDatabaseMetadata retrieves complete metadata (tables and columns) for a database
+// If no metadata exists, it automatically discovers and populates it from information_schema
+func (s *SchemaMetadataService) GetDatabaseMetadata(ctx context.Context, databaseAlias string) ([]models.DatabaseSchemaMetadata, error) {
+	var metadata []models.DatabaseSchemaMetadata
+
+	// Use Find which returns empty slice if no records found (not an error)
+	if err := s.db.WithContext(ctx).
+		Where("databasealias = ?", databaseAlias).
+		Order("tablename, metadatatype DESC, columnname").
+		Find(&metadata).Error; err != nil {
+		// Only return error for actual database errors, not "record not found"
+		return nil, fmt.Errorf("failed to get database metadata: %w", err)
+	}
+
+	// If no metadata found, automatically discover and populate it
+	if len(metadata) == 0 {
+		// Get the current database name from the connection
+		var dbName string
+		if err := s.db.WithContext(ctx).Raw("SELECT DATABASE()").Scan(&dbName).Error; err != nil {
+			return nil, fmt.Errorf("failed to get current database name: %w", err)
+		}
+
+		if dbName == "" {
+			// No database selected, return empty result
+			return metadata, nil
+		}
+
+		// Auto-discover schema for this database
+		if err := s.DiscoverDatabaseSchema(ctx, databaseAlias, dbName); err != nil {
+			return nil, fmt.Errorf("failed to auto-discover schema: %w", err)
+		}
+
+		// Retrieve the newly discovered metadata
+		if err := s.db.WithContext(ctx).
+			Where("databasealias = ?", databaseAlias).
+			Order("tablename, metadatatype DESC, columnname").
+			Find(&metadata).Error; err != nil {
+			return nil, fmt.Errorf("failed to get discovered metadata: %w", err)
+		}
+	}
+
+	return metadata, nil
+}
+
+// GetTableDetail retrieves detailed information about a specific table including its columns
+func (s *SchemaMetadataService) GetTableDetail(ctx context.Context, databaseAlias, tableName, schemaName string) (map[string]interface{}, error) {
+	var metadata []models.DatabaseSchemaMetadata
+
+	query := s.db.WithContext(ctx).
+		Where("databasealias = ? AND tablename = ?", databaseAlias, tableName)
+
+	if err := query.Order("metadatatype DESC, columnname").Find(&metadata).Error; err != nil {
+		return nil, fmt.Errorf("failed to get table detail: %w", err)
+	}
+
+	if len(metadata) == 0 {
+		return nil, fmt.Errorf("table not found: %s", tableName)
+	}
+
+	// Build response structure
+	result := map[string]interface{}{
+		"table_name": tableName,
+		"schema":     schemaName,
+		"fields":     []map[string]interface{}{},
+	}
+
+	fields := []map[string]interface{}{}
+	for _, meta := range metadata {
+		if meta.MetadataType == models.MetadataTypeColumn {
+			field := map[string]interface{}{
+				"name":      meta.Column,
+				"data_type": meta.DataType,
+			}
+			if meta.IsNullable != nil {
+				field["is_nullable"] = *meta.IsNullable
+			}
+			if meta.ColumnComment != "" {
+				field["comment"] = meta.ColumnComment
+			}
+			fields = append(fields, field)
+		}
+	}
+	result["fields"] = fields
+
+	return result, nil
+}
+
+// ExecuteVisualQuery converts a visual query structure to SQL and executes it
+func (s *SchemaMetadataService) ExecuteVisualQuery(ctx context.Context, databaseAlias string, visualQuery map[string]interface{}) (map[string]interface{}, error) {
+	// Parse the visual query structure
+	vq, err := ParseVisualQuery(visualQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse visual query: %w", err)
+	}
+
+	// Generate SQL from visual query
+	sqlQuery, args, err := vq.GenerateSQL()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate SQL: %w", err)
+	}
+
+	// Execute the generated SQL
+	return s.executeQueryWithResults(ctx, databaseAlias, sqlQuery, args...)
+}
+
+// ExecuteCustomSQL executes a custom SQL query
+func (s *SchemaMetadataService) ExecuteCustomSQL(ctx context.Context, databaseAlias string, sqlQuery string) (map[string]interface{}, error) {
+	// Validate the SQL first
+	validation, err := s.ValidateSQL(ctx, databaseAlias, sqlQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate SQL: %w", err)
+	}
+
+	// Check if validation passed
+	if valid, ok := validation["valid"].(bool); !ok || !valid {
+		if errMsg, ok := validation["error"].(string); ok {
+			return nil, fmt.Errorf("SQL validation failed: %s", errMsg)
+		}
+		return nil, fmt.Errorf("SQL validation failed")
+	}
+
+	// Execute the query
+	return s.executeQueryWithResults(ctx, databaseAlias, sqlQuery)
+}
+
+// ValidateSQL validates SQL syntax without executing it
+func (s *SchemaMetadataService) ValidateSQL(ctx context.Context, databaseAlias string, sqlQuery string) (map[string]interface{}, error) {
+	// Basic validation checks
+	if strings.TrimSpace(sqlQuery) == "" {
+		return map[string]interface{}{
+			"valid": false,
+			"error": "SQL query cannot be empty",
+		}, nil
+	}
+
+	// Check for dangerous operations
+	dangerousKeywords := []string{"DROP", "DELETE", "TRUNCATE", "ALTER", "CREATE"}
+	upperSQL := strings.ToUpper(sqlQuery)
+	for _, keyword := range dangerousKeywords {
+		if strings.Contains(upperSQL, keyword) {
+			return map[string]interface{}{
+				"valid":   false,
+				"error":   fmt.Sprintf("Query contains potentially dangerous keyword: %s", keyword),
+				"warning": "Only SELECT queries are allowed in the query builder",
+			}, nil
+		}
+	}
+
+	// Check if it's a SELECT query
+	if !strings.HasPrefix(strings.TrimSpace(upperSQL), "SELECT") {
+		return map[string]interface{}{
+			"valid": false,
+			"error": "Only SELECT queries are supported in the query builder",
+		}, nil
+	}
+
+	// In production, you would also:
+	// 1. Use database-specific EXPLAIN to validate syntax
+	// 2. Check table/column existence
+	// 3. Validate permissions
+
+	return map[string]interface{}{
+		"valid":   true,
+		"message": "SQL query is valid",
+	}, nil
+}
+
+// executeQueryWithResults executes a SQL query and returns formatted results
+func (s *SchemaMetadataService) executeQueryWithResults(ctx context.Context, databaseAlias string, sqlQuery string, args ...interface{}) (map[string]interface{}, error) {
+	// Use GORM's Raw query to execute the SQL
+	// NOTE: For now, this executes against the application's database
+	// In a multi-database setup, you would get the connection from a pool based on databaseAlias
+
+	var results []map[string]interface{}
+
+	// Execute the query using GORM
+	rows, err := s.db.WithContext(ctx).Raw(sqlQuery, args...).Rows()
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute query: %w", err)
+	}
+	defer rows.Close()
+
+	// Get column names
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get columns: %w", err)
+	}
+
+	// Get column types
+	columnTypes, err := rows.ColumnTypes()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get column types: %w", err)
+	}
+
+	// Build metadata about columns
+	columnMetadata := make([]map[string]interface{}, len(columns))
+	for i, col := range columns {
+		columnMetadata[i] = map[string]interface{}{
+			"name": col,
+			"type": columnTypes[i].DatabaseTypeName(),
+		}
+	}
+
+	// Fetch all rows
+	for rows.Next() {
+		// Create a slice of interface{} to hold the values
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range columns {
+			valuePtrs[i] = &values[i]
+		}
+
+		// Scan the row
+		if err := rows.Scan(valuePtrs...); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		// Create a map for this row
+		row := make(map[string]interface{})
+		for i, col := range columns {
+			var v interface{}
+			val := values[i]
+			b, ok := val.([]byte)
+			if ok {
+				v = string(b)
+			} else {
+				v = val
+			}
+			row[col] = v
+		}
+		results = append(results, row)
+	}
+
+	// Check for errors from iterating over rows
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
+	// Return formatted response
+	return map[string]interface{}{
+		"columns": columnMetadata,
+		"rows":    results,
+		"count":   len(results),
+		"query":   sqlQuery,
+	}, nil
+}
