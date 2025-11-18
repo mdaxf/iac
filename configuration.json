@@ -1,7 +1,7 @@
 {
     "altdatabases": [
         {
-            "connection": "user:iacf12345678@tcp(localhost:3306)/iac25",
+            "connection": "user:iacf12345678@tcp(localhost:3306)/iac25?parseTime=true&loc=Local",
             "name": "conn1",
             "type": "mysql"
         }
