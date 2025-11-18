@@ -472,6 +472,16 @@
               "handler": "GetDatasources"
             },
             {
+              "method": "PUT",
+              "path": "/:id/datasources/:datasourceId",
+              "handler": "UpdateDatasourceEndpoint"
+            },
+            {
+              "method": "DELETE",
+              "path": "/:id/datasources/:datasourceId",
+              "handler": "DeleteDatasourceEndpoint"
+            },
+            {
               "method": "POST",
               "path": "/:id/components",
               "handler": "AddComponent"
