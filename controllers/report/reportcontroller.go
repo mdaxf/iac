@@ -395,6 +395,118 @@ func (rc *ReportController) GetDatasources(c *gin.Context) {
 	c.JSON(http.StatusOK, datasources)
 }
 
+// UpdateDatasourceEndpoint handles PUT /:id/datasources/:datasourceId - Update a datasource
+func (rc *ReportController) UpdateDatasourceEndpoint(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "report"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("report.UpdateDatasourceEndpoint", elapsed)
+	}()
+
+	reportID := c.Param("id")
+	datasourceID := c.Param("datasourceId")
+
+	if reportID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Report ID is required"})
+		return
+	}
+	if datasourceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Datasource ID is required"})
+		return
+	}
+
+	body, _, user, err := common.GetRequestBodyandUser(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var updates map[string]interface{}
+	if err := json.Unmarshal(body, &updates); err != nil {
+		iLog.Error(fmt.Sprintf("Error unmarshalling updates: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// Verify report ownership
+	report, err := rc.service.GetReportByID(reportID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Report not found"})
+		return
+	}
+
+	if report.CreatedBy != user {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to update this report's datasources"})
+		return
+	}
+
+	// Ensure reportid and modifiedby are set correctly
+	updates["reportid"] = reportID
+	updates["modifiedby"] = user
+
+	if err := rc.service.UpdateDatasource(datasourceID, updates); err != nil {
+		iLog.Error(fmt.Sprintf("Error updating datasource: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update datasource"})
+		return
+	}
+
+	// Fetch updated datasources
+	datasources, _ := rc.service.GetDatasources(reportID)
+	c.JSON(http.StatusOK, gin.H{
+		"message":     "Datasource updated successfully",
+		"datasources": datasources,
+	})
+}
+
+// DeleteDatasourceEndpoint handles DELETE /:id/datasources/:datasourceId - Delete a datasource
+func (rc *ReportController) DeleteDatasourceEndpoint(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "report"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("report.DeleteDatasourceEndpoint", elapsed)
+	}()
+
+	reportID := c.Param("id")
+	datasourceID := c.Param("datasourceId")
+
+	if reportID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Report ID is required"})
+		return
+	}
+	if datasourceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Datasource ID is required"})
+		return
+	}
+
+	_, _, user, err := common.GetRequestBodyandUser(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Verify report ownership
+	report, err := rc.service.GetReportByID(reportID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Report not found"})
+		return
+	}
+
+	if report.CreatedBy != user {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to delete this report's datasources"})
+		return
+	}
+
+	if err := rc.service.DeleteDatasource(datasourceID); err != nil {
+		iLog.Error(fmt.Sprintf("Error deleting datasource: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete datasource"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Datasource deleted successfully"})
+}
+
 // AddComponent handles POST /:id/components - Add component to report
 func (rc *ReportController) AddComponent(c *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "report"}
