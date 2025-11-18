@@ -1,7 +1,9 @@
 package ai
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mdaxf/iac/gormdb"
@@ -200,6 +202,7 @@ func (c *SchemaMetadataController) GetSchemaContext(ctx *gin.Context) {
 
 // GetDatabaseMetadata retrieves complete metadata (tables and columns) for a database
 // GET /api/schema-metadata/databases/:dbName/metadata
+// Automatically discovers and populates metadata if it doesn't exist
 func (c *SchemaMetadataController) GetDatabaseMetadata(ctx *gin.Context) {
 	databaseAlias := ctx.Param("dbName")
 
@@ -210,12 +213,20 @@ func (c *SchemaMetadataController) GetDatabaseMetadata(ctx *gin.Context) {
 
 	metadata, err := c.service.GetDatabaseMetadata(ctx.Request.Context(), databaseAlias)
 	if err != nil {
-		// Provide helpful error message if table doesn't exist
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error":   err.Error(),
-			"message": "Database schema metadata table may not be initialized. Please run schema discovery first.",
-			"hint":    "POST /api/schema-metadata/discover with database_alias and database_name",
-		})
+		// Check if this is an auto-discovery error
+		if strings.Contains(err.Error(), "failed to auto-discover") {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error":   err.Error(),
+				"message": "Failed to automatically discover schema from database",
+				"hint":    "Ensure the database connection is valid and the user has permissions to read information_schema",
+			})
+		} else {
+			// Other errors
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error":   err.Error(),
+				"message": "Failed to retrieve database metadata",
+			})
+		}
 		return
 	}
 
@@ -224,11 +235,29 @@ func (c *SchemaMetadataController) GetDatabaseMetadata(ctx *gin.Context) {
 		metadata = []models.DatabaseSchemaMetadata{}
 	}
 
+	// Build response message
+	var message string
+	if len(metadata) == 0 {
+		message = "No tables found in the database"
+	} else {
+		// Count tables and columns
+		tableCount := 0
+		columnCount := 0
+		for _, m := range metadata {
+			if m.MetadataType == models.MetadataTypeTable {
+				tableCount++
+			} else if m.MetadataType == models.MetadataTypeColumn {
+				columnCount++
+			}
+		}
+		message = fmt.Sprintf("Found %d tables with %d columns", tableCount, columnCount)
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    metadata,
 		"count":   len(metadata),
-		"message": len(metadata) == 0 ? "No metadata found. Run schema discovery to populate." : "",
+		"message": message,
 	})
 }
 

@@ -261,6 +261,7 @@ func (s *SchemaMetadataService) SearchMetadata(ctx context.Context, databaseAlia
 }
 
 // GetDatabaseMetadata retrieves complete metadata (tables and columns) for a database
+// If no metadata exists, it automatically discovers and populates it from information_schema
 func (s *SchemaMetadataService) GetDatabaseMetadata(ctx context.Context, databaseAlias string) ([]models.DatabaseSchemaMetadata, error) {
 	var metadata []models.DatabaseSchemaMetadata
 
@@ -273,8 +274,33 @@ func (s *SchemaMetadataService) GetDatabaseMetadata(ctx context.Context, databas
 		return nil, fmt.Errorf("failed to get database metadata: %w", err)
 	}
 
-	// Return empty slice if no metadata found (not an error condition)
-	// The frontend should handle empty results gracefully
+	// If no metadata found, automatically discover and populate it
+	if len(metadata) == 0 {
+		// Get the current database name from the connection
+		var dbName string
+		if err := s.db.WithContext(ctx).Raw("SELECT DATABASE()").Scan(&dbName).Error; err != nil {
+			return nil, fmt.Errorf("failed to get current database name: %w", err)
+		}
+
+		if dbName == "" {
+			// No database selected, return empty result
+			return metadata, nil
+		}
+
+		// Auto-discover schema for this database
+		if err := s.DiscoverDatabaseSchema(ctx, databaseAlias, dbName); err != nil {
+			return nil, fmt.Errorf("failed to auto-discover schema: %w", err)
+		}
+
+		// Retrieve the newly discovered metadata
+		if err := s.db.WithContext(ctx).
+			Where("databasealias = ?", databaseAlias).
+			Order("tablename, metadatatype DESC, columnname").
+			Find(&metadata).Error; err != nil {
+			return nil, fmt.Errorf("failed to get discovered metadata: %w", err)
+		}
+	}
+
 	return metadata, nil
 }
 
