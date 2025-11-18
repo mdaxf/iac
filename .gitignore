@@ -1,6 +1,7 @@
 *.exe
-apiconfig.json
 configuration.json
 iac.exe
 iac-server.exe
 local.settings.json
+# Local override for apiconfig.json (use environment variables instead)
+apiconfig.local.json
