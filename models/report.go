@@ -252,6 +252,43 @@ func (j JSONMap) Value() (driver.Value, error) {
 	return json.Marshal(j)
 }
 
+// JSONField is a flexible type for JSON fields that can hold arrays or objects
+type JSONField struct {
+	Data interface{}
+}
+
+// Scan implements the sql.Scanner interface for JSONField
+func (j *JSONField) Scan(value interface{}) error {
+	if value == nil {
+		j.Data = nil
+		return nil
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("type assertion to []byte failed")
+	}
+	// Unmarshal into interface{} to allow any JSON type (array, object, etc.)
+	return json.Unmarshal(bytes, &j.Data)
+}
+
+// Value implements the driver.Valuer interface for JSONField
+func (j JSONField) Value() (driver.Value, error) {
+	if j.Data == nil {
+		return nil, nil
+	}
+	return json.Marshal(j.Data)
+}
+
+// MarshalJSON implements json.Marshaler for JSONField
+func (j JSONField) MarshalJSON() ([]byte, error) {
+	return json.Marshal(j.Data)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for JSONField
+func (j *JSONField) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &j.Data)
+}
+
 // Report represents a report definition
 type Report struct {
 	ID               string     `json:"id" gorm:"primaryKey;column:id;type:varchar(36);default:(UUID())"`
@@ -293,19 +330,19 @@ func (Report) TableName() string {
 
 // ReportDatasource represents a data source for a report
 type ReportDatasource struct {
-	ID             string  `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
-	ReportID       string  `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
-	Alias          string  `json:"alias" gorm:"column:alias;type:varchar(100);not null"`
-	DatabaseAlias  string  `json:"databasealias" gorm:"column:databasealias;type:varchar(100)"`
-	QueryType      string  `json:"querytype" gorm:"column:querytype;type:varchar(20);default:'visual'"`
-	CustomSQL      string  `json:"customsql" gorm:"column:customsql;type:text"`
-	SelectedTables JSONMap `json:"selectedtables" gorm:"column:selectedtables;type:json"`
-	SelectedFields JSONMap `json:"selectedfields" gorm:"column:selectedfields;type:json"`
-	Joins          JSONMap `json:"joins" gorm:"column:joins;type:json"`
-	Filters        JSONMap `json:"filters" gorm:"column:filters;type:json"`
-	Sorting        JSONMap `json:"sorting" gorm:"column:sorting;type:json"`
-	Grouping       JSONMap `json:"grouping" gorm:"column:grouping;type:json"`
-	Parameters     JSONMap `json:"parameters" gorm:"column:parameters;type:json"`
+	ID             string    `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
+	ReportID       string    `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
+	Alias          string    `json:"alias" gorm:"column:alias;type:varchar(100);not null"`
+	DatabaseAlias  string    `json:"databasealias" gorm:"column:databasealias;type:varchar(100)"`
+	QueryType      string    `json:"querytype" gorm:"column:querytype;type:varchar(20);default:'visual'"`
+	CustomSQL      string    `json:"customsql" gorm:"column:customsql;type:text"`
+	SelectedTables JSONField `json:"selectedtables" gorm:"column:selectedtables;type:json"`
+	SelectedFields JSONField `json:"selectedfields" gorm:"column:selectedfields;type:json"`
+	Joins          JSONField `json:"joins" gorm:"column:joins;type:json"`
+	Filters        JSONField `json:"filters" gorm:"column:filters;type:json"`
+	Sorting        JSONField `json:"sorting" gorm:"column:sorting;type:json"`
+	Grouping       JSONField `json:"grouping" gorm:"column:grouping;type:json"`
+	Parameters     JSONField `json:"parameters" gorm:"column:parameters;type:json"`
 
 	// Standard IAC audit fields (must be at end)
 	Active          bool   `json:"active" gorm:"column:active;default:true"`
