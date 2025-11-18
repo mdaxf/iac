@@ -25,11 +25,12 @@ type ChatController struct {
 func NewChatController() *ChatController {
 	// Check if GORM DB is initialized
 	if gormdb.DB == nil {
-		logger.Log{
+		iLog := logger.Log{
 			ModuleName:     logger.API,
 			User:           "System",
 			ControllerName: "chat",
-		}.Error("Failed to create ChatController: gormdb.DB is nil. GORM database may not be initialized properly.")
+		}
+		iLog.Error("Failed to create ChatController: gormdb.DB is nil. GORM database may not be initialized properly.")
 		return &ChatController{
 			service: nil, // Service will be nil, endpoints should check this
 		}
