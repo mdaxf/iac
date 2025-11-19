@@ -172,10 +172,18 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 	// Handle datasources separately if included in the request
 	if datasourcesRaw, hasDatasources := updates["datasources"]; hasDatasources {
 		if datasourcesArray, ok := datasourcesRaw.([]interface{}); ok {
+			// Collect IDs of datasources in the incoming request
+			incomingDatasourceIDs := make(map[string]bool)
+
 			for _, dsRaw := range datasourcesArray {
 				if dsMap, ok := dsRaw.(map[string]interface{}); ok {
 					// Extract datasource ID to determine if this is update or create
 					dsID, _ := dsMap["id"].(string)
+
+					// Track this datasource ID
+					if dsID != "" {
+						incomingDatasourceIDs[dsID] = true
+					}
 
 					if dsID != "" {
 						// Update existing datasource - work directly with the map
@@ -287,17 +295,42 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 					}
 				}
 			}
+
+			// Delete datasources that are in the database but not in the incoming request
+			existingDatasources, err := rc.service.GetDatasources(reportID)
+			if err != nil {
+				iLog.Error(fmt.Sprintf("Error getting existing datasources: %v", err))
+			} else {
+				for _, existingDs := range existingDatasources {
+					// If this datasource ID is not in the incoming request, delete it
+					if !incomingDatasourceIDs[existingDs.ID] {
+						if err := rc.service.DeleteDatasource(existingDs.ID); err != nil {
+							iLog.Error(fmt.Sprintf("Error deleting datasource %s: %v", existingDs.ID, err))
+						} else {
+							iLog.Debug(fmt.Sprintf("Deleted datasource %s that was removed from report", existingDs.ID))
+						}
+					}
+				}
+			}
 		}
 	}
 
 	// Handle components separately if included in the request
 	if componentsRaw, hasComponents := updates["components"]; hasComponents {
 		if componentsArray, ok := componentsRaw.([]interface{}); ok {
+			// Collect IDs of components in the incoming request
+			incomingComponentIDs := make(map[string]bool)
+
 			for _, compRaw := range componentsArray {
 				if compMap, ok := compRaw.(map[string]interface{}); ok {
 					// Extract component ID to determine if this is update or create
 					compID, _ := compMap["id"].(string)
 					componentType, _ := compMap["componenttype"].(string)
+
+					// Track this component ID
+					if compID != "" {
+						incomingComponentIDs[compID] = true
+					}
 
 					if compID != "" {
 						// Update existing component - work directly with the map
@@ -458,6 +491,23 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 									iLog.Error(fmt.Sprintf("Error updating new component JSON fields %s: %v", component.ID, err))
 								}
 							}
+						}
+					}
+				}
+			}
+
+			// Delete components that are in the database but not in the incoming request
+			existingComponents, err := rc.service.GetComponents(reportID)
+			if err != nil {
+				iLog.Error(fmt.Sprintf("Error getting existing components: %v", err))
+			} else {
+				for _, existingComp := range existingComponents {
+					// If this component ID is not in the incoming request, delete it
+					if !incomingComponentIDs[existingComp.ID] {
+						if err := rc.service.DeleteComponent(existingComp.ID); err != nil {
+							iLog.Error(fmt.Sprintf("Error deleting component %s: %v", existingComp.ID, err))
+						} else {
+							iLog.Debug(fmt.Sprintf("Deleted component %s that was removed from report", existingComp.ID))
 						}
 					}
 				}
