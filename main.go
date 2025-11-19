@@ -111,18 +111,31 @@ func main() {
 
 	initialize()
 
+	// Log database connection status
+	ilog.Info(fmt.Sprintf("Database connection status - Type: %s, Connected: %v", dbconn.DatabaseType, dbconn.DB != nil))
+
 	if dbconn.DB != nil {
 		defer dbconn.DB.Close()
 
+		// Test the database connection
+		if err := dbconn.DB.Ping(); err != nil {
+			ilog.Error(fmt.Sprintf("Database connection test failed: %v", err))
+		} else {
+			ilog.Info("Database connection is alive")
+		}
+
 		// Initialize GORM database for new AI and reporting features
+		ilog.Info("Attempting to initialize GORM database...")
 		if err := gormdb.InitGormDB(); err != nil {
 			ilog.Error(fmt.Sprintf("Failed to initialize GORM database: %v", err))
+			ilog.Error("ChatController and AI features will not be available")
 		} else {
 			ilog.Info("GORM database initialized successfully")
 		}
 	} else {
 		//log.Fatalf("Failed to connect to database")
-		ilog.Error("Failed to connect to database")
+		ilog.Error("Failed to connect to database - dbconn.DB is nil")
+		ilog.Error("GORM and ChatController will not be available")
 	}
 
 	if mongodb.DocDBCon.MongoDBClient != nil {

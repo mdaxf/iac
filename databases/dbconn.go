@@ -45,7 +45,7 @@ var (
 		server=%s;port=%d;user id=%s;password=%s;database=%s
 	*/
 	//DatabaseConnection = "server=xxx;user id=xx;password=xxx;database=xxx"  //sqlserver
-	DatabaseConnection = "user:iacf12345678@tcp(localhost:3306)/iac"
+	DatabaseConnection = "user:iacf12345678@tcp(localhost:3306)/iac?charset=utf8mb4&parseTime=True&loc=Local"
 	MaxIdleConns       = 5
 	MaxOpenConns       = 10
 	once               sync.Once
@@ -120,12 +120,31 @@ func ConnectDB() error {
 		DB.SetMaxOpenConns(MaxOpenConns)
 	})
 
+	// Check if connection failed inside once.Do()
+	if connectionerr != nil {
+		return connectionerr
+	}
+
+	// Verify the connection is actually working
+	if DB == nil {
+		err := fmt.Errorf("database connection is nil after initialization")
+		iLog.Error(err.Error())
+		return err
+	}
+
+	// Test the connection with a ping
+	if err := DB.Ping(); err != nil {
+		iLog.Error(fmt.Sprintf("Database ping failed: %v", err))
+		return fmt.Errorf("database ping failed: %v", err)
+	}
+
 	if monitoring == false {
 		go func() {
 			monitorAndReconnectMySQL()
 		}()
 	}
 
+	iLog.Info("Database connection established and verified successfully")
 	return nil
 
 }

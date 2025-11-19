@@ -34,15 +34,15 @@ type Text2SQLRequest struct {
 
 // Text2SQLResponse represents the AI-generated SQL
 type Text2SQLResponse struct {
-	SQL         string                 `json:"sql"`
-	Explanation string                 `json:"explanation"`
-	Confidence  float64                `json:"confidence"`
-	TablesUsed  []string               `json:"tables_used"`
-	ColumnsUsed []string               `json:"columns_used"`
-	Reasoning   string                 `json:"reasoning"`
-	QueryType   string                 `json:"query_type"`
+	SQL         string                   `json:"sql"`
+	Explanation string                   `json:"explanation"`
+	Confidence  float64                  `json:"confidence"`
+	TablesUsed  []string                 `json:"tables_used"`
+	ColumnsUsed []string                 `json:"columns_used"`
+	Reasoning   string                   `json:"reasoning"`
+	QueryType   string                   `json:"query_type"`
 	Data        []map[string]interface{} `json:"data,omitempty"`
-	RowCount    int                    `json:"row_count,omitempty"`
+	RowCount    int                      `json:"row_count,omitempty"`
 }
 
 // ComponentRecommendation represents an AI-recommended report component
@@ -156,8 +156,9 @@ Respond with JSON only, no additional text.`, schemaInfo, request.Question)
 
 	// Parse response
 	var result Text2SQLResponse
-	if err := json.Unmarshal([]byte(response), &result); err != nil {
-		return nil, fmt.Errorf("failed to parse AI response: %w", err)
+	cleanedResponse := cleanJSONResponse(response)
+	if err := json.Unmarshal([]byte(cleanedResponse), &result); err != nil {
+		return nil, fmt.Errorf("failed to parse AI response: %w (content: %s)", err, cleanedResponse)
 	}
 
 	// Validate SQL is read-only
@@ -251,8 +252,9 @@ Respond with JSON only.`, request.SQL, dataInfo, request.Question)
 
 	// Parse response
 	var result ReportGenerationResponse
-	if err := json.Unmarshal([]byte(response), &result); err != nil {
-		return nil, fmt.Errorf("failed to parse AI response: %w", err)
+	cleanedResponse := cleanJSONResponse(response)
+	if err := json.Unmarshal([]byte(cleanedResponse), &result); err != nil {
+		return nil, fmt.Errorf("failed to parse AI response: %w (content: %s)", err, cleanedResponse)
 	}
 
 	return &result, nil

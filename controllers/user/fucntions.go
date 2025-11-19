@@ -148,18 +148,25 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 		return
 	}
 
+	// Check if database connection is available
+	if dbconn.DB == nil {
+		log.Error("Database connection is not available - dbconn.DB is nil")
+		ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": "Database service is currently unavailable"})
+		return
+	}
+
 	//hasedPassword, err := hashPassword(password)
 	querystr := fmt.Sprintf(LoginQuery, username)
 
 	log.Debug(fmt.Sprintf("Query:%s", querystr))
 
 	iDBTx, err := dbconn.DB.Begin()
-	defer iDBTx.Rollback()
-
 	if err != nil {
 		log.Error(fmt.Sprintf("Begin error:%s", err.Error()))
-		ctx.JSON(http.StatusInternalServerError, "Login failed")
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Login failed - database error"})
+		return
 	}
+	defer iDBTx.Rollback()
 
 	dboperation := dbconn.NewDBOperation(username, iDBTx, "User Login")
 	/*
@@ -584,17 +591,22 @@ func validatePassword(username string, password string) (bool, []map[string]inte
 			return false, nil, err
 		}
 	*/
+	// Check if database connection is available
+	if dbconn.DB == nil {
+		log.Error("Database connection is not available - dbconn.DB is nil")
+		return false, nil, fmt.Errorf("database connection is not available")
+	}
+
 	querystr := fmt.Sprintf(LoginQuery, username)
 
 	log.Debug(fmt.Sprintf("Query:%s", querystr))
 
 	iDBTx, err := dbconn.DB.Begin()
-	defer iDBTx.Rollback()
-
 	if err != nil {
 		log.Error(fmt.Sprintf("Begin error:%s", err.Error()))
 		return false, nil, err
 	}
+	defer iDBTx.Rollback()
 
 	dboperation := dbconn.NewDBOperation(username, iDBTx, "User Login")
 
