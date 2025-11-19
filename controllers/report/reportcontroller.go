@@ -772,20 +772,55 @@ func (rc *ReportController) ExecuteReport(c *gin.Context) {
 		return
 	}
 
-	// TODO: Implement actual report execution logic here
-	// For now, just mark as success
+	// Execute the report query
+	result, err := rc.service.ExecuteReportQuery(reportID, execRequest.Parameters)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error executing report: %v", err))
+
+		// Update execution record with error
+		elapsed := time.Since(startTime)
+		rc.service.UpdateExecution(execution.ID, map[string]interface{}{
+			"executionstatus": "failed",
+			"executiontimems": int(elapsed.Milliseconds()),
+			"errormessage":    err.Error(),
+		})
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"execution_id": execution.ID,
+			"status":       "failed",
+			"error":        err.Error(),
+		})
+		return
+	}
+
+	// Calculate result size and row count
+	totalRows := 0
+	if datasources, ok := result["datasources"].(map[string]interface{}); ok {
+		for _, dsResult := range datasources {
+			if dsMap, ok := dsResult.(map[string]interface{}); ok {
+				if rows, ok := dsMap["totalRows"].(int); ok {
+					totalRows += rows
+				}
+			}
+		}
+	}
+
+	// Update execution record with success
 	elapsed := time.Since(startTime)
 	rc.service.UpdateExecution(execution.ID, map[string]interface{}{
 		"executionstatus": "success",
 		"executiontimems": int(elapsed.Milliseconds()),
+		"rowcount":        totalRows,
 	})
 
 	rc.service.UpdateLastExecutedAt(reportID)
 
+	// Return execution result with data
 	c.JSON(http.StatusOK, gin.H{
 		"execution_id": execution.ID,
 		"status":       "success",
 		"message":      "Report executed successfully",
+		"data":         result,
 	})
 }
 

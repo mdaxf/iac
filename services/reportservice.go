@@ -3,9 +3,11 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mdaxf/iac/database/orm"
 	"github.com/mdaxf/iac/models"
 	"gorm.io/gorm"
 )
@@ -467,4 +469,169 @@ func (s *ReportService) SearchReports(keyword string, userID string, limit int) 
 		Find(&reports).Error
 
 	return reports, err
+}
+
+// ExecuteReportQuery executes all datasource queries for a report
+func (s *ReportService) ExecuteReportQuery(reportID string, parameters map[string]interface{}) (map[string]interface{}, error) {
+	// Get report with datasources
+	report, err := s.GetReportByID(reportID)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching report: %v", err)
+	}
+
+	// Get datasources
+	datasources, err := s.GetDatasources(reportID)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching datasources: %v", err)
+	}
+
+	if len(datasources) == 0 {
+		return nil, fmt.Errorf("report has no datasources configured")
+	}
+
+	// Execute each datasource and collect results
+	datasourceResults := make(map[string]interface{})
+
+	for _, ds := range datasources {
+		var sqlQuery string
+		var queryParams []interface{}
+
+		// Check if datasource has custom SQL or uses visual query builder
+		if ds.CustomSQL != "" && strings.TrimSpace(ds.CustomSQL) != "" {
+			// Use custom SQL
+			sqlQuery = ds.CustomSQL
+
+			// Replace parameter placeholders (@paramName) with values
+			for paramName, paramValue := range parameters {
+				placeholder := fmt.Sprintf("@%s", paramName)
+				valueStr := fmt.Sprintf("%v", paramValue)
+				sqlQuery = strings.ReplaceAll(sqlQuery, placeholder, valueStr)
+			}
+		} else {
+			// Visual query builder - build SQL from fields
+			sqlQuery, queryParams, err = s.buildSQLFromVisualQuery(&ds, parameters)
+			if err != nil {
+				return nil, fmt.Errorf("error building SQL for datasource '%s': %v", ds.Alias, err)
+			}
+		}
+
+		// Execute the query
+		result, err := s.executeDatasourceQuery(ds.DatabaseAlias, sqlQuery, queryParams)
+		if err != nil {
+			return nil, fmt.Errorf("error executing datasource '%s': %v", ds.Alias, err)
+		}
+
+		// Store result with datasource alias as key
+		datasourceResults[ds.Alias] = result
+	}
+
+	return map[string]interface{}{
+		"reportId":    reportID,
+		"reportName":  report.Name,
+		"datasources": datasourceResults,
+		"executedAt":  time.Now(),
+	}, nil
+}
+
+// executeDatasourceQuery executes a SQL query on the specified database alias
+func (s *ReportService) executeDatasourceQuery(databaseAlias string, sqlQuery string, params []interface{}) (map[string]interface{}, error) {
+	// Get database connection
+	db, err := orm.GetDB(databaseAlias)
+	if err != nil {
+		return nil, fmt.Errorf("error getting database for alias '%s': %v", databaseAlias, err)
+	}
+
+	// Safety check - only allow SELECT queries
+	normalizedSQL := strings.ToUpper(strings.TrimSpace(sqlQuery))
+	if !strings.HasPrefix(normalizedSQL, "SELECT") {
+		return nil, fmt.Errorf("only SELECT queries are allowed")
+	}
+
+	// Check for dangerous operations
+	dangerousOps := []string{"DROP", "DELETE", "TRUNCATE", "INSERT", "UPDATE", "ALTER", "CREATE", "EXEC", "EXECUTE"}
+	for _, op := range dangerousOps {
+		if strings.Contains(normalizedSQL, op) {
+			return nil, fmt.Errorf("query contains forbidden operation: %s", op)
+		}
+	}
+
+	// Execute query
+	rows, err := db.Query(sqlQuery, params...)
+	if err != nil {
+		return nil, fmt.Errorf("error executing query: %v", err)
+	}
+	defer rows.Close()
+
+	// Get column names
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("error getting columns: %v", err)
+	}
+
+	// Get column types
+	columnTypes, err := rows.ColumnTypes()
+	if err != nil {
+		return nil, fmt.Errorf("error getting column types: %v", err)
+	}
+
+	// Build fields metadata
+	fields := make([]map[string]interface{}, 0, len(columns))
+	for i, col := range columns {
+		fieldInfo := map[string]interface{}{
+			"name":     col,
+			"dataType": columnTypes[i].DatabaseTypeName(),
+		}
+		fields = append(fields, fieldInfo)
+	}
+
+	// Read all rows
+	var resultRows []map[string]interface{}
+	for rows.Next() {
+		// Create slice to hold column values
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range columns {
+			valuePtrs[i] = &values[i]
+		}
+
+		// Scan row
+		if err := rows.Scan(valuePtrs...); err != nil {
+			continue
+		}
+
+		// Create map for this row
+		rowMap := make(map[string]interface{})
+		for i, col := range columns {
+			val := values[i]
+
+			// Convert []byte to string for better JSON serialization
+			if b, ok := val.([]byte); ok {
+				rowMap[col] = string(b)
+			} else {
+				rowMap[col] = val
+			}
+		}
+		resultRows = append(resultRows, rowMap)
+	}
+
+	return map[string]interface{}{
+		"fields":    fields,
+		"rows":      resultRows,
+		"totalRows": len(resultRows),
+	}, nil
+}
+
+// buildSQLFromVisualQuery builds SQL from visual query builder fields
+func (s *ReportService) buildSQLFromVisualQuery(ds *models.ReportDatasource, parameters map[string]interface{}) (string, []interface{}, error) {
+	// TODO: Implement visual query builder
+	// This would construct SQL from:
+	// - selectedtables
+	// - selectedfields
+	// - joins
+	// - filters
+	// - sorting
+	// - grouping
+
+	// For now, return an error indicating custom SQL is required
+	return "", nil, fmt.Errorf("visual query builder not yet implemented, please use custom SQL in datasource '%s'", ds.Alias)
 }
