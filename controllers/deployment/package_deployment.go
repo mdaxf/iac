@@ -15,6 +15,7 @@
 package deployment
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -23,10 +24,12 @@ import (
 	"github.com/gin-gonic/gin"
 	dbconn "github.com/mdaxf/iac/databases"
 	deploymgr "github.com/mdaxf/iac/deployment/deploy"
-	"github.com/mdaxf/iac/deployment/models"
+	deploymodels "github.com/mdaxf/iac/deployment/models"
 	"github.com/mdaxf/iac/deployment/repository"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/logger"
+	"github.com/mdaxf/iac/models"
+	"github.com/mdaxf/iac/services"
 )
 
 // DeployPackage godoc
@@ -95,7 +98,7 @@ func (pc *PackageController) DeployPackage(c *gin.Context) {
 }
 
 // executeDeployment performs the actual deployment
-func (pc *PackageController) executeDeployment(packageID, userName string, req DeployPackageRequest) (*models.DeploymentRecord, error) {
+func (pc *PackageController) executeDeployment(packageID, userName string, req DeployPackageRequest) (*deploymodels.DeploymentRecord, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: userName, ControllerName: "PackageController.executeDeployment"}
 	startTime := time.Now()
 
@@ -132,7 +135,7 @@ func (pc *PackageController) executeDeployment(packageID, userName string, req D
 	}
 
 	// Deploy based on package type
-	var deploymentRecord *models.DeploymentRecord
+	var deploymentRecord *deploymodels.DeploymentRecord
 
 	if pkg.PackageType == "database" {
 		deployer := deploymgr.NewDatabaseDeployer(userName, dbTx, dbconn.DatabaseType)
@@ -194,59 +197,50 @@ func (pc *PackageController) executeDeployment(packageID, userName string, req D
 	return deploymentRecord, nil
 }
 
-// createDeploymentJob creates a background job for deployment
+// createDeploymentJob creates a background job for deployment using the existing job framework
 func (pc *PackageController) createDeploymentJob(packageID, userName string, req DeployPackageRequest) (string, error) {
-	// Begin database transaction
-	dbTx, err := dbconn.DB.Begin()
-	if err != nil {
-		return "", fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer dbTx.Rollback()
+	// Create job service
+	jobService := services.NewJobService(dbconn.DB)
 
-	// Create job entry
-	dbOp := dbconn.NewDBOperation(userName, dbTx, logger.Framework)
-
-	jobID := fmt.Sprintf("deploy-%s-%d", packageID[:8], time.Now().Unix())
+	// Prepare job payload
 	jobData := map[string]interface{}{
 		"package_id":  packageID,
 		"environment": req.Environment,
 		"options":     req.Options,
 		"user":        userName,
 	}
-	jobDataJSON, _ := json.Marshal(jobData)
+	payloadJSON, _ := json.Marshal(jobData)
 
-	scheduleTime := time.Now()
-	if req.ScheduleAt != nil {
-		scheduleTime = *req.ScheduleAt
+	// Prepare job metadata
+	metadata := models.JobMetadata{
+		"package_id":     packageID,
+		"deployment_env": req.Environment,
+		"created_by":     userName,
 	}
 
-	query := fmt.Sprintf(`
-		INSERT INTO %s
-		(id, jobtype, jobdata, status, scheduledat, active, createdby, createdon, modifiedby, modifiedon, rowversionstamp)
-		VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)`,
-		dbOp.QuoteIdentifier("backgroundjobs"),
-		dbOp.GetPlaceholder(1),
-		dbOp.GetPlaceholder(2),
-		dbOp.GetPlaceholder(3),
-		dbOp.GetPlaceholder(4),
-		dbOp.GetPlaceholder(5),
-		dbOp.GetPlaceholder(6),
-		dbOp.GetPlaceholder(7),
-		dbOp.GetPlaceholder(8),
-		dbOp.GetPlaceholder(9),
-		dbOp.GetPlaceholder(10),
-		dbOp.GetPlaceholder(11))
-
-	_, err = dbOp.Exec(query, jobID, "package_deployment", string(jobDataJSON), "pending", scheduleTime, true, userName, time.Now(), userName, time.Now(), 1)
-	if err != nil {
-		return "", fmt.Errorf("failed to create job: %w", err)
+	// Create queue job
+	job := &models.QueueJob{
+		TypeID:      int(models.JobTypeManual),
+		Method:      "POST",
+		Protocol:    "internal",
+		Direction:   models.JobDirectionInternal,
+		Handler:     "PACKAGE_DEPLOYMENT", // This will be handled by the job worker
+		Metadata:    metadata,
+		Payload:     string(payloadJSON),
+		Priority:    5, // Medium priority
+		MaxRetries:  3,
+		RetryCount:  0,
+		ScheduledAt: req.ScheduleAt,
+		CreatedBy:   userName,
 	}
 
-	if err := dbTx.Commit(); err != nil {
-		return "", fmt.Errorf("failed to commit job: %w", err)
+	// Create the job
+	ctx := context.Background()
+	if err := jobService.CreateQueueJob(ctx, job); err != nil {
+		return "", fmt.Errorf("failed to create deployment job: %w", err)
 	}
 
-	return jobID, nil
+	return job.ID, nil
 }
 
 // GetPackageActions godoc
@@ -533,73 +527,61 @@ func (pc *PackageController) GetJobStatus(c *gin.Context) {
 		userName = "System"
 	}
 
-	// Begin database transaction
-	dbTx, err := dbconn.DB.Begin()
+	// Create job service
+	jobService := services.NewJobService(dbconn.DB)
+
+	// Get job details
+	ctx := context.Background()
+	job, err := jobService.GetQueueJob(ctx, jobID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to begin transaction: %v", err)})
-		return
-	}
-	defer dbTx.Rollback()
-
-	// Query job
-	dbOp := dbconn.NewDBOperation(userName, dbTx, logger.Framework)
-
-	query := fmt.Sprintf(`
-		SELECT id, jobtype, jobdata, status, scheduledat, startedat, completedat, errorlog
-		FROM %s
-		WHERE id = %s AND active = %s`,
-		dbOp.QuoteIdentifier("backgroundjobs"),
-		dbOp.GetPlaceholder(1),
-		dbOp.GetPlaceholder(2))
-
-	rows, err := dbOp.Query(query, jobID, true)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to query job: %v", err)})
-		return
-	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Job not found: %v", err)})
 		return
 	}
 
-	var (
-		id          string
-		jobType     string
-		jobData     string
-		status      string
-		scheduledAt time.Time
-		startedAt   *time.Time
-		completedAt *time.Time
-		errorLog    *string
-	)
-
-	err = rows.Scan(&id, &jobType, &jobData, &status, &scheduledAt, &startedAt, &completedAt, &errorLog)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to scan job: %v", err)})
-		return
+	// Map job status to human-readable string
+	statusMap := map[int]string{
+		int(models.JobStatusPending):    "pending",
+		int(models.JobStatusQueued):     "queued",
+		int(models.JobStatusProcessing): "processing",
+		int(models.JobStatusCompleted):  "completed",
+		int(models.JobStatusFailed):     "failed",
+		int(models.JobStatusRetrying):   "retrying",
+		int(models.JobStatusCancelled):  "cancelled",
+		int(models.JobStatusScheduled):  "scheduled",
 	}
-
-	dbTx.Commit()
 
 	response := gin.H{
-		"job_id":       id,
-		"job_type":     jobType,
-		"status":       status,
-		"scheduled_at": scheduledAt,
-		"started_at":   startedAt,
-		"completed_at": completedAt,
+		"job_id":       job.ID,
+		"handler":      job.Handler,
+		"status":       statusMap[job.StatusID],
+		"status_id":    job.StatusID,
+		"priority":     job.Priority,
+		"scheduled_at": job.ScheduledAt,
+		"started_at":   job.StartedAt,
+		"completed_at": job.CompletedAt,
+		"retry_count":  job.RetryCount,
+		"max_retries":  job.MaxRetries,
+		"created_by":   job.CreatedBy,
+		"created_on":   job.CreatedOn,
 	}
 
-	if errorLog != nil {
-		response["error_log"] = *errorLog
+	if job.LastError != "" {
+		response["last_error"] = job.LastError
 	}
 
-	// Parse job data
-	var jobDataMap map[string]interface{}
-	if err := json.Unmarshal([]byte(jobData), &jobDataMap); err == nil {
-		response["job_data"] = jobDataMap
+	if job.Result != "" {
+		response["result"] = job.Result
+	}
+
+	// Parse payload
+	var payloadData map[string]interface{}
+	if err := json.Unmarshal([]byte(job.Payload), &payloadData); err == nil {
+		response["job_data"] = payloadData
+	}
+
+	// Include metadata
+	if job.Metadata != nil && len(job.Metadata) > 0 {
+		response["metadata"] = job.Metadata
 	}
 
 	c.JSON(http.StatusOK, response)

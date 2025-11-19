@@ -580,10 +580,14 @@ curl -X GET "http://localhost:8080/api/jobs/deploy-pkg123-1731945600"
 ```
 
 **Job Statuses:**
-- `pending`: Waiting to be executed
-- `running`: Currently executing
+- `pending`: Waiting to be queued
+- `queued`: Queued for execution
+- `processing`: Currently executing
 - `completed`: Successfully completed
 - `failed`: Failed with errors
+- `cancelled`: Cancelled by user
+- `timeout`: Execution timed out
+- `retry`: Waiting to retry after failure
 
 ---
 
@@ -710,7 +714,7 @@ All endpoints return standard error responses:
 
 ## Notes
 
-1. **Background Jobs:** All deployment jobs are processed by the DeploymentWorker. Start the worker with appropriate poll interval (e.g., 30 seconds).
+1. **Background Jobs:** All deployment jobs are processed by the IAC framework's JobWorker. Jobs are stored in the `queue_jobs` table and executed by the `PACKAGE_DEPLOYMENT` handler.
 
 2. **Transaction Safety:** Deployments use database transactions. Failed deployments will rollback automatically.
 
@@ -733,10 +737,10 @@ To use these endpoints, ensure the following tables are created:
 3. `packagerelationships` - Package dependencies
 4. `packagedeployments` - Deployment records
 5. `packagetags` - Package tags
-6. `backgroundjobs` - Background jobs
+6. `queue_jobs` - IAC framework job queue (already exists in framework)
 
 Schema files are located in:
 - `deployment/schema/packages_schema.sql` (MySQL)
 - `deployment/schema/packages_schema_postgresql.sql` (PostgreSQL)
-- `deployment/schema/backgroundjobs_schema.sql` (MySQL)
-- `deployment/schema/backgroundjobs_schema_postgresql.sql` (PostgreSQL)
+
+Note: The job queue system uses IAC's existing `queue_jobs` table from the framework. No additional job tables are needed.
