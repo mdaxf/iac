@@ -1,5 +1,6 @@
 -- IAC Packages and Deployment Actions Schema
 -- Supports MySQL, PostgreSQL, MSSQL, Oracle
+-- Uses IAC standard naming convention: no snake_case, 7 standard fields at end
 
 -- =====================================================
 -- Table: iacpackages
@@ -7,159 +8,199 @@
 -- =====================================================
 
 CREATE TABLE iacpackages (
-    id VARCHAR(50) PRIMARY KEY,  -- UUID format
+    id VARCHAR(50) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     version VARCHAR(50) NOT NULL,
-    package_type VARCHAR(20) NOT NULL,  -- 'database' or 'document'
+    packagetype VARCHAR(20) NOT NULL,  -- 'database' or 'document'
     description TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100) NOT NULL,
-    metadata JSON,  -- Additional metadata
-    package_data LONGTEXT NOT NULL,  -- JSON serialized package content
-    database_type VARCHAR(50),  -- mysql, postgresql, mssql, oracle, mongodb
-    database_name VARCHAR(255),
-    include_parent BOOLEAN DEFAULT FALSE,
+    metadata JSON,
+    packagedata LONGTEXT NOT NULL,  -- JSON serialized package content
+    databasetype VARCHAR(50),  -- mysql, postgresql, mssql, oracle, mongodb
+    databasename VARCHAR(255),
+    includeparent BOOLEAN DEFAULT FALSE,
     dependencies JSON,  -- Array of dependent package IDs
     checksum VARCHAR(64) NOT NULL,  -- SHA-256 hash for integrity
-    file_size BIGINT,  -- Size in bytes
+    filesize BIGINT,  -- Size in bytes
     status VARCHAR(20) DEFAULT 'active',  -- active, archived, deleted
     tags JSON,  -- Array of tags for categorization
     environment VARCHAR(50),  -- dev, staging, production
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    -- IAC Standard Fields (7 fields)
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    referenceid VARCHAR(255),
+    createdby VARCHAR(255),
+    createdon DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modifiedby VARCHAR(255),
+    modifiedon DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    rowversionstamp INT NOT NULL DEFAULT 1,
     INDEX idx_name (name),
-    INDEX idx_package_type (package_type),
+    INDEX idx_packagetype (packagetype),
     INDEX idx_status (status),
-    INDEX idx_created_at (created_at),
-    INDEX idx_created_by (created_by),
+    INDEX idx_createdon (createdon),
+    INDEX idx_createdby (createdby),
     INDEX idx_environment (environment),
+    INDEX idx_active (active),
     UNIQUE KEY unique_name_version (name, version)
 );
 
 -- =====================================================
--- Table: package_actions
+-- Table: packageactions
 -- Purpose: Record all package operations (pack, deploy, rollback)
 -- =====================================================
 
-CREATE TABLE package_actions (
-    id VARCHAR(50) PRIMARY KEY,  -- UUID format
-    package_id VARCHAR(50) NOT NULL,
-    action_type VARCHAR(20) NOT NULL,  -- 'pack', 'deploy', 'rollback', 'export', 'import', 'validate'
-    action_status VARCHAR(20) NOT NULL,  -- 'pending', 'in_progress', 'completed', 'failed', 'rolled_back'
-    target_database VARCHAR(255),  -- Target database for deployment
-    target_environment VARCHAR(50),  -- dev, staging, production
-    source_environment VARCHAR(50),  -- Source environment for pack
-    performed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    performed_by VARCHAR(100) NOT NULL,
-    started_at TIMESTAMP,
-    completed_at TIMESTAMP,
-    duration_seconds INT,  -- Action duration
+CREATE TABLE packageactions (
+    id VARCHAR(50) PRIMARY KEY,
+    packageid VARCHAR(50) NOT NULL,
+    actiontype VARCHAR(20) NOT NULL,  -- 'pack', 'deploy', 'rollback', 'export', 'import', 'validate'
+    actionstatus VARCHAR(20) NOT NULL,  -- 'pending', 'in_progress', 'completed', 'failed', 'rolled_back'
+    targetdatabase VARCHAR(255),  -- Target database for deployment
+    targetenvironment VARCHAR(50),  -- dev, staging, production
+    sourceenvironment VARCHAR(50),  -- Source environment for pack
+    performedat DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    performedby VARCHAR(100) NOT NULL,
+    startedat DATETIME,
+    completedat DATETIME,
+    durationseconds INT,  -- Action duration
     options JSON,  -- Deployment/pack options
-    result_data JSON,  -- PK mappings, ID mappings, statistics
-    error_log JSON,  -- Array of error messages
-    warning_log JSON,  -- Array of warnings
+    resultdata JSON,  -- PK mappings, ID mappings, statistics
+    errorlog JSON,  -- Array of error messages
+    warninglog JSON,  -- Array of warnings
     metadata JSON,  -- Additional action metadata
-    records_processed INT DEFAULT 0,
-    records_succeeded INT DEFAULT 0,
-    records_failed INT DEFAULT 0,
-    tables_processed INT DEFAULT 0,  -- For database packages
-    collections_processed INT DEFAULT 0,  -- For document packages
-    FOREIGN KEY (package_id) REFERENCES iacpackages(id) ON DELETE CASCADE,
-    INDEX idx_package_id (package_id),
-    INDEX idx_action_type (action_type),
-    INDEX idx_action_status (action_status),
-    INDEX idx_performed_at (performed_at),
-    INDEX idx_performed_by (performed_by),
-    INDEX idx_target_environment (target_environment)
+    recordsprocessed INT DEFAULT 0,
+    recordssucceeded INT DEFAULT 0,
+    recordsfailed INT DEFAULT 0,
+    tablesprocessed INT DEFAULT 0,  -- For database packages
+    collectionsprocessed INT DEFAULT 0,  -- For document packages
+    -- IAC Standard Fields (7 fields)
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    referenceid VARCHAR(255),
+    createdby VARCHAR(255),
+    createdon DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modifiedby VARCHAR(255),
+    modifiedon DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    rowversionstamp INT NOT NULL DEFAULT 1,
+    FOREIGN KEY (packageid) REFERENCES iacpackages(id) ON DELETE CASCADE,
+    INDEX idx_packageid (packageid),
+    INDEX idx_actiontype (actiontype),
+    INDEX idx_actionstatus (actionstatus),
+    INDEX idx_performedat (performedat),
+    INDEX idx_performedby (performedby),
+    INDEX idx_targetenvironment (targetenvironment),
+    INDEX idx_active (active)
 );
 
 -- =====================================================
--- Table: package_relationships
+-- Table: packagerelationships
 -- Purpose: Track relationships between packages
 -- =====================================================
 
-CREATE TABLE package_relationships (
+CREATE TABLE packagerelationships (
     id VARCHAR(50) PRIMARY KEY,
-    parent_package_id VARCHAR(50) NOT NULL,
-    child_package_id VARCHAR(50) NOT NULL,
-    relationship_type VARCHAR(50) NOT NULL,  -- 'depends_on', 'extends', 'includes'
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (parent_package_id) REFERENCES iacpackages(id) ON DELETE CASCADE,
-    FOREIGN KEY (child_package_id) REFERENCES iacpackages(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_relationship (parent_package_id, child_package_id, relationship_type),
-    INDEX idx_parent (parent_package_id),
-    INDEX idx_child (child_package_id)
+    parentpackageid VARCHAR(50) NOT NULL,
+    childpackageid VARCHAR(50) NOT NULL,
+    relationshiptype VARCHAR(50) NOT NULL,  -- 'depends_on', 'extends', 'includes'
+    -- IAC Standard Fields (7 fields)
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    referenceid VARCHAR(255),
+    createdby VARCHAR(255),
+    createdon DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modifiedby VARCHAR(255),
+    modifiedon DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    rowversionstamp INT NOT NULL DEFAULT 1,
+    FOREIGN KEY (parentpackageid) REFERENCES iacpackages(id) ON DELETE CASCADE,
+    FOREIGN KEY (childpackageid) REFERENCES iacpackages(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_relationship (parentpackageid, childpackageid, relationshiptype),
+    INDEX idx_parent (parentpackageid),
+    INDEX idx_child (childpackageid),
+    INDEX idx_active (active)
 );
 
 -- =====================================================
--- Table: package_deployments
+-- Table: packagedeployments
 -- Purpose: Track active deployments per environment
 -- =====================================================
 
-CREATE TABLE package_deployments (
+CREATE TABLE packagedeployments (
     id VARCHAR(50) PRIMARY KEY,
-    package_id VARCHAR(50) NOT NULL,
-    action_id VARCHAR(50) NOT NULL,  -- Reference to package_actions
+    packageid VARCHAR(50) NOT NULL,
+    actionid VARCHAR(50) NOT NULL,  -- Reference to packageactions
     environment VARCHAR(50) NOT NULL,
-    database_name VARCHAR(255) NOT NULL,
-    deployed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deployed_by VARCHAR(100) NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    rolled_back_at TIMESTAMP,
-    rolled_back_by VARCHAR(100),
-    FOREIGN KEY (package_id) REFERENCES iacpackages(id) ON DELETE CASCADE,
-    FOREIGN KEY (action_id) REFERENCES package_actions(id) ON DELETE CASCADE,
-    INDEX idx_package_id (package_id),
+    databasename VARCHAR(255) NOT NULL,
+    deployedat DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deployedby VARCHAR(100) NOT NULL,
+    isactive BOOLEAN DEFAULT TRUE,
+    rolledbackat DATETIME,
+    rolledbackby VARCHAR(100),
+    -- IAC Standard Fields (7 fields)
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    referenceid VARCHAR(255),
+    createdby VARCHAR(255),
+    createdon DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modifiedby VARCHAR(255),
+    modifiedon DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    rowversionstamp INT NOT NULL DEFAULT 1,
+    FOREIGN KEY (packageid) REFERENCES iacpackages(id) ON DELETE CASCADE,
+    FOREIGN KEY (actionid) REFERENCES packageactions(id) ON DELETE CASCADE,
+    INDEX idx_packageid (packageid),
     INDEX idx_environment (environment),
-    INDEX idx_is_active (is_active),
-    INDEX idx_deployed_at (deployed_at)
+    INDEX idx_isactive (isactive),
+    INDEX idx_deployedat (deployedat),
+    INDEX idx_active (active)
 );
 
 -- =====================================================
--- Table: package_tags
+-- Table: packagetags
 -- Purpose: Tag-based categorization and search
 -- =====================================================
 
-CREATE TABLE package_tags (
+CREATE TABLE packagetags (
     id VARCHAR(50) PRIMARY KEY,
-    package_id VARCHAR(50) NOT NULL,
-    tag_name VARCHAR(100) NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100),
-    FOREIGN KEY (package_id) REFERENCES iacpackages(id) ON DELETE CASCADE,
-    INDEX idx_package_id (package_id),
-    INDEX idx_tag_name (tag_name),
-    UNIQUE KEY unique_package_tag (package_id, tag_name)
+    packageid VARCHAR(50) NOT NULL,
+    tagname VARCHAR(100) NOT NULL,
+    -- IAC Standard Fields (7 fields)
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    referenceid VARCHAR(255),
+    createdby VARCHAR(255),
+    createdon DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modifiedby VARCHAR(255),
+    modifiedon DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    rowversionstamp INT NOT NULL DEFAULT 1,
+    FOREIGN KEY (packageid) REFERENCES iacpackages(id) ON DELETE CASCADE,
+    INDEX idx_packageid (packageid),
+    INDEX idx_tagname (tagname),
+    INDEX idx_active (active),
+    UNIQUE KEY unique_package_tag (packageid, tagname)
 );
 
 -- =====================================================
 -- Sample queries for common operations
 -- =====================================================
 
--- Get all packages with their latest action
--- SELECT p.*, a.action_type, a.action_status, a.performed_at
+-- Get all active packages with their latest action
+-- SELECT p.*, a.actiontype, a.actionstatus, a.performedat
 -- FROM iacpackages p
--- LEFT JOIN package_actions a ON a.id = (
---     SELECT id FROM package_actions
---     WHERE package_id = p.id
---     ORDER BY performed_at DESC
+-- LEFT JOIN packageactions a ON a.id = (
+--     SELECT id FROM packageactions
+--     WHERE packageid = p.id AND active = TRUE
+--     ORDER BY performedat DESC
 --     LIMIT 1
 -- )
--- ORDER BY p.created_at DESC;
+-- WHERE p.active = TRUE
+-- ORDER BY p.createdon DESC;
 
 -- Get deployment history for a package
--- SELECT * FROM package_actions
--- WHERE package_id = ? AND action_type IN ('deploy', 'rollback')
--- ORDER BY performed_at DESC;
+-- SELECT * FROM packageactions
+-- WHERE packageid = ? AND actiontype IN ('deploy', 'rollback') AND active = TRUE
+-- ORDER BY performedat DESC;
 
 -- Get currently deployed packages by environment
--- SELECT p.*, pd.environment, pd.deployed_at
+-- SELECT p.*, pd.environment, pd.deployedat
 -- FROM iacpackages p
--- INNER JOIN package_deployments pd ON pd.package_id = p.id
--- WHERE pd.environment = ? AND pd.is_active = TRUE;
+-- INNER JOIN packagedeployments pd ON pd.packageid = p.id
+-- WHERE pd.environment = ? AND pd.isactive = TRUE AND pd.active = TRUE AND p.active = TRUE;
 
 -- Get package with dependencies
--- SELECT p.*, pr.child_package_id, cp.name as dep_name, cp.version as dep_version
+-- SELECT p.*, pr.childpackageid, cp.name as dep_name, cp.version as dep_version
 -- FROM iacpackages p
--- LEFT JOIN package_relationships pr ON pr.parent_package_id = p.id
--- LEFT JOIN iacpackages cp ON cp.id = pr.child_package_id
--- WHERE p.id = ?;
+-- LEFT JOIN packagerelationships pr ON pr.parentpackageid = p.id AND pr.active = TRUE
+-- LEFT JOIN iacpackages cp ON cp.id = pr.childpackageid AND cp.active = TRUE
+-- WHERE p.id = ? AND p.active = TRUE;
