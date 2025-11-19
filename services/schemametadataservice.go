@@ -305,20 +305,16 @@ func (s *SchemaMetadataService) GetDatabaseMetadata(ctx context.Context, databas
 		if dbName == "" {
 			s.iLog.Warn("SELECT DATABASE() returned empty string, attempting to find database via SHOW DATABASES")
 
-			// Try to get database name from GORM config
-			sqlDB, err := s.db.DB()
-			if err == nil {
-				// Query information_schema without database filter
-				var databases []string
-				if err := s.db.Raw("SHOW DATABASES").Scan(&databases).Error; err == nil && len(databases) > 0 {
-					s.iLog.Debug(fmt.Sprintf("Found %d databases via SHOW DATABASES", len(databases)))
-					// Try to use the first non-system database
-					for _, db := range databases {
-						if db != "information_schema" && db != "mysql" && db != "performance_schema" && db != "sys" {
-							dbName = db
-							s.iLog.Info(fmt.Sprintf("Selected database '%s' from available databases", dbName))
-							break
-						}
+			// Query information_schema without database filter
+			var databases []string
+			if err := s.db.Raw("SHOW DATABASES").Scan(&databases).Error; err == nil && len(databases) > 0 {
+				s.iLog.Debug(fmt.Sprintf("Found %d databases via SHOW DATABASES", len(databases)))
+				// Try to use the first non-system database
+				for _, db := range databases {
+					if db != "information_schema" && db != "mysql" && db != "performance_schema" && db != "sys" {
+						dbName = db
+						s.iLog.Info(fmt.Sprintf("Selected database '%s' from available databases", dbName))
+						break
 					}
 				}
 			}
