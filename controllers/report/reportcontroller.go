@@ -321,6 +321,8 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 			// Collect IDs of components in the incoming request
 			incomingComponentIDs := make(map[string]bool)
 
+			iLog.Debug(fmt.Sprintf("Processing %d components from request", len(componentsArray)))
+
 			for _, compRaw := range componentsArray {
 				if compMap, ok := compRaw.(map[string]interface{}); ok {
 					// Extract component ID to determine if this is update or create
@@ -330,6 +332,7 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 					// Track this component ID
 					if compID != "" {
 						incomingComponentIDs[compID] = true
+						iLog.Debug(fmt.Sprintf("Tracking incoming component ID: %s", compID))
 					}
 
 					if compID != "" {
@@ -507,16 +510,25 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 			if err != nil {
 				iLog.Error(fmt.Sprintf("Error getting existing components: %v", err))
 			} else {
+				iLog.Debug(fmt.Sprintf("Found %d existing components in DB for report %s", len(existingComponents), reportID))
+				iLog.Debug(fmt.Sprintf("Incoming component IDs: %v", incomingComponentIDs))
+
+				deletedCount := 0
 				for _, existingComp := range existingComponents {
 					// If this component ID is not in the incoming request, delete it
 					if !incomingComponentIDs[existingComp.ID] {
+						iLog.Debug(fmt.Sprintf("Component %s (type: %s) is not in incoming request, deleting...", existingComp.ID, existingComp.ComponentType))
 						if err := rc.service.DeleteComponent(existingComp.ID); err != nil {
 							iLog.Error(fmt.Sprintf("Error deleting component %s: %v", existingComp.ID, err))
 						} else {
-							iLog.Debug(fmt.Sprintf("Deleted component %s that was removed from report", existingComp.ID))
+							deletedCount++
+							iLog.Info(fmt.Sprintf("Successfully deleted component %s that was removed from report", existingComp.ID))
 						}
+					} else {
+						iLog.Debug(fmt.Sprintf("Component %s is in incoming request, keeping it", existingComp.ID))
 					}
 				}
+				iLog.Info(fmt.Sprintf("Deleted %d orphaned components from report %s", deletedCount, reportID))
 			}
 		}
 	}
