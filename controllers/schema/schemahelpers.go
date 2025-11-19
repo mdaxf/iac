@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/mdaxf/iac/config"
 	dbconn "github.com/mdaxf/iac/databases"
@@ -1125,4 +1126,632 @@ func (sc *SchemaController) getDatabaseAliases(iLog *logger.Log) []string {
 
 	iLog.Info(fmt.Sprintf("Database aliases available: %v", aliases))
 	return aliases
+}
+
+// executeQuery executes a SQL query with parameters and returns results
+func (sc *SchemaController) executeQuery(alias string, sqlQuery string, parameters map[string]interface{}, limit int, iLog *logger.Log) (map[string]interface{}, error) {
+	startTime := time.Now()
+
+	// Get database connection for alias
+	db, err := orm.GetDB(alias)
+	if err != nil {
+		return nil, fmt.Errorf("error getting database for alias '%s': %v", alias, err)
+	}
+
+	// Safety check - only allow SELECT queries
+	normalizedSQL := strings.ToUpper(strings.TrimSpace(sqlQuery))
+	if !strings.HasPrefix(normalizedSQL, "SELECT") {
+		return nil, fmt.Errorf("only SELECT queries are allowed")
+	}
+
+	// Check for dangerous operations
+	dangerousOps := []string{"DROP", "DELETE", "TRUNCATE", "INSERT", "UPDATE", "ALTER", "CREATE", "EXEC", "EXECUTE"}
+	for _, op := range dangerousOps {
+		if strings.Contains(normalizedSQL, op) {
+			return nil, fmt.Errorf("query contains forbidden operation: %s", op)
+		}
+	}
+
+	// Replace parameter placeholders (@paramName) with actual values
+	processedSQL, args, err := sc.replaceParameters(sqlQuery, parameters)
+	if err != nil {
+		return nil, fmt.Errorf("error processing parameters: %v", err)
+	}
+
+	// Add LIMIT clause if not present
+	if !strings.Contains(normalizedSQL, "LIMIT") && !strings.Contains(normalizedSQL, "TOP") {
+		processedSQL = fmt.Sprintf("%s LIMIT %d", processedSQL, limit)
+	}
+
+	iLog.Debug(fmt.Sprintf("Executing query: %s", processedSQL))
+
+	// Execute query with timeout
+	rows, err := db.Query(processedSQL, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error executing query: %v", err)
+	}
+	defer rows.Close()
+
+	// Get column names and types
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("error getting columns: %v", err)
+	}
+
+	columnTypes, err := rows.ColumnTypes()
+	if err != nil {
+		return nil, fmt.Errorf("error getting column types: %v", err)
+	}
+
+	// Build fields array with metadata
+	fields := make([]map[string]interface{}, 0, len(columns))
+	for i, col := range columns {
+		fieldInfo := map[string]interface{}{
+			"name":     col,
+			"dataType": columnTypes[i].DatabaseTypeName(),
+		}
+		fields = append(fields, fieldInfo)
+	}
+
+	// Read all rows
+	var resultRows []map[string]interface{}
+	for rows.Next() {
+		// Create slice of interface{} to hold each column
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range columns {
+			valuePtrs[i] = &values[i]
+		}
+
+		// Scan the row
+		if err := rows.Scan(valuePtrs...); err != nil {
+			iLog.Error(fmt.Sprintf("Error scanning row: %v", err))
+			continue
+		}
+
+		// Create a map for this row
+		rowData := make(map[string]interface{})
+		for i, col := range columns {
+			var v interface{}
+			val := values[i]
+			b, ok := val.([]byte)
+			if ok {
+				v = string(b)
+			} else {
+				v = val
+			}
+			rowData[col] = v
+		}
+		resultRows = append(resultRows, rowData)
+	}
+
+	executionTime := time.Since(startTime).Milliseconds()
+
+	// Build response
+	result := map[string]interface{}{
+		"columns":         columns,
+		"rows":            resultRows,
+		"totalRows":       len(resultRows),
+		"executionTimeMs": executionTime,
+		"fields":          fields,
+	}
+
+	return result, nil
+}
+
+// replaceParameters replaces @paramName placeholders with ? and returns ordered args
+func (sc *SchemaController) replaceParameters(sqlQuery string, parameters map[string]interface{}) (string, []interface{}, error) {
+	if parameters == nil || len(parameters) == 0 {
+		return sqlQuery, []interface{}{}, nil
+	}
+
+	processedSQL := sqlQuery
+	args := []interface{}{}
+
+	// Build replacements
+	for paramName, paramValue := range parameters {
+		placeholder := "@" + paramName
+		if strings.Contains(processedSQL, placeholder) {
+			processedSQL = strings.Replace(processedSQL, placeholder, "?", -1)
+			args = append(args, paramValue)
+		}
+	}
+
+	return processedSQL, args, nil
+}
+
+// validateQuery validates SQL syntax without executing
+func (sc *SchemaController) validateQuery(alias string, sqlQuery string, iLog *logger.Log) map[string]interface{} {
+	result := map[string]interface{}{
+		"valid":              true,
+		"errors":             []string{},
+		"warnings":           []string{},
+		"detectedParameters": []string{},
+	}
+
+	// Basic validation
+	normalizedSQL := strings.ToUpper(strings.TrimSpace(sqlQuery))
+
+	// Check if it's a SELECT query
+	if !strings.HasPrefix(normalizedSQL, "SELECT") {
+		result["valid"] = false
+		result["errors"] = append(result["errors"].([]string), "Only SELECT queries are allowed")
+		return result
+	}
+
+	// Check for dangerous operations
+	dangerousOps := []string{"DROP", "DELETE", "TRUNCATE", "INSERT", "UPDATE", "ALTER", "CREATE", "EXEC", "EXECUTE"}
+	for _, op := range dangerousOps {
+		if strings.Contains(normalizedSQL, op) {
+			result["valid"] = false
+			result["errors"] = append(result["errors"].([]string), fmt.Sprintf("Query contains forbidden operation: %s", op))
+		}
+	}
+
+	// Detect parameters
+	params := []string{}
+	for _, match := range strings.Split(sqlQuery, "@") {
+		if len(match) > 0 {
+			// Extract parameter name (alphanumeric and underscore)
+			paramName := ""
+			for _, char := range match {
+				if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '_' {
+					paramName += string(char)
+				} else {
+					break
+				}
+			}
+			if paramName != "" && !contains(params, paramName) {
+				params = append(params, paramName)
+			}
+		}
+	}
+	result["detectedParameters"] = params
+
+	// Warning if no LIMIT clause
+	if !strings.Contains(normalizedSQL, "LIMIT") && !strings.Contains(normalizedSQL, "TOP") {
+		result["warnings"] = append(result["warnings"].([]string), "Query does not include LIMIT clause, may return large result set")
+	}
+
+	// Try to use database EXPLAIN to validate syntax (optional)
+	db, err := orm.GetDB(alias)
+	if err != nil {
+		result["warnings"] = append(result["warnings"].([]string), fmt.Sprintf("Could not connect to database for syntax validation: %v", err))
+		return result
+	}
+
+	// Try EXPLAIN (works for most SQL databases)
+	explainSQL := "EXPLAIN " + sqlQuery
+	_, err = db.Query(explainSQL)
+	if err != nil {
+		result["valid"] = false
+		result["errors"] = append(result["errors"].([]string), fmt.Sprintf("Syntax error: %v", err))
+	}
+
+	return result
+}
+
+// getRelationshipsWithAlias retrieves foreign key relationships for tables from a specific database alias
+func (sc *SchemaController) getRelationshipsWithAlias(alias string, tables []string, schemaName string, iLog *logger.Log) ([]map[string]interface{}, error) {
+	// Get database connection for alias
+	db, err := orm.GetDB(alias)
+	if err != nil {
+		return nil, fmt.Errorf("error getting database for alias '%s': %v", alias, err)
+	}
+
+	// If no schema provided, get current schema
+	if schemaName == "" {
+		var currentSchema string
+		err := db.QueryRow("SELECT DATABASE()").Scan(&currentSchema)
+		if err != nil {
+			// Try PostgreSQL syntax
+			err = db.QueryRow("SELECT current_schema()").Scan(&currentSchema)
+			if err != nil {
+				iLog.Warn(fmt.Sprintf("Could not determine current schema: %v, using 'public'", err))
+				schemaName = "public"
+			} else {
+				schemaName = currentSchema
+			}
+		} else {
+			schemaName = currentSchema
+		}
+	}
+
+	// Build query to get foreign key relationships
+	query := `
+		SELECT
+			rc.constraint_name,
+			kcu.table_name AS source_table,
+			kcu.column_name AS source_column,
+			kcu.referenced_table_name AS target_table,
+			kcu.referenced_column_name AS target_column
+		FROM information_schema.referential_constraints rc
+		JOIN information_schema.key_column_usage kcu
+			ON rc.constraint_name = kcu.constraint_name
+			AND rc.constraint_schema = kcu.constraint_schema
+		WHERE kcu.table_schema = ?
+	`
+
+	args := []interface{}{schemaName}
+
+	// Filter by specific tables if provided
+	if len(tables) > 0 {
+		placeholders := make([]string, len(tables))
+		for i := range tables {
+			placeholders[i] = "?"
+			args = append(args, tables[i])
+		}
+		query += fmt.Sprintf(" AND (kcu.table_name IN (%s) OR kcu.referenced_table_name IN (%s))",
+			strings.Join(placeholders, ","),
+			strings.Join(placeholders, ","))
+		// Duplicate the tables for the second IN clause
+		for _, table := range tables {
+			args = append(args, table)
+		}
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error querying relationships: %v", err)
+	}
+	defer rows.Close()
+
+	relationships := []map[string]interface{}{}
+	for rows.Next() {
+		var constraintName, sourceTable, sourceColumn, targetTable, targetColumn string
+		err := rows.Scan(&constraintName, &sourceTable, &sourceColumn, &targetTable, &targetColumn)
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error scanning relationship: %v", err))
+			continue
+		}
+
+		relationship := map[string]interface{}{
+			"constraintName": constraintName,
+			"sourceTable":    sourceTable,
+			"sourceColumn":   sourceColumn,
+			"targetTable":    targetTable,
+			"targetColumn":   targetColumn,
+		}
+		relationships = append(relationships, relationship)
+	}
+
+	return relationships, nil
+}
+
+// contains checks if a string slice contains a string
+func contains(slice []string, str string) bool {
+	for _, s := range slice {
+		if s == str {
+			return true
+		}
+	}
+	return false
+}
+
+// getStoredProcedures retrieves list of stored procedures from a database
+func (sc *SchemaController) getStoredProcedures(alias string, schemaName string, iLog *logger.Log) ([]map[string]interface{}, error) {
+	// Get database connection for alias
+	db, err := orm.GetDB(alias)
+	if err != nil {
+		return nil, fmt.Errorf("error getting database for alias '%s': %v", alias, err)
+	}
+
+	// Determine database type and schema
+	dbType, currentSchema := sc.detectDatabaseType(db, schemaName, iLog)
+
+	var query string
+	var args []interface{}
+
+	switch dbType {
+	case "postgresql":
+		// PostgreSQL: Query information_schema.routines for functions (PostgreSQL uses functions instead of procedures)
+		query = `
+			SELECT
+				routine_name as name,
+				routine_schema as schema,
+				routine_schema || '.' || routine_name as full_name,
+				COALESCE(routine_comment, '') as description,
+				created as created,
+				last_altered as modified
+			FROM information_schema.routines
+			WHERE routine_type = 'FUNCTION'
+				AND routine_schema = ?
+			ORDER BY routine_name
+		`
+		args = []interface{}{currentSchema}
+
+	case "mysql":
+		// MySQL: Use SHOW PROCEDURE STATUS
+		query = `
+			SELECT
+				name,
+				db as schema,
+				CONCAT(db, '.', name) as full_name,
+				COALESCE(comment, '') as description,
+				created,
+				modified
+			FROM mysql.proc
+			WHERE db = ?
+				AND type = 'PROCEDURE'
+			ORDER BY name
+		`
+		args = []interface{}{currentSchema}
+
+	case "sqlserver":
+		// SQL Server: Query sys.procedures
+		if schemaName == "" {
+			schemaName = "dbo"
+		}
+		query = `
+			SELECT
+				p.name,
+				SCHEMA_NAME(p.schema_id) as schema,
+				SCHEMA_NAME(p.schema_id) + '.' + p.name as full_name,
+				COALESCE(CAST(ep.value AS NVARCHAR(MAX)), '') as description,
+				p.create_date as created,
+				p.modify_date as modified
+			FROM sys.procedures p
+			LEFT JOIN sys.extended_properties ep
+				ON ep.major_id = p.object_id
+				AND ep.minor_id = 0
+				AND ep.name = 'MS_Description'
+			WHERE SCHEMA_NAME(p.schema_id) = ?
+			ORDER BY p.name
+		`
+		args = []interface{}{schemaName}
+
+	default:
+		// Fallback: Try standard INFORMATION_SCHEMA
+		query = `
+			SELECT
+				routine_name as name,
+				routine_schema as schema,
+				routine_schema || '.' || routine_name as full_name,
+				'' as description,
+				created as created,
+				last_altered as modified
+			FROM information_schema.routines
+			WHERE routine_type IN ('PROCEDURE', 'FUNCTION')
+				AND routine_schema = ?
+			ORDER BY routine_name
+		`
+		args = []interface{}{currentSchema}
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error querying stored procedures: %v", err)
+	}
+	defer rows.Close()
+
+	procedures := []map[string]interface{}{}
+	for rows.Next() {
+		var name, schema, fullName, description string
+		var created, modified interface{}
+
+		err := rows.Scan(&name, &schema, &fullName, &description, &created, &modified)
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error scanning procedure: %v", err))
+			continue
+		}
+
+		procedure := map[string]interface{}{
+			"name":        name,
+			"schema":      schema,
+			"fullName":    fullName,
+			"description": description,
+			"created":     created,
+			"modified":    modified,
+		}
+		procedures = append(procedures, procedure)
+	}
+
+	return procedures, nil
+}
+
+// getProcedureMetadata retrieves parameters and metadata for a stored procedure
+func (sc *SchemaController) getProcedureMetadata(alias string, procedureName string, schemaName string, iLog *logger.Log) (map[string]interface{}, error) {
+	// Get database connection for alias
+	db, err := orm.GetDB(alias)
+	if err != nil {
+		return nil, fmt.Errorf("error getting database for alias '%s': %v", alias, err)
+	}
+
+	// Determine database type and schema
+	dbType, currentSchema := sc.detectDatabaseType(db, schemaName, iLog)
+
+	// Parse procedure name (handle schema.procedure format)
+	procSchema := currentSchema
+	procName := procedureName
+	if strings.Contains(procedureName, ".") {
+		parts := strings.SplitN(procedureName, ".", 2)
+		procSchema = parts[0]
+		procName = parts[1]
+	}
+
+	var query string
+	var args []interface{}
+
+	switch dbType {
+	case "postgresql":
+		// PostgreSQL: Query information_schema.parameters
+		query = `
+			SELECT
+				parameter_name as name,
+				data_type,
+				parameter_mode as direction,
+				CASE WHEN is_nullable = 'YES' THEN true ELSE false END as is_nullable,
+				parameter_default as default_value,
+				ordinal_position,
+				character_maximum_length as max_length
+			FROM information_schema.parameters
+			WHERE specific_schema = ?
+				AND specific_name = ?
+			ORDER BY ordinal_position
+		`
+		args = []interface{}{procSchema, procName}
+
+	case "mysql":
+		// MySQL: Query information_schema.parameters
+		query = `
+			SELECT
+				PARAMETER_NAME as name,
+				DATA_TYPE as data_type,
+				PARAMETER_MODE as direction,
+				CASE WHEN IS_NULLABLE = 'YES' THEN true ELSE false END as is_nullable,
+				NULL as default_value,
+				ORDINAL_POSITION as ordinal_position,
+				CHARACTER_MAXIMUM_LENGTH as max_length
+			FROM information_schema.parameters
+			WHERE SPECIFIC_SCHEMA = ?
+				AND SPECIFIC_NAME = ?
+			ORDER BY ORDINAL_POSITION
+		`
+		args = []interface{}{procSchema, procName}
+
+	case "sqlserver":
+		// SQL Server: Query sys.parameters
+		query = `
+			SELECT
+				p.name,
+				TYPE_NAME(p.system_type_id) as data_type,
+				CASE WHEN p.is_output = 1 THEN 'OUT' ELSE 'IN' END as direction,
+				CASE WHEN p.is_nullable = 1 THEN true ELSE false END as is_nullable,
+				p.default_value,
+				p.parameter_id as ordinal_position,
+				p.max_length
+			FROM sys.parameters p
+			WHERE p.object_id = OBJECT_ID(?)
+			ORDER BY p.parameter_id
+		`
+		fullProcName := procSchema + "." + procName
+		args = []interface{}{fullProcName}
+
+	default:
+		// Fallback: Try standard INFORMATION_SCHEMA
+		query = `
+			SELECT
+				parameter_name as name,
+				data_type,
+				parameter_mode as direction,
+				CASE WHEN is_nullable = 'YES' THEN 1 ELSE 0 END as is_nullable,
+				parameter_default as default_value,
+				ordinal_position,
+				character_maximum_length as max_length
+			FROM information_schema.parameters
+			WHERE specific_schema = ?
+				AND specific_name = ?
+			ORDER BY ordinal_position
+		`
+		args = []interface{}{procSchema, procName}
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error querying procedure parameters: %v", err)
+	}
+	defer rows.Close()
+
+	parameters := []map[string]interface{}{}
+	for rows.Next() {
+		var name, dataType, direction string
+		var isNullable interface{}
+		var defaultValue, maxLength interface{}
+		var ordinalPosition int
+
+		err := rows.Scan(&name, &dataType, &direction, &isNullable, &defaultValue, &ordinalPosition, &maxLength)
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error scanning parameter: %v", err))
+			continue
+		}
+
+		// Normalize direction (IN, OUT, INOUT)
+		if direction == "" {
+			direction = "IN"
+		}
+
+		parameter := map[string]interface{}{
+			"name":            name,
+			"dataType":        dataType,
+			"direction":       direction,
+			"isNullable":      isNullable,
+			"defaultValue":    defaultValue,
+			"ordinalPosition": ordinalPosition,
+			"maxLength":       maxLength,
+		}
+		parameters = append(parameters, parameter)
+	}
+
+	// Build metadata response
+	metadata := map[string]interface{}{
+		"name":          procName,
+		"schema":        procSchema,
+		"fullName":      procSchema + "." + procName,
+		"description":   "",
+		"parameters":    parameters,
+		"returnType":    "TABLE",
+		"resultColumns": []map[string]interface{}{}, // Could be enhanced to detect result columns
+	}
+
+	return metadata, nil
+}
+
+// detectDatabaseType detects the database type and returns current schema
+func (sc *SchemaController) detectDatabaseType(db *sql.DB, schemaName string, iLog *logger.Log) (string, string) {
+	// Try to detect database type
+	var dbType string
+	var currentSchema string
+
+	// Try MySQL detection
+	var mysqlVersion string
+	err := db.QueryRow("SELECT VERSION()").Scan(&mysqlVersion)
+	if err == nil && strings.Contains(strings.ToLower(mysqlVersion), "mysql") {
+		dbType = "mysql"
+		if schemaName == "" {
+			db.QueryRow("SELECT DATABASE()").Scan(&currentSchema)
+		} else {
+			currentSchema = schemaName
+		}
+		return dbType, currentSchema
+	}
+
+	// Try PostgreSQL detection
+	var pgVersion string
+	err = db.QueryRow("SELECT version()").Scan(&pgVersion)
+	if err == nil && strings.Contains(strings.ToLower(pgVersion), "postgresql") {
+		dbType = "postgresql"
+		if schemaName == "" {
+			db.QueryRow("SELECT current_schema()").Scan(&currentSchema)
+		} else {
+			currentSchema = schemaName
+		}
+		if currentSchema == "" {
+			currentSchema = "public"
+		}
+		return dbType, currentSchema
+	}
+
+	// Try SQL Server detection
+	var serverProperty string
+	err = db.QueryRow("SELECT SERVERPROPERTY('ProductVersion')").Scan(&serverProperty)
+	if err == nil {
+		dbType = "sqlserver"
+		if schemaName == "" {
+			currentSchema = "dbo"
+		} else {
+			currentSchema = schemaName
+		}
+		return dbType, currentSchema
+	}
+
+	// Default fallback
+	dbType = "unknown"
+	if schemaName == "" {
+		currentSchema = "public"
+	} else {
+		currentSchema = schemaName
+	}
+
+	iLog.Warn(fmt.Sprintf("Could not detect database type, using fallback. Schema: %s", currentSchema))
+	return dbType, currentSchema
 }

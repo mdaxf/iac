@@ -122,9 +122,9 @@ func (rc *ReportController) ListReports(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"reports": reports,
-		"total":   total,
-		"page":    page,
+		"reports":   reports,
+		"total":     total,
+		"page":      page,
 		"page_size": pageSize,
 	})
 }
@@ -169,6 +169,371 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 		return
 	}
 
+	// Handle datasources separately if included in the request
+	if datasourcesRaw, hasDatasources := updates["datasources"]; hasDatasources {
+		if datasourcesArray, ok := datasourcesRaw.([]interface{}); ok {
+			// Collect IDs of datasources in the incoming request
+			incomingDatasourceIDs := make(map[string]bool)
+
+			for _, dsRaw := range datasourcesArray {
+				if dsMap, ok := dsRaw.(map[string]interface{}); ok {
+					// Extract datasource ID to determine if this is update or create
+					dsID, _ := dsMap["id"].(string)
+
+					// Track this datasource ID
+					if dsID != "" {
+						incomingDatasourceIDs[dsID] = true
+					}
+
+					if dsID != "" {
+						// Update existing datasource - work directly with the map
+						dsUpdates := make(map[string]interface{})
+
+						// Copy scalar fields
+						if v, ok := dsMap["alias"]; ok {
+							dsUpdates["alias"] = v
+						}
+						if v, ok := dsMap["databasealias"]; ok {
+							dsUpdates["databasealias"] = v
+						}
+						if v, ok := dsMap["querytype"]; ok {
+							dsUpdates["querytype"] = v
+						}
+						if v, ok := dsMap["customsql"]; ok {
+							dsUpdates["customsql"] = v
+						}
+
+						// Copy JSON fields (arrays/objects) as-is - they'll be serialized by GORM
+						if v, ok := dsMap["selectedtables"]; ok {
+							dsUpdates["selectedtables"] = v
+						}
+						if v, ok := dsMap["selectedfields"]; ok {
+							dsUpdates["selectedfields"] = v
+						}
+						if v, ok := dsMap["joins"]; ok {
+							dsUpdates["joins"] = v
+						}
+						if v, ok := dsMap["filters"]; ok {
+							dsUpdates["filters"] = v
+						}
+						if v, ok := dsMap["sorting"]; ok {
+							dsUpdates["sorting"] = v
+						}
+						if v, ok := dsMap["grouping"]; ok {
+							dsUpdates["grouping"] = v
+						}
+						if v, ok := dsMap["parameters"]; ok {
+							dsUpdates["parameters"] = v
+						}
+
+						dsUpdates["modifiedby"] = user
+						dsUpdates["reportid"] = reportID
+
+						if err := rc.service.UpdateDatasource(dsID, dsUpdates); err != nil {
+							iLog.Error(fmt.Sprintf("Error updating datasource %s: %v", dsID, err))
+						}
+					} else {
+						// Create new datasource
+						// For create, we build a minimal struct and let GORM handle the JSON fields
+						datasource := &models.ReportDatasource{
+							ReportID:   reportID,
+							CreatedBy:  user,
+							ModifiedBy: user,
+						}
+
+						// Set scalar fields if present
+						if v, ok := dsMap["alias"].(string); ok {
+							datasource.Alias = v
+						}
+						if v, ok := dsMap["databasealias"].(string); ok {
+							datasource.DatabaseAlias = v
+						}
+						if v, ok := dsMap["querytype"].(string); ok {
+							datasource.QueryType = v
+						}
+						if v, ok := dsMap["customsql"].(string); ok {
+							datasource.CustomSQL = v
+						}
+
+						if err := rc.service.AddDatasource(datasource); err != nil {
+							iLog.Error(fmt.Sprintf("Error creating datasource: %v", err))
+							continue
+						}
+
+						// After creation, update the complex JSON fields using the update path
+						if datasource.ID != "" {
+							dsUpdates := make(map[string]interface{})
+
+							if v, ok := dsMap["selectedtables"]; ok {
+								dsUpdates["selectedtables"] = v
+							}
+							if v, ok := dsMap["selectedfields"]; ok {
+								dsUpdates["selectedfields"] = v
+							}
+							if v, ok := dsMap["joins"]; ok {
+								dsUpdates["joins"] = v
+							}
+							if v, ok := dsMap["filters"]; ok {
+								dsUpdates["filters"] = v
+							}
+							if v, ok := dsMap["sorting"]; ok {
+								dsUpdates["sorting"] = v
+							}
+							if v, ok := dsMap["grouping"]; ok {
+								dsUpdates["grouping"] = v
+							}
+							if v, ok := dsMap["parameters"]; ok {
+								dsUpdates["parameters"] = v
+							}
+
+							if len(dsUpdates) > 0 {
+								if err := rc.service.UpdateDatasource(datasource.ID, dsUpdates); err != nil {
+									iLog.Error(fmt.Sprintf("Error updating new datasource JSON fields %s: %v", datasource.ID, err))
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// Delete datasources that are in the database but not in the incoming request
+			existingDatasources, err := rc.service.GetDatasources(reportID)
+			if err != nil {
+				iLog.Error(fmt.Sprintf("Error getting existing datasources: %v", err))
+			} else {
+				for _, existingDs := range existingDatasources {
+					// If this datasource ID is not in the incoming request, delete it
+					if !incomingDatasourceIDs[existingDs.ID] {
+						if err := rc.service.DeleteDatasource(existingDs.ID); err != nil {
+							iLog.Error(fmt.Sprintf("Error deleting datasource %s: %v", existingDs.ID, err))
+						} else {
+							iLog.Debug(fmt.Sprintf("Deleted datasource %s that was removed from report", existingDs.ID))
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Handle components separately if included in the request
+	if componentsRaw, hasComponents := updates["components"]; hasComponents {
+		if componentsArray, ok := componentsRaw.([]interface{}); ok {
+			// Collect IDs of components in the incoming request
+			incomingComponentIDs := make(map[string]bool)
+
+			iLog.Debug(fmt.Sprintf("Processing %d components from request", len(componentsArray)))
+
+			for _, compRaw := range componentsArray {
+				if compMap, ok := compRaw.(map[string]interface{}); ok {
+					// Extract component ID to determine if this is update or create
+					compID, _ := compMap["id"].(string)
+					componentType, _ := compMap["componenttype"].(string)
+
+					// Track this component ID
+					if compID != "" {
+						incomingComponentIDs[compID] = true
+						iLog.Debug(fmt.Sprintf("Tracking incoming component ID: %s", compID))
+					}
+
+					if compID != "" {
+						// Update existing component - work directly with the map
+						compUpdates := make(map[string]interface{})
+
+						// Copy common scalar fields
+						if v, ok := compMap["componenttype"]; ok {
+							compUpdates["componenttype"] = v
+						}
+						if v, ok := compMap["name"]; ok {
+							compUpdates["name"] = v
+						}
+						if v, ok := compMap["x"]; ok {
+							compUpdates["x"] = v
+						}
+						if v, ok := compMap["y"]; ok {
+							compUpdates["y"] = v
+						}
+						if v, ok := compMap["width"]; ok {
+							compUpdates["width"] = v
+						}
+						if v, ok := compMap["height"]; ok {
+							compUpdates["height"] = v
+						}
+						if v, ok := compMap["zindex"]; ok {
+							compUpdates["zindex"] = v
+						}
+						if v, ok := compMap["datasourcealias"]; ok {
+							compUpdates["datasourcealias"] = v
+						}
+						if v, ok := compMap["isvisible"]; ok {
+							compUpdates["isvisible"] = v
+						}
+
+						// Copy type-specific fields based on componenttype
+						if componentType == "chart" {
+							if v, ok := compMap["charttype"]; ok {
+								compUpdates["charttype"] = v
+							}
+							if v, ok := compMap["chartconfig"]; ok {
+								compUpdates["chartconfig"] = v
+							}
+						}
+						if componentType == "barcode" {
+							if v, ok := compMap["barcodetype"]; ok {
+								compUpdates["barcodetype"] = v
+							}
+							if v, ok := compMap["barcodeconfig"]; ok {
+								compUpdates["barcodeconfig"] = v
+							}
+						}
+						if componentType == "drill_down" {
+							if v, ok := compMap["drilldownconfig"]; ok {
+								compUpdates["drilldownconfig"] = v
+							}
+						}
+
+						// Copy common JSON fields (arrays/objects) as-is - they'll be serialized by UpdateComponent
+						if v, ok := compMap["dataconfig"]; ok {
+							compUpdates["dataconfig"] = v
+						}
+						if v, ok := compMap["componentconfig"]; ok {
+							compUpdates["componentconfig"] = v
+						}
+						if v, ok := compMap["styleconfig"]; ok {
+							compUpdates["styleconfig"] = v
+						}
+						if v, ok := compMap["conditionalformatting"]; ok {
+							compUpdates["conditionalformatting"] = v
+						}
+
+						compUpdates["modifiedby"] = user
+						compUpdates["reportid"] = reportID
+
+						if err := rc.service.UpdateComponent(compID, compUpdates); err != nil {
+							iLog.Error(fmt.Sprintf("Error updating component %s: %v", compID, err))
+						}
+					} else {
+						// Create new component
+						// For create, we build a minimal struct and let GORM handle the JSON fields
+						component := &models.ReportComponent{
+							ReportID:   reportID,
+							CreatedBy:  user,
+							ModifiedBy: user,
+						}
+
+						// Set scalar fields if present
+						if v, ok := compMap["componenttype"].(string); ok {
+							component.ComponentType = models.ComponentType(v)
+						}
+						if v, ok := compMap["name"].(string); ok {
+							component.Name = v
+						}
+						if v, ok := compMap["x"].(float64); ok {
+							component.X = v
+						}
+						if v, ok := compMap["y"].(float64); ok {
+							component.Y = v
+						}
+						if v, ok := compMap["width"].(float64); ok {
+							component.Width = v
+						}
+						if v, ok := compMap["height"].(float64); ok {
+							component.Height = v
+						}
+						if v, ok := compMap["zindex"].(float64); ok {
+							component.ZIndex = int(v)
+						}
+						if v, ok := compMap["datasourcealias"].(string); ok {
+							component.DatasourceAlias = v
+						}
+						if v, ok := compMap["isvisible"].(bool); ok {
+							component.IsVisible = v
+						}
+
+						if err := rc.service.AddComponent(component); err != nil {
+							iLog.Error(fmt.Sprintf("Error creating component: %v", err))
+							continue
+						}
+
+						// Track the newly created component ID so it doesn't get deleted
+						if component.ID != "" {
+							incomingComponentIDs[component.ID] = true
+						}
+
+						// After creation, update the complex JSON fields using the update path
+						if component.ID != "" {
+							compUpdates := make(map[string]interface{})
+
+							// Common JSON fields for all component types
+							if v, ok := compMap["dataconfig"]; ok {
+								compUpdates["dataconfig"] = v
+							}
+							if v, ok := compMap["componentconfig"]; ok {
+								compUpdates["componentconfig"] = v
+							}
+							if v, ok := compMap["styleconfig"]; ok {
+								compUpdates["styleconfig"] = v
+							}
+							if v, ok := compMap["conditionalformatting"]; ok {
+								compUpdates["conditionalformatting"] = v
+							}
+
+							// Type-specific fields based on componenttype
+							if componentType == "chart" {
+								if v, ok := compMap["chartconfig"]; ok {
+									compUpdates["chartconfig"] = v
+								}
+							}
+							if componentType == "barcode" {
+								if v, ok := compMap["barcodeconfig"]; ok {
+									compUpdates["barcodeconfig"] = v
+								}
+							}
+							if componentType == "drill_down" {
+								if v, ok := compMap["drilldownconfig"]; ok {
+									compUpdates["drilldownconfig"] = v
+								}
+							}
+
+							if len(compUpdates) > 0 {
+								if err := rc.service.UpdateComponent(component.ID, compUpdates); err != nil {
+									iLog.Error(fmt.Sprintf("Error updating new component JSON fields %s: %v", component.ID, err))
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// Delete components that are in the database but not in the incoming request
+			// Use GetAllComponents to include both visible and invisible components
+			existingComponents, err := rc.service.GetAllComponents(reportID)
+			if err != nil {
+				iLog.Error(fmt.Sprintf("Error getting existing components: %v", err))
+			} else {
+				iLog.Debug(fmt.Sprintf("Found %d existing components in DB for report %s", len(existingComponents), reportID))
+				iLog.Debug(fmt.Sprintf("Incoming component IDs: %v", incomingComponentIDs))
+
+				deletedCount := 0
+				for _, existingComp := range existingComponents {
+					// If this component ID is not in the incoming request, delete it
+					if !incomingComponentIDs[existingComp.ID] {
+						iLog.Debug(fmt.Sprintf("Component %s (type: %s) is not in incoming request, deleting...", existingComp.ID, existingComp.ComponentType))
+						if err := rc.service.DeleteComponent(existingComp.ID); err != nil {
+							iLog.Error(fmt.Sprintf("Error deleting component %s: %v", existingComp.ID, err))
+						} else {
+							deletedCount++
+							iLog.Info(fmt.Sprintf("Successfully deleted component %s that was removed from report", existingComp.ID))
+						}
+					} else {
+						iLog.Debug(fmt.Sprintf("Component %s is in incoming request, keeping it", existingComp.ID))
+					}
+				}
+				iLog.Info(fmt.Sprintf("Deleted %d orphaned components from report %s", deletedCount, reportID))
+			}
+		}
+	}
+
+	// Update the report (UpdateReport will filter out relationship fields)
 	if err := rc.service.UpdateReport(reportID, updates); err != nil {
 		iLog.Error(fmt.Sprintf("Error updating report: %v", err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update report"})
@@ -273,6 +638,118 @@ func (rc *ReportController) GetDatasources(c *gin.Context) {
 	c.JSON(http.StatusOK, datasources)
 }
 
+// UpdateDatasourceEndpoint handles PUT /:id/datasources/:datasourceId - Update a datasource
+func (rc *ReportController) UpdateDatasourceEndpoint(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "report"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("report.UpdateDatasourceEndpoint", elapsed)
+	}()
+
+	reportID := c.Param("id")
+	datasourceID := c.Param("datasourceId")
+
+	if reportID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Report ID is required"})
+		return
+	}
+	if datasourceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Datasource ID is required"})
+		return
+	}
+
+	body, _, user, err := common.GetRequestBodyandUser(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var updates map[string]interface{}
+	if err := json.Unmarshal(body, &updates); err != nil {
+		iLog.Error(fmt.Sprintf("Error unmarshalling updates: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// Verify report ownership
+	report, err := rc.service.GetReportByID(reportID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Report not found"})
+		return
+	}
+
+	if report.CreatedBy != user {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to update this report's datasources"})
+		return
+	}
+
+	// Ensure reportid and modifiedby are set correctly
+	updates["reportid"] = reportID
+	updates["modifiedby"] = user
+
+	if err := rc.service.UpdateDatasource(datasourceID, updates); err != nil {
+		iLog.Error(fmt.Sprintf("Error updating datasource: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update datasource"})
+		return
+	}
+
+	// Fetch updated datasources
+	datasources, _ := rc.service.GetDatasources(reportID)
+	c.JSON(http.StatusOK, gin.H{
+		"message":     "Datasource updated successfully",
+		"datasources": datasources,
+	})
+}
+
+// DeleteDatasourceEndpoint handles DELETE /:id/datasources/:datasourceId - Delete a datasource
+func (rc *ReportController) DeleteDatasourceEndpoint(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "report"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("report.DeleteDatasourceEndpoint", elapsed)
+	}()
+
+	reportID := c.Param("id")
+	datasourceID := c.Param("datasourceId")
+
+	if reportID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Report ID is required"})
+		return
+	}
+	if datasourceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Datasource ID is required"})
+		return
+	}
+
+	_, _, user, err := common.GetRequestBodyandUser(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Verify report ownership
+	report, err := rc.service.GetReportByID(reportID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Report not found"})
+		return
+	}
+
+	if report.CreatedBy != user {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to delete this report's datasources"})
+		return
+	}
+
+	if err := rc.service.DeleteDatasource(datasourceID); err != nil {
+		iLog.Error(fmt.Sprintf("Error deleting datasource: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete datasource"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Datasource deleted successfully"})
+}
+
 // AddComponent handles POST /:id/components - Add component to report
 func (rc *ReportController) AddComponent(c *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "report"}
@@ -324,6 +801,116 @@ func (rc *ReportController) GetComponents(c *gin.Context) {
 	c.JSON(http.StatusOK, components)
 }
 
+// UpdateComponentEndpoint handles PUT /:id/components/:componentId - Update a component
+func (rc *ReportController) UpdateComponentEndpoint(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "report"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("report.UpdateComponentEndpoint", elapsed)
+	}()
+
+	reportID := c.Param("id")
+	componentID := c.Param("componentId")
+
+	if reportID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Report ID is required"})
+		return
+	}
+	if componentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Component ID is required"})
+		return
+	}
+
+	body, _, user, err := common.GetRequestBodyandUser(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var updates map[string]interface{}
+	if err := json.Unmarshal(body, &updates); err != nil {
+		iLog.Error(fmt.Sprintf("Error unmarshalling updates: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// Verify report ownership
+	report, err := rc.service.GetReportByID(reportID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Report not found"})
+		return
+	}
+
+	if report.CreatedBy != user {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to update this report's components"})
+		return
+	}
+
+	updates["reportid"] = reportID
+	updates["modifiedby"] = user
+
+	if err := rc.service.UpdateComponent(componentID, updates); err != nil {
+		iLog.Error(fmt.Sprintf("Error updating component: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update component"})
+		return
+	}
+
+	components, _ := rc.service.GetComponents(reportID)
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "Component updated successfully",
+		"components": components,
+	})
+}
+
+// DeleteComponentEndpoint handles DELETE /:id/components/:componentId - Delete a component
+func (rc *ReportController) DeleteComponentEndpoint(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "report"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("report.DeleteComponentEndpoint", elapsed)
+	}()
+
+	reportID := c.Param("id")
+	componentID := c.Param("componentId")
+
+	if reportID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Report ID is required"})
+		return
+	}
+	if componentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Component ID is required"})
+		return
+	}
+
+	_, _, user, err := common.GetRequestBodyandUser(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Verify report ownership
+	report, err := rc.service.GetReportByID(reportID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Report not found"})
+		return
+	}
+
+	if report.CreatedBy != user {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to delete this report's components"})
+		return
+	}
+
+	if err := rc.service.DeleteComponent(componentID); err != nil {
+		iLog.Error(fmt.Sprintf("Error deleting component: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete component"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Component deleted successfully"})
+}
+
 // ExecuteReport handles POST /:id/execute - Execute report with parameters
 func (rc *ReportController) ExecuteReport(c *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "report"}
@@ -363,20 +950,55 @@ func (rc *ReportController) ExecuteReport(c *gin.Context) {
 		return
 	}
 
-	// TODO: Implement actual report execution logic here
-	// For now, just mark as success
+	// Execute the report query
+	result, err := rc.service.ExecuteReportQuery(reportID, execRequest.Parameters)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error executing report: %v", err))
+
+		// Update execution record with error
+		elapsed := time.Since(startTime)
+		rc.service.UpdateExecution(execution.ID, map[string]interface{}{
+			"executionstatus": "failed",
+			"executiontimems": int(elapsed.Milliseconds()),
+			"errormessage":    err.Error(),
+		})
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"execution_id": execution.ID,
+			"status":       "failed",
+			"error":        err.Error(),
+		})
+		return
+	}
+
+	// Calculate result size and row count
+	totalRows := 0
+	if datasources, ok := result["datasources"].(map[string]interface{}); ok {
+		for _, dsResult := range datasources {
+			if dsMap, ok := dsResult.(map[string]interface{}); ok {
+				if rows, ok := dsMap["totalRows"].(int); ok {
+					totalRows += rows
+				}
+			}
+		}
+	}
+
+	// Update execution record with success
 	elapsed := time.Since(startTime)
 	rc.service.UpdateExecution(execution.ID, map[string]interface{}{
-		"executionstatus":  "success",
+		"executionstatus": "success",
 		"executiontimems": int(elapsed.Milliseconds()),
+		"rowcount":        totalRows,
 	})
 
 	rc.service.UpdateLastExecutedAt(reportID)
 
+	// Return execution result with data
 	c.JSON(http.StatusOK, gin.H{
 		"execution_id": execution.ID,
 		"status":       "success",
 		"message":      "Report executed successfully",
+		"data":         result,
 	})
 }
 

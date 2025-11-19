@@ -1,0 +1,731 @@
+{
+  "port": 8080,
+  "timeout": 180000000,
+  "apikey": "",
+  "openaikey": "",
+  "openaimodel": "gpt-4o",
+  "controllers": [
+    {
+      "path": "codegen",
+      "module": "IACAIController",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/imagetohtml",
+          "handler": "ImagetoHTML"
+        },
+        {
+          "method": "POST",
+          "path": "/imagetobpm",
+          "handler": "ImagetoBPMFlow"
+        },
+        {
+          "method": "POST",
+          "path": "/imagetoworkflow",
+          "handler": "ImagetoWorkFlow"
+        },
+        {
+          "method": "POST",
+          "path": "/ustomockup",
+          "handler": "UserStorytoMockup"
+        }
+      ]
+    },
+    {
+      "path": "IACComponents",
+      "module": "IACComponentController",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/heartbeat",
+          "handler": "ComponentHeartbeat"
+        },
+        {
+          "method": "POST",
+          "path": "/close",
+          "handler": "ComponentClose"
+        }
+      ]
+    },
+    {
+      "path": "user",
+      "module": "UserController",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/users",
+          "handler": "List"
+        },
+        {
+          "method": "GET",
+          "path": "/image",
+          "handler": "Image"
+        },
+        {
+          "method": "GET",
+          "path": "/menus",
+          "handler": "UserMenus"
+        },
+        {
+          "method": "POST",
+          "path": "/login",
+          "handler": "Login"
+        },
+        {
+          "method": "POST",
+          "path": "/changepwd",
+          "handler": "ChangePassword"
+        },
+        {
+          "method": "POST",
+          "path": "/logout",
+          "handler": "Logout"
+        }
+      ]
+    },
+    {
+      "path": "function",
+      "module": "FunctionController",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/test",
+          "handler": "TestExecFunction"
+        }
+      ]
+    },
+    {
+      "path": "sqldata",
+      "module": "DBController",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/query_v2",
+          "handler": "GetDatabyQueryForTabulor"
+        },
+        {
+          "method": "POST",
+          "path": "/get_v2",
+          "handler": "GetDataFromTablesForTabulor"
+        },
+        {
+          "method": "POST",
+          "path": "/query",
+          "handler": "GetDatabyQuery"
+        },
+        {
+          "method": "POST",
+          "path": "/get",
+          "handler": "GetDataFromTables"
+        },
+        {
+          "method": "POST",
+          "path": "/update",
+          "handler": "UpdateDataToTable"
+        },
+        {
+          "method": "POST",
+          "path": "/insert",
+          "handler": "InsertDataToTable"
+        },
+        {
+          "method": "POST",
+          "path": "/delete",
+          "handler": "DeleteDataFromTable"
+        }
+      ]},
+    {
+      "path": "api/process-plans",
+      "module": "ProcessPlanController",
+      "endpoints":[
+         { "method": "GET",
+          "path": "/",
+          "handler": "GetListofProcessPlan"
+        },
+        { "method": "GET",
+          "path": "/:id",
+          "handler": "GetDetailCProcessPlanbyID"
+        },
+        { "method": "POST",
+          "path": "/",
+          "handler": "CreateProcessPlan"
+        },
+        { "method": "POST",
+          "path": "/:id",
+          "handler": "UpdateProcessPlan"
+        },
+        { "method": "POST",
+          "path": "/delete",
+          "handler": "DeleteProcessPlanbyID"
+        },
+        { "method": "POST",
+          "path": "/history",
+          "handler": "UpdateProcessPlanHistory"
+        }
+      ]
+    },
+    {
+      "path": "collection",
+      "module": "CollectionController",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/list",
+          "handler": "GetListofCollectionData"
+        },{
+          "method": "POST",
+          "path": "/update",
+          "handler": "UpdateCollectionData"
+        },{
+          "method": "POST",
+          "path": "/detail",
+          "handler": "GetDetailCollectionData"
+        },{
+          "method": "POST",
+          "path": "/id",
+          "handler": "GetDetailCollectionDatabyID"
+        },{
+          "method": "POST",
+          "path": "/name",
+          "handler": "GetDetailCollectionDatabyName"
+        },{
+          "method": "POST",
+          "path": "/delete",
+          "handler": "DeleteCollectionDatabyID"
+        },{
+          "method": "POST",
+          "path": "/revision",
+          "handler": "CollectionObjectRevision"
+        }
+
+      ]},
+    {
+      "path": "trancode",
+      "module": "TranCodeController",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/execute",
+          "handler": "ExecuteTranCode"
+        },{
+          "method": "GET",
+          "path": "/list",
+          "handler": "GetTranCodeListFromRespository"
+        },{
+          "method": "POST",
+          "path": "/detail",
+          "handler": "GetTranCodeDetailFromRespository"
+        }
+        ,{
+          "method": "POST",
+          "path": "/update",
+          "handler": "UpdateTranCodeToRespository"
+        },
+        {
+          "method": "POST",
+          "path": "/revision",
+          "handler": "TranCodeRevision"
+        },
+        {
+          "method": "POST",
+          "path": "/unittest",
+          "handler": "UnitTest"
+        },
+        {
+          "method": "POST",
+          "path": "/test",
+          "handler": "TestbyTestData"
+        },
+        {
+          "method": "POST",
+          "path": "/uitest",
+          "handler": "TestTranCode"
+        },{
+          "method": "POST",
+          "path": "/remotetest",
+          "handler": "RemoteTestTranCode"
+        },{
+          "method": "POST",
+          "path": "/deletets",
+          "handler": "DeleteRemoteTestCache"
+        }
+      ]
+    },
+    {
+      "path": "health",
+      "module": "HealthController",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/check",
+          "handler": "CheckHealth"
+        }
+      ]
+    },
+    {
+      "path": "api/schema",
+      "module": "SchemaController",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/tables",
+          "handler": "ListTables"
+        },
+        {
+          "method": "GET",
+          "path": "/tables/:tableName",
+          "handler": "GetTableMetadata"
+        },
+        {
+          "method": "POST",
+          "path": "/tables/metadata",
+          "handler": "GetTablesMetadata"
+        },
+        {
+          "method": "POST",
+          "path": "/diagram",
+          "handler": "GenerateDiagram"
+        },
+        {
+          "method": "GET",
+          "path": "/dataset/:tableName",
+          "handler": "GenerateDatasetSchema"
+        },
+        {
+          "method": "POST",
+          "path": "/dataset/batch",
+          "handler": "GenerateDatasetSchemas"
+        },
+        {
+          "method": "GET",
+          "path": "/aliases",
+          "handler": "GetDatabaseAliases"
+        },
+        {
+          "method": "POST",
+          "path": "/database/tables",
+          "handler": "GetDatabaseTables"
+        },
+        {
+          "method": "POST",
+          "path": "/database/columns",
+          "handler": "GetDatabaseColumns"
+        },
+        {
+          "method": "POST",
+          "path": "/database/query",
+          "handler": "ExecuteDatabaseQuery"
+        },
+        {
+          "method": "POST",
+          "path": "/database/query/validate",
+          "handler": "ValidateDatabaseQuery"
+        },
+        {
+          "method": "POST",
+          "path": "/database/relationships",
+          "handler": "GetDatabaseRelationships"
+        },
+        {
+          "method": "POST",
+          "path": "/database/procedures",
+          "handler": "GetDatabaseProcedures"
+        },
+        {
+          "method": "POST",
+          "path": "/database/procedures/metadata",
+          "handler": "GetProcedureMetadata"
+        }
+      ]
+    },
+    {
+      "path": "language",
+      "module": "LCController",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/translate",
+          "handler": "GetLngCodes"
+        },{
+          "method": "POST",
+          "path": "/update",
+          "handler": "UpdateLngCode"
+        }
+      ]},
+      {
+        "path": "notification",
+        "module": "NotificationController",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/get",
+            "handler": "GetNotificationsbyUser"
+          },{
+            "method": "POST",
+            "path": "/new",
+            "handler": "CreateNotification"
+          },{
+            "method": "POST",
+            "path": "/response",
+            "handler": "ResponseNotification"
+          }
+        ]},
+        {
+          "path": "workflow",
+          "module": "WorkFlowController",
+          "endpoints": [
+            {
+              "method": "POST",
+              "path": "/tasksbyuser",
+              "handler": "GetTasksbyUser"
+            },{
+              "method": "POST",
+              "path": "/tasksbyentity",
+              "handler": "GetWorkFlowTasks"
+            },{
+              "method": "POST",
+              "path": "/uuid",
+              "handler": "GetWorkFlowbyUUID"
+            },{
+              "method": "POST",
+              "path": "/explode",
+              "handler": "ExplodeWorkFlow"
+            },{
+              "method": "POST",
+              "path": "/starttask",
+              "handler": "StartTask"
+            },{
+              "method": "POST",
+              "path": "/updatedatacomplete",
+              "handler": "UpdateProcessDataAndComplete"
+            },{
+              "method": "POST",
+              "path": "/executecomplete",
+              "handler": "ExecuteTaskTranCodeAndComplete"
+            },{
+              "method": "POST",
+              "path": "/completetask",
+              "handler": "CompleteTask"
+            },{
+              "method": "POST",
+              "path": "/pretaskdata",
+              "handler": "GetPreTaskData"
+            }
+          ]},
+        {
+          "path": "api/reports",
+          "module": "ReportController",
+          "endpoints": [
+            {
+              "method": "POST",
+              "path": "/",
+              "handler": "CreateReport"
+            },
+            {
+              "method": "GET",
+              "path": "/",
+              "handler": "ListReports"
+            },
+            {
+              "method": "GET",
+              "path": "/search",
+              "handler": "SearchReports"
+            },
+            {
+              "method": "GET",
+              "path": "/templates",
+              "handler": "ListTemplates"
+            },
+            {
+              "method": "POST",
+              "path": "/from-template/:templateId",
+              "handler": "CreateFromTemplate"
+            },
+            {
+              "method": "GET",
+              "path": "/:id",
+              "handler": "GetReport"
+            },
+            {
+              "method": "PUT",
+              "path": "/:id",
+              "handler": "UpdateReport"
+            },
+            {
+              "method": "DELETE",
+              "path": "/:id",
+              "handler": "DeleteReport"
+            },
+            {
+              "method": "POST",
+              "path": "/:id/duplicate",
+              "handler": "DuplicateReport"
+            },
+            {
+              "method": "POST",
+              "path": "/:id/datasources",
+              "handler": "AddDatasource"
+            },
+            {
+              "method": "GET",
+              "path": "/:id/datasources",
+              "handler": "GetDatasources"
+            },
+            {
+              "method": "PUT",
+              "path": "/:id/datasources/:datasourceId",
+              "handler": "UpdateDatasourceEndpoint"
+            },
+            {
+              "method": "DELETE",
+              "path": "/:id/datasources/:datasourceId",
+              "handler": "DeleteDatasourceEndpoint"
+            },
+            {
+              "method": "POST",
+              "path": "/:id/components",
+              "handler": "AddComponent"
+            },
+            {
+              "method": "GET",
+              "path": "/:id/components",
+              "handler": "GetComponents"
+            },
+            {
+              "method": "PUT",
+              "path": "/:id/components/:componentId",
+              "handler": "UpdateComponentEndpoint"
+            },
+            {
+              "method": "DELETE",
+              "path": "/:id/components/:componentId",
+              "handler": "DeleteComponentEndpoint"
+            },
+            {
+              "method": "POST",
+              "path": "/:id/execute",
+              "handler": "ExecuteReport"
+            },
+            {
+              "method": "POST",
+              "path": "/:id/share",
+              "handler": "ShareReport"
+            },
+            {
+              "method": "POST",
+              "path": "/ai/text2sql",
+              "handler": "Text2SQL"
+            },
+            {
+              "method": "POST",
+              "path": "/ai/generate-report",
+              "handler": "GenerateReportFromData"
+            }
+          ]
+        },
+        {
+          "path": "api/chat",
+          "module": "ChatController",
+          "endpoints": [
+            {
+              "method": "POST",
+              "path": "/",
+              "handler": "CreateConversation"
+            },
+            {
+              "method": "GET",
+              "path": "/",
+              "handler": "ListConversations"
+            },
+            {
+              "method": "GET",
+              "path": "/:id",
+              "handler": "GetConversation"
+            },
+            {
+              "method": "DELETE",
+              "path": "/:id",
+              "handler": "DeleteConversation"
+            },
+            {
+              "method": "POST",
+              "path": "/:id/message",
+              "handler": "SendMessage"
+            },
+            {
+              "method": "POST",
+              "path": "/schema/embedding",
+              "handler": "CreateSchemaEmbedding"
+            },
+            {
+              "method": "POST",
+              "path": "/schema/search",
+              "handler": "SearchSchema"
+            }
+          ]
+        },
+        {
+          "path": "api/business-entities",
+          "module": "BusinessEntityController",
+          "endpoints": [
+            {
+              "method": "POST",
+              "path": "/",
+              "handler": "CreateEntity"
+            },
+            {
+              "method": "GET",
+              "path": "/",
+              "handler": "ListEntities"
+            },
+            {
+              "method": "GET",
+              "path": "/:id",
+              "handler": "GetEntity"
+            },
+            {
+              "method": "PUT",
+              "path": "/:id",
+              "handler": "UpdateEntity"
+            },
+            {
+              "method": "DELETE",
+              "path": "/:id",
+              "handler": "DeleteEntity"
+            },
+            {
+              "method": "GET",
+              "path": "/search",
+              "handler": "SearchEntities"
+            },
+            {
+              "method": "GET",
+              "path": "/by-table",
+              "handler": "GetEntitiesByTable"
+            }
+          ]
+        },
+        {
+          "path": "api/query-templates",
+          "module": "QueryTemplateController",
+          "endpoints": [
+            {
+              "method": "POST",
+              "path": "/",
+              "handler": "CreateTemplate"
+            },
+            {
+              "method": "GET",
+              "path": "/",
+              "handler": "ListTemplates"
+            },
+            {
+              "method": "GET",
+              "path": "/:id",
+              "handler": "GetTemplate"
+            },
+            {
+              "method": "PUT",
+              "path": "/:id",
+              "handler": "UpdateTemplate"
+            },
+            {
+              "method": "DELETE",
+              "path": "/:id",
+              "handler": "DeleteTemplate"
+            },
+            {
+              "method": "GET",
+              "path": "/search",
+              "handler": "SearchTemplates"
+            },
+            {
+              "method": "POST",
+              "path": "/by-intent",
+              "handler": "GetTemplatesByIntent"
+            },
+            {
+              "method": "POST",
+              "path": "/:id/use",
+              "handler": "IncrementUsageCount"
+            },
+            {
+              "method": "GET",
+              "path": "/context",
+              "handler": "GetTemplateContext"
+            }
+          ]
+        },
+        {
+          "path": "api/schema-metadata",
+          "module": "SchemaMetadataController",
+          "endpoints": [
+            {
+              "method": "POST",
+              "path": "/discover",
+              "handler": "DiscoverSchema"
+            },
+            {
+              "method": "GET",
+              "path": "/tables",
+              "handler": "GetTables"
+            },
+            {
+              "method": "GET",
+              "path": "/columns",
+              "handler": "GetColumns"
+            },
+            {
+              "method": "PUT",
+              "path": "/:id",
+              "handler": "UpdateMetadata"
+            },
+            {
+              "method": "DELETE",
+              "path": "/:id",
+              "handler": "DeleteMetadata"
+            },
+            {
+              "method": "GET",
+              "path": "/search",
+              "handler": "SearchMetadata"
+            },
+            {
+              "method": "GET",
+              "path": "/databases",
+              "handler": "GetDatabases"
+            },
+            {
+              "method": "POST",
+              "path": "/context",
+              "handler": "GetSchemaContext"
+            },
+            {
+              "method": "GET",
+              "path": "/databases/:dbName/metadata",
+              "handler": "GetDatabaseMetadata"
+            },
+            {
+              "method": "GET",
+              "path": "/databases/:dbName/tables/:tableName",
+              "handler": "GetTableDetail"
+            },
+            {
+              "method": "POST",
+              "path": "/databases/:dbName/query/visual",
+              "handler": "ExecuteVisualQuery"
+            },
+            {
+              "method": "POST",
+              "path": "/databases/:dbName/query/sql",
+              "handler": "ExecuteCustomSQL"
+            },
+            {
+              "method": "POST",
+              "path": "/databases/:dbName/query/validate",
+              "handler": "ValidateSQL"
+            }
+          ]
+        }
+  ]
+}
