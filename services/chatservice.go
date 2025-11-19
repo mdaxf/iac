@@ -14,16 +14,21 @@ import (
 	"gorm.io/gorm"
 )
 
+// SchemaDiscoveryService is an interface for services that can discover database schema
+type SchemaDiscoveryService interface {
+	GetDatabaseMetadata(ctx context.Context, databaseAlias string) ([]models.DatabaseSchemaMetadata, error)
+}
+
 // ChatService handles chat and AI conversation features
 type ChatService struct {
 	DB                    *gorm.DB
 	OpenAIKey             string
 	OpenAIModel           string
-	SchemaMetadataService *SchemaMetadataService
+	SchemaMetadataService SchemaDiscoveryService
 }
 
 // NewChatService creates a new chat service
-func NewChatService(db *gorm.DB, openAIKey, openAIModel string, schemaService *SchemaMetadataService) *ChatService {
+func NewChatService(db *gorm.DB, openAIKey, openAIModel string, schemaService SchemaDiscoveryService) *ChatService {
 	return &ChatService{
 		DB:                    db,
 		OpenAIKey:             openAIKey,
