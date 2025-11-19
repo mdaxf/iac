@@ -5,25 +5,32 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac/models"
 	"gorm.io/gorm"
 )
 
 // SchemaMetadataService handles database schema discovery and metadata management
 type SchemaMetadataService struct {
-	db *gorm.DB
+	db   *gorm.DB
+	iLog logger.Log
 }
 
 // NewSchemaMetadataService creates a new schema metadata service
 func NewSchemaMetadataService(db *gorm.DB) *SchemaMetadataService {
-	return &SchemaMetadataService{db: db}
+	return &SchemaMetadataService{
+		db: db,
+		iLog: logger.Log{
+			ModuleName:     logger.Framework,
+			User:           "System",
+			ControllerName: "SchemaMetadataService",
+		},
+	}
 }
 
 // DiscoverDatabaseSchema discovers all tables and columns in a database
 func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, databaseAlias, dbName string) error {
-	// Get database connection for the specified alias
-	// For now, we'll use the main DB connection
-	// In production, you would get the connection from a connection pool based on alias
+	s.iLog.Info(fmt.Sprintf("Discovering schema for database '%s' with alias '%s'", dbName, databaseAlias))
 
 	// Get all tables
 	var tables []struct {
@@ -42,7 +49,15 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 	`
 
 	if err := s.db.Raw(query, dbName).Scan(&tables).Error; err != nil {
+		s.iLog.Error(fmt.Sprintf("Failed to query INFORMATION_SCHEMA.TABLES for database '%s': %v", dbName, err))
 		return fmt.Errorf("failed to discover tables: %w", err)
+	}
+
+	s.iLog.Info(fmt.Sprintf("Found %d tables in database '%s'", len(tables), dbName))
+
+	if len(tables) == 0 {
+		s.iLog.Warn(fmt.Sprintf("No tables found in database '%s' - database may be empty or TABLE_SCHEMA filter may be incorrect", dbName))
+		return nil
 	}
 
 	// Process each table
@@ -276,29 +291,71 @@ func (s *SchemaMetadataService) GetDatabaseMetadata(ctx context.Context, databas
 
 	// If no metadata found, automatically discover and populate it
 	if len(metadata) == 0 {
+		s.iLog.Info(fmt.Sprintf("No metadata found for alias '%s', attempting auto-discovery", databaseAlias))
+
 		// Get the current database name from the connection
 		var dbName string
 		if err := s.db.WithContext(ctx).Raw("SELECT DATABASE()").Scan(&dbName).Error; err != nil {
+			s.iLog.Error(fmt.Sprintf("Failed to execute SELECT DATABASE(): %v", err))
 			return nil, fmt.Errorf("failed to get current database name: %w", err)
 		}
 
+		s.iLog.Debug(fmt.Sprintf("SELECT DATABASE() returned: '%s'", dbName))
+
 		if dbName == "" {
-			// No database selected, return empty result
-			return metadata, nil
+			s.iLog.Warn("SELECT DATABASE() returned empty string, attempting to find database via SHOW DATABASES")
+
+			// Try to get database name from GORM config
+			sqlDB, err := s.db.DB()
+			if err == nil {
+				// Query information_schema without database filter
+				var databases []string
+				if err := s.db.Raw("SHOW DATABASES").Scan(&databases).Error; err == nil && len(databases) > 0 {
+					s.iLog.Debug(fmt.Sprintf("Found %d databases via SHOW DATABASES", len(databases)))
+					// Try to use the first non-system database
+					for _, db := range databases {
+						if db != "information_schema" && db != "mysql" && db != "performance_schema" && db != "sys" {
+							dbName = db
+							s.iLog.Info(fmt.Sprintf("Selected database '%s' from available databases", dbName))
+							break
+						}
+					}
+				}
+			}
+
+			// If still no database name, return error instead of empty metadata
+			if dbName == "" {
+				s.iLog.Error(fmt.Sprintf("Unable to determine database name for alias '%s'", databaseAlias))
+				return nil, fmt.Errorf("no database selected and unable to determine database name for alias '%s' - check GORM connection string includes database name", databaseAlias)
+			}
 		}
+
+		s.iLog.Info(fmt.Sprintf("Starting schema discovery for database '%s' with alias '%s'", dbName, databaseAlias))
 
 		// Auto-discover schema for this database
 		if err := s.DiscoverDatabaseSchema(ctx, databaseAlias, dbName); err != nil {
-			return nil, fmt.Errorf("failed to auto-discover schema: %w", err)
+			s.iLog.Error(fmt.Sprintf("Schema discovery failed for database '%s': %v", dbName, err))
+			return nil, fmt.Errorf("failed to auto-discover schema for database '%s': %w", dbName, err)
 		}
+
+		s.iLog.Info(fmt.Sprintf("Schema discovery completed for database '%s', retrieving metadata", dbName))
 
 		// Retrieve the newly discovered metadata
 		if err := s.db.WithContext(ctx).
 			Where("databasealias = ?", databaseAlias).
 			Order("tablename, metadatatype DESC, columnname").
 			Find(&metadata).Error; err != nil {
+			s.iLog.Error(fmt.Sprintf("Failed to retrieve discovered metadata: %v", err))
 			return nil, fmt.Errorf("failed to get discovered metadata: %w", err)
 		}
+
+		// If still no metadata after discovery, there might be no tables
+		if len(metadata) == 0 {
+			s.iLog.Warn(fmt.Sprintf("No tables discovered in database '%s' for alias '%s'", dbName, databaseAlias))
+			return nil, fmt.Errorf("no tables found in database '%s' for alias '%s' - database may be empty", dbName, databaseAlias)
+		}
+
+		s.iLog.Info(fmt.Sprintf("Successfully discovered %d metadata entries for alias '%s'", len(metadata), databaseAlias))
 	}
 
 	return metadata, nil
