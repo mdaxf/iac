@@ -717,24 +717,33 @@ func (s *ReportService) buildSQLFromVisualQuery(ds *models.ReportDatasource, par
 	return sql, queryParams, nil
 }
 
-// quoteIdentifier quotes a SQL identifier with backticks if needed (for MySQL compatibility)
-func (s *ReportService) quoteIdentifier(identifier string) string {
+// quoteColumnIdentifier quotes a SQL column identifier with backticks if needed
+func (s *ReportService) quoteColumnIdentifier(identifier string) string {
 	identifier = strings.TrimSpace(identifier)
 
-	// If identifier contains spaces, reserved words, or special chars, quote it
-	// Also preserve existing quotes or functions (like COUNT(*), SUM(), etc.)
-	if strings.Contains(identifier, " ") ||
-		strings.Contains(identifier, "-") ||
-		(strings.Contains(identifier, "(") && strings.Contains(identifier, ")")) {
-		// Already a function call or expression, don't quote
-		if strings.Contains(identifier, "(") {
-			return identifier
-		}
-		// Quote the identifier with backticks
+	// Don't quote functions or expressions (contain parentheses)
+	if strings.Contains(identifier, "(") && strings.Contains(identifier, ")") {
+		return identifier
+	}
+
+	// If identifier contains spaces or special chars, quote it
+	if strings.Contains(identifier, " ") || strings.Contains(identifier, "-") {
 		return fmt.Sprintf("`%s`", identifier)
 	}
 
 	return identifier
+}
+
+// quoteAlias quotes a SQL alias with double quotes if it contains spaces
+func (s *ReportService) quoteAlias(alias string) string {
+	alias = strings.TrimSpace(alias)
+
+	// If alias contains spaces, quote with double quotes (SQL standard)
+	if strings.Contains(alias, " ") {
+		return fmt.Sprintf("\"%s\"", alias)
+	}
+
+	return alias
 }
 
 // extractSelectedFields extracts field names from selectedfields JSON
@@ -748,16 +757,18 @@ func (s *ReportService) extractSelectedFields(data interface{}) ([]string, error
 				// Clean and validate field name
 				fieldStr = strings.TrimSpace(fieldStr)
 				if fieldStr != "" {
-					// Quote identifier if it needs quoting
-					quotedField := s.quoteIdentifier(fieldStr)
+					// Quote column identifier if needed (backticks for columns)
+					quotedField := s.quoteColumnIdentifier(fieldStr)
 					fields = append(fields, quotedField)
 				}
 			} else if fieldMap, ok := item.(map[string]interface{}); ok {
-				// Handle object format: {field: "table.column", alias: "col_alias"}
+				// Handle object format: {field: "COUNT(menu.id)", alias: "Count of Menu"}
 				if field, ok := fieldMap["field"].(string); ok {
-					quotedField := s.quoteIdentifier(field)
+					// Don't quote the field if it's a function
+					quotedField := s.quoteColumnIdentifier(field)
 					if alias, hasAlias := fieldMap["alias"].(string); hasAlias && alias != "" {
-						quotedAlias := s.quoteIdentifier(alias)
+						// Quote alias with double quotes if it has spaces
+						quotedAlias := s.quoteAlias(alias)
 						fields = append(fields, fmt.Sprintf("%s AS %s", quotedField, quotedAlias))
 					} else {
 						fields = append(fields, quotedField)
@@ -768,7 +779,7 @@ func (s *ReportService) extractSelectedFields(data interface{}) ([]string, error
 	case string:
 		// Single field as string
 		if v != "" {
-			quotedField := s.quoteIdentifier(v)
+			quotedField := s.quoteColumnIdentifier(v)
 			fields = append(fields, quotedField)
 		}
 	}
