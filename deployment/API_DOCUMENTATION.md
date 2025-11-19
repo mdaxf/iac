@@ -714,7 +714,13 @@ All endpoints return standard error responses:
 
 ## Notes
 
-1. **Background Jobs:** All deployment jobs are processed by the IAC framework's JobWorker. Jobs are stored in the `queue_jobs` table and executed by the `PACKAGE_DEPLOYMENT` handler.
+1. **Background Jobs:** All deployment jobs are processed by the IAC framework's JobWorker. Jobs are stored in the `queue_jobs` table and executed by registered handlers:
+   - `PACKAGE_DEPLOYMENT`: Handles package deployment jobs
+   - `PACKAGE_GENERATION`: Handles package generation jobs
+
+   The framework also provides standalone functions that can be called directly:
+   - `handlers.DeployPackageJob()`: Deploy a package directly
+   - `handlers.GeneratePackageJob()`: Generate a package file directly
 
 2. **Transaction Safety:** Deployments use database transactions. Failed deployments will rollback automatically.
 
@@ -744,3 +750,62 @@ Schema files are located in:
 - `deployment/schema/packages_schema_postgresql.sql` (PostgreSQL)
 
 Note: The job queue system uses IAC's existing `queue_jobs` table from the framework. No additional job tables are needed.
+
+---
+
+## Job Handlers
+
+The package deployment system provides the following job handlers that can be used by the IAC framework:
+
+### Handler Functions (for trancode.ExecutebyExternal)
+
+These handlers are designed to be called by the framework's job worker via `trancode.ExecutebyExternal()`:
+
+1. **PACKAGE_DEPLOYMENT** - Handles package deployment jobs
+   - Handler: `handlers.PackageDeploymentHandler()`
+   - Input: `package_id`, `environment`, `options`, `user`
+   - Returns: Deployment result with status, deployment_id, records_deployed
+
+2. **PACKAGE_GENERATION** - Handles package generation jobs
+   - Handler: `handlers.PackageGenerationHandler()`
+   - Input: `package_id`, `format`, `user`
+   - Returns: Generation result with package_data, size_bytes, action_id
+
+### Standalone Functions (direct call)
+
+These functions can be called directly without needing trancode.ExecutebyExternal:
+
+1. **DeployPackageJob** - Deploy a package directly
+   ```go
+   func DeployPackageJob(packageID, environment string, options models.DeploymentOptions, userName string) (*models.DeploymentRecord, error)
+   ```
+   - Manages its own transaction
+   - Returns deployment record with PK/ID mappings
+   - Logs all actions to packageactions table
+
+2. **GeneratePackageJob** - Generate package file directly
+   ```go
+   func GeneratePackageJob(packageID, format, userName string) ([]byte, map[string]interface{}, error)
+   ```
+   - Returns package data as bytes and metadata
+   - Supports "json" format
+   - Logs generation action to packageactions table
+
+### Handler Registration
+
+All handlers are registered in `deployment/handlers/register.go`:
+
+```go
+var HandlerRegistry = map[string]HandlerFunc{
+    "PACKAGE_DEPLOYMENT": PackageDeploymentHandler,
+    "PACKAGE_GENERATION": PackageGenerationHandler,
+}
+```
+
+To use a handler:
+```go
+handler, exists := handlers.GetHandler("PACKAGE_DEPLOYMENT")
+if exists {
+    result, err := handler(inputs, tx, docDB)
+}
+```
