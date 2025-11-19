@@ -174,13 +174,16 @@ const (
 type ComponentType string
 
 const (
-	ComponentTypeTable     ComponentType = "table"
-	ComponentTypeChart     ComponentType = "chart"
-	ComponentTypeBarcode   ComponentType = "barcode"
-	ComponentTypeSubReport ComponentType = "sub_report"
-	ComponentTypeText      ComponentType = "text"
-	ComponentTypeImage     ComponentType = "image"
-	ComponentTypeDrillDown ComponentType = "drill_down"
+	ComponentTypeTable      ComponentType = "table"
+	ComponentTypeChart      ComponentType = "chart"
+	ComponentTypeBarcode    ComponentType = "barcode"
+	ComponentTypeSubReport  ComponentType = "sub_report"
+	ComponentTypeText       ComponentType = "text"
+	ComponentTypeImage      ComponentType = "image"
+	ComponentTypeDrillDown  ComponentType = "drill_down"
+	ComponentTypePageBreak  ComponentType = "page-break"
+	ComponentTypePageHeader ComponentType = "page-header"
+	ComponentTypePageFooter ComponentType = "page-footer"
 )
 
 // ChartType represents the type of chart
@@ -363,7 +366,7 @@ func (ReportDatasource) TableName() string {
 type ReportComponent struct {
 	ID                    string        `json:"id" gorm:"primaryKey;column:id;type:varchar(36);default:(UUID())"`
 	ReportID              string        `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
-	ComponentType         ComponentType `json:"componenttype" gorm:"column:componenttype;type:enum('table','chart','barcode','sub_report','text','image','drill_down');not null"`
+	ComponentType         ComponentType `json:"componenttype" gorm:"column:componenttype;type:enum('table','chart','barcode','sub_report','text','image','drill_down','page-break','page-header','page-footer');not null"`
 	Name                  string        `json:"name" gorm:"column:name;type:varchar(255);not null"`
 	X                     float64       `json:"x" gorm:"column:x;type:decimal(10,2);default:0"`
 	Y                     float64       `json:"y" gorm:"column:y;type:decimal(10,2);default:0"`
@@ -379,6 +382,9 @@ type ReportComponent struct {
 	BarcodeType           *BarcodeType  `json:"barcodetype" gorm:"column:barcodetype;type:enum('code128','code39','ean13','ean8','upc','qr_code','data_matrix','pdf417','aztec')"`
 	BarcodeConfig         JSONField     `json:"barcodeconfig" gorm:"column:barcodeconfig;type:json"`
 	DrillDownConfig       JSONField     `json:"drilldownconfig" gorm:"column:drilldownconfig;type:json"`
+	PageBreakConfig       JSONField     `json:"pagebreakconfig" gorm:"column:pagebreakconfig;type:json"`
+	PageHeaderConfig      JSONField     `json:"pageheaderconfig" gorm:"column:pageheaderconfig;type:json"`
+	PageFooterConfig      JSONField     `json:"pagefooterconfig" gorm:"column:pagefooterconfig;type:json"`
 	ConditionalFormatting JSONField     `json:"conditionalformatting" gorm:"column:conditionalformatting;type:json"`
 	IsVisible             bool          `json:"isvisible" gorm:"column:isvisible;default:true"`
 

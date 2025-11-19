@@ -212,7 +212,7 @@ func (s *ReportService) GetAllComponents(reportID string) ([]models.ReportCompon
 // UpdateComponent updates a component
 func (s *ReportService) UpdateComponent(id string, updates map[string]interface{}) error {
 	// List of JSON fields that need serialization
-	jsonFields := []string{"dataconfig", "componentconfig", "styleconfig", "chartconfig", "barcodeconfig", "drilldownconfig", "conditionalformatting"}
+	jsonFields := []string{"dataconfig", "componentconfig", "styleconfig", "chartconfig", "barcodeconfig", "drilldownconfig", "pagebreakconfig", "pageheaderconfig", "pagefooterconfig", "conditionalformatting"}
 
 	// Create a new map with serialized JSON fields
 	processedUpdates := make(map[string]interface{})

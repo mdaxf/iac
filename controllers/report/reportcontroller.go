@@ -390,6 +390,33 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 								compUpdates["drilldownconfig"] = v
 							}
 						}
+						if componentType == "page-break" {
+							// Map "config" to "pagebreakconfig"
+							if v, ok := compMap["config"]; ok {
+								compUpdates["pagebreakconfig"] = v
+							}
+							if v, ok := compMap["pagebreakconfig"]; ok {
+								compUpdates["pagebreakconfig"] = v
+							}
+						}
+						if componentType == "page-header" {
+							// Map "config" to "pageheaderconfig"
+							if v, ok := compMap["config"]; ok {
+								compUpdates["pageheaderconfig"] = v
+							}
+							if v, ok := compMap["pageheaderconfig"]; ok {
+								compUpdates["pageheaderconfig"] = v
+							}
+						}
+						if componentType == "page-footer" {
+							// Map "config" to "pagefooterconfig"
+							if v, ok := compMap["config"]; ok {
+								compUpdates["pagefooterconfig"] = v
+							}
+							if v, ok := compMap["pagefooterconfig"]; ok {
+								compUpdates["pagefooterconfig"] = v
+							}
+						}
 
 						// Copy common JSON fields (arrays/objects) as-is - they'll be serialized by UpdateComponent
 						if v, ok := compMap["dataconfig"]; ok {
@@ -491,6 +518,33 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 							if componentType == "drill_down" {
 								if v, ok := compMap["drilldownconfig"]; ok {
 									compUpdates["drilldownconfig"] = v
+								}
+							}
+							if componentType == "page-break" {
+								// Map "config" to "pagebreakconfig"
+								if v, ok := compMap["config"]; ok {
+									compUpdates["pagebreakconfig"] = v
+								}
+								if v, ok := compMap["pagebreakconfig"]; ok {
+									compUpdates["pagebreakconfig"] = v
+								}
+							}
+							if componentType == "page-header" {
+								// Map "config" to "pageheaderconfig"
+								if v, ok := compMap["config"]; ok {
+									compUpdates["pageheaderconfig"] = v
+								}
+								if v, ok := compMap["pageheaderconfig"]; ok {
+									compUpdates["pageheaderconfig"] = v
+								}
+							}
+							if componentType == "page-footer" {
+								// Map "config" to "pagefooterconfig"
+								if v, ok := compMap["config"]; ok {
+									compUpdates["pagefooterconfig"] = v
+								}
+								if v, ok := compMap["pagefooterconfig"]; ok {
+									compUpdates["pagefooterconfig"] = v
 								}
 							}
 
