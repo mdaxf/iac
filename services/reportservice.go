@@ -623,15 +623,358 @@ func (s *ReportService) executeDatasourceQuery(databaseAlias string, sqlQuery st
 
 // buildSQLFromVisualQuery builds SQL from visual query builder fields
 func (s *ReportService) buildSQLFromVisualQuery(ds *models.ReportDatasource, parameters map[string]interface{}) (string, []interface{}, error) {
-	// TODO: Implement visual query builder
-	// This would construct SQL from:
-	// - selectedtables
-	// - selectedfields
-	// - joins
-	// - filters
-	// - sorting
-	// - grouping
+	var sqlParts []string
+	var queryParams []interface{}
 
-	// For now, return an error indicating custom SQL is required
-	return "", nil, fmt.Errorf("visual query builder not yet implemented, please use custom SQL in datasource '%s'", ds.Alias)
+	// 1. Build SELECT clause
+	selectClause := "SELECT "
+	if ds.SelectedFields.Data != nil {
+		fields, err := s.extractSelectedFields(ds.SelectedFields.Data)
+		if err != nil {
+			return "", nil, fmt.Errorf("error parsing selected fields: %v", err)
+		}
+		if len(fields) == 0 {
+			selectClause += "*"
+		} else {
+			selectClause += strings.Join(fields, ", ")
+		}
+	} else {
+		selectClause += "*"
+	}
+	sqlParts = append(sqlParts, selectClause)
+
+	// 2. Build FROM clause
+	if ds.SelectedTables.Data == nil {
+		return "", nil, fmt.Errorf("no tables selected in datasource '%s'", ds.Alias)
+	}
+
+	tables, err := s.extractSelectedTables(ds.SelectedTables.Data)
+	if err != nil {
+		return "", nil, fmt.Errorf("error parsing selected tables: %v", err)
+	}
+	if len(tables) == 0 {
+		return "", nil, fmt.Errorf("no tables selected in datasource '%s'", ds.Alias)
+	}
+
+	fromClause := "FROM " + tables[0]
+	sqlParts = append(sqlParts, fromClause)
+
+	// 3. Build JOIN clauses
+	if ds.Joins.Data != nil {
+		joinClauses, err := s.extractJoins(ds.Joins.Data)
+		if err != nil {
+			return "", nil, fmt.Errorf("error parsing joins: %v", err)
+		}
+		for _, joinClause := range joinClauses {
+			sqlParts = append(sqlParts, joinClause)
+		}
+	}
+
+	// 4. Build WHERE clause from filters
+	if ds.Filters.Data != nil {
+		whereClause, filterParams, err := s.extractFilters(ds.Filters.Data, parameters)
+		if err != nil {
+			return "", nil, fmt.Errorf("error parsing filters: %v", err)
+		}
+		if whereClause != "" {
+			sqlParts = append(sqlParts, "WHERE "+whereClause)
+			queryParams = append(queryParams, filterParams...)
+		}
+	}
+
+	// 5. Build GROUP BY clause
+	if ds.Grouping.Data != nil {
+		groupByClause, err := s.extractGrouping(ds.Grouping.Data)
+		if err != nil {
+			return "", nil, fmt.Errorf("error parsing grouping: %v", err)
+		}
+		if groupByClause != "" {
+			sqlParts = append(sqlParts, "GROUP BY "+groupByClause)
+		}
+	}
+
+	// 6. Build ORDER BY clause
+	if ds.Sorting.Data != nil {
+		orderByClause, err := s.extractSorting(ds.Sorting.Data)
+		if err != nil {
+			return "", nil, fmt.Errorf("error parsing sorting: %v", err)
+		}
+		if orderByClause != "" {
+			sqlParts = append(sqlParts, "ORDER BY "+orderByClause)
+		}
+	}
+
+	sql := strings.Join(sqlParts, " ")
+	return sql, queryParams, nil
+}
+
+// extractSelectedFields extracts field names from selectedfields JSON
+func (s *ReportService) extractSelectedFields(data interface{}) ([]string, error) {
+	var fields []string
+
+	switch v := data.(type) {
+	case []interface{}:
+		for _, item := range v {
+			if fieldStr, ok := item.(string); ok {
+				// Clean and validate field name
+				fieldStr = strings.TrimSpace(fieldStr)
+				if fieldStr != "" {
+					fields = append(fields, fieldStr)
+				}
+			} else if fieldMap, ok := item.(map[string]interface{}); ok {
+				// Handle object format: {field: "table.column", alias: "col_alias"}
+				if field, ok := fieldMap["field"].(string); ok {
+					if alias, hasAlias := fieldMap["alias"].(string); hasAlias && alias != "" {
+						fields = append(fields, fmt.Sprintf("%s AS %s", field, alias))
+					} else {
+						fields = append(fields, field)
+					}
+				}
+			}
+		}
+	case string:
+		// Single field as string
+		if v != "" {
+			fields = append(fields, v)
+		}
+	}
+
+	return fields, nil
+}
+
+// extractSelectedTables extracts table names from selectedtables JSON
+func (s *ReportService) extractSelectedTables(data interface{}) ([]string, error) {
+	var tables []string
+
+	switch v := data.(type) {
+	case []interface{}:
+		for _, item := range v {
+			if tableStr, ok := item.(string); ok {
+				tableStr = strings.TrimSpace(tableStr)
+				if tableStr != "" {
+					tables = append(tables, tableStr)
+				}
+			} else if tableMap, ok := item.(map[string]interface{}); ok {
+				// Handle object format: {table: "tablename", alias: "t"}
+				if table, ok := tableMap["table"].(string); ok {
+					if alias, hasAlias := tableMap["alias"].(string); hasAlias && alias != "" {
+						tables = append(tables, fmt.Sprintf("%s AS %s", table, alias))
+					} else {
+						tables = append(tables, table)
+					}
+				} else if name, ok := tableMap["name"].(string); ok {
+					tables = append(tables, name)
+				}
+			}
+		}
+	case string:
+		if v != "" {
+			tables = append(tables, v)
+		}
+	}
+
+	return tables, nil
+}
+
+// extractJoins extracts JOIN clauses from joins JSON
+func (s *ReportService) extractJoins(data interface{}) ([]string, error) {
+	var joins []string
+
+	joinArray, ok := data.([]interface{})
+	if !ok {
+		return joins, nil
+	}
+
+	for _, item := range joinArray {
+		joinMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		joinType := "INNER JOIN"
+		if jt, ok := joinMap["type"].(string); ok {
+			joinType = strings.ToUpper(jt) + " JOIN"
+		}
+
+		table, ok := joinMap["table"].(string)
+		if !ok {
+			continue
+		}
+
+		var alias string
+		if a, ok := joinMap["alias"].(string); ok && a != "" {
+			alias = a
+			table = fmt.Sprintf("%s AS %s", table, alias)
+		}
+
+		onCondition := ""
+		if on, ok := joinMap["on"].(string); ok {
+			onCondition = on
+		} else if on, ok := joinMap["condition"].(string); ok {
+			onCondition = on
+		}
+
+		if onCondition == "" {
+			return nil, fmt.Errorf("join on table '%s' missing ON condition", table)
+		}
+
+		joinClause := fmt.Sprintf("%s %s ON %s", joinType, table, onCondition)
+		joins = append(joins, joinClause)
+	}
+
+	return joins, nil
+}
+
+// extractFilters extracts WHERE conditions from filters JSON
+func (s *ReportService) extractFilters(data interface{}, parameters map[string]interface{}) (string, []interface{}, error) {
+	var conditions []string
+	var params []interface{}
+
+	filterArray, ok := data.([]interface{})
+	if !ok || len(filterArray) == 0 {
+		return "", nil, nil
+	}
+
+	for _, item := range filterArray {
+		filterMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		field, ok := filterMap["field"].(string)
+		if !ok || field == "" {
+			continue
+		}
+
+		operator := "="
+		if op, ok := filterMap["operator"].(string); ok {
+			operator = op
+		}
+
+		value := filterMap["value"]
+
+		// Handle parameter references
+		if valueStr, ok := value.(string); ok && strings.HasPrefix(valueStr, "@") {
+			paramName := strings.TrimPrefix(valueStr, "@")
+			if paramValue, exists := parameters[paramName]; exists {
+				value = paramValue
+			}
+		}
+
+		// Build condition based on operator
+		var condition string
+		switch strings.ToUpper(operator) {
+		case "IS NULL":
+			condition = fmt.Sprintf("%s IS NULL", field)
+		case "IS NOT NULL":
+			condition = fmt.Sprintf("%s IS NOT NULL", field)
+		case "IN":
+			// Handle IN operator with array values
+			if valueArray, ok := value.([]interface{}); ok {
+				placeholders := make([]string, len(valueArray))
+				for i, v := range valueArray {
+					placeholders[i] = "?"
+					params = append(params, v)
+				}
+				condition = fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ", "))
+			}
+		case "BETWEEN":
+			// Handle BETWEEN operator
+			if valueArray, ok := value.([]interface{}); ok && len(valueArray) == 2 {
+				condition = fmt.Sprintf("%s BETWEEN ? AND ?", field)
+				params = append(params, valueArray[0], valueArray[1])
+			}
+		case "LIKE", "NOT LIKE":
+			condition = fmt.Sprintf("%s %s ?", field, operator)
+			params = append(params, value)
+		default:
+			// Standard comparison operators: =, !=, <, >, <=, >=
+			condition = fmt.Sprintf("%s %s ?", field, operator)
+			params = append(params, value)
+		}
+
+		if condition != "" {
+			conditions = append(conditions, condition)
+		}
+	}
+
+	if len(conditions) == 0 {
+		return "", nil, nil
+	}
+
+	// Combine conditions with AND (could be enhanced to support OR groups)
+	whereClause := strings.Join(conditions, " AND ")
+	return whereClause, params, nil
+}
+
+// extractGrouping extracts GROUP BY fields from grouping JSON
+func (s *ReportService) extractGrouping(data interface{}) (string, error) {
+	var groupByFields []string
+
+	switch v := data.(type) {
+	case []interface{}:
+		for _, item := range v {
+			if fieldStr, ok := item.(string); ok {
+				fieldStr = strings.TrimSpace(fieldStr)
+				if fieldStr != "" {
+					groupByFields = append(groupByFields, fieldStr)
+				}
+			} else if fieldMap, ok := item.(map[string]interface{}); ok {
+				if field, ok := fieldMap["field"].(string); ok {
+					groupByFields = append(groupByFields, field)
+				}
+			}
+		}
+	case string:
+		if v != "" {
+			groupByFields = append(groupByFields, v)
+		}
+	}
+
+	if len(groupByFields) == 0 {
+		return "", nil
+	}
+
+	return strings.Join(groupByFields, ", "), nil
+}
+
+// extractSorting extracts ORDER BY clause from sorting JSON
+func (s *ReportService) extractSorting(data interface{}) (string, error) {
+	var orderByFields []string
+
+	sortArray, ok := data.([]interface{})
+	if !ok {
+		return "", nil
+	}
+
+	for _, item := range sortArray {
+		sortMap, ok := item.(map[string]interface{})
+		if !ok {
+			// Handle string format
+			if sortStr, ok := item.(string); ok && sortStr != "" {
+				orderByFields = append(orderByFields, sortStr)
+			}
+			continue
+		}
+
+		field, ok := sortMap["field"].(string)
+		if !ok || field == "" {
+			continue
+		}
+
+		direction := "ASC"
+		if dir, ok := sortMap["direction"].(string); ok {
+			direction = strings.ToUpper(dir)
+		} else if dir, ok := sortMap["order"].(string); ok {
+			direction = strings.ToUpper(dir)
+		}
+
+		orderByFields = append(orderByFields, fmt.Sprintf("%s %s", field, direction))
+	}
+
+	if len(orderByFields) == 0 {
+		return "", nil
+	}
+
+	return strings.Join(orderByFields, ", "), nil
 }
