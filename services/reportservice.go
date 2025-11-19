@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/mdaxf/iac/database/orm"
+	"github.com/mdaxf/iac/databases/orm"
 	"github.com/mdaxf/iac/models"
 	"gorm.io/gorm"
 )
