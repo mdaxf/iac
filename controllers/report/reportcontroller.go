@@ -297,12 +297,13 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 				if compMap, ok := compRaw.(map[string]interface{}); ok {
 					// Extract component ID to determine if this is update or create
 					compID, _ := compMap["id"].(string)
+					componentType, _ := compMap["componenttype"].(string)
 
 					if compID != "" {
 						// Update existing component - work directly with the map
 						compUpdates := make(map[string]interface{})
 
-						// Copy scalar fields
+						// Copy common scalar fields
 						if v, ok := compMap["componenttype"]; ok {
 							compUpdates["componenttype"] = v
 						}
@@ -327,17 +328,34 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 						if v, ok := compMap["datasourcealias"]; ok {
 							compUpdates["datasourcealias"] = v
 						}
-						if v, ok := compMap["charttype"]; ok {
-							compUpdates["charttype"] = v
-						}
-						if v, ok := compMap["barcodetype"]; ok {
-							compUpdates["barcodetype"] = v
-						}
 						if v, ok := compMap["isvisible"]; ok {
 							compUpdates["isvisible"] = v
 						}
 
-						// Copy JSON fields (arrays/objects) as-is - they'll be serialized by UpdateComponent
+						// Copy type-specific fields based on componenttype
+						if componentType == "chart" {
+							if v, ok := compMap["charttype"]; ok {
+								compUpdates["charttype"] = v
+							}
+							if v, ok := compMap["chartconfig"]; ok {
+								compUpdates["chartconfig"] = v
+							}
+						}
+						if componentType == "barcode" {
+							if v, ok := compMap["barcodetype"]; ok {
+								compUpdates["barcodetype"] = v
+							}
+							if v, ok := compMap["barcodeconfig"]; ok {
+								compUpdates["barcodeconfig"] = v
+							}
+						}
+						if componentType == "drill_down" {
+							if v, ok := compMap["drilldownconfig"]; ok {
+								compUpdates["drilldownconfig"] = v
+							}
+						}
+
+						// Copy common JSON fields (arrays/objects) as-is - they'll be serialized by UpdateComponent
 						if v, ok := compMap["dataconfig"]; ok {
 							compUpdates["dataconfig"] = v
 						}
@@ -346,15 +364,6 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 						}
 						if v, ok := compMap["styleconfig"]; ok {
 							compUpdates["styleconfig"] = v
-						}
-						if v, ok := compMap["chartconfig"]; ok {
-							compUpdates["chartconfig"] = v
-						}
-						if v, ok := compMap["barcodeconfig"]; ok {
-							compUpdates["barcodeconfig"] = v
-						}
-						if v, ok := compMap["drilldownconfig"]; ok {
-							compUpdates["drilldownconfig"] = v
 						}
 						if v, ok := compMap["conditionalformatting"]; ok {
 							compUpdates["conditionalformatting"] = v
@@ -413,6 +422,7 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 						if component.ID != "" {
 							compUpdates := make(map[string]interface{})
 
+							// Common JSON fields for all component types
 							if v, ok := compMap["dataconfig"]; ok {
 								compUpdates["dataconfig"] = v
 							}
@@ -422,17 +432,25 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 							if v, ok := compMap["styleconfig"]; ok {
 								compUpdates["styleconfig"] = v
 							}
-							if v, ok := compMap["chartconfig"]; ok {
-								compUpdates["chartconfig"] = v
-							}
-							if v, ok := compMap["barcodeconfig"]; ok {
-								compUpdates["barcodeconfig"] = v
-							}
-							if v, ok := compMap["drilldownconfig"]; ok {
-								compUpdates["drilldownconfig"] = v
-							}
 							if v, ok := compMap["conditionalformatting"]; ok {
 								compUpdates["conditionalformatting"] = v
+							}
+
+							// Type-specific fields based on componenttype
+							if componentType == "chart" {
+								if v, ok := compMap["chartconfig"]; ok {
+									compUpdates["chartconfig"] = v
+								}
+							}
+							if componentType == "barcode" {
+								if v, ok := compMap["barcodeconfig"]; ok {
+									compUpdates["barcodeconfig"] = v
+								}
+							}
+							if componentType == "drill_down" {
+								if v, ok := compMap["drilldownconfig"]; ok {
+									compUpdates["drilldownconfig"] = v
+								}
 							}
 
 							if len(compUpdates) > 0 {
