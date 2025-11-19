@@ -497,7 +497,8 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 			}
 
 			// Delete components that are in the database but not in the incoming request
-			existingComponents, err := rc.service.GetComponents(reportID)
+			// Use GetAllComponents to include both visible and invisible components
+			existingComponents, err := rc.service.GetAllComponents(reportID)
 			if err != nil {
 				iLog.Error(fmt.Sprintf("Error getting existing components: %v", err))
 			} else {

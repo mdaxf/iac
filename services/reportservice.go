@@ -191,10 +191,19 @@ func (s *ReportService) AddComponent(component *models.ReportComponent) error {
 	return s.DB.Create(component).Error
 }
 
-// GetComponents retrieves all components for a report
+// GetComponents retrieves all visible components for a report
 func (s *ReportService) GetComponents(reportID string) ([]models.ReportComponent, error) {
 	var components []models.ReportComponent
 	err := s.DB.Where("reportid = ? AND isvisible = ?", reportID, true).
+		Order("z_index ASC").
+		Find(&components).Error
+	return components, err
+}
+
+// GetAllComponents retrieves all components for a report (including invisible)
+func (s *ReportService) GetAllComponents(reportID string) ([]models.ReportComponent, error) {
+	var components []models.ReportComponent
+	err := s.DB.Where("reportid = ?", reportID).
 		Order("z_index ASC").
 		Find(&components).Error
 	return components, err
@@ -708,6 +717,26 @@ func (s *ReportService) buildSQLFromVisualQuery(ds *models.ReportDatasource, par
 	return sql, queryParams, nil
 }
 
+// quoteIdentifier quotes a SQL identifier with backticks if needed (for MySQL compatibility)
+func (s *ReportService) quoteIdentifier(identifier string) string {
+	identifier = strings.TrimSpace(identifier)
+
+	// If identifier contains spaces, reserved words, or special chars, quote it
+	// Also preserve existing quotes or functions (like COUNT(*), SUM(), etc.)
+	if strings.Contains(identifier, " ") ||
+		strings.Contains(identifier, "-") ||
+		(strings.Contains(identifier, "(") && strings.Contains(identifier, ")")) {
+		// Already a function call or expression, don't quote
+		if strings.Contains(identifier, "(") {
+			return identifier
+		}
+		// Quote the identifier with backticks
+		return fmt.Sprintf("`%s`", identifier)
+	}
+
+	return identifier
+}
+
 // extractSelectedFields extracts field names from selectedfields JSON
 func (s *ReportService) extractSelectedFields(data interface{}) ([]string, error) {
 	var fields []string
@@ -719,15 +748,19 @@ func (s *ReportService) extractSelectedFields(data interface{}) ([]string, error
 				// Clean and validate field name
 				fieldStr = strings.TrimSpace(fieldStr)
 				if fieldStr != "" {
-					fields = append(fields, fieldStr)
+					// Quote identifier if it needs quoting
+					quotedField := s.quoteIdentifier(fieldStr)
+					fields = append(fields, quotedField)
 				}
 			} else if fieldMap, ok := item.(map[string]interface{}); ok {
 				// Handle object format: {field: "table.column", alias: "col_alias"}
 				if field, ok := fieldMap["field"].(string); ok {
+					quotedField := s.quoteIdentifier(field)
 					if alias, hasAlias := fieldMap["alias"].(string); hasAlias && alias != "" {
-						fields = append(fields, fmt.Sprintf("%s AS %s", field, alias))
+						quotedAlias := s.quoteIdentifier(alias)
+						fields = append(fields, fmt.Sprintf("%s AS %s", quotedField, quotedAlias))
 					} else {
-						fields = append(fields, field)
+						fields = append(fields, quotedField)
 					}
 				}
 			}
@@ -735,7 +768,8 @@ func (s *ReportService) extractSelectedFields(data interface{}) ([]string, error
 	case string:
 		// Single field as string
 		if v != "" {
-			fields = append(fields, v)
+			quotedField := s.quoteIdentifier(v)
+			fields = append(fields, quotedField)
 		}
 	}
 
