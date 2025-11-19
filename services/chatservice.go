@@ -16,17 +16,19 @@ import (
 
 // ChatService handles chat and AI conversation features
 type ChatService struct {
-	DB          *gorm.DB
-	OpenAIKey   string
-	OpenAIModel string
+	DB                    *gorm.DB
+	OpenAIKey             string
+	OpenAIModel           string
+	SchemaMetadataService *SchemaMetadataService
 }
 
 // NewChatService creates a new chat service
-func NewChatService(db *gorm.DB, openAIKey, openAIModel string) *ChatService {
+func NewChatService(db *gorm.DB, openAIKey, openAIModel string, schemaService *SchemaMetadataService) *ChatService {
 	return &ChatService{
-		DB:          db,
-		OpenAIKey:   openAIKey,
-		OpenAIModel: openAIModel,
+		DB:                    db,
+		OpenAIKey:             openAIKey,
+		OpenAIModel:           openAIModel,
+		SchemaMetadataService: schemaService,
 	}
 }
 
@@ -226,6 +228,16 @@ func (s *ChatService) getRelevantTableMetadata(databaseAlias, question string) (
 			Order("tablename, metadatatype DESC").
 			Limit(50).
 			Find(&metadata).Error
+	}
+
+	// If still no metadata found and SchemaMetadataService is available, use auto-discovery
+	if len(metadata) == 0 && s.SchemaMetadataService != nil {
+		// Use auto-discovery fallback from SchemaMetadataService
+		ctx := context.Background()
+		metadata, err = s.SchemaMetadataService.GetDatabaseMetadata(ctx, databaseAlias)
+		if err != nil {
+			return nil, fmt.Errorf("failed to discover schema metadata: %w", err)
+		}
 	}
 
 	return metadata, err
