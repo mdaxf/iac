@@ -492,6 +492,16 @@
               "handler": "GetComponents"
             },
             {
+              "method": "PUT",
+              "path": "/:id/components/:componentId",
+              "handler": "UpdateComponentEndpoint"
+            },
+            {
+              "method": "DELETE",
+              "path": "/:id/components/:componentId",
+              "handler": "DeleteComponentEndpoint"
+            },
+            {
               "method": "POST",
               "path": "/:id/execute",
               "handler": "ExecuteReport"

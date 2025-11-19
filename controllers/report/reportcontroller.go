@@ -784,6 +784,116 @@ func (rc *ReportController) GetComponents(c *gin.Context) {
 	c.JSON(http.StatusOK, components)
 }
 
+// UpdateComponentEndpoint handles PUT /:id/components/:componentId - Update a component
+func (rc *ReportController) UpdateComponentEndpoint(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "report"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("report.UpdateComponentEndpoint", elapsed)
+	}()
+
+	reportID := c.Param("id")
+	componentID := c.Param("componentId")
+
+	if reportID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Report ID is required"})
+		return
+	}
+	if componentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Component ID is required"})
+		return
+	}
+
+	body, _, user, err := common.GetRequestBodyandUser(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var updates map[string]interface{}
+	if err := json.Unmarshal(body, &updates); err != nil {
+		iLog.Error(fmt.Sprintf("Error unmarshalling updates: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// Verify report ownership
+	report, err := rc.service.GetReportByID(reportID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Report not found"})
+		return
+	}
+
+	if report.CreatedBy != user {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to update this report's components"})
+		return
+	}
+
+	updates["reportid"] = reportID
+	updates["modifiedby"] = user
+
+	if err := rc.service.UpdateComponent(componentID, updates); err != nil {
+		iLog.Error(fmt.Sprintf("Error updating component: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update component"})
+		return
+	}
+
+	components, _ := rc.service.GetComponents(reportID)
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "Component updated successfully",
+		"components": components,
+	})
+}
+
+// DeleteComponentEndpoint handles DELETE /:id/components/:componentId - Delete a component
+func (rc *ReportController) DeleteComponentEndpoint(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "report"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("report.DeleteComponentEndpoint", elapsed)
+	}()
+
+	reportID := c.Param("id")
+	componentID := c.Param("componentId")
+
+	if reportID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Report ID is required"})
+		return
+	}
+	if componentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Component ID is required"})
+		return
+	}
+
+	_, _, user, err := common.GetRequestBodyandUser(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Verify report ownership
+	report, err := rc.service.GetReportByID(reportID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Report not found"})
+		return
+	}
+
+	if report.CreatedBy != user {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to delete this report's components"})
+		return
+	}
+
+	if err := rc.service.DeleteComponent(componentID); err != nil {
+		iLog.Error(fmt.Sprintf("Error deleting component: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete component"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Component deleted successfully"})
+}
+
 // ExecuteReport handles POST /:id/execute - Execute report with parameters
 func (rc *ReportController) ExecuteReport(c *gin.Context) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "report"}
