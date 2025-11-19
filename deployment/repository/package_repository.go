@@ -86,8 +86,6 @@ func (pr *PackageRepository) SavePackage(pkg *models.Package, environment string
 		Version:       pkg.Version,
 		PackageType:   pkg.PackageType,
 		Description:   pkg.Description,
-		CreatedAt:     pkg.CreatedAt,
-		CreatedBy:     pkg.CreatedBy,
 		Metadata:      string(metadataJSON),
 		PackageData:   string(packageData),
 		Checksum:      checksum,
@@ -96,6 +94,13 @@ func (pr *PackageRepository) SavePackage(pkg *models.Package, environment string
 		Environment:   environment,
 		IncludeParent: pkg.IncludeParent,
 		Dependencies:  string(depsJSON),
+		// IAC Standard Fields
+		Active:          true,
+		CreatedBy:       pkg.CreatedBy,
+		CreatedOn:       pkg.CreatedAt,
+		ModifiedBy:      pkg.CreatedBy,
+		ModifiedOn:      pkg.CreatedAt,
+		RowVersionStamp: 1,
 	}
 
 	// Set database-specific fields
@@ -118,8 +123,6 @@ func (pr *PackageRepository) SavePackage(pkg *models.Package, environment string
 		record.Version,
 		record.PackageType,
 		record.Description,
-		record.CreatedAt,
-		record.CreatedBy,
 		record.Metadata,
 		record.PackageData,
 		record.DatabaseType,
@@ -131,6 +134,14 @@ func (pr *PackageRepository) SavePackage(pkg *models.Package, environment string
 		record.Status,
 		"", // tags - empty for now
 		record.Environment,
+		// IAC Standard Fields
+		record.Active,
+		record.ReferenceID,
+		record.CreatedBy,
+		record.CreatedOn,
+		record.ModifiedBy,
+		record.ModifiedOn,
+		record.RowVersionStamp,
 	)
 
 	if err != nil {
@@ -144,14 +155,15 @@ func (pr *PackageRepository) SavePackage(pkg *models.Package, environment string
 // GetPackage retrieves a package by ID
 func (pr *PackageRepository) GetPackage(packageID string) (*models.Package, error) {
 	query := fmt.Sprintf(`
-		SELECT package_data
+		SELECT packagedata
 		FROM %s
-		WHERE id = %s AND status != %s`,
+		WHERE id = %s AND status != %s AND active = %s`,
 		pr.dbOp.QuoteIdentifier("iacpackages"),
 		pr.dbOp.GetPlaceholder(1),
-		pr.dbOp.GetPlaceholder(2))
+		pr.dbOp.GetPlaceholder(2),
+		pr.dbOp.GetPlaceholder(3))
 
-	rows, err := pr.dbOp.Query(query, packageID, PackageStatusDeleted)
+	rows, err := pr.dbOp.Query(query, packageID, PackageStatusDeleted, true)
 	if err != nil {
 		return nil, err
 	}
@@ -177,15 +189,16 @@ func (pr *PackageRepository) GetPackage(packageID string) (*models.Package, erro
 // GetPackageByNameVersion retrieves a package by name and version
 func (pr *PackageRepository) GetPackageByNameVersion(name, version string) (*models.Package, error) {
 	query := fmt.Sprintf(`
-		SELECT package_data
+		SELECT packagedata
 		FROM %s
-		WHERE name = %s AND version = %s AND status != %s`,
+		WHERE name = %s AND version = %s AND status != %s AND active = %s`,
 		pr.dbOp.QuoteIdentifier("iacpackages"),
 		pr.dbOp.GetPlaceholder(1),
 		pr.dbOp.GetPlaceholder(2),
-		pr.dbOp.GetPlaceholder(3))
+		pr.dbOp.GetPlaceholder(3),
+		pr.dbOp.GetPlaceholder(4))
 
-	rows, err := pr.dbOp.Query(query, name, version, PackageStatusDeleted)
+	rows, err := pr.dbOp.Query(query, name, version, PackageStatusDeleted, true)
 	if err != nil {
 		return nil, err
 	}
@@ -211,17 +224,20 @@ func (pr *PackageRepository) GetPackageByNameVersion(name, version string) (*mod
 // ListPackages lists packages with optional filters
 func (pr *PackageRepository) ListPackages(packageType, environment, status string, limit, offset int) ([]PackageRecord, error) {
 	query := fmt.Sprintf(`
-		SELECT id, name, version, package_type, description, created_at, created_by,
-		       database_type, database_name, checksum, file_size, status, environment
+		SELECT id, name, version, packagetype, description, createdby,
+		       databasetype, databasename, checksum, filesize, status, environment,
+		       active, referenceid, createdon, modifiedby, modifiedon, rowversionstamp
 		FROM %s
-		WHERE 1=1`,
-		pr.dbOp.QuoteIdentifier("iacpackages"))
+		WHERE active = %s`,
+		pr.dbOp.QuoteIdentifier("iacpackages"),
+		pr.dbOp.GetPlaceholder(1))
 
 	args := make([]interface{}, 0)
-	paramIdx := 1
+	args = append(args, true)
+	paramIdx := 2
 
 	if packageType != "" {
-		query += fmt.Sprintf(" AND package_type = %s", pr.dbOp.GetPlaceholder(paramIdx))
+		query += fmt.Sprintf(" AND packagetype = %s", pr.dbOp.GetPlaceholder(paramIdx))
 		args = append(args, packageType)
 		paramIdx++
 	}
@@ -242,7 +258,7 @@ func (pr *PackageRepository) ListPackages(packageType, environment, status strin
 		paramIdx++
 	}
 
-	query += " ORDER BY created_at DESC"
+	query += " ORDER BY createdon DESC"
 
 	if limit > 0 {
 		query += fmt.Sprintf(" LIMIT %s", pr.dbOp.GetPlaceholder(paramIdx))
@@ -270,7 +286,6 @@ func (pr *PackageRepository) ListPackages(packageType, environment, status strin
 			&pkg.Version,
 			&pkg.PackageType,
 			&pkg.Description,
-			&pkg.CreatedAt,
 			&pkg.CreatedBy,
 			&pkg.DatabaseType,
 			&pkg.DatabaseName,
@@ -278,6 +293,12 @@ func (pr *PackageRepository) ListPackages(packageType, environment, status strin
 			&pkg.FileSize,
 			&pkg.Status,
 			&pkg.Environment,
+			&pkg.Active,
+			&pkg.ReferenceID,
+			&pkg.CreatedOn,
+			&pkg.ModifiedBy,
+			&pkg.ModifiedOn,
+			&pkg.RowVersionStamp,
 		)
 		if err != nil {
 			pr.logger.Warn(fmt.Sprintf("Error scanning package: %v", err))
@@ -305,6 +326,18 @@ func (pr *PackageRepository) SaveAction(action *PackageActionRecord) error {
 		action.PerformedAt = time.Now()
 	}
 
+	// Set IAC standard fields
+	action.Active = true
+	if action.CreatedOn.IsZero() {
+		action.CreatedOn = time.Now()
+	}
+	if action.ModifiedOn.IsZero() {
+		action.ModifiedOn = time.Now()
+	}
+	if action.RowVersionStamp == 0 {
+		action.RowVersionStamp = 1
+	}
+
 	query := pr.buildInsertActionQuery()
 	_, err := pr.dbOp.Exec(query,
 		action.ID,
@@ -329,6 +362,14 @@ func (pr *PackageRepository) SaveAction(action *PackageActionRecord) error {
 		action.RecordsFailed,
 		action.TablesProcessed,
 		action.CollectionsProcessed,
+		// IAC Standard Fields
+		action.Active,
+		action.ReferenceID,
+		action.CreatedBy,
+		action.CreatedOn,
+		action.ModifiedBy,
+		action.ModifiedOn,
+		action.RowVersionStamp,
 	)
 
 	if err != nil {
@@ -345,9 +386,9 @@ func (pr *PackageRepository) UpdateActionStatus(actionID, status string, complet
 
 	query := fmt.Sprintf(`
 		UPDATE %s
-		SET action_status = %s, completed_at = %s, error_log = %s
+		SET actionstatus = %s, completedat = %s, errorlog = %s
 		WHERE id = %s`,
-		pr.dbOp.QuoteIdentifier("package_actions"),
+		pr.dbOp.QuoteIdentifier("packageactions"),
 		pr.dbOp.GetPlaceholder(1),
 		pr.dbOp.GetPlaceholder(2),
 		pr.dbOp.GetPlaceholder(3),
@@ -360,27 +401,29 @@ func (pr *PackageRepository) UpdateActionStatus(actionID, status string, complet
 // GetActionsByPackage retrieves all actions for a package
 func (pr *PackageRepository) GetActionsByPackage(packageID string, limit int) ([]PackageActionRecord, error) {
 	query := fmt.Sprintf(`
-		SELECT id, package_id, action_type, action_status, target_database, target_environment,
-		       performed_at, performed_by, started_at, completed_at, duration_seconds,
-		       records_processed, records_succeeded, records_failed,
-		       tables_processed, collections_processed
+		SELECT id, packageid, actiontype, actionstatus, targetdatabase, targetenvironment,
+		       performedat, performedby, startedat, completedat, durationseconds,
+		       recordsprocessed, recordssucceeded, recordsfailed,
+		       tablesprocessed, collectionsprocessed,
+		       active, referenceid, createdby, createdon, modifiedby, modifiedon, rowversionstamp
 		FROM %s
-		WHERE package_id = %s
-		ORDER BY performed_at DESC`,
-		pr.dbOp.QuoteIdentifier("package_actions"),
-		pr.dbOp.GetPlaceholder(1))
+		WHERE packageid = %s AND active = %s
+		ORDER BY performedat DESC`,
+		pr.dbOp.QuoteIdentifier("packageactions"),
+		pr.dbOp.GetPlaceholder(1),
+		pr.dbOp.GetPlaceholder(2))
 
 	if limit > 0 {
-		query += fmt.Sprintf(" LIMIT %s", pr.dbOp.GetPlaceholder(2))
+		query += fmt.Sprintf(" LIMIT %s", pr.dbOp.GetPlaceholder(3))
 	}
 
 	var rows *sql.Rows
 	var err error
 
 	if limit > 0 {
-		rows, err = pr.dbOp.Query(query, packageID, limit)
+		rows, err = pr.dbOp.Query(query, packageID, true, limit)
 	} else {
-		rows, err = pr.dbOp.Query(query, packageID)
+		rows, err = pr.dbOp.Query(query, packageID, true)
 	}
 
 	if err != nil {
@@ -408,6 +451,13 @@ func (pr *PackageRepository) GetActionsByPackage(packageID string, limit int) ([
 			&action.RecordsFailed,
 			&action.TablesProcessed,
 			&action.CollectionsProcessed,
+			&action.Active,
+			&action.ReferenceID,
+			&action.CreatedBy,
+			&action.CreatedOn,
+			&action.ModifiedBy,
+			&action.ModifiedOn,
+			&action.RowVersionStamp,
 		)
 		if err != nil {
 			pr.logger.Warn(fmt.Sprintf("Error scanning action: %v", err))
@@ -429,11 +479,25 @@ func (pr *PackageRepository) SaveDeployment(deployment *PackageDeployment) error
 		deployment.DeployedAt = time.Now()
 	}
 
+	if deployment.CreatedOn.IsZero() {
+		deployment.CreatedOn = time.Now()
+	}
+
+	if deployment.ModifiedOn.IsZero() {
+		deployment.ModifiedOn = time.Now()
+	}
+
+	deployment.Active = true
+	if deployment.RowVersionStamp == 0 {
+		deployment.RowVersionStamp = 1
+	}
+
 	query := fmt.Sprintf(`
 		INSERT INTO %s
-		(id, package_id, action_id, environment, database_name, deployed_at, deployed_by, is_active)
-		VALUES (%s, %s, %s, %s, %s, %s, %s, %s)`,
-		pr.dbOp.QuoteIdentifier("package_deployments"),
+		(id, packageid, actionid, environment, databasename, deployedat, deployedby, isactive,
+		 active, referenceid, createdby, createdon, modifiedby, modifiedon, rowversionstamp)
+		VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)`,
+		pr.dbOp.QuoteIdentifier("packagedeployments"),
 		pr.dbOp.GetPlaceholder(1),
 		pr.dbOp.GetPlaceholder(2),
 		pr.dbOp.GetPlaceholder(3),
@@ -441,7 +505,14 @@ func (pr *PackageRepository) SaveDeployment(deployment *PackageDeployment) error
 		pr.dbOp.GetPlaceholder(5),
 		pr.dbOp.GetPlaceholder(6),
 		pr.dbOp.GetPlaceholder(7),
-		pr.dbOp.GetPlaceholder(8))
+		pr.dbOp.GetPlaceholder(8),
+		pr.dbOp.GetPlaceholder(9),
+		pr.dbOp.GetPlaceholder(10),
+		pr.dbOp.GetPlaceholder(11),
+		pr.dbOp.GetPlaceholder(12),
+		pr.dbOp.GetPlaceholder(13),
+		pr.dbOp.GetPlaceholder(14),
+		pr.dbOp.GetPlaceholder(15))
 
 	_, err := pr.dbOp.Exec(query,
 		deployment.ID,
@@ -452,6 +523,13 @@ func (pr *PackageRepository) SaveDeployment(deployment *PackageDeployment) error
 		deployment.DeployedAt,
 		deployment.DeployedBy,
 		deployment.IsActive,
+		deployment.Active,
+		deployment.ReferenceID,
+		deployment.CreatedBy,
+		deployment.CreatedOn,
+		deployment.ModifiedBy,
+		deployment.ModifiedOn,
+		deployment.RowVersionStamp,
 	)
 
 	return err
@@ -587,40 +665,12 @@ func (pr *PackageRepository) buildPackageMetadata(pkg *models.Package, filter *m
 func (pr *PackageRepository) buildInsertPackageQuery() string {
 	return fmt.Sprintf(`
 		INSERT INTO %s
-		(id, name, version, package_type, description, created_at, created_by, metadata,
-		 package_data, database_type, database_name, include_parent, dependencies,
-		 checksum, file_size, status, tags, environment)
-		VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)`,
+		(id, name, version, packagetype, description, metadata,
+		 packagedata, databasetype, databasename, includeparent, dependencies,
+		 checksum, filesize, status, tags, environment,
+		 active, referenceid, createdby, createdon, modifiedby, modifiedon, rowversionstamp)
+		VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)`,
 		pr.dbOp.QuoteIdentifier("iacpackages"),
-		pr.dbOp.GetPlaceholder(1),
-		pr.dbOp.GetPlaceholder(2),
-		pr.dbOp.GetPlaceholder(3),
-		pr.dbOp.GetPlaceholder(4),
-		pr.dbOp.GetPlaceholder(5),
-		pr.dbOp.GetPlaceholder(6),
-		pr.dbOp.GetPlaceholder(7),
-		pr.dbOp.GetPlaceholder(8),
-		pr.dbOp.GetPlaceholder(9),
-		pr.dbOp.GetPlaceholder(10),
-		pr.dbOp.GetPlaceholder(11),
-		pr.dbOp.GetPlaceholder(12),
-		pr.dbOp.GetPlaceholder(13),
-		pr.dbOp.GetPlaceholder(14),
-		pr.dbOp.GetPlaceholder(15),
-		pr.dbOp.GetPlaceholder(16),
-		pr.dbOp.GetPlaceholder(17),
-		pr.dbOp.GetPlaceholder(18))
-}
-
-func (pr *PackageRepository) buildInsertActionQuery() string {
-	return fmt.Sprintf(`
-		INSERT INTO %s
-		(id, package_id, action_type, action_status, target_database, target_environment,
-		 source_environment, performed_at, performed_by, started_at, completed_at, duration_seconds,
-		 options, result_data, error_log, warning_log, metadata, records_processed,
-		 records_succeeded, records_failed, tables_processed, collections_processed)
-		VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)`,
-		pr.dbOp.QuoteIdentifier("package_actions"),
 		pr.dbOp.GetPlaceholder(1),
 		pr.dbOp.GetPlaceholder(2),
 		pr.dbOp.GetPlaceholder(3),
@@ -642,5 +692,47 @@ func (pr *PackageRepository) buildInsertActionQuery() string {
 		pr.dbOp.GetPlaceholder(19),
 		pr.dbOp.GetPlaceholder(20),
 		pr.dbOp.GetPlaceholder(21),
-		pr.dbOp.GetPlaceholder(22))
+		pr.dbOp.GetPlaceholder(22),
+		pr.dbOp.GetPlaceholder(23))
+}
+
+func (pr *PackageRepository) buildInsertActionQuery() string {
+	return fmt.Sprintf(`
+		INSERT INTO %s
+		(id, packageid, actiontype, actionstatus, targetdatabase, targetenvironment,
+		 sourceenvironment, performedat, performedby, startedat, completedat, durationseconds,
+		 options, resultdata, errorlog, warninglog, metadata, recordsprocessed,
+		 recordssucceeded, recordsfailed, tablesprocessed, collectionsprocessed,
+		 active, referenceid, createdby, createdon, modifiedby, modifiedon, rowversionstamp)
+		VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)`,
+		pr.dbOp.QuoteIdentifier("packageactions"),
+		pr.dbOp.GetPlaceholder(1),
+		pr.dbOp.GetPlaceholder(2),
+		pr.dbOp.GetPlaceholder(3),
+		pr.dbOp.GetPlaceholder(4),
+		pr.dbOp.GetPlaceholder(5),
+		pr.dbOp.GetPlaceholder(6),
+		pr.dbOp.GetPlaceholder(7),
+		pr.dbOp.GetPlaceholder(8),
+		pr.dbOp.GetPlaceholder(9),
+		pr.dbOp.GetPlaceholder(10),
+		pr.dbOp.GetPlaceholder(11),
+		pr.dbOp.GetPlaceholder(12),
+		pr.dbOp.GetPlaceholder(13),
+		pr.dbOp.GetPlaceholder(14),
+		pr.dbOp.GetPlaceholder(15),
+		pr.dbOp.GetPlaceholder(16),
+		pr.dbOp.GetPlaceholder(17),
+		pr.dbOp.GetPlaceholder(18),
+		pr.dbOp.GetPlaceholder(19),
+		pr.dbOp.GetPlaceholder(20),
+		pr.dbOp.GetPlaceholder(21),
+		pr.dbOp.GetPlaceholder(22),
+		pr.dbOp.GetPlaceholder(23),
+		pr.dbOp.GetPlaceholder(24),
+		pr.dbOp.GetPlaceholder(25),
+		pr.dbOp.GetPlaceholder(26),
+		pr.dbOp.GetPlaceholder(27),
+		pr.dbOp.GetPlaceholder(28),
+		pr.dbOp.GetPlaceholder(29))
 }

@@ -36,8 +36,11 @@ func NewChatController() *ChatController {
 		}
 	}
 
+	// Initialize SchemaMetadataService for auto-discovery fallback
+	schemaService := services.NewSchemaMetadataService(gormdb.DB)
+
 	return &ChatController{
-		service: services.NewChatService(gormdb.DB, config.OpenAiKey, config.OpenAiModel),
+		service: services.NewChatService(gormdb.DB, config.OpenAiKey, config.OpenAiModel, schemaService),
 	}
 }
 
@@ -240,10 +243,10 @@ func (cc *ChatController) CreateSchemaEmbedding(c *gin.Context) {
 	}
 
 	var request struct {
-		DatabaseAlias string             `json:"database_alias"`
-		EntityType    models.EntityType  `json:"entity_type"`
-		EntityID      string             `json:"entity_id"`
-		EntityText    string             `json:"entity_text"`
+		DatabaseAlias string            `json:"database_alias"`
+		EntityType    models.EntityType `json:"entity_type"`
+		EntityID      string            `json:"entity_id"`
+		EntityText    string            `json:"entity_text"`
 	}
 
 	if err := json.Unmarshal(body, &request); err != nil {
@@ -274,7 +277,7 @@ func (cc *ChatController) CreateSchemaEmbedding(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Embedding created successfully",
+		"message":    "Embedding created successfully",
 		"dimensions": len(embedding),
 	})
 }

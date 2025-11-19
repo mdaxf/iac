@@ -1,5 +1,6 @@
 -- IAC Packages and Deployment Actions Schema - PostgreSQL
 -- Uses JSONB for better performance
+-- Uses IAC standard naming convention: no snake_case, 7 standard fields at end
 
 -- =====================================================
 -- Table: iacpackages
@@ -10,162 +11,222 @@ CREATE TABLE iacpackages (
     id VARCHAR(50) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     version VARCHAR(50) NOT NULL,
-    package_type VARCHAR(20) NOT NULL CHECK (package_type IN ('database', 'document')),
+    packagetype VARCHAR(20) NOT NULL CHECK (packagetype IN ('database', 'document')),
     description TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100) NOT NULL,
     metadata JSONB,
-    package_data JSONB NOT NULL,  -- Store as JSONB for better indexing
-    database_type VARCHAR(50),
-    database_name VARCHAR(255),
-    include_parent BOOLEAN DEFAULT FALSE,
+    packagedata JSONB NOT NULL,  -- Store as JSONB for better indexing
+    databasetype VARCHAR(50),
+    databasename VARCHAR(255),
+    includeparent BOOLEAN DEFAULT FALSE,
     dependencies JSONB,
     checksum VARCHAR(64) NOT NULL,
-    file_size BIGINT,
+    filesize BIGINT,
     status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'archived', 'deleted')),
     tags JSONB,
     environment VARCHAR(50),
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    -- IAC Standard Fields (7 fields)
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    referenceid VARCHAR(255),
+    createdby VARCHAR(255),
+    createdon TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modifiedby VARCHAR(255),
+    modifiedon TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    rowversionstamp INTEGER NOT NULL DEFAULT 1,
     CONSTRAINT unique_name_version UNIQUE (name, version)
 );
 
 CREATE INDEX idx_packages_name ON iacpackages(name);
-CREATE INDEX idx_packages_type ON iacpackages(package_type);
+CREATE INDEX idx_packages_type ON iacpackages(packagetype);
 CREATE INDEX idx_packages_status ON iacpackages(status);
-CREATE INDEX idx_packages_created ON iacpackages(created_at);
-CREATE INDEX idx_packages_creator ON iacpackages(created_by);
+CREATE INDEX idx_packages_createdon ON iacpackages(createdon);
+CREATE INDEX idx_packages_createdby ON iacpackages(createdby);
 CREATE INDEX idx_packages_env ON iacpackages(environment);
+CREATE INDEX idx_packages_active ON iacpackages(active);
 CREATE INDEX idx_packages_tags ON iacpackages USING GIN(tags);
 CREATE INDEX idx_packages_metadata ON iacpackages USING GIN(metadata);
 
 -- =====================================================
--- Table: package_actions
+-- Table: packageactions
 -- Purpose: Record all package operations
 -- =====================================================
 
-CREATE TABLE package_actions (
+CREATE TABLE packageactions (
     id VARCHAR(50) PRIMARY KEY,
-    package_id VARCHAR(50) NOT NULL,
-    action_type VARCHAR(20) NOT NULL CHECK (action_type IN ('pack', 'deploy', 'rollback', 'export', 'import', 'validate')),
-    action_status VARCHAR(20) NOT NULL CHECK (action_status IN ('pending', 'in_progress', 'completed', 'failed', 'rolled_back')),
-    target_database VARCHAR(255),
-    target_environment VARCHAR(50),
-    source_environment VARCHAR(50),
-    performed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    performed_by VARCHAR(100) NOT NULL,
-    started_at TIMESTAMP,
-    completed_at TIMESTAMP,
-    duration_seconds INTEGER,
+    packageid VARCHAR(50) NOT NULL,
+    actiontype VARCHAR(20) NOT NULL CHECK (actiontype IN ('pack', 'deploy', 'rollback', 'export', 'import', 'validate')),
+    actionstatus VARCHAR(20) NOT NULL CHECK (actionstatus IN ('pending', 'in_progress', 'completed', 'failed', 'rolled_back')),
+    targetdatabase VARCHAR(255),
+    targetenvironment VARCHAR(50),
+    sourceenvironment VARCHAR(50),
+    performedat TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    performedby VARCHAR(100) NOT NULL,
+    startedat TIMESTAMP,
+    completedat TIMESTAMP,
+    durationseconds INTEGER,
     options JSONB,
-    result_data JSONB,
-    error_log JSONB,
-    warning_log JSONB,
+    resultdata JSONB,
+    errorlog JSONB,
+    warninglog JSONB,
     metadata JSONB,
-    records_processed INTEGER DEFAULT 0,
-    records_succeeded INTEGER DEFAULT 0,
-    records_failed INTEGER DEFAULT 0,
-    tables_processed INTEGER DEFAULT 0,
-    collections_processed INTEGER DEFAULT 0,
-    FOREIGN KEY (package_id) REFERENCES iacpackages(id) ON DELETE CASCADE
+    recordsprocessed INTEGER DEFAULT 0,
+    recordssucceeded INTEGER DEFAULT 0,
+    recordsfailed INTEGER DEFAULT 0,
+    tablesprocessed INTEGER DEFAULT 0,
+    collectionsprocessed INTEGER DEFAULT 0,
+    -- IAC Standard Fields (7 fields)
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    referenceid VARCHAR(255),
+    createdby VARCHAR(255),
+    createdon TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modifiedby VARCHAR(255),
+    modifiedon TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    rowversionstamp INTEGER NOT NULL DEFAULT 1,
+    FOREIGN KEY (packageid) REFERENCES iacpackages(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_actions_package ON package_actions(package_id);
-CREATE INDEX idx_actions_type ON package_actions(action_type);
-CREATE INDEX idx_actions_status ON package_actions(action_status);
-CREATE INDEX idx_actions_performed ON package_actions(performed_at);
-CREATE INDEX idx_actions_performer ON package_actions(performed_by);
-CREATE INDEX idx_actions_target_env ON package_actions(target_environment);
-CREATE INDEX idx_actions_result ON package_actions USING GIN(result_data);
+CREATE INDEX idx_actions_packageid ON packageactions(packageid);
+CREATE INDEX idx_actions_type ON packageactions(actiontype);
+CREATE INDEX idx_actions_status ON packageactions(actionstatus);
+CREATE INDEX idx_actions_performedat ON packageactions(performedat);
+CREATE INDEX idx_actions_performedby ON packageactions(performedby);
+CREATE INDEX idx_actions_targetenv ON packageactions(targetenvironment);
+CREATE INDEX idx_actions_active ON packageactions(active);
+CREATE INDEX idx_actions_result ON packageactions USING GIN(resultdata);
 
 -- =====================================================
--- Table: package_relationships
+-- Table: packagerelationships
 -- =====================================================
 
-CREATE TABLE package_relationships (
+CREATE TABLE packagerelationships (
     id VARCHAR(50) PRIMARY KEY,
-    parent_package_id VARCHAR(50) NOT NULL,
-    child_package_id VARCHAR(50) NOT NULL,
-    relationship_type VARCHAR(50) NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (parent_package_id) REFERENCES iacpackages(id) ON DELETE CASCADE,
-    FOREIGN KEY (child_package_id) REFERENCES iacpackages(id) ON DELETE CASCADE,
-    CONSTRAINT unique_relationship UNIQUE (parent_package_id, child_package_id, relationship_type)
+    parentpackageid VARCHAR(50) NOT NULL,
+    childpackageid VARCHAR(50) NOT NULL,
+    relationshiptype VARCHAR(50) NOT NULL,
+    -- IAC Standard Fields (7 fields)
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    referenceid VARCHAR(255),
+    createdby VARCHAR(255),
+    createdon TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modifiedby VARCHAR(255),
+    modifiedon TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    rowversionstamp INTEGER NOT NULL DEFAULT 1,
+    FOREIGN KEY (parentpackageid) REFERENCES iacpackages(id) ON DELETE CASCADE,
+    FOREIGN KEY (childpackageid) REFERENCES iacpackages(id) ON DELETE CASCADE,
+    CONSTRAINT unique_relationship UNIQUE (parentpackageid, childpackageid, relationshiptype)
 );
 
-CREATE INDEX idx_relationships_parent ON package_relationships(parent_package_id);
-CREATE INDEX idx_relationships_child ON package_relationships(child_package_id);
+CREATE INDEX idx_relationships_parent ON packagerelationships(parentpackageid);
+CREATE INDEX idx_relationships_child ON packagerelationships(childpackageid);
+CREATE INDEX idx_relationships_active ON packagerelationships(active);
 
 -- =====================================================
--- Table: package_deployments
+-- Table: packagedeployments
 -- =====================================================
 
-CREATE TABLE package_deployments (
+CREATE TABLE packagedeployments (
     id VARCHAR(50) PRIMARY KEY,
-    package_id VARCHAR(50) NOT NULL,
-    action_id VARCHAR(50) NOT NULL,
+    packageid VARCHAR(50) NOT NULL,
+    actionid VARCHAR(50) NOT NULL,
     environment VARCHAR(50) NOT NULL,
-    database_name VARCHAR(255) NOT NULL,
-    deployed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deployed_by VARCHAR(100) NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    rolled_back_at TIMESTAMP,
-    rolled_back_by VARCHAR(100),
-    FOREIGN KEY (package_id) REFERENCES iacpackages(id) ON DELETE CASCADE,
-    FOREIGN KEY (action_id) REFERENCES package_actions(id) ON DELETE CASCADE
+    databasename VARCHAR(255) NOT NULL,
+    deployedat TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deployedby VARCHAR(100) NOT NULL,
+    isactive BOOLEAN DEFAULT TRUE,
+    rolledbackat TIMESTAMP,
+    rolledbackby VARCHAR(100),
+    -- IAC Standard Fields (7 fields)
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    referenceid VARCHAR(255),
+    createdby VARCHAR(255),
+    createdon TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modifiedby VARCHAR(255),
+    modifiedon TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    rowversionstamp INTEGER NOT NULL DEFAULT 1,
+    FOREIGN KEY (packageid) REFERENCES iacpackages(id) ON DELETE CASCADE,
+    FOREIGN KEY (actionid) REFERENCES packageactions(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_deployments_package ON package_deployments(package_id);
-CREATE INDEX idx_deployments_env ON package_deployments(environment);
-CREATE INDEX idx_deployments_active ON package_deployments(is_active);
-CREATE INDEX idx_deployments_deployed ON package_deployments(deployed_at);
+CREATE INDEX idx_deployments_packageid ON packagedeployments(packageid);
+CREATE INDEX idx_deployments_env ON packagedeployments(environment);
+CREATE INDEX idx_deployments_isactive ON packagedeployments(isactive);
+CREATE INDEX idx_deployments_deployedat ON packagedeployments(deployedat);
+CREATE INDEX idx_deployments_active ON packagedeployments(active);
 
 -- =====================================================
--- Table: package_tags
+-- Table: packagetags
 -- =====================================================
 
-CREATE TABLE package_tags (
+CREATE TABLE packagetags (
     id VARCHAR(50) PRIMARY KEY,
-    package_id VARCHAR(50) NOT NULL,
-    tag_name VARCHAR(100) NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100),
-    FOREIGN KEY (package_id) REFERENCES iacpackages(id) ON DELETE CASCADE,
-    CONSTRAINT unique_package_tag UNIQUE (package_id, tag_name)
+    packageid VARCHAR(50) NOT NULL,
+    tagname VARCHAR(100) NOT NULL,
+    -- IAC Standard Fields (7 fields)
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    referenceid VARCHAR(255),
+    createdby VARCHAR(255),
+    createdon TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modifiedby VARCHAR(255),
+    modifiedon TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    rowversionstamp INTEGER NOT NULL DEFAULT 1,
+    FOREIGN KEY (packageid) REFERENCES iacpackages(id) ON DELETE CASCADE,
+    CONSTRAINT unique_package_tag UNIQUE (packageid, tagname)
 );
 
-CREATE INDEX idx_tags_package ON package_tags(package_id);
-CREATE INDEX idx_tags_name ON package_tags(tag_name);
+CREATE INDEX idx_tags_packageid ON packagetags(packageid);
+CREATE INDEX idx_tags_tagname ON packagetags(tagname);
+CREATE INDEX idx_tags_active ON packagetags(active);
 
 -- =====================================================
 -- Functions and Triggers
 -- =====================================================
 
--- Auto-update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
+-- Auto-update modifiedon timestamp and increment rowversionstamp
+CREATE OR REPLACE FUNCTION update_modifiedon_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
+    NEW.modifiedon = CURRENT_TIMESTAMP;
+    NEW.rowversionstamp = OLD.rowversionstamp + 1;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER update_iacpackages_updated_at
+CREATE TRIGGER update_iacpackages_modifiedon
     BEFORE UPDATE ON iacpackages
     FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+    EXECUTE FUNCTION update_modifiedon_column();
+
+CREATE TRIGGER update_packageactions_modifiedon
+    BEFORE UPDATE ON packageactions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_modifiedon_column();
+
+CREATE TRIGGER update_packagerelationships_modifiedon
+    BEFORE UPDATE ON packagerelationships
+    FOR EACH ROW
+    EXECUTE FUNCTION update_modifiedon_column();
+
+CREATE TRIGGER update_packagedeployments_modifiedon
+    BEFORE UPDATE ON packagedeployments
+    FOR EACH ROW
+    EXECUTE FUNCTION update_modifiedon_column();
+
+CREATE TRIGGER update_packagetags_modifiedon
+    BEFORE UPDATE ON packagetags
+    FOR EACH ROW
+    EXECUTE FUNCTION update_modifiedon_column();
 
 -- Calculate action duration on completion
 CREATE OR REPLACE FUNCTION calculate_action_duration()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF NEW.action_status IN ('completed', 'failed', 'rolled_back') AND NEW.started_at IS NOT NULL THEN
-        NEW.duration_seconds = EXTRACT(EPOCH FROM (NEW.completed_at - NEW.started_at))::INTEGER;
+    IF NEW.actionstatus IN ('completed', 'failed', 'rolled_back') AND NEW.startedat IS NOT NULL THEN
+        NEW.durationseconds = EXTRACT(EPOCH FROM (NEW.completedat - NEW.startedat))::INTEGER;
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER calculate_package_action_duration
-    BEFORE UPDATE ON package_actions
+    BEFORE UPDATE ON packageactions
     FOR EACH ROW
     EXECUTE FUNCTION calculate_action_duration();
