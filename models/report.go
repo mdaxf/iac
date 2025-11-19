@@ -252,6 +252,43 @@ func (j JSONMap) Value() (driver.Value, error) {
 	return json.Marshal(j)
 }
 
+// JSONField is a flexible type for JSON fields that can hold arrays or objects
+type JSONField struct {
+	Data interface{}
+}
+
+// Scan implements the sql.Scanner interface for JSONField
+func (j *JSONField) Scan(value interface{}) error {
+	if value == nil {
+		j.Data = nil
+		return nil
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("type assertion to []byte failed")
+	}
+	// Unmarshal into interface{} to allow any JSON type (array, object, etc.)
+	return json.Unmarshal(bytes, &j.Data)
+}
+
+// Value implements the driver.Valuer interface for JSONField
+func (j JSONField) Value() (driver.Value, error) {
+	if j.Data == nil {
+		return nil, nil
+	}
+	return json.Marshal(j.Data)
+}
+
+// MarshalJSON implements json.Marshaler for JSONField
+func (j JSONField) MarshalJSON() ([]byte, error) {
+	return json.Marshal(j.Data)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for JSONField
+func (j *JSONField) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &j.Data)
+}
+
 // Report represents a report definition
 type Report struct {
 	ID               string     `json:"id" gorm:"primaryKey;column:id;type:varchar(36);default:(UUID())"`
@@ -277,13 +314,13 @@ type Report struct {
 	Shares      []ReportShare      `json:"shares,omitempty" gorm:"foreignKey:ReportID;constraint:OnDelete:CASCADE"`
 
 	// Standard IAC audit fields (must be at end)
-	Active           bool   `json:"active" gorm:"column:active;default:true"`
-	ReferenceID      string `json:"referenceid" gorm:"column:referenceid;type:varchar(36)"`
-	CreatedBy        string `json:"createdby" gorm:"column:createdby;type:varchar(45)"`
-	CreatedOn        Time   `json:"createdon" gorm:"column:createdon;autoCreateTime"`
-	ModifiedBy       string `json:"modifiedby" gorm:"column:modifiedby;type:varchar(45)"`
-	ModifiedOn       Time   `json:"modifiedon" gorm:"column:modifiedon;autoUpdateTime"`
-	RowVersionStamp  int    `json:"rowversionstamp" gorm:"column:rowversionstamp;default:1"`
+	Active          bool   `json:"active" gorm:"column:active;default:true"`
+	ReferenceID     string `json:"referenceid" gorm:"column:referenceid;type:varchar(36)"`
+	CreatedBy       string `json:"createdby" gorm:"column:createdby;type:varchar(45)"`
+	CreatedOn       Time   `json:"createdon" gorm:"column:createdon;autoCreateTime"`
+	ModifiedBy      string `json:"modifiedby" gorm:"column:modifiedby;type:varchar(45)"`
+	ModifiedOn      Time   `json:"modifiedon" gorm:"column:modifiedon;autoUpdateTime"`
+	RowVersionStamp int    `json:"rowversionstamp" gorm:"column:rowversionstamp;default:1"`
 }
 
 // TableName specifies the table name
@@ -293,19 +330,19 @@ func (Report) TableName() string {
 
 // ReportDatasource represents a data source for a report
 type ReportDatasource struct {
-	ID             string  `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
-	ReportID       string  `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
-	Alias          string  `json:"alias" gorm:"column:alias;type:varchar(100);not null"`
-	DatabaseAlias  string  `json:"databasealias" gorm:"column:databasealias;type:varchar(100)"`
-	QueryType      string  `json:"querytype" gorm:"column:querytype;type:varchar(20);default:'visual'"`
-	CustomSQL      string  `json:"customsql" gorm:"column:customsql;type:text"`
-	SelectedTables JSONMap `json:"selectedtables" gorm:"column:selectedtables;type:json"`
-	SelectedFields JSONMap `json:"selectedfields" gorm:"column:selectedfields;type:json"`
-	Joins          JSONMap `json:"joins" gorm:"column:joins;type:json"`
-	Filters        JSONMap `json:"filters" gorm:"column:filters;type:json"`
-	Sorting        JSONMap `json:"sorting" gorm:"column:sorting;type:json"`
-	Grouping       JSONMap `json:"grouping" gorm:"column:grouping;type:json"`
-	Parameters     JSONMap `json:"parameters" gorm:"column:parameters;type:json"`
+	ID             string    `json:"id" gorm:"primaryKey;type:varchar(36);default:(UUID())"`
+	ReportID       string    `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
+	Alias          string    `json:"alias" gorm:"column:alias;type:varchar(100);not null"`
+	DatabaseAlias  string    `json:"databasealias" gorm:"column:databasealias;type:varchar(100)"`
+	QueryType      string    `json:"querytype" gorm:"column:querytype;type:varchar(20);default:'visual'"`
+	CustomSQL      string    `json:"customsql" gorm:"column:customsql;type:text"`
+	SelectedTables JSONField `json:"selectedtables" gorm:"column:selectedtables;type:json"`
+	SelectedFields JSONField `json:"selectedfields" gorm:"column:selectedfields;type:json"`
+	Joins          JSONField `json:"joins" gorm:"column:joins;type:json"`
+	Filters        JSONField `json:"filters" gorm:"column:filters;type:json"`
+	Sorting        JSONField `json:"sorting" gorm:"column:sorting;type:json"`
+	Grouping       JSONField `json:"grouping" gorm:"column:grouping;type:json"`
+	Parameters     JSONField `json:"parameters" gorm:"column:parameters;type:json"`
 
 	// Standard IAC audit fields (must be at end)
 	Active          bool   `json:"active" gorm:"column:active;default:true"`
@@ -334,15 +371,15 @@ type ReportComponent struct {
 	Height                float64       `json:"height" gorm:"column:height;type:decimal(10,2);default:100"`
 	ZIndex                int           `json:"zindex" gorm:"column:zindex;default:0"`
 	DatasourceAlias       string        `json:"datasourcealias" gorm:"column:datasourcealias;type:varchar(100)"`
-	DataConfig            JSONMap       `json:"dataconfig" gorm:"column:dataconfig;type:json"`
-	ComponentConfig       JSONMap       `json:"componentconfig" gorm:"column:componentconfig;type:json"`
-	StyleConfig           JSONMap       `json:"styleconfig" gorm:"column:styleconfig;type:json"`
+	DataConfig            JSONField     `json:"dataconfig" gorm:"column:dataconfig;type:json"`
+	ComponentConfig       JSONField     `json:"componentconfig" gorm:"column:componentconfig;type:json"`
+	StyleConfig           JSONField     `json:"styleconfig" gorm:"column:styleconfig;type:json"`
 	ChartType             *ChartType    `json:"charttype" gorm:"column:charttype;type:enum('line','bar','pie','area','scatter','donut','stacked_bar','stacked_area','bar_3d','pie_3d','line_3d')"`
-	ChartConfig           JSONMap       `json:"chartconfig" gorm:"column:chartconfig;type:json"`
+	ChartConfig           JSONField     `json:"chartconfig" gorm:"column:chartconfig;type:json"`
 	BarcodeType           *BarcodeType  `json:"barcodetype" gorm:"column:barcodetype;type:enum('code128','code39','ean13','ean8','upc','qr_code','data_matrix','pdf417','aztec')"`
-	BarcodeConfig         JSONMap       `json:"barcodeconfig" gorm:"column:barcodeconfig;type:json"`
-	DrillDownConfig       JSONMap       `json:"drilldownconfig" gorm:"column:drilldownconfig;type:json"`
-	ConditionalFormatting JSONMap       `json:"conditionalformatting" gorm:"column:conditionalformatting;type:json"`
+	BarcodeConfig         JSONField     `json:"barcodeconfig" gorm:"column:barcodeconfig;type:json"`
+	DrillDownConfig       JSONField     `json:"drilldownconfig" gorm:"column:drilldownconfig;type:json"`
+	ConditionalFormatting JSONField     `json:"conditionalformatting" gorm:"column:conditionalformatting;type:json"`
 	IsVisible             bool          `json:"isvisible" gorm:"column:isvisible;default:true"`
 
 	// Standard IAC audit fields (must be at end)
@@ -392,17 +429,17 @@ func (ReportParameter) TableName() string {
 
 // ReportExecution represents a report execution record
 type ReportExecution struct {
-	ID              string    `json:"id" gorm:"primaryKey;column:id;type:varchar(36);default:(UUID())"`
-	ReportID        string    `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
-	ExecutedBy      string    `json:"executedby" gorm:"column:executedby;type:varchar(36)"`
-	ExecutionStatus string    `json:"executionstatus" gorm:"column:executionstatus;type:varchar(20);default:'pending'"`
-	ExecutionTimeMs int       `json:"executiontimems" gorm:"column:executiontimems"`
-	ErrorMessage    string    `json:"errormessage" gorm:"column:errormessage;type:text"`
-	Parameters      JSONMap   `json:"parameters" gorm:"column:parameters;type:json"`
-	OutputFormat    string    `json:"outputformat" gorm:"column:outputformat;type:varchar(20)"`
-	OutputSizeBytes int64     `json:"outputsizebytes" gorm:"column:outputsizebytes"`
-	OutputPath      string    `json:"outputpath" gorm:"column:outputpath;type:varchar(500)"`
-	RowCount        int       `json:"rowcount" gorm:"column:rowcount"`
+	ID              string  `json:"id" gorm:"primaryKey;column:id;type:varchar(36);default:(UUID())"`
+	ReportID        string  `json:"reportid" gorm:"column:reportid;type:varchar(36);not null"`
+	ExecutedBy      string  `json:"executedby" gorm:"column:executedby;type:varchar(36)"`
+	ExecutionStatus string  `json:"executionstatus" gorm:"column:executionstatus;type:varchar(20);default:'pending'"`
+	ExecutionTimeMs int     `json:"executiontimems" gorm:"column:executiontimems"`
+	ErrorMessage    string  `json:"errormessage" gorm:"column:errormessage;type:text"`
+	Parameters      JSONMap `json:"parameters" gorm:"column:parameters;type:json"`
+	OutputFormat    string  `json:"outputformat" gorm:"column:outputformat;type:varchar(20)"`
+	OutputSizeBytes int64   `json:"outputsizebytes" gorm:"column:outputsizebytes"`
+	OutputPath      string  `json:"outputpath" gorm:"column:outputpath;type:varchar(500)"`
+	RowCount        int     `json:"rowcount" gorm:"column:rowcount"`
 
 	// Standard IAC audit fields (must be at end)
 	Active          bool   `json:"active" gorm:"column:active;default:true"`

@@ -61,6 +61,7 @@ type Portal struct {
 }
 
 var apiconfig = "apiconfig.json"
+var apiconfigLocal = "apiconfig.local.json"
 var gconfig = "configuration.json"
 
 var MQTTClients map[string]*mqttclient.MqttClient
@@ -68,6 +69,7 @@ var Kakfas map[string]*kafka.KafkaConsumer
 var ActiveMQs map[string]*activemq.ActiveMQ
 
 func LoadConfig() (*Config, error) {
+	// Load base configuration from apiconfig.json
 	data, err := ioutil.ReadFile(apiconfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read configuration file: %v", err)
@@ -78,22 +80,80 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("failed to parse configuration file: %v", err)
 	}
 
-	ApiKey = config.ApiKey
+	// Check if local override exists
+	if localData, err := ioutil.ReadFile(apiconfigLocal); err == nil {
+		var localConfig Config
+		if err := json.Unmarshal(localData, &localConfig); err != nil {
+			fmt.Printf("Warning: failed to parse %s: %v\n", apiconfigLocal, err)
+		} else {
+			// Override only root-level configuration, preserve controllers
+			if localConfig.Port != 0 {
+				config.Port = localConfig.Port
+			}
+			if localConfig.Timeout != 0 {
+				config.Timeout = localConfig.Timeout
+			}
+			if localConfig.ApiKey != "" {
+				config.ApiKey = localConfig.ApiKey
+			}
+			if localConfig.OpenAiKey != "" {
+				config.OpenAiKey = localConfig.OpenAiKey
+			}
+			if localConfig.OpenAiModel != "" {
+				config.OpenAiModel = localConfig.OpenAiModel
+			}
+			// Override Portal if any field is set
+			if localConfig.Portal.Port != 0 || localConfig.Portal.Path != "" ||
+				localConfig.Portal.Home != "" || localConfig.Portal.Logon != "" {
+				config.Portal = localConfig.Portal
+			}
+			fmt.Printf("  - Applied local configuration overrides from %s\n", apiconfigLocal)
+		}
+	}
 
-	if len(config.OpenAiKey) < 15 {
-		OpenAiKey = os.Getenv("OPENAI_KEY")
+	// Load API key from environment variable first, fallback to config file
+	if envApiKey := os.Getenv("IAC_API_KEY"); envApiKey != "" {
+		ApiKey = envApiKey
+	} else {
+		ApiKey = config.ApiKey
+	}
+
+	// Load OpenAI key from environment variable first, fallback to config file
+	if envOpenAiKey := os.Getenv("OPENAI_KEY"); envOpenAiKey != "" {
+		OpenAiKey = envOpenAiKey
 	} else {
 		OpenAiKey = config.OpenAiKey
 	}
 
-	if config.OpenAiModel == "" {
-		OpenAiModel = os.Getenv("OPENAI_MODEL")
-	} else {
+	// Load OpenAI model from environment variable first, fallback to config file
+	if envOpenAiModel := os.Getenv("OPENAI_MODEL"); envOpenAiModel != "" {
+		OpenAiModel = envOpenAiModel
+	} else if config.OpenAiModel != "" {
 		OpenAiModel = config.OpenAiModel
+	} else {
+		// Default model if neither env var nor config is set
+		OpenAiModel = "gpt-4o"
 	}
 
-	fmt.Println("loaded portal and api configuration:", config)
+	fmt.Println("loaded portal and api configuration")
+	fmt.Printf("  - Port: %d\n", config.Port)
+	fmt.Printf("  - API Key: %s\n", maskSecret(ApiKey))
+	fmt.Printf("  - OpenAI Key: %s\n", maskSecret(OpenAiKey))
+	fmt.Printf("  - OpenAI Model: %s\n", OpenAiModel)
+	fmt.Printf("  - Controllers: %d\n", len(config.Controllers))
+
 	return &config, nil
+}
+
+// maskSecret masks sensitive values for logging
+func maskSecret(secret string) string {
+	if secret == "" {
+		return "[not set]"
+	}
+	if len(secret) <= 8 {
+		return "****"
+	}
+	return secret[:4] + "****" + secret[len(secret)-4:]
 }
 
 func LoadGlobalConfig() (*GlobalConfig, error) {
