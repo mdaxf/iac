@@ -195,7 +195,7 @@ func (s *ReportService) AddComponent(component *models.ReportComponent) error {
 func (s *ReportService) GetComponents(reportID string) ([]models.ReportComponent, error) {
 	var components []models.ReportComponent
 	err := s.DB.Where("reportid = ? AND isvisible = ?", reportID, true).
-		Order("z_index ASC").
+		Order("zindex ASC").
 		Find(&components).Error
 	return components, err
 }
@@ -204,7 +204,7 @@ func (s *ReportService) GetComponents(reportID string) ([]models.ReportComponent
 func (s *ReportService) GetAllComponents(reportID string) ([]models.ReportComponent, error) {
 	var components []models.ReportComponent
 	err := s.DB.Where("reportid = ?", reportID).
-		Order("z_index ASC").
+		Order("zindex ASC").
 		Find(&components).Error
 	return components, err
 }
