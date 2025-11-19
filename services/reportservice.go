@@ -200,8 +200,37 @@ func (s *ReportService) GetComponents(reportID string) ([]models.ReportComponent
 
 // UpdateComponent updates a component
 func (s *ReportService) UpdateComponent(id string, updates map[string]interface{}) error {
-	updates["modifiedon"] = time.Now()
-	return s.DB.Model(&models.ReportComponent{}).Where("id = ?", id).Updates(updates).Error
+	// List of JSON fields that need serialization
+	jsonFields := []string{"dataconfig", "componentconfig", "styleconfig", "chartconfig", "barcodeconfig", "drilldownconfig", "conditionalformatting"}
+
+	// Create a new map with serialized JSON fields
+	processedUpdates := make(map[string]interface{})
+
+	for key, value := range updates {
+		// Check if this is a JSON field
+		isJSONField := false
+		for _, jf := range jsonFields {
+			if key == jf {
+				isJSONField = true
+				break
+			}
+		}
+
+		// If it's a JSON field and not nil, serialize it to []byte
+		if isJSONField && value != nil {
+			jsonBytes, err := json.Marshal(value)
+			if err != nil {
+				return fmt.Errorf("error serializing %s: %v", key, err)
+			}
+			processedUpdates[key] = jsonBytes
+		} else {
+			// For non-JSON fields, pass through as-is
+			processedUpdates[key] = value
+		}
+	}
+
+	processedUpdates["modifiedon"] = time.Now()
+	return s.DB.Model(&models.ReportComponent{}).Where("id = ?", id).Updates(processedUpdates).Error
 }
 
 // DeleteComponent deletes a component

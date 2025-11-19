@@ -122,9 +122,9 @@ func (rc *ReportController) ListReports(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"reports": reports,
-		"total":   total,
-		"page":    page,
+		"reports":   reports,
+		"total":     total,
+		"page":      page,
 		"page_size": pageSize,
 	})
 }
@@ -281,6 +281,163 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 							if len(dsUpdates) > 0 {
 								if err := rc.service.UpdateDatasource(datasource.ID, dsUpdates); err != nil {
 									iLog.Error(fmt.Sprintf("Error updating new datasource JSON fields %s: %v", datasource.ID, err))
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Handle components separately if included in the request
+	if componentsRaw, hasComponents := updates["components"]; hasComponents {
+		if componentsArray, ok := componentsRaw.([]interface{}); ok {
+			for _, compRaw := range componentsArray {
+				if compMap, ok := compRaw.(map[string]interface{}); ok {
+					// Extract component ID to determine if this is update or create
+					compID, _ := compMap["id"].(string)
+
+					if compID != "" {
+						// Update existing component - work directly with the map
+						compUpdates := make(map[string]interface{})
+
+						// Copy scalar fields
+						if v, ok := compMap["componenttype"]; ok {
+							compUpdates["componenttype"] = v
+						}
+						if v, ok := compMap["name"]; ok {
+							compUpdates["name"] = v
+						}
+						if v, ok := compMap["x"]; ok {
+							compUpdates["x"] = v
+						}
+						if v, ok := compMap["y"]; ok {
+							compUpdates["y"] = v
+						}
+						if v, ok := compMap["width"]; ok {
+							compUpdates["width"] = v
+						}
+						if v, ok := compMap["height"]; ok {
+							compUpdates["height"] = v
+						}
+						if v, ok := compMap["zindex"]; ok {
+							compUpdates["zindex"] = v
+						}
+						if v, ok := compMap["datasourcealias"]; ok {
+							compUpdates["datasourcealias"] = v
+						}
+						if v, ok := compMap["charttype"]; ok {
+							compUpdates["charttype"] = v
+						}
+						if v, ok := compMap["barcodetype"]; ok {
+							compUpdates["barcodetype"] = v
+						}
+						if v, ok := compMap["isvisible"]; ok {
+							compUpdates["isvisible"] = v
+						}
+
+						// Copy JSON fields (arrays/objects) as-is - they'll be serialized by UpdateComponent
+						if v, ok := compMap["dataconfig"]; ok {
+							compUpdates["dataconfig"] = v
+						}
+						if v, ok := compMap["componentconfig"]; ok {
+							compUpdates["componentconfig"] = v
+						}
+						if v, ok := compMap["styleconfig"]; ok {
+							compUpdates["styleconfig"] = v
+						}
+						if v, ok := compMap["chartconfig"]; ok {
+							compUpdates["chartconfig"] = v
+						}
+						if v, ok := compMap["barcodeconfig"]; ok {
+							compUpdates["barcodeconfig"] = v
+						}
+						if v, ok := compMap["drilldownconfig"]; ok {
+							compUpdates["drilldownconfig"] = v
+						}
+						if v, ok := compMap["conditionalformatting"]; ok {
+							compUpdates["conditionalformatting"] = v
+						}
+
+						compUpdates["modifiedby"] = user
+						compUpdates["reportid"] = reportID
+
+						if err := rc.service.UpdateComponent(compID, compUpdates); err != nil {
+							iLog.Error(fmt.Sprintf("Error updating component %s: %v", compID, err))
+						}
+					} else {
+						// Create new component
+						// For create, we build a minimal struct and let GORM handle the JSON fields
+						component := &models.ReportComponent{
+							ReportID:   reportID,
+							CreatedBy:  user,
+							ModifiedBy: user,
+						}
+
+						// Set scalar fields if present
+						if v, ok := compMap["componenttype"].(string); ok {
+							component.ComponentType = models.ComponentType(v)
+						}
+						if v, ok := compMap["name"].(string); ok {
+							component.Name = v
+						}
+						if v, ok := compMap["x"].(float64); ok {
+							component.X = v
+						}
+						if v, ok := compMap["y"].(float64); ok {
+							component.Y = v
+						}
+						if v, ok := compMap["width"].(float64); ok {
+							component.Width = v
+						}
+						if v, ok := compMap["height"].(float64); ok {
+							component.Height = v
+						}
+						if v, ok := compMap["zindex"].(float64); ok {
+							component.ZIndex = int(v)
+						}
+						if v, ok := compMap["datasourcealias"].(string); ok {
+							component.DatasourceAlias = v
+						}
+						if v, ok := compMap["isvisible"].(bool); ok {
+							component.IsVisible = v
+						}
+
+						if err := rc.service.AddComponent(component); err != nil {
+							iLog.Error(fmt.Sprintf("Error creating component: %v", err))
+							continue
+						}
+
+						// After creation, update the complex JSON fields using the update path
+						if component.ID != "" {
+							compUpdates := make(map[string]interface{})
+
+							if v, ok := compMap["dataconfig"]; ok {
+								compUpdates["dataconfig"] = v
+							}
+							if v, ok := compMap["componentconfig"]; ok {
+								compUpdates["componentconfig"] = v
+							}
+							if v, ok := compMap["styleconfig"]; ok {
+								compUpdates["styleconfig"] = v
+							}
+							if v, ok := compMap["chartconfig"]; ok {
+								compUpdates["chartconfig"] = v
+							}
+							if v, ok := compMap["barcodeconfig"]; ok {
+								compUpdates["barcodeconfig"] = v
+							}
+							if v, ok := compMap["drilldownconfig"]; ok {
+								compUpdates["drilldownconfig"] = v
+							}
+							if v, ok := compMap["conditionalformatting"]; ok {
+								compUpdates["conditionalformatting"] = v
+							}
+
+							if len(compUpdates) > 0 {
+								if err := rc.service.UpdateComponent(component.ID, compUpdates); err != nil {
+									iLog.Error(fmt.Sprintf("Error updating new component JSON fields %s: %v", component.ID, err))
 								}
 							}
 						}
@@ -601,7 +758,7 @@ func (rc *ReportController) ExecuteReport(c *gin.Context) {
 	// For now, just mark as success
 	elapsed := time.Since(startTime)
 	rc.service.UpdateExecution(execution.ID, map[string]interface{}{
-		"executionstatus":  "success",
+		"executionstatus": "success",
 		"executiontimems": int(elapsed.Milliseconds()),
 	})
 
