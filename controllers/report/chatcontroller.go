@@ -10,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mdaxf/iac/config"
 	"github.com/mdaxf/iac/controllers/common"
-	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/gormdb"
 	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac/models"
@@ -37,16 +36,9 @@ func NewChatController() *ChatController {
 		}
 	}
 
-	// Get global PoolManager for multi-database support
-	poolManager := dbconn.GetPoolManager()
-
-	// Create database selector and helper for user database access
-	selector := dbconn.NewDatabaseSelector(poolManager)
-	selector.SetStrategy(dbconn.StrategyRoundRobin)
-	dbHelper := services.NewDatabaseHelper(selector, gormdb.DB)
-
-	// Initialize SchemaMetadataServiceMultiDB for auto-discovery with multi-DB support
-	schemaService := services.NewSchemaMetadataServiceMultiDB(dbHelper, gormdb.DB)
+	// Initialize SchemaMetadataService for auto-discovery
+	// This service queries the current GORM database directly
+	schemaService := services.NewSchemaMetadataService(gormdb.DB)
 
 	return &ChatController{
 		service: services.NewChatService(gormdb.DB, config.OpenAiKey, config.OpenAiModel, schemaService),
