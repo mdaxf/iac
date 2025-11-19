@@ -451,6 +451,11 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 							continue
 						}
 
+						// Track the newly created component ID so it doesn't get deleted
+						if component.ID != "" {
+							incomingComponentIDs[component.ID] = true
+						}
+
 						// After creation, update the complex JSON fields using the update path
 						if component.ID != "" {
 							compUpdates := make(map[string]interface{})
