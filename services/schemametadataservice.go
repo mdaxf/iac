@@ -276,7 +276,7 @@ func (s *SchemaMetadataService) SearchMetadata(ctx context.Context, databaseAlia
 }
 
 // GetDatabaseMetadata retrieves complete metadata (tables and columns) for a database
-// If no metadata exists, it automatically discovers and populates it from information_schema
+// If no metadata exists or existing metadata is incomplete, it automatically discovers and populates it from information_schema
 func (s *SchemaMetadataService) GetDatabaseMetadata(ctx context.Context, databaseAlias string) ([]models.DatabaseSchemaMetadata, error) {
 	var metadata []models.DatabaseSchemaMetadata
 
@@ -289,9 +289,54 @@ func (s *SchemaMetadataService) GetDatabaseMetadata(ctx context.Context, databas
 		return nil, fmt.Errorf("failed to get database metadata: %w", err)
 	}
 
-	// If no metadata found, automatically discover and populate it
+	// Check if existing metadata is useful (has both tables and columns)
+	needsDiscovery := false
+	discoveryReason := ""
+
 	if len(metadata) == 0 {
+		needsDiscovery = true
+		discoveryReason = "no metadata found"
 		s.iLog.Info(fmt.Sprintf("No metadata found for alias '%s', attempting auto-discovery", databaseAlias))
+	} else {
+		// Count tables and columns
+		tableCount := 0
+		columnCount := 0
+		for _, meta := range metadata {
+			if meta.MetadataType == models.MetadataTypeTable {
+				tableCount++
+			} else if meta.MetadataType == models.MetadataTypeColumn {
+				columnCount++
+			}
+		}
+
+		// Check if metadata is incomplete
+		if columnCount == 0 {
+			needsDiscovery = true
+			discoveryReason = fmt.Sprintf("found %d tables but no columns", tableCount)
+		} else if tableCount < 5 {
+			needsDiscovery = true
+			discoveryReason = fmt.Sprintf("found only %d tables (need at least 5)", tableCount)
+		} else if len(metadata) < 10 {
+			needsDiscovery = true
+			discoveryReason = fmt.Sprintf("found only %d total entries (need at least 10)", len(metadata))
+		} else if tableCount > 0 && columnCount < (tableCount*2) {
+			needsDiscovery = true
+			discoveryReason = fmt.Sprintf("found %d tables but only %d columns (need at least 2 per table)", tableCount, columnCount)
+		}
+
+		if needsDiscovery {
+			s.iLog.Warn(fmt.Sprintf("Existing metadata for alias '%s' is incomplete (%s), triggering auto-discovery", databaseAlias, discoveryReason))
+			// Delete existing incomplete metadata before rediscovering
+			if err := s.db.WithContext(ctx).Where("databasealias = ?", databaseAlias).Delete(&models.DatabaseSchemaMetadata{}).Error; err != nil {
+				s.iLog.Error(fmt.Sprintf("Failed to delete incomplete metadata: %v", err))
+			} else {
+				s.iLog.Info("Deleted incomplete metadata, will perform fresh discovery")
+			}
+		}
+	}
+
+	// If metadata is missing or incomplete, automatically discover and populate it
+	if needsDiscovery {
 
 		// Get the current database name from the connection
 		var dbName string
