@@ -10,25 +10,37 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac/models"
 	"gorm.io/gorm"
 )
+
+// SchemaDiscoveryService is an interface for services that can discover database schema
+type SchemaDiscoveryService interface {
+	GetDatabaseMetadata(ctx context.Context, databaseAlias string) ([]models.DatabaseSchemaMetadata, error)
+}
 
 // ChatService handles chat and AI conversation features
 type ChatService struct {
 	DB                    *gorm.DB
 	OpenAIKey             string
 	OpenAIModel           string
-	SchemaMetadataService *SchemaMetadataService
+	SchemaMetadataService SchemaDiscoveryService
+	iLog                  logger.Log
 }
 
 // NewChatService creates a new chat service
-func NewChatService(db *gorm.DB, openAIKey, openAIModel string, schemaService *SchemaMetadataService) *ChatService {
+func NewChatService(db *gorm.DB, openAIKey, openAIModel string, schemaService SchemaDiscoveryService) *ChatService {
 	return &ChatService{
 		DB:                    db,
 		OpenAIKey:             openAIKey,
 		OpenAIModel:           openAIModel,
 		SchemaMetadataService: schemaService,
+		iLog: logger.Log{
+			ModuleName:     logger.Framework,
+			User:           "System",
+			ControllerName: "ChatService",
+		},
 	}
 }
 
@@ -79,7 +91,10 @@ func (s *ChatService) DeleteConversation(id string) error {
 
 // ProcessMessage processes a user message and generates AI response
 func (s *ChatService) ProcessMessage(ctx context.Context, conversationID, userMessage, databaseAlias string, autoExecute bool) (*models.ChatMessage, error) {
+	s.iLog.Info(fmt.Sprintf("ProcessMessage START - ConversationID: %s, DatabaseAlias: %s, Message: %s", conversationID, databaseAlias, userMessage))
+
 	// 1. Save user message
+	s.iLog.Debug("Step 1: Saving user message to database")
 	userMsg := &models.ChatMessage{
 		ID:             uuid.New().String(),
 		ConversationID: conversationID,
@@ -88,22 +103,33 @@ func (s *ChatService) ProcessMessage(ctx context.Context, conversationID, userMe
 	}
 
 	if err := s.DB.Create(userMsg).Error; err != nil {
+		s.iLog.Error(fmt.Sprintf("Failed to save user message: %v", err))
 		return nil, fmt.Errorf("failed to save user message: %w", err)
 	}
+	s.iLog.Debug(fmt.Sprintf("User message saved with ID: %s", userMsg.ID))
 
 	// 2. Get schema context
+	s.iLog.Info(fmt.Sprintf("Step 2: Retrieving schema context for database alias: %s", databaseAlias))
 	schemaContext, err := s.getSchemaContext(databaseAlias, userMessage)
 	if err != nil {
+		s.iLog.Error(fmt.Sprintf("Failed to get schema context: %v", err))
 		return nil, fmt.Errorf("failed to get schema context: %w", err)
 	}
+	s.iLog.Info(fmt.Sprintf("Schema context retrieved, length: %d characters", len(schemaContext)))
+	s.iLog.Debug(fmt.Sprintf("Schema context content:\n%s", schemaContext))
 
 	// 3. Generate SQL using AI
+	s.iLog.Info("Step 3: Generating SQL query using AI")
 	sqlResponse, err := s.generateSQLWithContext(ctx, userMessage, schemaContext)
 	if err != nil {
+		s.iLog.Error(fmt.Sprintf("Failed to generate SQL: %v", err))
 		return nil, fmt.Errorf("failed to generate SQL: %w", err)
 	}
+	s.iLog.Info(fmt.Sprintf("SQL generated successfully, confidence: %.2f", sqlResponse.Confidence))
+	s.iLog.Debug(fmt.Sprintf("Generated SQL: %s", sqlResponse.SQL))
 
 	// 4. Create assistant response
+	s.iLog.Debug("Step 4: Creating assistant response message")
 	confidence := sqlResponse.Confidence
 	assistantMsg := &models.ChatMessage{
 		ID:             uuid.New().String(),
@@ -122,45 +148,64 @@ func (s *ChatService) ProcessMessage(ctx context.Context, conversationID, userMe
 
 	// 5. Execute SQL if auto-execute is enabled
 	if autoExecute && sqlResponse.SQL != "" {
+		s.iLog.Info("Step 5: Auto-executing SQL query")
 		startTime := time.Now()
 		resultData, rowCount, execErr := s.executeSQL(databaseAlias, sqlResponse.SQL)
 		executionTime := int(time.Since(startTime).Milliseconds())
 		assistantMsg.ExecutionTimeMs = &executionTime
 
 		if execErr != nil {
+			s.iLog.Error(fmt.Sprintf("SQL execution failed: %v", execErr))
 			assistantMsg.ErrorMessage = execErr.Error()
 		} else {
+			s.iLog.Info(fmt.Sprintf("SQL executed successfully, returned %d rows in %dms", rowCount, executionTime))
 			assistantMsg.ResultData = resultData
 			assistantMsg.RowCount = &rowCount
 		}
+	} else {
+		s.iLog.Debug("Step 5: Skipping SQL execution (auto-execute disabled or no SQL generated)")
 	}
 
 	// 6. Save assistant message
+	s.iLog.Debug("Step 6: Saving assistant message to database")
 	if err := s.DB.Create(assistantMsg).Error; err != nil {
+		s.iLog.Error(fmt.Sprintf("Failed to save assistant message: %v", err))
 		return nil, fmt.Errorf("failed to save assistant message: %w", err)
 	}
+	s.iLog.Debug(fmt.Sprintf("Assistant message saved with ID: %s", assistantMsg.ID))
 
 	// 7. Log AI generation
+	s.iLog.Debug("Step 7: Logging AI generation metadata")
 	s.logAIGeneration(conversationID, assistantMsg.ID, sqlResponse)
 
+	s.iLog.Info(fmt.Sprintf("ProcessMessage COMPLETE - ConversationID: %s, AssistantMsgID: %s", conversationID, assistantMsg.ID))
 	return assistantMsg, nil
 }
 
 // getSchemaContext retrieves relevant schema information using vector search
 func (s *ChatService) getSchemaContext(databaseAlias, question string) (string, error) {
+	s.iLog.Info(fmt.Sprintf("getSchemaContext START - DatabaseAlias: %s", databaseAlias))
+
 	// 1. Get business entities
+	s.iLog.Debug("Retrieving relevant business entities")
 	businessEntities, err := s.getRelevantBusinessEntities(databaseAlias, question)
 	if err != nil {
+		s.iLog.Error(fmt.Sprintf("Failed to get business entities: %v", err))
 		return "", err
 	}
+	s.iLog.Info(fmt.Sprintf("Found %d business entities", len(businessEntities)))
 
 	// 2. Get table metadata
+	s.iLog.Debug("Retrieving relevant table metadata")
 	tableMetadata, err := s.getRelevantTableMetadata(databaseAlias, question)
 	if err != nil {
+		s.iLog.Error(fmt.Sprintf("Failed to get table metadata: %v", err))
 		return "", err
 	}
+	s.iLog.Info(fmt.Sprintf("Found %d metadata entries (tables and columns)", len(tableMetadata)))
 
 	// 3. Build context string
+	s.iLog.Debug("Building schema context string")
 	var contextBuilder strings.Builder
 
 	contextBuilder.WriteString("=== DATABASE SCHEMA CONTEXT ===\n\n")
@@ -174,9 +219,23 @@ func (s *ChatService) getSchemaContext(databaseAlias, question string) (string, 
 			}
 		}
 		contextBuilder.WriteString("\n")
+	} else {
+		s.iLog.Warn("No business entities found for context")
 	}
 
 	if len(tableMetadata) > 0 {
+		// Count tables vs columns
+		tableCount := 0
+		columnCount := 0
+		for _, meta := range tableMetadata {
+			if meta.MetadataType == models.MetadataTypeTable {
+				tableCount++
+			} else {
+				columnCount++
+			}
+		}
+		s.iLog.Info(fmt.Sprintf("Building context with %d tables and %d columns", tableCount, columnCount))
+
 		contextBuilder.WriteString("TABLES AND COLUMNS:\n")
 		for _, meta := range tableMetadata {
 			if meta.MetadataType == models.MetadataTypeTable {
@@ -186,9 +245,13 @@ func (s *ChatService) getSchemaContext(databaseAlias, question string) (string, 
 					meta.Table, meta.Column, meta.DataType, meta.ColumnComment))
 			}
 		}
+	} else {
+		s.iLog.Warn("WARNING: No table metadata found - schema context will be empty!")
 	}
 
-	return contextBuilder.String(), nil
+	contextStr := contextBuilder.String()
+	s.iLog.Info(fmt.Sprintf("getSchemaContext COMPLETE - Context length: %d characters", len(contextStr)))
+	return contextStr, nil
 }
 
 // getRelevantBusinessEntities finds business entities relevant to the question
@@ -213,38 +276,178 @@ func (s *ChatService) getRelevantBusinessEntities(databaseAlias, question string
 
 // getRelevantTableMetadata finds table/column metadata relevant to the question
 func (s *ChatService) getRelevantTableMetadata(databaseAlias, question string) ([]models.DatabaseSchemaMetadata, error) {
+	s.iLog.Info(fmt.Sprintf("getRelevantTableMetadata START - DatabaseAlias: %s", databaseAlias))
+
+	// Handle empty database alias
+	if databaseAlias == "" {
+		s.iLog.Warn("Database alias is empty, defaulting to 'default'")
+		databaseAlias = "default"
+	}
+
 	var metadata []models.DatabaseSchemaMetadata
 
 	// Try full-text search first (requires FULLTEXT index)
+	s.iLog.Debug("Attempting full-text search on schema metadata")
 	err := s.DB.Where("databasealias = ?", databaseAlias).
 		Where("MATCH(description, columncomment) AGAINST(? IN NATURAL LANGUAGE MODE)", question).
 		Limit(10).
 		Find(&metadata).Error
 
-	// If FULLTEXT search fails (no index or other error), fall back to get all tables
-	if err != nil || len(metadata) == 0 {
-		// Get all tables and some columns for the database
-		err = s.DB.Where("databasealias = ?", databaseAlias).
-			Order("tablename, metadatatype DESC").
-			Limit(50).
-			Find(&metadata).Error
+	if err != nil {
+		s.iLog.Warn(fmt.Sprintf("Full-text search failed (likely no FULLTEXT index): %v", err))
+	} else if len(metadata) > 0 {
+		// Filter out invalid metadata entries
+		metadata = filterValidMetadata(metadata)
+		if len(metadata) > 0 {
+			s.iLog.Info(fmt.Sprintf("Full-text search found %d valid metadata entries", len(metadata)))
+			// Check if the metadata is actually useful (has both tables and columns)
+			if isMetadataUseful(metadata) {
+				s.iLog.Debug("Full-text search metadata is useful, returning it")
+				return metadata, nil
+			} else {
+				s.iLog.Warn("Full-text search returned metadata but it's incomplete (missing columns), will try simple query or auto-discovery")
+				// Clear metadata so we fall through to simple query and auto-discovery logic
+				metadata = []models.DatabaseSchemaMetadata{}
+			}
+		} else {
+			s.iLog.Debug("Full-text search returned only invalid entries")
+		}
+	} else {
+		s.iLog.Debug("Full-text search returned 0 results")
 	}
 
-	// If still no metadata found and SchemaMetadataService is available, use auto-discovery
-	if len(metadata) == 0 && s.SchemaMetadataService != nil {
+	// If FULLTEXT search fails (no index or other error), fall back to get all tables
+	if err != nil || len(metadata) == 0 {
+		s.iLog.Debug("Falling back to simple query for all tables")
+		// Get tables and columns for the database (limited to avoid OpenAI context overflow)
+		// This will get approximately 10-20 tables with their columns, which is enough for most queries
+		err = s.DB.Where("databasealias = ?", databaseAlias).
+			Order("tablename, metadatatype DESC").
+			Limit(200).
+			Find(&metadata).Error
+
+		if err != nil {
+			s.iLog.Error(fmt.Sprintf("Simple query failed: %v", err))
+		} else {
+			// Filter out invalid metadata entries
+			originalCount := len(metadata)
+			metadata = filterValidMetadata(metadata)
+			if originalCount != len(metadata) {
+				s.iLog.Warn(fmt.Sprintf("Filtered out %d invalid metadata entries (empty table names)", originalCount-len(metadata)))
+			}
+			s.iLog.Info(fmt.Sprintf("Simple query found %d valid metadata entries", len(metadata)))
+		}
+	}
+
+	// Check if metadata is actually useful (has both tables AND columns)
+	hasUsefulMetadata := isMetadataUseful(metadata)
+
+	// Log the metadata usefulness check
+	if len(metadata) > 0 && !hasUsefulMetadata {
+		tableCount := 0
+		columnCount := 0
+		for _, meta := range metadata {
+			if meta.MetadataType == models.MetadataTypeTable {
+				tableCount++
+			} else if meta.MetadataType == models.MetadataTypeColumn {
+				columnCount++
+			}
+		}
+		s.iLog.Warn(fmt.Sprintf("Metadata is incomplete - found %d tables and %d columns (need at least 1 table with columns)", tableCount, columnCount))
+	} else if len(metadata) > 0 && hasUsefulMetadata {
+		tableCount := 0
+		columnCount := 0
+		for _, meta := range metadata {
+			if meta.MetadataType == models.MetadataTypeTable {
+				tableCount++
+			} else if meta.MetadataType == models.MetadataTypeColumn {
+				columnCount++
+			}
+		}
+		s.iLog.Info(fmt.Sprintf("Using metadata with %d tables and %d columns (limited to avoid OpenAI context overflow)", tableCount, columnCount))
+	}
+
+	// Trigger auto-discovery if no metadata OR metadata is not useful
+	if (!hasUsefulMetadata) && s.SchemaMetadataService != nil {
+		if len(metadata) == 0 {
+			s.iLog.Warn(fmt.Sprintf("No valid metadata found in schemameta table for alias '%s', triggering auto-discovery", databaseAlias))
+		} else {
+			s.iLog.Warn("Metadata exists but is incomplete (missing columns), triggering auto-discovery to get full schema")
+		}
+
 		// Use auto-discovery fallback from SchemaMetadataService
 		ctx := context.Background()
 		metadata, err = s.SchemaMetadataService.GetDatabaseMetadata(ctx, databaseAlias)
 		if err != nil {
+			s.iLog.Error(fmt.Sprintf("Auto-discovery failed: %v", err))
 			return nil, fmt.Errorf("failed to discover schema metadata: %w", err)
+		}
+		s.iLog.Info(fmt.Sprintf("Auto-discovery completed, found %d metadata entries", len(metadata)))
+	} else if !hasUsefulMetadata && s.SchemaMetadataService == nil {
+		s.iLog.Error("Metadata is incomplete and SchemaMetadataService is nil - cannot perform auto-discovery")
+	}
+
+	s.iLog.Info(fmt.Sprintf("getRelevantTableMetadata COMPLETE - Returning %d metadata entries", len(metadata)))
+	return metadata, err
+}
+
+// filterValidMetadata filters out invalid metadata entries (empty table names, etc.)
+func filterValidMetadata(metadata []models.DatabaseSchemaMetadata) []models.DatabaseSchemaMetadata {
+	var valid []models.DatabaseSchemaMetadata
+	for _, meta := range metadata {
+		// Skip entries with empty table names
+		if meta.Table == "" {
+			continue
+		}
+		// Skip column entries with empty column names
+		if meta.MetadataType == models.MetadataTypeColumn && meta.Column == "" {
+			continue
+		}
+		valid = append(valid, meta)
+	}
+	return valid
+}
+
+// isMetadataUseful checks if metadata contains useful schema information
+// Returns true if we have both tables AND columns, regardless of count
+// This allows using limited metadata (from LIMIT queries) instead of forcing full schema discovery
+func isMetadataUseful(metadata []models.DatabaseSchemaMetadata) bool {
+	if len(metadata) == 0 {
+		return false
+	}
+
+	tableCount := 0
+	columnCount := 0
+
+	for _, meta := range metadata {
+		if meta.MetadataType == models.MetadataTypeTable {
+			tableCount++
+		} else if meta.MetadataType == models.MetadataTypeColumn {
+			columnCount++
 		}
 	}
 
-	return metadata, err
+	// Need at least some columns to be useful for SQL generation
+	if columnCount == 0 {
+		return false
+	}
+
+	// Need at least one table
+	if tableCount == 0 {
+		return false
+	}
+
+	// As long as we have both tables and columns, it's useful
+	// Don't require minimum counts to avoid triggering full schema discovery
+	// which can overflow OpenAI's context window
+	return true
 }
 
 // generateSQLWithContext generates SQL using AI with schema context
 func (s *ChatService) generateSQLWithContext(ctx context.Context, question, schemaContext string) (*Text2SQLResponse, error) {
+	s.iLog.Info(fmt.Sprintf("generateSQLWithContext START - Question: %s", question))
+	s.iLog.Debug(fmt.Sprintf("Schema context length: %d characters", len(schemaContext)))
+
 	systemPrompt := `You are an expert SQL query generator that converts natural language questions into accurate SQL queries.
 
 CORE PRINCIPLES:
@@ -289,6 +492,7 @@ User's Question: %s
 
 Respond with JSON only, no additional text.`, schemaContext, question)
 
+	s.iLog.Debug("Building OpenAI API request")
 	// Call OpenAI
 	reqBody := OpenAIRequest{
 		Model: s.OpenAIModel,
@@ -301,49 +505,85 @@ Respond with JSON only, no additional text.`, schemaContext, question)
 
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
+		s.iLog.Error(fmt.Sprintf("Failed to marshal OpenAI request: %v", err))
 		return nil, err
 	}
+	s.iLog.Debug(fmt.Sprintf("OpenAI request body size: %d bytes", len(jsonBody)))
 
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonBody))
 	if err != nil {
+		s.iLog.Error(fmt.Sprintf("Failed to create HTTP request: %v", err))
 		return nil, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+s.OpenAIKey)
 
+	s.iLog.Info(fmt.Sprintf("Sending request to OpenAI API (model: %s)", s.OpenAIModel))
 	client := &http.Client{Timeout: 60 * time.Second}
+	startTime := time.Now()
 	resp, err := client.Do(req)
+	elapsed := time.Since(startTime)
+
 	if err != nil {
+		s.iLog.Error(fmt.Sprintf("OpenAI API request failed after %v: %v", elapsed, err))
 		return nil, err
 	}
 	defer resp.Body.Close()
 
+	s.iLog.Info(fmt.Sprintf("OpenAI API responded in %v with status: %d", elapsed, resp.StatusCode))
+
 	if resp.StatusCode != http.StatusOK {
+		s.iLog.Error(fmt.Sprintf("OpenAI API returned error status: %d", resp.StatusCode))
 		return nil, fmt.Errorf("OpenAI API error: status %d", resp.StatusCode)
 	}
 
+	s.iLog.Debug("Parsing OpenAI response")
 	var openAIResp OpenAIResponse
 	if err := json.NewDecoder(resp.Body).Decode(&openAIResp); err != nil {
+		s.iLog.Error(fmt.Sprintf("Failed to decode OpenAI response: %v", err))
 		return nil, err
 	}
 
 	if len(openAIResp.Choices) == 0 {
+		s.iLog.Error("OpenAI response contains no choices")
 		return nil, fmt.Errorf("no choices in OpenAI response")
 	}
 
+	s.iLog.Debug(fmt.Sprintf("OpenAI returned %d choices", len(openAIResp.Choices)))
+
 	// Parse SQL response
 	var result Text2SQLResponse
-	cleanedContent := cleanJSONResponse(openAIResp.Choices[0].Message.Content)
+	rawContent := openAIResp.Choices[0].Message.Content
+	s.iLog.Debug(fmt.Sprintf("Raw AI response (first 500 chars): %s", truncateString(rawContent, 500)))
+
+	cleanedContent := cleanJSONResponse(rawContent)
+	s.iLog.Debug("Attempting to parse AI response as JSON")
+
 	if err := json.Unmarshal([]byte(cleanedContent), &result); err != nil {
 		// If JSON parsing fails and content looks like plain text, provide helpful error
 		if !strings.HasPrefix(strings.TrimSpace(cleanedContent), "{") {
+			s.iLog.Error(fmt.Sprintf("AI returned plain text instead of JSON: %s", truncateString(cleanedContent, 200)))
 			return nil, fmt.Errorf("AI returned plain text instead of JSON. This usually means insufficient schema information. Response: %s", cleanedContent)
 		}
+		s.iLog.Error(fmt.Sprintf("Failed to parse JSON response: %v", err))
+		s.iLog.Debug(fmt.Sprintf("Cleaned content that failed to parse: %s", cleanedContent))
 		return nil, fmt.Errorf("failed to parse JSON response: %w (content: %s)", err, cleanedContent)
 	}
 
+	s.iLog.Info(fmt.Sprintf("Successfully parsed AI response - SQL generated: %v, Confidence: %.2f", result.SQL != "", result.Confidence))
+	s.iLog.Debug(fmt.Sprintf("Generated SQL: %s", result.SQL))
+	s.iLog.Info("generateSQLWithContext COMPLETE")
+
 	return &result, nil
+}
+
+// truncateString truncates a string to maxLen characters
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }
 
 // executeSQL executes SQL query on the database

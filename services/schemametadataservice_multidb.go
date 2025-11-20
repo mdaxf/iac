@@ -290,6 +290,102 @@ func (s *SchemaMetadataServiceMultiDB) GetSchemaContext(ctx context.Context, dat
 	return context.String(), nil
 }
 
+// GetDatabaseMetadata retrieves complete metadata (tables and columns) for a database
+// If no metadata exists, it automatically discovers and populates it from the database schema
+func (s *SchemaMetadataServiceMultiDB) GetDatabaseMetadata(ctx context.Context, databaseAlias string) ([]models.DatabaseSchemaMetadata, error) {
+	var metadata []models.DatabaseSchemaMetadata
+
+	// Use Find which returns empty slice if no records found (not an error)
+	if err := s.appDB.WithContext(ctx).
+		Where("databasealias = ?", databaseAlias).
+		Order("tablename, metadatatype DESC, columnname").
+		Find(&metadata).Error; err != nil {
+		// Only return error for actual database errors, not "record not found"
+		return nil, fmt.Errorf("failed to get database metadata: %w", err)
+	}
+
+	// If no metadata found, automatically discover and populate it
+	if len(metadata) == 0 {
+		// Get database connection to determine schema name
+		db, err := s.dbHelper.GetUserDB(ctx, databaseAlias)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get database connection: %w", err)
+		}
+		defer db.Close()
+
+		// Get schema name based on database type
+		var schemaName string
+		dbType := string(db.GetType())
+
+		switch dbType {
+		case "mysql":
+			var dbName sql.NullString
+			row := db.QueryRow(ctx, "SELECT DATABASE()")
+			if err := row.Scan(&dbName); err != nil {
+				return nil, fmt.Errorf("failed to get current database name: %w", err)
+			}
+			if !dbName.Valid || dbName.String == "" {
+				// No database selected, return empty result
+				return metadata, nil
+			}
+			schemaName = dbName.String
+
+		case "postgres":
+			var schema sql.NullString
+			row := db.QueryRow(ctx, "SELECT current_schema()")
+			if err := row.Scan(&schema); err != nil {
+				return nil, fmt.Errorf("failed to get current schema: %w", err)
+			}
+			if !schema.Valid || schema.String == "" {
+				schemaName = "public" // Default PostgreSQL schema
+			} else {
+				schemaName = schema.String
+			}
+
+		case "mssql":
+			var schema sql.NullString
+			row := db.QueryRow(ctx, "SELECT SCHEMA_NAME()")
+			if err := row.Scan(&schema); err != nil {
+				return nil, fmt.Errorf("failed to get current schema: %w", err)
+			}
+			if !schema.Valid || schema.String == "" {
+				schemaName = "dbo" // Default MSSQL schema
+			} else {
+				schemaName = schema.String
+			}
+
+		case "oracle":
+			var schema sql.NullString
+			row := db.QueryRow(ctx, "SELECT SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA') FROM DUAL")
+			if err := row.Scan(&schema); err != nil {
+				return nil, fmt.Errorf("failed to get current schema: %w", err)
+			}
+			if !schema.Valid || schema.String == "" {
+				return metadata, nil
+			}
+			schemaName = schema.String
+
+		default:
+			return nil, fmt.Errorf("unsupported database type: %s", dbType)
+		}
+
+		// Auto-discover schema for this database
+		if err := s.DiscoverSchema(ctx, databaseAlias, schemaName); err != nil {
+			return nil, fmt.Errorf("failed to auto-discover schema: %w", err)
+		}
+
+		// Retrieve the newly discovered metadata
+		if err := s.appDB.WithContext(ctx).
+			Where("databasealias = ?", databaseAlias).
+			Order("tablename, metadatatype DESC, columnname").
+			Find(&metadata).Error; err != nil {
+			return nil, fmt.Errorf("failed to get discovered metadata: %w", err)
+		}
+	}
+
+	return metadata, nil
+}
+
 // IndexInfo represents index information
 type IndexInfo struct {
 	IndexName  string
