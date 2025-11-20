@@ -351,18 +351,17 @@ func (s *SchemaMetadataService) GetDatabaseMetadata(ctx context.Context, databas
 		}
 
 		// Check if metadata is incomplete
+		// Only trigger discovery if we have NO columns or NO tables
+		// If we have both, use what we have to avoid OpenAI context overflow
 		if columnCount == 0 {
 			needsDiscovery = true
 			discoveryReason = fmt.Sprintf("found %d tables but no columns", tableCount)
-		} else if tableCount < 5 {
+		} else if tableCount == 0 {
 			needsDiscovery = true
-			discoveryReason = fmt.Sprintf("found only %d tables (need at least 5)", tableCount)
-		} else if len(metadata) < 10 {
-			needsDiscovery = true
-			discoveryReason = fmt.Sprintf("found only %d total entries (need at least 10)", len(metadata))
-		} else if tableCount > 0 && columnCount < (tableCount*2) {
-			needsDiscovery = true
-			discoveryReason = fmt.Sprintf("found %d tables but only %d columns (need at least 2 per table)", tableCount, columnCount)
+			discoveryReason = "found columns but no tables"
+		} else {
+			// We have both tables and columns - use what we have
+			s.iLog.Info(fmt.Sprintf("Found %d tables and %d columns in existing metadata, using it (limited to avoid OpenAI context overflow)", tableCount, columnCount))
 		}
 
 		if needsDiscovery {

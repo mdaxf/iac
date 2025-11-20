@@ -319,10 +319,11 @@ func (s *ChatService) getRelevantTableMetadata(databaseAlias, question string) (
 	// If FULLTEXT search fails (no index or other error), fall back to get all tables
 	if err != nil || len(metadata) == 0 {
 		s.iLog.Debug("Falling back to simple query for all tables")
-		// Get all tables and some columns for the database
+		// Get tables and columns for the database (limited to avoid OpenAI context overflow)
+		// This will get approximately 10-20 tables with their columns, which is enough for most queries
 		err = s.DB.Where("databasealias = ?", databaseAlias).
 			Order("tablename, metadatatype DESC").
-			Limit(50).
+			Limit(200).
 			Find(&metadata).Error
 
 		if err != nil {
@@ -352,7 +353,18 @@ func (s *ChatService) getRelevantTableMetadata(databaseAlias, question string) (
 				columnCount++
 			}
 		}
-		s.iLog.Warn(fmt.Sprintf("Metadata is incomplete - found %d tables and %d columns (need at least 5 tables with 2+ columns each)", tableCount, columnCount))
+		s.iLog.Warn(fmt.Sprintf("Metadata is incomplete - found %d tables and %d columns (need at least 1 table with columns)", tableCount, columnCount))
+	} else if len(metadata) > 0 && hasUsefulMetadata {
+		tableCount := 0
+		columnCount := 0
+		for _, meta := range metadata {
+			if meta.MetadataType == models.MetadataTypeTable {
+				tableCount++
+			} else if meta.MetadataType == models.MetadataTypeColumn {
+				columnCount++
+			}
+		}
+		s.iLog.Info(fmt.Sprintf("Using metadata with %d tables and %d columns (limited to avoid OpenAI context overflow)", tableCount, columnCount))
 	}
 
 	// Trigger auto-discovery if no metadata OR metadata is not useful
@@ -397,7 +409,8 @@ func filterValidMetadata(metadata []models.DatabaseSchemaMetadata) []models.Data
 }
 
 // isMetadataUseful checks if metadata contains useful schema information
-// Returns true only if we have both tables AND columns with reasonable data
+// Returns true if we have both tables AND columns, regardless of count
+// This allows using limited metadata (from LIMIT queries) instead of forcing full schema discovery
 func isMetadataUseful(metadata []models.DatabaseSchemaMetadata) bool {
 	if len(metadata) == 0 {
 		return false
@@ -419,21 +432,14 @@ func isMetadataUseful(metadata []models.DatabaseSchemaMetadata) bool {
 		return false
 	}
 
-	// If we have very few tables (less than 5), schema is probably incomplete
-	if tableCount < 5 {
+	// Need at least one table
+	if tableCount == 0 {
 		return false
 	}
 
-	// If we have very few total entries, it's probably incomplete
-	if len(metadata) < 10 {
-		return false
-	}
-
-	// Should have reasonable ratio of columns to tables (at least 2 columns per table)
-	if tableCount > 0 && columnCount < (tableCount*2) {
-		return false
-	}
-
+	// As long as we have both tables and columns, it's useful
+	// Don't require minimum counts to avoid triggering full schema discovery
+	// which can overflow OpenAI's context window
 	return true
 }
 
