@@ -5,30 +5,37 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac/models"
 	"gorm.io/gorm"
 )
 
 // SchemaMetadataService handles database schema discovery and metadata management
 type SchemaMetadataService struct {
-	db *gorm.DB
+	db   *gorm.DB
+	iLog logger.Log
 }
 
 // NewSchemaMetadataService creates a new schema metadata service
 func NewSchemaMetadataService(db *gorm.DB) *SchemaMetadataService {
-	return &SchemaMetadataService{db: db}
+	return &SchemaMetadataService{
+		db: db,
+		iLog: logger.Log{
+			ModuleName:     logger.Framework,
+			User:           "System",
+			ControllerName: "SchemaMetadataService",
+		},
+	}
 }
 
 // DiscoverDatabaseSchema discovers all tables and columns in a database
 func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, databaseAlias, dbName string) error {
-	// Get database connection for the specified alias
-	// For now, we'll use the main DB connection
-	// In production, you would get the connection from a connection pool based on alias
+	s.iLog.Info(fmt.Sprintf("Discovering schema for database '%s' with alias '%s'", dbName, databaseAlias))
 
 	// Get all tables
 	var tables []struct {
-		TableName    string
-		TableComment string
+		TableName    string `gorm:"column:tablename"`
+		TableComment string `gorm:"column:table_comment"`
 	}
 
 	query := `
@@ -42,33 +49,70 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 	`
 
 	if err := s.db.Raw(query, dbName).Scan(&tables).Error; err != nil {
+		s.iLog.Error(fmt.Sprintf("Failed to query INFORMATION_SCHEMA.TABLES for database '%s': %v", dbName, err))
 		return fmt.Errorf("failed to discover tables: %w", err)
 	}
 
+	s.iLog.Info(fmt.Sprintf("Found %d tables in database '%s'", len(tables), dbName))
+
+	if len(tables) == 0 {
+		s.iLog.Warn(fmt.Sprintf("No tables found in database '%s' - database may be empty or TABLE_SCHEMA filter may be incorrect", dbName))
+		return nil
+	}
+
+	// Log first few table names to verify the data
+	if len(tables) > 0 {
+		sampleTables := make([]string, 0, 5)
+		for i := 0; i < len(tables) && i < 5; i++ {
+			sampleTables = append(sampleTables, tables[i].TableName)
+		}
+		s.iLog.Debug(fmt.Sprintf("Sample table names: %v", sampleTables))
+	}
+
+	// For debugging: test column query on first table
+	if len(tables) > 0 {
+		var testCount int64
+		testQuery := "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?"
+		if err := s.db.Raw(testQuery, dbName, tables[0].TableName).Scan(&testCount).Error; err != nil {
+			s.iLog.Error(fmt.Sprintf("Test column count query failed: %v", err))
+		} else {
+			s.iLog.Debug(fmt.Sprintf("Test: Table '%s' should have %d columns (dbName='%s')", tables[0].TableName, testCount, dbName))
+		}
+	}
+
 	// Process each table
-	for _, table := range tables {
+	totalTablesSaved := 0
+	totalColumnsSaved := 0
+	for i, table := range tables {
 		// Create or update table metadata
 		tableMeta := &models.DatabaseSchemaMetadata{
 			DatabaseAlias: databaseAlias,
 			Table:         table.TableName,
 			MetadataType:  models.MetadataTypeTable,
 			Description:   table.TableComment,
+			Active:        true,
 		}
 
 		if err := s.db.WithContext(ctx).
 			Where("databasealias = ? AND tablename = ? AND metadatatype = ?", databaseAlias, table.TableName, models.MetadataTypeTable).
 			Assign(tableMeta).
 			FirstOrCreate(tableMeta).Error; err != nil {
+			s.iLog.Error(fmt.Sprintf("Failed to save table metadata for %s: %v", table.TableName, err))
 			return fmt.Errorf("failed to save table metadata for %s: %w", table.TableName, err)
+		}
+		totalTablesSaved++
+
+		if (i+1) % 10 == 0 {
+			s.iLog.Debug(fmt.Sprintf("Processed %d/%d tables so far", i+1, len(tables)))
 		}
 
 		// Get columns for this table
 		var columns []struct {
-			ColumnName    string
-			DataType      string
-			IsNullable    string
-			ColumnKey     string
-			ColumnComment string
+			ColumnName    string `gorm:"column:columnname"`
+			DataType      string `gorm:"column:data_type"`
+			IsNullable    string `gorm:"column:is_nullable"`
+			ColumnKey     string `gorm:"column:column_key"`
+			ColumnComment string `gorm:"column:column_comment"`
 		}
 
 		columnQuery := `
@@ -85,7 +129,15 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 		`
 
 		if err := s.db.Raw(columnQuery, dbName, table.TableName).Scan(&columns).Error; err != nil {
+			s.iLog.Error(fmt.Sprintf("Failed to query columns for table '%s': %v", table.TableName, err))
 			return fmt.Errorf("failed to discover columns for %s: %w", table.TableName, err)
+		}
+
+		if len(columns) == 0 {
+			s.iLog.Warn(fmt.Sprintf("No columns found for table '%s' (dbName='%s', tableName='%s')", table.TableName, dbName, table.TableName))
+		} else if i < 3 {
+			// Log column details for first 3 tables to help debug
+			s.iLog.Debug(fmt.Sprintf("Table '%s' has %d columns", table.TableName, len(columns)))
 		}
 
 		// Process each column
@@ -100,6 +152,7 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 				DataType:      column.DataType,
 				IsNullable:    &isNullable,
 				ColumnComment: column.ColumnComment,
+				Active:        true,
 			}
 
 			if err := s.db.WithContext(ctx).
@@ -107,11 +160,14 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 					databaseAlias, table.TableName, column.ColumnName).
 				Assign(columnMeta).
 				FirstOrCreate(columnMeta).Error; err != nil {
+				s.iLog.Error(fmt.Sprintf("Failed to save column metadata for %s.%s: %v", table.TableName, column.ColumnName, err))
 				return fmt.Errorf("failed to save column metadata for %s.%s: %w", table.TableName, column.ColumnName, err)
 			}
+			totalColumnsSaved++
 		}
 	}
 
+	s.iLog.Info(fmt.Sprintf("Schema discovery completed: saved %d tables and %d columns for database '%s'", totalTablesSaved, totalColumnsSaved, dbName))
 	return nil
 }
 
@@ -261,7 +317,7 @@ func (s *SchemaMetadataService) SearchMetadata(ctx context.Context, databaseAlia
 }
 
 // GetDatabaseMetadata retrieves complete metadata (tables and columns) for a database
-// If no metadata exists, it automatically discovers and populates it from information_schema
+// If no metadata exists or existing metadata is incomplete, it automatically discovers and populates it from information_schema
 func (s *SchemaMetadataService) GetDatabaseMetadata(ctx context.Context, databaseAlias string) ([]models.DatabaseSchemaMetadata, error) {
 	var metadata []models.DatabaseSchemaMetadata
 
@@ -274,31 +330,113 @@ func (s *SchemaMetadataService) GetDatabaseMetadata(ctx context.Context, databas
 		return nil, fmt.Errorf("failed to get database metadata: %w", err)
 	}
 
-	// If no metadata found, automatically discover and populate it
+	// Check if existing metadata is useful (has both tables and columns)
+	needsDiscovery := false
+	discoveryReason := ""
+
 	if len(metadata) == 0 {
+		needsDiscovery = true
+		discoveryReason = "no metadata found"
+		s.iLog.Info(fmt.Sprintf("No metadata found for alias '%s', attempting auto-discovery", databaseAlias))
+	} else {
+		// Count tables and columns
+		tableCount := 0
+		columnCount := 0
+		for _, meta := range metadata {
+			if meta.MetadataType == models.MetadataTypeTable {
+				tableCount++
+			} else if meta.MetadataType == models.MetadataTypeColumn {
+				columnCount++
+			}
+		}
+
+		// Check if metadata is incomplete
+		// Only trigger discovery if we have NO columns or NO tables
+		// If we have both, use what we have to avoid OpenAI context overflow
+		if columnCount == 0 {
+			needsDiscovery = true
+			discoveryReason = fmt.Sprintf("found %d tables but no columns", tableCount)
+		} else if tableCount == 0 {
+			needsDiscovery = true
+			discoveryReason = "found columns but no tables"
+		} else {
+			// We have both tables and columns - use what we have
+			s.iLog.Info(fmt.Sprintf("Found %d tables and %d columns in existing metadata, using it (limited to avoid OpenAI context overflow)", tableCount, columnCount))
+		}
+
+		if needsDiscovery {
+			s.iLog.Warn(fmt.Sprintf("Existing metadata for alias '%s' is incomplete (%s), triggering auto-discovery", databaseAlias, discoveryReason))
+			// Delete existing incomplete metadata before rediscovering
+			if err := s.db.WithContext(ctx).Where("databasealias = ?", databaseAlias).Delete(&models.DatabaseSchemaMetadata{}).Error; err != nil {
+				s.iLog.Error(fmt.Sprintf("Failed to delete incomplete metadata: %v", err))
+			} else {
+				s.iLog.Info("Deleted incomplete metadata, will perform fresh discovery")
+			}
+		}
+	}
+
+	// If metadata is missing or incomplete, automatically discover and populate it
+	if needsDiscovery {
+
 		// Get the current database name from the connection
 		var dbName string
 		if err := s.db.WithContext(ctx).Raw("SELECT DATABASE()").Scan(&dbName).Error; err != nil {
+			s.iLog.Error(fmt.Sprintf("Failed to execute SELECT DATABASE(): %v", err))
 			return nil, fmt.Errorf("failed to get current database name: %w", err)
 		}
 
+		s.iLog.Debug(fmt.Sprintf("SELECT DATABASE() returned: '%s'", dbName))
+
 		if dbName == "" {
-			// No database selected, return empty result
-			return metadata, nil
+			s.iLog.Warn("SELECT DATABASE() returned empty string, attempting to find database via SHOW DATABASES")
+
+			// Query information_schema without database filter
+			var databases []string
+			if err := s.db.Raw("SHOW DATABASES").Scan(&databases).Error; err == nil && len(databases) > 0 {
+				s.iLog.Debug(fmt.Sprintf("Found %d databases via SHOW DATABASES", len(databases)))
+				// Try to use the first non-system database
+				for _, db := range databases {
+					if db != "information_schema" && db != "mysql" && db != "performance_schema" && db != "sys" {
+						dbName = db
+						s.iLog.Info(fmt.Sprintf("Selected database '%s' from available databases", dbName))
+						break
+					}
+				}
+			}
+
+			// If still no database name, return error instead of empty metadata
+			if dbName == "" {
+				s.iLog.Error(fmt.Sprintf("Unable to determine database name for alias '%s'", databaseAlias))
+				return nil, fmt.Errorf("no database selected and unable to determine database name for alias '%s' - check GORM connection string includes database name", databaseAlias)
+			}
 		}
+
+		s.iLog.Info(fmt.Sprintf("Starting schema discovery for database '%s' with alias '%s'", dbName, databaseAlias))
 
 		// Auto-discover schema for this database
 		if err := s.DiscoverDatabaseSchema(ctx, databaseAlias, dbName); err != nil {
-			return nil, fmt.Errorf("failed to auto-discover schema: %w", err)
+			s.iLog.Error(fmt.Sprintf("Schema discovery failed for database '%s': %v", dbName, err))
+			return nil, fmt.Errorf("failed to auto-discover schema for database '%s': %w", dbName, err)
 		}
+
+		s.iLog.Info(fmt.Sprintf("Schema discovery completed for database '%s', retrieving metadata", dbName))
 
 		// Retrieve the newly discovered metadata
 		if err := s.db.WithContext(ctx).
 			Where("databasealias = ?", databaseAlias).
 			Order("tablename, metadatatype DESC, columnname").
 			Find(&metadata).Error; err != nil {
+			s.iLog.Error(fmt.Sprintf("Failed to retrieve discovered metadata: %v", err))
 			return nil, fmt.Errorf("failed to get discovered metadata: %w", err)
 		}
+
+		// If still no metadata after discovery, there might be no tables
+		if len(metadata) == 0 {
+			s.iLog.Warn(fmt.Sprintf("No tables discovered in database '%s' for alias '%s'", dbName, databaseAlias))
+			return nil, fmt.Errorf("no tables found in database '%s' for alias '%s' - database may be empty", dbName, databaseAlias)
+		}
+
+		s.iLog.Info(fmt.Sprintf("Successfully discovered %d metadata entries for alias '%s'", len(metadata), databaseAlias))
 	}
 
 	return metadata, nil

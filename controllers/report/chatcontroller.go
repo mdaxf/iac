@@ -36,7 +36,8 @@ func NewChatController() *ChatController {
 		}
 	}
 
-	// Initialize SchemaMetadataService for auto-discovery fallback
+	// Initialize SchemaMetadataService for auto-discovery
+	// This service queries the current GORM database directly
 	schemaService := services.NewSchemaMetadataService(gormdb.DB)
 
 	return &ChatController{
