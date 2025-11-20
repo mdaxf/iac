@@ -277,6 +277,13 @@ func (s *ChatService) getRelevantBusinessEntities(databaseAlias, question string
 // getRelevantTableMetadata finds table/column metadata relevant to the question
 func (s *ChatService) getRelevantTableMetadata(databaseAlias, question string) ([]models.DatabaseSchemaMetadata, error) {
 	s.iLog.Info(fmt.Sprintf("getRelevantTableMetadata START - DatabaseAlias: %s", databaseAlias))
+
+	// Handle empty database alias
+	if databaseAlias == "" {
+		s.iLog.Warn("Database alias is empty, defaulting to 'default'")
+		databaseAlias = "default"
+	}
+
 	var metadata []models.DatabaseSchemaMetadata
 
 	// Try full-text search first (requires FULLTEXT index)
@@ -289,8 +296,14 @@ func (s *ChatService) getRelevantTableMetadata(databaseAlias, question string) (
 	if err != nil {
 		s.iLog.Warn(fmt.Sprintf("Full-text search failed (likely no FULLTEXT index): %v", err))
 	} else if len(metadata) > 0 {
-		s.iLog.Info(fmt.Sprintf("Full-text search found %d metadata entries", len(metadata)))
-		return metadata, nil
+		// Filter out invalid metadata entries
+		metadata = filterValidMetadata(metadata)
+		if len(metadata) > 0 {
+			s.iLog.Info(fmt.Sprintf("Full-text search found %d valid metadata entries", len(metadata)))
+			return metadata, nil
+		} else {
+			s.iLog.Debug("Full-text search returned only invalid entries")
+		}
 	} else {
 		s.iLog.Debug("Full-text search returned 0 results")
 	}
@@ -307,13 +320,19 @@ func (s *ChatService) getRelevantTableMetadata(databaseAlias, question string) (
 		if err != nil {
 			s.iLog.Error(fmt.Sprintf("Simple query failed: %v", err))
 		} else {
-			s.iLog.Info(fmt.Sprintf("Simple query found %d metadata entries", len(metadata)))
+			// Filter out invalid metadata entries
+			originalCount := len(metadata)
+			metadata = filterValidMetadata(metadata)
+			if originalCount != len(metadata) {
+				s.iLog.Warn(fmt.Sprintf("Filtered out %d invalid metadata entries (empty table names)", originalCount-len(metadata)))
+			}
+			s.iLog.Info(fmt.Sprintf("Simple query found %d valid metadata entries", len(metadata)))
 		}
 	}
 
 	// If still no metadata found and SchemaMetadataService is available, use auto-discovery
 	if len(metadata) == 0 && s.SchemaMetadataService != nil {
-		s.iLog.Warn(fmt.Sprintf("No metadata found in schemameta table for alias '%s', triggering auto-discovery", databaseAlias))
+		s.iLog.Warn(fmt.Sprintf("No valid metadata found in schemameta table for alias '%s', triggering auto-discovery", databaseAlias))
 		// Use auto-discovery fallback from SchemaMetadataService
 		ctx := context.Background()
 		metadata, err = s.SchemaMetadataService.GetDatabaseMetadata(ctx, databaseAlias)
@@ -328,6 +347,23 @@ func (s *ChatService) getRelevantTableMetadata(databaseAlias, question string) (
 
 	s.iLog.Info(fmt.Sprintf("getRelevantTableMetadata COMPLETE - Returning %d metadata entries", len(metadata)))
 	return metadata, err
+}
+
+// filterValidMetadata filters out invalid metadata entries (empty table names, etc.)
+func filterValidMetadata(metadata []models.DatabaseSchemaMetadata) []models.DatabaseSchemaMetadata {
+	var valid []models.DatabaseSchemaMetadata
+	for _, meta := range metadata {
+		// Skip entries with empty table names
+		if meta.Table == "" {
+			continue
+		}
+		// Skip column entries with empty column names
+		if meta.MetadataType == models.MetadataTypeColumn && meta.Column == "" {
+			continue
+		}
+		valid = append(valid, meta)
+	}
+	return valid
 }
 
 // generateSQLWithContext generates SQL using AI with schema context
