@@ -352,7 +352,7 @@ func (s *ChatService) getRelevantTableMetadata(databaseAlias, question string) (
 				columnCount++
 			}
 		}
-		s.iLog.Warn(fmt.Sprintf("Metadata is incomplete - found %d tables but only %d columns (need columns for SQL generation)", tableCount, columnCount))
+		s.iLog.Warn(fmt.Sprintf("Metadata is incomplete - found %d tables and %d columns (need at least 5 tables with 2+ columns each)", tableCount, columnCount))
 	}
 
 	// Trigger auto-discovery if no metadata OR metadata is not useful
@@ -419,13 +419,18 @@ func isMetadataUseful(metadata []models.DatabaseSchemaMetadata) bool {
 		return false
 	}
 
-	// If we have very few entries, it's probably incomplete
-	if len(metadata) < 3 {
+	// If we have very few tables (less than 5), schema is probably incomplete
+	if tableCount < 5 {
 		return false
 	}
 
-	// Should have reasonable ratio of columns to tables (at least 1 column per table)
-	if tableCount > 0 && columnCount < tableCount {
+	// If we have very few total entries, it's probably incomplete
+	if len(metadata) < 10 {
+		return false
+	}
+
+	// Should have reasonable ratio of columns to tables (at least 2 columns per table)
+	if tableCount > 0 && columnCount < (tableCount*2) {
 		return false
 	}
 
