@@ -61,20 +61,29 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 	}
 
 	// Process each table
-	for _, table := range tables {
+	totalTablesSaved := 0
+	totalColumnsSaved := 0
+	for i, table := range tables {
 		// Create or update table metadata
 		tableMeta := &models.DatabaseSchemaMetadata{
 			DatabaseAlias: databaseAlias,
 			Table:         table.TableName,
 			MetadataType:  models.MetadataTypeTable,
 			Description:   table.TableComment,
+			Active:        true,
 		}
 
 		if err := s.db.WithContext(ctx).
 			Where("databasealias = ? AND tablename = ? AND metadatatype = ?", databaseAlias, table.TableName, models.MetadataTypeTable).
 			Assign(tableMeta).
 			FirstOrCreate(tableMeta).Error; err != nil {
+			s.iLog.Error(fmt.Sprintf("Failed to save table metadata for %s: %v", table.TableName, err))
 			return fmt.Errorf("failed to save table metadata for %s: %w", table.TableName, err)
+		}
+		totalTablesSaved++
+
+		if (i+1) % 10 == 0 {
+			s.iLog.Debug(fmt.Sprintf("Processed %d/%d tables so far", i+1, len(tables)))
 		}
 
 		// Get columns for this table
@@ -115,6 +124,7 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 				DataType:      column.DataType,
 				IsNullable:    &isNullable,
 				ColumnComment: column.ColumnComment,
+				Active:        true,
 			}
 
 			if err := s.db.WithContext(ctx).
@@ -122,11 +132,14 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 					databaseAlias, table.TableName, column.ColumnName).
 				Assign(columnMeta).
 				FirstOrCreate(columnMeta).Error; err != nil {
+				s.iLog.Error(fmt.Sprintf("Failed to save column metadata for %s.%s: %v", table.TableName, column.ColumnName, err))
 				return fmt.Errorf("failed to save column metadata for %s.%s: %w", table.TableName, column.ColumnName, err)
 			}
+			totalColumnsSaved++
 		}
 	}
 
+	s.iLog.Info(fmt.Sprintf("Schema discovery completed: saved %d tables and %d columns for database '%s'", totalTablesSaved, totalColumnsSaved, dbName))
 	return nil
 }
 
