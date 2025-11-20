@@ -300,7 +300,15 @@ func (s *ChatService) getRelevantTableMetadata(databaseAlias, question string) (
 		metadata = filterValidMetadata(metadata)
 		if len(metadata) > 0 {
 			s.iLog.Info(fmt.Sprintf("Full-text search found %d valid metadata entries", len(metadata)))
-			return metadata, nil
+			// Check if the metadata is actually useful (has both tables and columns)
+			if isMetadataUseful(metadata) {
+				s.iLog.Debug("Full-text search metadata is useful, returning it")
+				return metadata, nil
+			} else {
+				s.iLog.Warn("Full-text search returned metadata but it's incomplete (missing columns), will try simple query or auto-discovery")
+				// Clear metadata so we fall through to simple query and auto-discovery logic
+				metadata = []models.DatabaseSchemaMetadata{}
+			}
 		} else {
 			s.iLog.Debug("Full-text search returned only invalid entries")
 		}
@@ -330,9 +338,31 @@ func (s *ChatService) getRelevantTableMetadata(databaseAlias, question string) (
 		}
 	}
 
-	// If still no metadata found and SchemaMetadataService is available, use auto-discovery
-	if len(metadata) == 0 && s.SchemaMetadataService != nil {
-		s.iLog.Warn(fmt.Sprintf("No valid metadata found in schemameta table for alias '%s', triggering auto-discovery", databaseAlias))
+	// Check if metadata is actually useful (has both tables AND columns)
+	hasUsefulMetadata := isMetadataUseful(metadata)
+
+	// Log the metadata usefulness check
+	if len(metadata) > 0 && !hasUsefulMetadata {
+		tableCount := 0
+		columnCount := 0
+		for _, meta := range metadata {
+			if meta.MetadataType == models.MetadataTypeTable {
+				tableCount++
+			} else if meta.MetadataType == models.MetadataTypeColumn {
+				columnCount++
+			}
+		}
+		s.iLog.Warn(fmt.Sprintf("Metadata is incomplete - found %d tables but only %d columns (need columns for SQL generation)", tableCount, columnCount))
+	}
+
+	// Trigger auto-discovery if no metadata OR metadata is not useful
+	if (!hasUsefulMetadata) && s.SchemaMetadataService != nil {
+		if len(metadata) == 0 {
+			s.iLog.Warn(fmt.Sprintf("No valid metadata found in schemameta table for alias '%s', triggering auto-discovery", databaseAlias))
+		} else {
+			s.iLog.Warn("Metadata exists but is incomplete (missing columns), triggering auto-discovery to get full schema")
+		}
+
 		// Use auto-discovery fallback from SchemaMetadataService
 		ctx := context.Background()
 		metadata, err = s.SchemaMetadataService.GetDatabaseMetadata(ctx, databaseAlias)
@@ -341,8 +371,8 @@ func (s *ChatService) getRelevantTableMetadata(databaseAlias, question string) (
 			return nil, fmt.Errorf("failed to discover schema metadata: %w", err)
 		}
 		s.iLog.Info(fmt.Sprintf("Auto-discovery completed, found %d metadata entries", len(metadata)))
-	} else if len(metadata) == 0 && s.SchemaMetadataService == nil {
-		s.iLog.Error("No metadata found and SchemaMetadataService is nil - cannot perform auto-discovery")
+	} else if !hasUsefulMetadata && s.SchemaMetadataService == nil {
+		s.iLog.Error("Metadata is incomplete and SchemaMetadataService is nil - cannot perform auto-discovery")
 	}
 
 	s.iLog.Info(fmt.Sprintf("getRelevantTableMetadata COMPLETE - Returning %d metadata entries", len(metadata)))
@@ -364,6 +394,42 @@ func filterValidMetadata(metadata []models.DatabaseSchemaMetadata) []models.Data
 		valid = append(valid, meta)
 	}
 	return valid
+}
+
+// isMetadataUseful checks if metadata contains useful schema information
+// Returns true only if we have both tables AND columns with reasonable data
+func isMetadataUseful(metadata []models.DatabaseSchemaMetadata) bool {
+	if len(metadata) == 0 {
+		return false
+	}
+
+	tableCount := 0
+	columnCount := 0
+
+	for _, meta := range metadata {
+		if meta.MetadataType == models.MetadataTypeTable {
+			tableCount++
+		} else if meta.MetadataType == models.MetadataTypeColumn {
+			columnCount++
+		}
+	}
+
+	// Need at least some columns to be useful for SQL generation
+	if columnCount == 0 {
+		return false
+	}
+
+	// If we have very few entries, it's probably incomplete
+	if len(metadata) < 3 {
+		return false
+	}
+
+	// Should have reasonable ratio of columns to tables (at least 1 column per table)
+	if tableCount > 0 && columnCount < tableCount {
+		return false
+	}
+
+	return true
 }
 
 // generateSQLWithContext generates SQL using AI with schema context
