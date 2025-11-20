@@ -34,8 +34,8 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 
 	// Get all tables
 	var tables []struct {
-		TableName    string
-		TableComment string
+		TableName    string `gorm:"column:tablename"`
+		TableComment string `gorm:"column:table_comment"`
 	}
 
 	query := `
@@ -58,6 +58,26 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 	if len(tables) == 0 {
 		s.iLog.Warn(fmt.Sprintf("No tables found in database '%s' - database may be empty or TABLE_SCHEMA filter may be incorrect", dbName))
 		return nil
+	}
+
+	// Log first few table names to verify the data
+	if len(tables) > 0 {
+		sampleTables := make([]string, 0, 5)
+		for i := 0; i < len(tables) && i < 5; i++ {
+			sampleTables = append(sampleTables, tables[i].TableName)
+		}
+		s.iLog.Debug(fmt.Sprintf("Sample table names: %v", sampleTables))
+	}
+
+	// For debugging: test column query on first table
+	if len(tables) > 0 {
+		var testCount int64
+		testQuery := "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?"
+		if err := s.db.Raw(testQuery, dbName, tables[0].TableName).Scan(&testCount).Error; err != nil {
+			s.iLog.Error(fmt.Sprintf("Test column count query failed: %v", err))
+		} else {
+			s.iLog.Debug(fmt.Sprintf("Test: Table '%s' should have %d columns (dbName='%s')", tables[0].TableName, testCount, dbName))
+		}
 	}
 
 	// Process each table
@@ -88,11 +108,11 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 
 		// Get columns for this table
 		var columns []struct {
-			ColumnName    string
-			DataType      string
-			IsNullable    string
-			ColumnKey     string
-			ColumnComment string
+			ColumnName    string `gorm:"column:columnname"`
+			DataType      string `gorm:"column:data_type"`
+			IsNullable    string `gorm:"column:is_nullable"`
+			ColumnKey     string `gorm:"column:column_key"`
+			ColumnComment string `gorm:"column:column_comment"`
 		}
 
 		columnQuery := `
@@ -109,7 +129,15 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 		`
 
 		if err := s.db.Raw(columnQuery, dbName, table.TableName).Scan(&columns).Error; err != nil {
+			s.iLog.Error(fmt.Sprintf("Failed to query columns for table '%s': %v", table.TableName, err))
 			return fmt.Errorf("failed to discover columns for %s: %w", table.TableName, err)
+		}
+
+		if len(columns) == 0 {
+			s.iLog.Warn(fmt.Sprintf("No columns found for table '%s' (dbName='%s', tableName='%s')", table.TableName, dbName, table.TableName))
+		} else if i < 3 {
+			// Log column details for first 3 tables to help debug
+			s.iLog.Debug(fmt.Sprintf("Table '%s' has %d columns", table.TableName, len(columns)))
 		}
 
 		// Process each column
