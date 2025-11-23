@@ -38,12 +38,12 @@ type Message struct {
 }
 
 type GPT4VCompletionResponse struct {
-	Choices []Choice  `json:"choices"`
-	Created time.Time `json:"created"`            // Added for debugging
-	Model   string    `json:"model"`              // Added for debugging
-	FP      bool      `json:"system_fingerprint"` // Added for debugging
-	ID      string    `json:"id"`                 // Added for debugging
-	Object  string    `json:"object"`             // Added for debugging
+	Choices []Choice `json:"choices"`
+	Created int64    `json:"created"`            // Unix timestamp (not JSON time)
+	Model   string   `json:"model"`              // Model name
+	FP      string   `json:"system_fingerprint"` // System fingerprint string
+	ID      string   `json:"id"`                 // Response ID
+	Object  string   `json:"object"`             // Object type
 }
 
 type Choice struct {

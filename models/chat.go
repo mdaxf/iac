@@ -93,6 +93,11 @@ type DatabaseSchemaMetadata struct {
 	Description   string       `json:"description" gorm:"column:description;type:text"`
 	BusinessTerms JSONMap      `json:"businessterms" gorm:"column:businessterms;type:json"`
 
+	// Vector embedding fields for semantic search
+	Embedding            VectorArray  `json:"embedding,omitempty" gorm:"column:embedding;type:json"`
+	EmbeddingModel       string       `json:"embeddingmodel,omitempty" gorm:"column:embedding_model;type:varchar(100)"`
+	EmbeddingGeneratedAt sql.NullTime `json:"embeddinggeneratedat,omitempty" gorm:"column:embedding_generated_at"`
+
 	// Standard IAC audit fields (must be at end)
 	Active          bool         `json:"active" gorm:"column:active;default:true"`
 	ReferenceID     string       `json:"referenceid" gorm:"column:referenceid;type:varchar(36)"`
@@ -164,6 +169,11 @@ type BusinessEntity struct {
 	CalculationFormula string             `json:"calculationformula" gorm:"column:calculationformula;type:text"`
 	Synonyms           json.RawMessage    `json:"synonyms" gorm:"column:synonyms;type:json"`
 	Examples           json.RawMessage    `json:"examples" gorm:"column:examples;type:json"`
+
+	// Vector embedding fields for semantic search
+	Embedding            VectorArray  `json:"embedding,omitempty" gorm:"column:embedding;type:json"`
+	EmbeddingModel       string       `json:"embeddingmodel,omitempty" gorm:"column:embedding_model;type:varchar(100)"`
+	EmbeddingGeneratedAt sql.NullTime `json:"embeddinggeneratedat,omitempty" gorm:"column:embedding_generated_at"`
 
 	// Standard IAC audit fields (must be at end)
 	Active          bool         `json:"active" gorm:"column:active;default:true"`

@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -354,7 +355,7 @@ func (db *DBOperation) ExecSP(procedureName string, args ...interface{}) error {
 	// Construct the stored procedure call with placeholders for each parameter
 	placeholders := make([]string, len(args))
 	for i := range args {
-		placeholders[i] = "?"
+		placeholders[i] = db.GetPlaceholder(i + 1)
 	}
 	call := fmt.Sprintf("CALL %s(%s)", procedureName, strings.Join(placeholders, ","))
 
@@ -429,7 +430,7 @@ func (db *DBOperation) ExeSPwithRow(procedureName string, args ...interface{}) (
 		if output {
 			outputparameters = append(outputparameters, parameter)
 		}
-		placeholders[i] = "?"
+		placeholders[i] = db.GetPlaceholder(i + 1)
 	}
 	//placeholders = append(placeholders, "@output_param")
 	call := fmt.Sprintf("CALL %s(%s)", procedureName, strings.Join(placeholders, ","))
@@ -573,7 +574,13 @@ func (db *DBOperation) TableInsert(TableName string, Columns []string, Values []
 	var querystr string
 
 	args := make([]interface{}, len(Values))
-	querystr = "INSERT INTO " + TableName + "(" + strings.Join(Columns, ",") + ") VALUES (" + strings.Repeat("?,", len(Columns)-1) + "?)"
+
+	// Build VALUES clause with database-specific placeholders
+	placeholders := make([]string, len(Columns))
+	for i := range Columns {
+		placeholders[i] = db.GetPlaceholder(i + 1)
+	}
+	querystr = "INSERT INTO " + TableName + "(" + strings.Join(Columns, ",") + ") VALUES (" + strings.Join(placeholders, ",") + ")"
 
 	for i, s := range Values {
 		args[i] = s
@@ -581,34 +588,60 @@ func (db *DBOperation) TableInsert(TableName string, Columns []string, Values []
 
 	//	fmt.Println(querystr)
 	//	fmt.Println(args)
-	stmt, err := idbtx.PrepareContext(ctx, querystr)
-	//	stmt, err := idbtx.Prepare(querystr)
-	defer stmt.Close()
-	if err != nil {
-		idbtx.Rollback()
-		db.iLog.Error(fmt.Sprintf("There is error to prepare the insert statement with error: %s", err.Error()))
-		return 0, err
-	}
-	res, err := stmt.ExecContext(ctx, args...)
-	//res, err := stmt.Exec(args...)
 
-	if err != nil {
-		idbtx.Rollback()
-		db.iLog.Error(fmt.Sprintf("There is error to execute the insert statement with error: %s", err.Error()))
-		return 0, err
-	}
-	lastId, err := res.LastInsertId()
-	if err != nil {
-		idbtx.Rollback()
-		db.iLog.Error(fmt.Sprintf("There is error to get the last insert id with error: %s", err.Error()))
+	var lastId int64
+
+	// Check if database supports RETURNING clause (PostgreSQL, Oracle, etc.)
+	if db.GetDialect().SupportsReturning() {
+		// PostgreSQL: Use RETURNING id clause
+		querystr += " RETURNING id"
+
+		stmt, err := idbtx.PrepareContext(ctx, querystr)
+		if err != nil {
+			idbtx.Rollback()
+			db.iLog.Error(fmt.Sprintf("There is error to prepare the insert statement with error: %s", err.Error()))
+			return 0, err
+		}
+		defer stmt.Close()
+
+		// Use QueryRowContext to get the returned ID
+		err = stmt.QueryRowContext(ctx, args...).Scan(&lastId)
+		if err != nil {
+			idbtx.Rollback()
+			db.iLog.Error(fmt.Sprintf("There is error to execute the insert statement and scan returned id with error: %s", err.Error()))
+			return 0, err
+		}
+	} else {
+		// MySQL, SQL Server: Use LastInsertId()
+		stmt, err := idbtx.PrepareContext(ctx, querystr)
+		if err != nil {
+			idbtx.Rollback()
+			db.iLog.Error(fmt.Sprintf("There is error to prepare the insert statement with error: %s", err.Error()))
+			return 0, err
+		}
+		defer stmt.Close()
+
+		res, err := stmt.ExecContext(ctx, args...)
+		if err != nil {
+			idbtx.Rollback()
+			db.iLog.Error(fmt.Sprintf("There is error to execute the insert statement with error: %s", err.Error()))
+			return 0, err
+		}
+
+		lastId, err = res.LastInsertId()
+		if err != nil {
+			idbtx.Rollback()
+			db.iLog.Error(fmt.Sprintf("There is error to get the last insert id with error: %s", err.Error()))
+			return 0, err
+		}
 	}
 
 	if blocaltx {
-		db.iLog.Error(fmt.Sprintf("Database Transaction commit!"))
+		db.iLog.Debug(fmt.Sprintf("Database Transaction commit!"))
 		idbtx.Commit()
 	}
 
-	return lastId, err
+	return lastId, nil
 }
 
 // TableUpdate updates the specified table with the given columns, values, data types, and WHERE clause.
@@ -708,19 +741,102 @@ func (db *DBOperation) TableUpdate(TableName string, Columns []string, Values []
 		return rowcount, err
 
 	default:
-		//	case "mysql":
+		//	case "mysql", "postgres":
 
-		querystr = "UPDATE " + TableName + " SET " + strings.Join(Columns, "=?,") + "=? WHERE " + Where
+		// Build SET clause with database-specific placeholders, handling NULL values
+		setPlaceholders := make([]string, len(Columns))
+		args := make([]interface{}, 0, len(Values))
+		placeholderIndex := 1
 
-		args := make([]interface{}, len(Values))
+		for i, column := range Columns {
+			// Check for NULL value
+			if Values[i] == "" || Values[i] == "<nil>" || Values[i] == "nil" {
+				// Set to NULL directly in query, no placeholder needed
+				setPlaceholders[i] = fmt.Sprintf("%s = NULL", column)
+			} else {
+				// Use placeholder and add to args
+				setPlaceholders[i] = fmt.Sprintf("%s=%s", column, db.GetPlaceholder(placeholderIndex))
 
-		for i, s := range Values {
-			args[i] = s
+				// Convert value based on datatype
+				var argValue interface{}
+
+				// Check if datatypes array has value for this index
+				datatype := 0 // Default to String
+				if i < len(datatypes) {
+					datatype = datatypes[i]
+				}
+
+				switch datatype {
+				case int(types.Integer):
+					// Parse integer from string
+					trimmedVal := strings.TrimSpace(Values[i])
+					if intVal, err := strconv.ParseInt(trimmedVal, 10, 64); err == nil {
+						argValue = intVal
+					} else {
+						// If parsing fails, try to extract number from float format
+						if floatVal, err := strconv.ParseFloat(trimmedVal, 64); err == nil {
+							argValue = int64(floatVal)
+						} else {
+							db.iLog.Warn(fmt.Sprintf("Failed to parse integer for column %s, value: %s, using as string", column, Values[i]))
+							argValue = Values[i] // Fallback to string
+						}
+					}
+				case int(types.Float):
+					// Parse float from string
+					trimmedVal := strings.TrimSpace(Values[i])
+					if floatVal, err := strconv.ParseFloat(trimmedVal, 64); err == nil {
+						argValue = floatVal
+					} else {
+						db.iLog.Warn(fmt.Sprintf("Failed to parse float for column %s, value: %s, using as string", column, Values[i]))
+						argValue = Values[i] // Fallback to string
+					}
+				case int(types.Bool):
+					// Parse boolean from string
+					trimmedVal := strings.TrimSpace(strings.ToLower(Values[i]))
+					argValue = trimmedVal == "true" || trimmedVal == "1" || trimmedVal == "t"
+				default:
+					// String or other types - but check if it looks like a number that should be converted
+					trimmedVal := strings.TrimSpace(Values[i])
+					// Try to detect if it's a number string that should be converted
+					if strings.Contains(trimmedVal, ".") {
+						// Might be a float
+						if floatVal, err := strconv.ParseFloat(trimmedVal, 64); err == nil {
+							// Check if it's actually an integer in float format
+							if floatVal == float64(int64(floatVal)) {
+								argValue = int64(floatVal)
+								db.iLog.Debug(fmt.Sprintf("Auto-converted float-formatted integer for column %s: %s → %d", column, Values[i], int64(floatVal)))
+							} else {
+								argValue = floatVal
+								db.iLog.Debug(fmt.Sprintf("Auto-converted float for column %s: %s → %f", column, Values[i], floatVal))
+							}
+						} else {
+							argValue = Values[i]
+						}
+					} else {
+						// Try integer
+						if intVal, err := strconv.ParseInt(trimmedVal, 10, 64); err == nil {
+							argValue = intVal
+							db.iLog.Debug(fmt.Sprintf("Auto-converted integer for column %s: %s → %d", column, Values[i], intVal))
+						} else {
+							argValue = Values[i]
+						}
+					}
+				}
+				args = append(args, argValue)
+				placeholderIndex++
+			}
 		}
 
-		//fmt.Println(querystr)
-		//fmt.Println(args)
-		db.iLog.Debug(fmt.Sprintf("The update query string is: %s  parametrs: %s...", querystr, args))
+		setClause := strings.Join(setPlaceholders, ", ")
+		querystr = fmt.Sprintf("UPDATE %s SET %s WHERE %s", TableName, setClause, Where)
+
+		// Debug: Log types of args
+		argTypes := make([]string, len(args))
+		for i, arg := range args {
+			argTypes[i] = fmt.Sprintf("%T(%v)", arg, arg)
+		}
+		db.iLog.Debug(fmt.Sprintf("Final query: %s", querystr))
+		db.iLog.Debug(fmt.Sprintf("Args with types: %v", argTypes))
 
 		stmt, err := idbtx.PrepareContext(ctx, querystr)
 		//stmt, err := idbtx.Prepare(querystr)
@@ -803,12 +919,43 @@ func (db *DBOperation) TableUpdate_v2(TableName string, Columns []string, Values
 			continue
 		}
 
+		// Convert value based on datatype if specified
+		var convertedVal interface{} = val
+		if i < len(datatypes) {
+			datatype := datatypes[i]
+			switch datatype {
+			case 1: // Integer type
+				// Convert to int64 if it's a float64 (common from JSON unmarshaling)
+				if floatVal, ok := val.(float64); ok {
+					convertedVal = int64(floatVal)
+				} else if intVal, ok := val.(int); ok {
+					convertedVal = int64(intVal)
+				}
+				// Otherwise keep as-is (already int64 or other)
+			case 2: // Float type
+				// Ensure it's float64
+				if intVal, ok := val.(int); ok {
+					convertedVal = float64(intVal)
+				} else if int64Val, ok := val.(int64); ok {
+					convertedVal = float64(int64Val)
+				}
+				// Otherwise keep as-is (already float64)
+			case 3: // Bool type
+				// Keep as bool, no conversion needed
+			case -1: // Null type (shouldn't reach here but handle anyway)
+				setClauses = append(setClauses, fmt.Sprintf("%s = NULL", col))
+				continue
+			default:
+				// Type 0 (string) or unknown - keep as-is
+			}
+		}
+
 		// Use dialect-specific placeholder for database portability
 		placeholder := db.GetPlaceholder(paramIndex)
 		paramIndex++
 
 		setClauses = append(setClauses, fmt.Sprintf("%s = %s", col, placeholder))
-		args = append(args, val)
+		args = append(args, convertedVal)
 	}
 
 	setClause := strings.Join(setClauses, ", ")

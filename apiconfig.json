@@ -28,6 +28,16 @@
           "method": "POST",
           "path": "/ustomockup",
           "handler": "UserStorytoMockup"
+        },
+        {
+          "method": "POST",
+          "path": "/ask-assistant",
+          "handler": "AskAssistant"
+        },
+        {
+          "method": "POST",
+          "path": "/generate-flow",
+          "handler": "GenerateFlow"
         }
       ]
     },
@@ -653,6 +663,32 @@
               "method": "GET",
               "path": "/context",
               "handler": "GetTemplateContext"
+            }
+          ]
+        },
+        {
+          "path": "api/ai-config",
+          "module": "AIConfigController",
+          "endpoints": [
+            {
+              "method": "GET",
+              "path": "",
+              "handler": "GetAIConfig"
+            },
+            {
+              "method": "PUT",
+              "path": "/",
+              "handler": "UpdateAIConfig"
+            },
+            {
+              "method": "POST",
+              "path": "/test-connection",
+              "handler": "TestConnection"
+            },
+            {
+              "method": "GET",
+              "path": "/vector-db-status",
+              "handler": "GetVectorDBStatus"
             }
           ]
         },

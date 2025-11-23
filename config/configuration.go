@@ -142,6 +142,13 @@ func LoadConfig() (*Config, error) {
 	fmt.Printf("  - OpenAI Model: %s\n", OpenAiModel)
 	fmt.Printf("  - Controllers: %d\n", len(config.Controllers))
 
+	// Load AI configuration (new multi-vendor support)
+	_, aiErr := LoadAIConfig()
+	if aiErr != nil {
+		fmt.Printf("Warning: failed to load AI configuration: %v\n", aiErr)
+		fmt.Println("  - Falling back to legacy OpenAI configuration from apiconfig.json")
+	}
+
 	return &config, nil
 }
 

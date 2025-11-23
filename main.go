@@ -170,9 +170,15 @@ func main() {
 
 	// Global OPTIONS handler to make sure preflight requests always receive a 204
 	router.OPTIONS("/*path", func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, Content-Length, X-CSRF-Token, Token, session, Origin, Host, Connection, Accept-Encoding, Accept-Language, X-Requested-With")
+		origin := c.Request.Header.Get("Origin")
+		if origin != "" {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Credentials", "true")
+		} else {
+			c.Header("Access-Control-Allow-Origin", "*")
+		}
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, Content-Length, X-CSRF-Token, X-Client-Id, Token, session, Origin, Host, Connection, Accept-Encoding, Accept-Language, X-Requested-With")
 		c.AbortWithStatus(http.StatusNoContent)
 	})
 	// Load controllers dynamically based on the configuration file
@@ -227,6 +233,7 @@ func main() {
 	clientconfig["instance"] = com.Instance
 	clientconfig["instanceType"] = com.InstanceType
 	clientconfig["instanceName"] = com.InstanceName
+	clientconfig["dbtype"] = dbconn.DatabaseType
 
 	router.GET("/app/config", func(c *gin.Context) {
 		c.JSON(http.StatusOK, clientconfig)
@@ -347,9 +354,21 @@ func getpluginHandlerFunc(module reflect.Value, name string) gin.HandlerFunc {
 
 func CORSMiddleware(allowOrigin string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", allowOrigin)
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		//  c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, Origin")
+		origin := c.Request.Header.Get("Origin")
+
+		// If allowOrigin is "*", use the request origin for credentials support
+		// Otherwise use the configured allowOrigin
+		if allowOrigin == "*" && origin != "" {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Credentials", "true")
+		} else if allowOrigin != "" {
+			c.Header("Access-Control-Allow-Origin", allowOrigin)
+			if allowOrigin != "*" {
+				c.Header("Access-Control-Allow-Credentials", "true")
+			}
+		}
+
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, Content-Length, X-CSRF-Token, X-Client-Id, Token, session, Origin, Host, Connection, Accept-Encoding, Accept-Language, X-Requested-With")
 
 		//	ilog.Debug(fmt.Sprintf("CORSMiddleware: %s", allowOrigin))

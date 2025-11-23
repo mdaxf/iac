@@ -817,9 +817,19 @@ func (db *DBController) InsertDataToTable(ctx *gin.Context) error {
 				datatype = append(datatype, 0)
 				values = append(values, value.(string))
 			case float64:
-				datatype = append(datatype, 2)
-				v := fmt.Sprintf("%f", value.(float64))
-				values = append(values, v)
+				floatVal := value.(float64)
+				// Check if the float is actually an integer (no decimal part)
+				if floatVal == float64(int64(floatVal)) {
+					// It's an integer, format as such
+					datatype = append(datatype, 1)
+					v := fmt.Sprintf("%d", int64(floatVal))
+					values = append(values, v)
+				} else {
+					// It's a real float
+					datatype = append(datatype, 2)
+					v := fmt.Sprintf("%f", floatVal)
+					values = append(values, v)
+				}
 			case bool:
 				datatype = append(datatype, 3)
 				v := fmt.Sprintf("%t", value.(bool))
@@ -841,7 +851,7 @@ func (db *DBController) InsertDataToTable(ctx *gin.Context) error {
 		return err
 	}
 
-	id, err := dbconn.NewDBOperation("system", nil, "Execute dtable insert").TableInsert(data.TableName, fields, values)
+	id, err := dbconn.NewDBOperation(user, nil, "Execute dtable insert").TableInsert(data.TableName, fields, values)
 
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Insert data to table error: %s", err.Error()))
@@ -916,25 +926,37 @@ func (db *DBController) UpdateDataToTable(ctx *gin.Context) error {
 			}
 			fields = append(fields, key)
 
-			switch value.(type) {
+			switch v := value.(type) {
 			case string:
 				datatype = append(datatype, 0)
-				values = append(values, value.(string))
-			case float64:
-				datatype = append(datatype, 2)
-				v := fmt.Sprintf("%f", value.(float64))
 				values = append(values, v)
+			case float64:
+				// Check if the float is actually an integer (no decimal part)
+				if v == float64(int64(v)) {
+					// It's an integer, store as int64
+					datatype = append(datatype, 1)
+					values = append(values, int64(v))
+				} else {
+					// It's a real float
+					datatype = append(datatype, 2)
+					values = append(values, v)
+				}
 			case bool:
 				datatype = append(datatype, 3)
-				v := fmt.Sprintf("%t", value.(bool))
+				// Keep as bool, don't convert to string
 				values = append(values, v)
 			case int:
 				datatype = append(datatype, 1)
-				v := fmt.Sprintf("%d", value.(int))
-				values = append(values, v)
+				// Convert int to int64 for consistency
+				values = append(values, int64(v))
 			default:
 				datatype = append(datatype, 0)
-				values = append(values, value.(string))
+				// Try to convert to string if needed
+				if str, ok := value.(string); ok {
+					values = append(values, str)
+				} else {
+					values = append(values, fmt.Sprintf("%v", value))
+				}
 			}
 		} else {
 			fields = append(fields, key)
@@ -966,7 +988,7 @@ func (db *DBController) UpdateDataToTable(ctx *gin.Context) error {
 		return err
 	}
 
-	rowcount, err := dbconn.NewDBOperation("system", nil, "Execute dtable update").TableUpdate_v2(data.TableName, fields, values, datatype, Wherestr)
+	rowcount, err := dbconn.NewDBOperation(user, nil, "Execute dtable update").TableUpdate_v2(data.TableName, fields, values, datatype, Wherestr)
 
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Update data to table error: %s", err.Error()))

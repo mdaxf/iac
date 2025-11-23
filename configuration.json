@@ -39,11 +39,11 @@
         "testsessiontimeout": 900
     },
     "database": {
-        "connection": "user:iacf12345678@tcp(localhost:3306)/iac25?timeout=5s&parseTime=true",
+        "connection": "postgresql://postgres:iacf12345678@localhost:5432/iac25?sslmode=disable",
         "maxidleconns": 5,
         "maxopenconns": 10,
         "timeout": 5,
-        "type": "mysql"
+        "type": "postgres"
     },
     "description": "IAC is a framework for building web applications with Go.",
     "documentdb": {
@@ -94,7 +94,7 @@
     "webserver": {
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Headers": "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization",
+            "Access-Control-Allow-Headers": "Accept, Authorization, Content-Type, Content-Length, X-CSRF-Token, X-Client-Id, Token, session, Origin, Host, Connection, Accept-Encoding, Accept-Language, X-Requested-With",
             "Access-Control-Allow-Methods": "POST, OPTIONS, GET, PUT, DELETE",
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Expose-Headers": "Content-Length",

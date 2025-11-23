@@ -22,20 +22,23 @@ type SchemaDiscoveryService interface {
 
 // ChatService handles chat and AI conversation features
 type ChatService struct {
-	DB                    *gorm.DB
-	OpenAIKey             string
-	OpenAIModel           string
-	SchemaMetadataService SchemaDiscoveryService
-	iLog                  logger.Log
+	DB                     *gorm.DB
+	OpenAIKey              string
+	OpenAIModel            string
+	SchemaMetadataService  SchemaDiscoveryService
+	SchemaEmbeddingService *SchemaEmbeddingService
+	iLog                   logger.Log
 }
 
 // NewChatService creates a new chat service
 func NewChatService(db *gorm.DB, openAIKey, openAIModel string, schemaService SchemaDiscoveryService) *ChatService {
+	embeddingService := NewSchemaEmbeddingService(db, openAIKey)
 	return &ChatService{
-		DB:                    db,
-		OpenAIKey:             openAIKey,
-		OpenAIModel:           openAIModel,
-		SchemaMetadataService: schemaService,
+		DB:                     db,
+		OpenAIKey:              openAIKey,
+		OpenAIModel:            openAIModel,
+		SchemaMetadataService:  schemaService,
+		SchemaEmbeddingService: embeddingService,
 		iLog: logger.Log{
 			ModuleName:     logger.Framework,
 			User:           "System",
@@ -256,16 +259,31 @@ func (s *ChatService) getSchemaContext(databaseAlias, question string) (string, 
 
 // getRelevantBusinessEntities finds business entities relevant to the question
 func (s *ChatService) getRelevantBusinessEntities(databaseAlias, question string) ([]models.BusinessEntity, error) {
-	var entities []models.BusinessEntity
+	s.iLog.Debug("Attempting vector-based business entity search")
 
-	// Try full-text search first (requires FULLTEXT index)
-	err := s.DB.Where("databasealias = ?", databaseAlias).
+	// Try vector similarity search first (if embeddings exist)
+	ctx := context.Background()
+	entities, err := s.SchemaEmbeddingService.SearchSimilarBusinessEntities(ctx, databaseAlias, question, 5)
+	if err == nil && len(entities) > 0 {
+		s.iLog.Info(fmt.Sprintf("Vector search found %d business entities", len(entities)))
+		return entities, nil
+	}
+
+	if err != nil {
+		s.iLog.Warn(fmt.Sprintf("Vector search failed: %v, falling back to full-text search", err))
+	} else {
+		s.iLog.Debug("Vector search returned 0 results, falling back to full-text search")
+	}
+
+	// Fallback to full-text search (requires FULLTEXT index)
+	err = s.DB.Where("databasealias = ?", databaseAlias).
 		Where("MATCH(entityname, description) AGAINST(? IN NATURAL LANGUAGE MODE)", question).
 		Limit(5).
 		Find(&entities).Error
 
 	// If FULLTEXT search fails (no index or other error), fall back to simple query
 	if err != nil || len(entities) == 0 {
+		s.iLog.Debug("Full-text search failed or returned 0 results, using simple query")
 		err = s.DB.Where("databasealias = ?", databaseAlias).
 			Limit(10).
 			Find(&entities).Error
@@ -286,9 +304,45 @@ func (s *ChatService) getRelevantTableMetadata(databaseAlias, question string) (
 
 	var metadata []models.DatabaseSchemaMetadata
 
-	// Try full-text search first (requires FULLTEXT index)
+	// Try vector similarity search first (if embeddings exist)
+	s.iLog.Debug("Attempting vector-based schema metadata search")
+	ctx := context.Background()
+
+	// Search for relevant tables
+	tables, err := s.SchemaEmbeddingService.SearchSimilarTables(ctx, databaseAlias, question, 5)
+	if err != nil {
+		s.iLog.Warn(fmt.Sprintf("Vector table search failed: %v", err))
+	} else if len(tables) > 0 {
+		s.iLog.Info(fmt.Sprintf("Vector search found %d tables", len(tables)))
+		metadata = append(metadata, tables...)
+	}
+
+	// Search for relevant columns
+	columns, err := s.SchemaEmbeddingService.SearchSimilarColumns(ctx, databaseAlias, question, 10)
+	if err != nil {
+		s.iLog.Warn(fmt.Sprintf("Vector column search failed: %v", err))
+	} else if len(columns) > 0 {
+		s.iLog.Info(fmt.Sprintf("Vector search found %d columns", len(columns)))
+		metadata = append(metadata, columns...)
+	}
+
+	// If vector search returned useful results, use them
+	if len(metadata) > 0 {
+		metadata = filterValidMetadata(metadata)
+		if isMetadataUseful(metadata) {
+			s.iLog.Info(fmt.Sprintf("Vector search returned %d useful metadata entries", len(metadata)))
+			return metadata, nil
+		} else {
+			s.iLog.Warn("Vector search returned metadata but it's incomplete, falling back to full-text search")
+			metadata = []models.DatabaseSchemaMetadata{}
+		}
+	} else {
+		s.iLog.Debug("Vector search returned 0 results, falling back to full-text search")
+	}
+
+	// Fallback to full-text search (requires FULLTEXT index)
 	s.iLog.Debug("Attempting full-text search on schema metadata")
-	err := s.DB.Where("databasealias = ?", databaseAlias).
+	err = s.DB.Where("databasealias = ?", databaseAlias).
 		Where("MATCH(description, columncomment) AGAINST(? IN NATURAL LANGUAGE MODE)", question).
 		Limit(10).
 		Find(&metadata).Error

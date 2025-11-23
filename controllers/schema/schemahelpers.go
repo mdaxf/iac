@@ -3,6 +3,7 @@ package schema
 import (
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -11,6 +12,309 @@ import (
 	"github.com/mdaxf/iac/databases/orm"
 	"github.com/mdaxf/iac/logger"
 )
+
+// convertQueryPlaceholders converts ? placeholders to database-specific syntax
+// MySQL: ?, PostgreSQL: $1, $2, MSSQL: @p1, @p2, Oracle: :1, :2
+func convertQueryPlaceholders(query string, dbType string) string {
+	if dbType == "mysql" {
+		return query // MySQL uses ? - no conversion needed
+	}
+
+	placeholderCount := 0
+	result := regexp.MustCompile(`\?`).ReplaceAllStringFunc(query, func(match string) string {
+		placeholderCount++
+		switch dbType {
+		case "postgres", "postgresql":
+			return fmt.Sprintf("$%d", placeholderCount)
+		case "mssql", "sqlserver":
+			return fmt.Sprintf("@p%d", placeholderCount)
+		case "oracle":
+			return fmt.Sprintf(":%d", placeholderCount)
+		default:
+			return match // fallback to original
+		}
+	})
+	return result
+}
+
+// detectDatabaseTypeSimple detects database type from connection
+// Caches the result to avoid repeated detection queries
+var dbTypeCache = make(map[*sql.DB]string)
+
+func detectDatabaseTypeSimple(db *sql.DB) string {
+	// Check cache first
+	if dbType, exists := dbTypeCache[db]; exists {
+		return dbType
+	}
+
+	dbType := "mysql" // default
+
+	// Try MySQL
+	var mysqlTest string
+	if err := db.QueryRow("SELECT VERSION()").Scan(&mysqlTest); err == nil {
+		if strings.Contains(strings.ToLower(mysqlTest), "mysql") || strings.Contains(strings.ToLower(mysqlTest), "mariadb") {
+			dbType = "mysql"
+			dbTypeCache[db] = dbType
+			return dbType
+		}
+	}
+
+	// Try PostgreSQL
+	var pgTest string
+	if err := db.QueryRow("SELECT version()").Scan(&pgTest); err == nil {
+		if strings.Contains(strings.ToLower(pgTest), "postgresql") {
+			dbType = "postgres"
+			dbTypeCache[db] = dbType
+			return dbType
+		}
+	}
+
+	// Try MSSQL
+	var mssqlTest string
+	if err := db.QueryRow("SELECT @@VERSION").Scan(&mssqlTest); err == nil {
+		if strings.Contains(strings.ToLower(mssqlTest), "microsoft") {
+			dbType = "mssql"
+			dbTypeCache[db] = dbType
+			return dbType
+		}
+	}
+
+	// Cache the default
+	dbTypeCache[db] = dbType
+	return dbType
+}
+
+// queryWithPlaceholderConversion executes a query with automatic placeholder conversion
+func queryWithPlaceholderConversion(db *sql.DB, query string, args ...interface{}) (*sql.Rows, error) {
+	dbType := detectDatabaseTypeSimple(db)
+	convertedQuery := convertQueryPlaceholders(query, dbType)
+	return db.Query(convertedQuery, args...)
+}
+
+// queryRowWithPlaceholderConversion executes a query row with automatic placeholder conversion
+func queryRowWithPlaceholderConversion(db *sql.DB, query string, args ...interface{}) *sql.Row {
+	dbType := detectDatabaseTypeSimple(db)
+	convertedQuery := convertQueryPlaceholders(query, dbType)
+	return db.QueryRow(convertedQuery, args...)
+}
+
+// getForeignKeysQuery returns database-specific foreign key query
+// MySQL and PostgreSQL use different columns in information_schema
+func getForeignKeysQuery(db *sql.DB) string {
+	dbType := detectDatabaseTypeSimple(db)
+
+	switch dbType {
+	case "postgres", "postgresql":
+		// PostgreSQL uses referential_constraints table
+		return `
+			SELECT
+				kcu.column_name,
+				ccu.table_name AS foreign_table_name,
+				ccu.column_name AS foreign_column_name
+			FROM information_schema.key_column_usage AS kcu
+			INNER JOIN information_schema.referential_constraints AS rc
+				ON kcu.constraint_name = rc.constraint_name
+				AND kcu.constraint_schema = rc.constraint_schema
+			INNER JOIN information_schema.constraint_column_usage AS ccu
+				ON rc.unique_constraint_name = ccu.constraint_name
+				AND rc.unique_constraint_schema = ccu.constraint_schema
+			WHERE kcu.table_name = ?
+				AND kcu.table_schema = ?
+		`
+	default:
+		// MySQL and others have referenced_table_name directly in key_column_usage
+		return `
+			SELECT
+				kcu.column_name,
+				kcu.referenced_table_name AS foreign_table_name,
+				kcu.referenced_column_name AS foreign_column_name
+			FROM information_schema.key_column_usage AS kcu
+			WHERE kcu.table_name = ?
+				AND kcu.table_schema = ?
+				AND kcu.referenced_table_name IS NOT NULL
+		`
+	}
+}
+
+// getRelationshipsQuery returns database-specific relationship query for diagram generation
+func getRelationshipsQuery(db *sql.DB, inClause string) string {
+	dbType := detectDatabaseTypeSimple(db)
+
+	switch dbType {
+	case "postgres", "postgresql":
+		// PostgreSQL version with referential_constraints
+		return fmt.Sprintf(`
+			SELECT DISTINCT
+				kcu.table_name AS source_table,
+				kcu.column_name AS source_column,
+				ccu.table_name AS target_table,
+				ccu.column_name AS target_column,
+				kcu.constraint_name
+			FROM information_schema.key_column_usage kcu
+			INNER JOIN information_schema.referential_constraints rc
+				ON kcu.constraint_name = rc.constraint_name
+				AND kcu.constraint_schema = rc.constraint_schema
+			INNER JOIN information_schema.constraint_column_usage ccu
+				ON rc.unique_constraint_name = ccu.constraint_name
+				AND rc.unique_constraint_schema = ccu.constraint_schema
+			WHERE kcu.table_schema = ?
+				AND (kcu.table_name IN (%s) OR ccu.table_name IN (%s))
+			ORDER BY kcu.table_name, kcu.column_name
+		`, inClause, inClause)
+	default:
+		// MySQL version with referenced_table_name
+		return fmt.Sprintf(`
+			SELECT DISTINCT
+				kcu.table_name AS source_table,
+				kcu.column_name AS source_column,
+				kcu.referenced_table_name AS target_table,
+				kcu.referenced_column_name AS target_column,
+				kcu.constraint_name
+			FROM information_schema.key_column_usage kcu
+			WHERE kcu.referenced_table_name IS NOT NULL
+				AND kcu.table_schema = ?
+				AND (kcu.table_name IN (%s) OR kcu.referenced_table_name IN (%s))
+			ORDER BY kcu.table_name, kcu.column_name
+		`, inClause, inClause)
+	}
+}
+
+// getRelatedTablesQuery returns database-specific query to find related tables (both FK directions)
+func getRelatedTablesQuery(db *sql.DB, inClause string) string {
+	dbType := detectDatabaseTypeSimple(db)
+
+	switch dbType {
+	case "postgres", "postgresql":
+		// PostgreSQL version
+		return fmt.Sprintf(`
+			SELECT DISTINCT
+				CASE
+					WHEN kcu.table_name IN (%s) THEN ccu.table_name
+					WHEN ccu.table_name IN (%s) THEN kcu.table_name
+				END as related_table
+			FROM information_schema.key_column_usage kcu
+			INNER JOIN information_schema.referential_constraints rc
+				ON kcu.constraint_name = rc.constraint_name
+				AND kcu.constraint_schema = rc.constraint_schema
+			INNER JOIN information_schema.constraint_column_usage ccu
+				ON rc.unique_constraint_name = ccu.constraint_name
+				AND rc.unique_constraint_schema = ccu.constraint_schema
+			WHERE kcu.table_schema = ?
+				AND (kcu.table_name IN (%s) OR ccu.table_name IN (%s))
+		`, inClause, inClause, inClause, inClause)
+	default:
+		// MySQL version
+		return fmt.Sprintf(`
+			SELECT DISTINCT
+				CASE
+					WHEN kcu.table_name IN (%s) THEN kcu.referenced_table_name
+					WHEN kcu.referenced_table_name IN (%s) THEN kcu.table_name
+				END as related_table
+			FROM information_schema.key_column_usage AS kcu
+			WHERE kcu.referenced_table_name IS NOT NULL
+				AND kcu.table_schema = ?
+				AND (kcu.table_name IN (%s) OR kcu.referenced_table_name IN (%s))
+		`, inClause, inClause, inClause, inClause)
+	}
+}
+
+// getIncomingRelationshipsQuery returns database-specific query for incoming FKs to a table
+func getIncomingRelationshipsQuery(db *sql.DB) string {
+	dbType := detectDatabaseTypeSimple(db)
+
+	switch dbType {
+	case "postgres", "postgresql":
+		// PostgreSQL version
+		return `
+			SELECT DISTINCT
+				kcu.table_name AS source_table,
+				kcu.column_name AS source_column,
+				ccu.table_name AS target_table,
+				ccu.column_name AS target_column,
+				kcu.constraint_name
+			FROM information_schema.key_column_usage kcu
+			INNER JOIN information_schema.referential_constraints rc
+				ON kcu.constraint_name = rc.constraint_name
+				AND kcu.constraint_schema = rc.constraint_schema
+			INNER JOIN information_schema.constraint_column_usage ccu
+				ON rc.unique_constraint_name = ccu.constraint_name
+				AND rc.unique_constraint_schema = ccu.constraint_schema
+			WHERE kcu.table_schema = ?
+				AND ccu.table_name = ?
+			ORDER BY kcu.table_name, kcu.column_name
+		`
+	default:
+		// MySQL version
+		return `
+			SELECT DISTINCT
+				kcu.table_name AS source_table,
+				kcu.column_name AS source_column,
+				kcu.referenced_table_name AS target_table,
+				kcu.referenced_column_name AS target_column,
+				kcu.constraint_name
+			FROM information_schema.key_column_usage kcu
+			WHERE kcu.referenced_table_name IS NOT NULL
+				AND kcu.table_schema = ?
+				AND kcu.referenced_table_name = ?
+			ORDER BY kcu.table_name, kcu.column_name
+		`
+	}
+}
+
+// getRelationshipsBaseQuery returns database-specific base query for FK relationships (used by getRelationshipsWithAlias)
+func getRelationshipsBaseQuery(db *sql.DB) string {
+	dbType := detectDatabaseTypeSimple(db)
+
+	switch dbType {
+	case "postgres", "postgresql":
+		// PostgreSQL version uses constraint_column_usage for target
+		return `
+			SELECT
+				rc.constraint_name,
+				kcu.table_name AS source_table,
+				kcu.column_name AS source_column,
+				ccu.table_name AS target_table,
+				ccu.column_name AS target_column
+			FROM information_schema.referential_constraints rc
+			JOIN information_schema.key_column_usage kcu
+				ON rc.constraint_name = kcu.constraint_name
+				AND rc.constraint_schema = kcu.constraint_schema
+			JOIN information_schema.constraint_column_usage ccu
+				ON rc.unique_constraint_name = ccu.constraint_name
+				AND rc.unique_constraint_schema = ccu.constraint_schema
+			WHERE kcu.table_schema = ?
+		`
+	default:
+		// MySQL version has referenced_table_name in key_column_usage
+		return `
+			SELECT
+				rc.constraint_name,
+				kcu.table_name AS source_table,
+				kcu.column_name AS source_column,
+				kcu.referenced_table_name AS target_table,
+				kcu.referenced_column_name AS target_column
+			FROM information_schema.referential_constraints rc
+			JOIN information_schema.key_column_usage kcu
+				ON rc.constraint_name = kcu.constraint_name
+				AND rc.constraint_schema = kcu.constraint_schema
+			WHERE kcu.table_schema = ?
+		`
+	}
+}
+
+// getRelationshipsTablesFilter returns database-specific filter for tables in FK relationships
+func getRelationshipsTablesFilter(db *sql.DB, placeholders string) string {
+	dbType := detectDatabaseTypeSimple(db)
+
+	switch dbType {
+	case "postgres", "postgresql":
+		// PostgreSQL uses ccu.table_name for target
+		return fmt.Sprintf(" AND (kcu.table_name IN (%s) OR ccu.table_name IN (%s))", placeholders, placeholders)
+	default:
+		// MySQL uses referenced_table_name
+		return fmt.Sprintf(" AND (kcu.table_name IN (%s) OR kcu.referenced_table_name IN (%s))", placeholders, placeholders)
+	}
+}
 
 // getCurrentSchema gets the current database schema/database name
 // For MySQL: uses DATABASE(), for PostgreSQL: uses current_schema()
@@ -73,7 +377,7 @@ func (sc *SchemaController) getTableStructure(tableName string, schemaName strin
 		ORDER BY c.ordinal_position
 	`
 
-	rows, err := db.Query(columnsQuery, tableName, schemaName)
+	rows, err := queryWithPlaceholderConversion(db, columnsQuery, tableName, schemaName)
 	if err != nil {
 		return nil, fmt.Errorf("error querying columns: %v", err)
 	}
@@ -118,7 +422,7 @@ func (sc *SchemaController) getTableStructure(tableName string, schemaName strin
 			AND tc.constraint_type = 'PRIMARY KEY'
 	`
 
-	pkRows, err := db.Query(pkQuery, tableName, schemaName)
+	pkRows, err := queryWithPlaceholderConversion(db, pkQuery, tableName, schemaName)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error querying primary keys: %v", err))
 	} else {
@@ -139,19 +443,10 @@ func (sc *SchemaController) getTableStructure(tableName string, schemaName strin
 		}
 	}
 
-	// Get foreign keys
-	fkQuery := `
-		SELECT
-			kcu.column_name,
-			kcu.referenced_table_name AS foreign_table_name,
-			kcu.referenced_column_name AS foreign_column_name
-		FROM information_schema.key_column_usage AS kcu
-		WHERE kcu.table_name = ?
-			AND kcu.table_schema = ?
-			AND kcu.referenced_table_name IS NOT NULL
-	`
+	// Get foreign keys using database-specific query
+	fkQuery := getForeignKeysQuery(db)
 
-	fkRows, err := db.Query(fkQuery, tableName, schemaName)
+	fkRows, err := queryWithPlaceholderConversion(db, fkQuery, tableName, schemaName)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error querying foreign keys: %v", err))
 	} else {
@@ -222,7 +517,7 @@ func (sc *SchemaController) getAllTableNames(schemaName string, iLog *logger.Log
 		ORDER BY table_name
 	`
 
-	rows, err := db.Query(query, schemaName)
+	rows, err := queryWithPlaceholderConversion(db, query, schemaName)
 	if err != nil {
 		return nil, fmt.Errorf("error querying tables: %v", err)
 	}
@@ -286,21 +581,10 @@ func (sc *SchemaController) getTablesWithChildren(tableNames []string, schemaNam
 		args = append(args, t)
 	}
 
-	// Query to find related tables (both directions of FK relationships)
-	// Simplified for MySQL using key_column_usage table
-	query := fmt.Sprintf(`
-		SELECT DISTINCT
-			CASE
-				WHEN kcu.table_name IN (%s) THEN kcu.referenced_table_name
-				WHEN kcu.referenced_table_name IN (%s) THEN kcu.table_name
-			END as related_table
-		FROM information_schema.key_column_usage AS kcu
-		WHERE kcu.referenced_table_name IS NOT NULL
-			AND kcu.table_schema = ?
-			AND (kcu.table_name IN (%s) OR kcu.referenced_table_name IN (%s))
-	`, inClause, inClause, inClause, inClause)
+	// Query to find related tables (both directions of FK relationships) using database-specific query
+	query := getRelatedTablesQuery(db, inClause)
 
-	rows, err := db.Query(query, args...)
+	rows, err := queryWithPlaceholderConversion(db, query, args...)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error querying related tables: %v", err))
 		return tableNames, nil // Return original tables if query fails
@@ -360,39 +644,21 @@ func (sc *SchemaController) getRelationships(tableNames []string, schemaName str
 		args = append(args, tableName)
 	}
 
-	// Query to find relationships in BOTH directions
+	// Query to find relationships in BOTH directions using database-specific query
 	// - Where source table is in the list (table_name IN)
-	// - Where target table is in the list (referenced_table_name IN)
-	query := fmt.Sprintf(`
-		SELECT DISTINCT
-			kcu.table_name AS source_table,
-			kcu.column_name AS source_column,
-			kcu.referenced_table_name AS target_table,
-			kcu.referenced_column_name AS target_column,
-			kcu.constraint_name
-		FROM information_schema.key_column_usage kcu
-		WHERE kcu.referenced_table_name IS NOT NULL
-			AND (kcu.table_schema = database() OR kcu.table_schema =?)
-			AND (kcu.table_name IN (%s) OR kcu.referenced_table_name IN (%s))
-		ORDER BY kcu.table_name, kcu.column_name
-	`, inClause, inClause)
+	// - Where target table is in the list (referenced_table_name/ccu.table_name IN)
+	query := getRelationshipsQuery(db, inClause)
 
 	iLog.Debug(fmt.Sprintf("Querying relationships for %d tables in schema '%s'", len(tableNames), schemaName))
 	iLog.Debug(fmt.Sprintf("Tables: %v", tableNames))
 	iLog.Debug(fmt.Sprintf("Query: %s", query))
 	iLog.Debug(fmt.Sprintf("Args: %v", args))
 
-	rows, err := db.Query(query, args...)
+	rows, err := queryWithPlaceholderConversion(db, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error querying relationships: %v", err)
 	}
 	defer rows.Close()
-
-	// First, let's check if there are ANY foreign keys in this schema
-	var testCount int
-	testQuery := "SELECT COUNT(*) FROM information_schema.key_column_usage WHERE table_schema = ? AND referenced_table_name IS NOT NULL"
-	db.QueryRow(testQuery, schemaName).Scan(&testCount)
-	iLog.Debug(fmt.Sprintf("Total FK constraints in schema '%s': %d", schemaName, testCount))
 
 	var relationships []DBRelationship
 	for rows.Next() {
@@ -645,21 +911,10 @@ func (sc *SchemaController) getIncomingRelationships(tableName string, schemaNam
 		schemaName = sc.getCurrentSchema(iLog)
 	}
 
-	query := `
-		SELECT DISTINCT
-			kcu.table_name AS source_table,
-			kcu.column_name AS source_column,
-			kcu.referenced_table_name AS target_table,
-			kcu.referenced_column_name AS target_column,
-			kcu.constraint_name
-		FROM information_schema.key_column_usage kcu
-		WHERE kcu.referenced_table_name IS NOT NULL
-			AND (kcu.table_schema = database() OR kcu.table_schema = ?)
-			AND kcu.referenced_table_name = ?
-		ORDER BY kcu.table_name, kcu.column_name
-	`
+	// Use database-specific incoming relationships query
+	query := getIncomingRelationshipsQuery(db)
 
-	rows, err := db.Query(query, schemaName, tableName)
+	rows, err := queryWithPlaceholderConversion(db, query, schemaName, tableName)
 	if err != nil {
 		return nil, fmt.Errorf("error querying incoming relationships: %v", err)
 	}
@@ -891,11 +1146,85 @@ func (sc *SchemaController) getCurrentSchemaWithDB(db *sql.DB, iLog *logger.Log)
 		return "public"
 	}
 
-	// Try MySQL first (DATABASE())
+	// Detect database type
+	dbType := detectDatabaseTypeSimple(db)
+
 	var schemaName string
+
+	if dbType == "mysql" {
+		// MySQL: use DATABASE()
+		err := db.QueryRow("SELECT DATABASE()").Scan(&schemaName)
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error getting MySQL database: %v", err))
+			return ""
+		}
+		return schemaName
+	}
+
+	if dbType == "postgres" {
+		// PostgreSQL: Try current_database() first (the database name)
+		var dbName string
+		err := db.QueryRow("SELECT current_database()").Scan(&dbName)
+		if err == nil && dbName != "" {
+			iLog.Debug(fmt.Sprintf("PostgreSQL current database: %s", dbName))
+
+			// Check if database name is a valid schema with tables
+			var tableCount int
+			countQuery := `
+				SELECT COUNT(*)
+				FROM information_schema.tables
+				WHERE table_schema = $1
+				AND table_type = 'BASE TABLE'
+			`
+			err = db.QueryRow(countQuery, dbName).Scan(&tableCount)
+			if err == nil && tableCount > 0 {
+				iLog.Debug(fmt.Sprintf("Using database name '%s' as schema (has %d tables)", dbName, tableCount))
+				return dbName
+			}
+		}
+
+		// Try current_schema()
+		err = db.QueryRow("SELECT current_schema()").Scan(&schemaName)
+		if err != nil {
+			iLog.Error(fmt.Sprintf("Error getting PostgreSQL schema: %v", err))
+
+			// Last resort: find first schema with tables
+			schema := sc.findSchemaWithTables(db, iLog)
+			if schema != "" {
+				iLog.Info(fmt.Sprintf("Using first schema with tables: %s", schema))
+				return schema
+			}
+
+			return "public"
+		}
+
+		// Verify the schema has tables
+		var tableCount int
+		countQuery := `
+			SELECT COUNT(*)
+			FROM information_schema.tables
+			WHERE table_schema = $1
+			AND table_type = 'BASE TABLE'
+		`
+		err = db.QueryRow(countQuery, schemaName).Scan(&tableCount)
+		if err == nil {
+			if tableCount == 0 {
+				iLog.Warn(fmt.Sprintf("Schema '%s' has no tables, looking for schema with tables", schemaName))
+				schema := sc.findSchemaWithTables(db, iLog)
+				if schema != "" {
+					return schema
+				}
+			} else {
+				iLog.Debug(fmt.Sprintf("Schema '%s' has %d tables", schemaName, tableCount))
+			}
+		}
+
+		return schemaName
+	}
+
+	// For other databases, try standard approach
 	err := db.QueryRow("SELECT DATABASE()").Scan(&schemaName)
 	if err != nil {
-		// If MySQL fails, try PostgreSQL (current_schema())
 		err = db.QueryRow("SELECT current_schema()").Scan(&schemaName)
 		if err != nil {
 			iLog.Error(fmt.Sprintf("Error getting current schema: %v, using 'public'", err))
@@ -910,6 +1239,31 @@ func (sc *SchemaController) getCurrentSchemaWithDB(db *sql.DB, iLog *logger.Log)
 	return schemaName
 }
 
+// findSchemaWithTables finds the first schema that has tables (PostgreSQL)
+func (sc *SchemaController) findSchemaWithTables(db *sql.DB, iLog *logger.Log) string {
+	query := `
+		SELECT table_schema, COUNT(*) as table_count
+		FROM information_schema.tables
+		WHERE table_type = 'BASE TABLE'
+		AND table_schema NOT IN ('pg_catalog', 'information_schema')
+		GROUP BY table_schema
+		HAVING COUNT(*) > 0
+		ORDER BY table_count DESC
+		LIMIT 1
+	`
+
+	var schema string
+	var count int
+	err := db.QueryRow(query).Scan(&schema, &count)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error finding schema with tables: %v", err))
+		return ""
+	}
+
+	iLog.Info(fmt.Sprintf("Found schema '%s' with %d tables", schema, count))
+	return schema
+}
+
 // getAllTableNamesWithAlias retrieves all table names from a specific database alias
 func (sc *SchemaController) getAllTableNamesWithAlias(alias string, schemaName string, iLog *logger.Log) ([]string, error) {
 	// Get database connection for alias
@@ -921,8 +1275,27 @@ func (sc *SchemaController) getAllTableNamesWithAlias(alias string, schemaName s
 	// If no schema provided, get current schema
 	if schemaName == "" {
 		schemaName = sc.getCurrentSchemaWithDB(db, iLog)
+		iLog.Debug(fmt.Sprintf("Using detected schema: %s", schemaName))
 	}
 
+	// Ensure schemaName is not empty
+	if schemaName == "" {
+		dbType := detectDatabaseTypeSimple(db)
+		if dbType == "postgres" {
+			// For PostgreSQL, try to find a schema with tables instead of defaulting to public
+			schemaName = sc.findSchemaWithTables(db, iLog)
+			if schemaName == "" {
+				schemaName = "public"
+				iLog.Warn(fmt.Sprintf("No schema with tables found, defaulting to 'public'"))
+			}
+		} else {
+			schemaName = "public"
+			iLog.Warn(fmt.Sprintf("Schema name is empty, defaulting to 'public'"))
+		}
+	}
+
+	// Detect database type and convert placeholders
+	dbType := detectDatabaseTypeSimple(db)
 	query := `
 		SELECT table_name
 		FROM information_schema.tables
@@ -930,8 +1303,12 @@ func (sc *SchemaController) getAllTableNamesWithAlias(alias string, schemaName s
 		AND table_type = 'BASE TABLE'
 		ORDER BY table_name
 	`
+	query = convertQueryPlaceholders(query, dbType)
 
-	rows, err := db.Query(query, schemaName)
+	iLog.Debug(fmt.Sprintf("Querying tables for schema: '%s', dbType: %s", schemaName, dbType))
+	iLog.Debug(fmt.Sprintf("Query: %s", query))
+
+	rows, err := queryWithPlaceholderConversion(db, query, schemaName)
 	if err != nil {
 		return nil, fmt.Errorf("error querying tables: %v", err)
 	}
@@ -944,6 +1321,30 @@ func (sc *SchemaController) getAllTableNamesWithAlias(alias string, schemaName s
 			continue
 		}
 		tables = append(tables, tableName)
+	}
+
+	iLog.Debug(fmt.Sprintf("Found %d tables in schema '%s'", len(tables), schemaName))
+
+	// If no tables found and this is PostgreSQL, try to find another schema with tables
+	if len(tables) == 0 && dbType == "postgres" && schemaName != "" {
+		iLog.Warn(fmt.Sprintf("No tables found in schema '%s', searching for schema with tables", schemaName))
+		alternativeSchema := sc.findSchemaWithTables(db, iLog)
+		if alternativeSchema != "" && alternativeSchema != schemaName {
+			iLog.Info(fmt.Sprintf("Retrying with schema '%s'", alternativeSchema))
+			rows2, err2 := queryWithPlaceholderConversion(db, query, alternativeSchema)
+			if err2 == nil {
+				defer rows2.Close()
+				tables = []string{} // Reset
+				for rows2.Next() {
+					var tableName string
+					if err2 := rows2.Scan(&tableName); err2 == nil {
+						tables = append(tables, tableName)
+					}
+				}
+				schemaName = alternativeSchema
+				iLog.Info(fmt.Sprintf("Found %d tables in alternative schema '%s'", len(tables), schemaName))
+			}
+		}
 	}
 
 	return tables, nil
@@ -983,7 +1384,7 @@ func (sc *SchemaController) getTableStructureWithAlias(alias string, tableName s
 		ORDER BY c.ordinal_position
 	`
 
-	rows, err := db.Query(columnsQuery, tableName, schemaName)
+	rows, err := queryWithPlaceholderConversion(db, columnsQuery, tableName, schemaName)
 	if err != nil {
 		return nil, fmt.Errorf("error querying columns: %v", err)
 	}
@@ -1026,7 +1427,7 @@ func (sc *SchemaController) getTableStructureWithAlias(alias string, tableName s
 			AND tc.constraint_type = 'PRIMARY KEY'
 	`
 
-	pkRows, err := db.Query(pkQuery, tableName, schemaName)
+	pkRows, err := queryWithPlaceholderConversion(db, pkQuery, tableName, schemaName)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error querying primary keys: %v", err))
 	} else {
@@ -1047,19 +1448,10 @@ func (sc *SchemaController) getTableStructureWithAlias(alias string, tableName s
 		}
 	}
 
-	// Get foreign keys
-	fkQuery := `
-		SELECT
-			kcu.column_name,
-			kcu.referenced_table_name AS foreign_table_name,
-			kcu.referenced_column_name AS foreign_column_name
-		FROM information_schema.key_column_usage AS kcu
-		WHERE kcu.table_name = ?
-			AND kcu.table_schema = ?
-			AND kcu.referenced_table_name IS NOT NULL
-	`
+	// Get foreign keys using database-specific query
+	fkQuery := getForeignKeysQuery(db)
 
-	fkRows, err := db.Query(fkQuery, tableName, schemaName)
+	fkRows, err := queryWithPlaceholderConversion(db, fkQuery, tableName, schemaName)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error querying foreign keys: %v", err))
 	} else {
@@ -1357,20 +1749,8 @@ func (sc *SchemaController) getRelationshipsWithAlias(alias string, tables []str
 		}
 	}
 
-	// Build query to get foreign key relationships
-	query := `
-		SELECT
-			rc.constraint_name,
-			kcu.table_name AS source_table,
-			kcu.column_name AS source_column,
-			kcu.referenced_table_name AS target_table,
-			kcu.referenced_column_name AS target_column
-		FROM information_schema.referential_constraints rc
-		JOIN information_schema.key_column_usage kcu
-			ON rc.constraint_name = kcu.constraint_name
-			AND rc.constraint_schema = kcu.constraint_schema
-		WHERE kcu.table_schema = ?
-	`
+	// Build database-specific query to get foreign key relationships
+	query := getRelationshipsBaseQuery(db)
 
 	args := []interface{}{schemaName}
 
@@ -1381,16 +1761,15 @@ func (sc *SchemaController) getRelationshipsWithAlias(alias string, tables []str
 			placeholders[i] = "?"
 			args = append(args, tables[i])
 		}
-		query += fmt.Sprintf(" AND (kcu.table_name IN (%s) OR kcu.referenced_table_name IN (%s))",
-			strings.Join(placeholders, ","),
-			strings.Join(placeholders, ","))
+		// Use database-specific table filter
+		query += getRelationshipsTablesFilter(db, strings.Join(placeholders, ","))
 		// Duplicate the tables for the second IN clause
 		for _, table := range tables {
 			args = append(args, table)
 		}
 	}
 
-	rows, err := db.Query(query, args...)
+	rows, err := queryWithPlaceholderConversion(db, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error querying relationships: %v", err)
 	}
@@ -1518,7 +1897,7 @@ func (sc *SchemaController) getStoredProcedures(alias string, schemaName string,
 		args = []interface{}{currentSchema}
 	}
 
-	rows, err := db.Query(query, args...)
+	rows, err := queryWithPlaceholderConversion(db, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error querying stored procedures: %v", err)
 	}
@@ -1646,7 +2025,7 @@ func (sc *SchemaController) getProcedureMetadata(alias string, procedureName str
 		args = []interface{}{procSchema, procName}
 	}
 
-	rows, err := db.Query(query, args...)
+	rows, err := queryWithPlaceholderConversion(db, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error querying procedure parameters: %v", err)
 	}
@@ -1754,4 +2133,20 @@ func (sc *SchemaController) detectDatabaseType(db *sql.DB, schemaName string, iL
 
 	iLog.Warn(fmt.Sprintf("Could not detect database type, using fallback. Schema: %s", currentSchema))
 	return dbType, currentSchema
+}
+
+// getDBForAlias retrieves a database connection for a specific alias
+func (sc *SchemaController) getDBForAlias(alias string, iLog *logger.Log) *sql.DB {
+	if alias == "" {
+		alias = "default"
+	}
+
+	// Use orm.GetDB to get the connection for the alias
+	db, err := orm.GetDB(alias)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error getting database for alias '%s': %v", alias, err))
+		return nil
+	}
+
+	return db
 }

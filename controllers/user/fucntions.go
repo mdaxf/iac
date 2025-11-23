@@ -17,6 +17,7 @@ package user
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"net/http"
 	"time"
@@ -30,6 +31,24 @@ import (
 	"github.com/mdaxf/iac/logger"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// getValueCaseInsensitive retrieves a value from a map with case-insensitive key lookup
+// This is needed because PostgreSQL returns lowercase field names while MySQL preserves case
+func getValueCaseInsensitive(data map[string]interface{}, key string) interface{} {
+	// Try exact case first
+	if val, ok := data[key]; ok {
+		return val
+	}
+	// Try lowercase
+	if val, ok := data[strings.ToLower(key)]; ok {
+		return val
+	}
+	// Try uppercase
+	if val, ok := data[strings.ToUpper(key)]; ok {
+		return val
+	}
+	return nil
+}
 
 // execLogin is a function that handles the login process for a user.
 // It takes in the following parameters:
@@ -211,14 +230,46 @@ func execLogin(ctx *gin.Context, username string, password string, clienttoken s
 			return
 		}
 
-		ID = int(jdata[0]["ID"].(int64))
-		Name = jdata[0]["Name"].(string)
-		FamilyName = jdata[0]["LastName"].(string)
-		storedPassword = jdata[0]["Password"].(string)
-		language := jdata[0]["LanguageCode"].(string)
-		timezone := jdata[0]["TimeZoneCode"].(string)
+		// Debug: Log the raw data structure
+		log.Debug(fmt.Sprintf("Query result fields: %+v", jdata[0]))
 
-		if jdata[0]["Password"] != nil && storedPassword != "" {
+		// Safely extract ID with nil check
+		idVal := getValueCaseInsensitive(jdata[0], "ID")
+		if idVal == nil {
+			log.Error("ID field is nil in query result")
+			ctx.JSON(http.StatusInternalServerError, "Login failed - invalid user data")
+			return
+		}
+		ID = int(idVal.(int64))
+
+		// Safely extract Name with nil check
+		if nameVal := getValueCaseInsensitive(jdata[0], "Name"); nameVal != nil {
+			Name = nameVal.(string)
+		}
+
+		// Safely extract LastName with nil check
+		if lastNameVal := getValueCaseInsensitive(jdata[0], "LastName"); lastNameVal != nil {
+			FamilyName = lastNameVal.(string)
+		}
+
+		// Safely extract Password with nil check
+		if passwordVal := getValueCaseInsensitive(jdata[0], "Password"); passwordVal != nil {
+			storedPassword = passwordVal.(string)
+		}
+
+		// Safely extract LanguageCode with nil check
+		language := ""
+		if langVal := getValueCaseInsensitive(jdata[0], "LanguageCode"); langVal != nil {
+			language = langVal.(string)
+		}
+
+		// Safely extract TimeZoneCode with nil check
+		timezone := ""
+		if tzVal := getValueCaseInsensitive(jdata[0], "TimeZoneCode"); tzVal != nil {
+			timezone = tzVal.(string)
+		}
+
+		if getValueCaseInsensitive(jdata[0], "Password") != nil && storedPassword != "" {
 			err = bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(password))
 			if err != nil {
 				log.Error(fmt.Sprintf("Password compare error:%s", err.Error()))
@@ -325,11 +376,12 @@ func getUserImage(username string, clientid string) (string, error) {
 			return "", nil
 		}
 
-		if jdata[0]["PictureUrl"] == nil {
+		pictureUrlVal := getValueCaseInsensitive(jdata[0], "PictureUrl")
+		if pictureUrlVal == nil {
 			return "", nil
 		}
 
-		PictureUrl = jdata[0]["PictureUrl"].(string)
+		PictureUrl = pictureUrlVal.(string)
 
 		iDBTx.Commit()
 
@@ -440,8 +492,13 @@ func execChangePassword(ctx *gin.Context, username string, oldpassword string, n
 	hashedPassword, err := hashPassword(newpassword)
 
 	if jdata != nil {
-
-		ID := int(jdata[0]["ID"].(int64))
+		idVal := getValueCaseInsensitive(jdata[0], "ID")
+		if idVal == nil {
+			log.Error("ID field is nil in change password query result")
+			ctx.JSON(http.StatusInternalServerError, "Change password failed - invalid user data")
+			return fmt.Errorf("ID field is nil in query result")
+		}
+		ID := int(idVal.(int64))
 
 		log.Debug(fmt.Sprintf("user ID:%d  new hashed password: %s ", ID, hashedPassword))
 
@@ -629,9 +686,13 @@ func validatePassword(username string, password string) (bool, []map[string]inte
 			return false, nil, err
 		}
 
-		storedPassword := jdata[0]["Password"].(string)
+		passwordVal := getValueCaseInsensitive(jdata[0], "Password")
+		storedPassword := ""
+		if passwordVal != nil {
+			storedPassword = passwordVal.(string)
+		}
 
-		if storedPassword == "" || jdata[0]["Password"] == nil {
+		if storedPassword == "" || passwordVal == nil {
 			return true, jdata, nil
 		}
 

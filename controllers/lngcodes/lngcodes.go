@@ -100,9 +100,9 @@ func (f *LCController) GetLngCodes(c *gin.Context) {
 	go func() {
 		defer wg.Done()
 		// Your second task code goes here
-		querytemp := `SELECT lnc.id as id, lnc.name as lngcode, COALESCE(lc.mediumtext_,lc.shorttext,lnc.name) as text FROM lngcodes lnc 
+		querytemp := `SELECT lnc.id as id, lnc.name as lngcode, COALESCE(lc.mediumtext_,lc.shorttext,lnc.name) as text FROM lngcodes lnc
 		INNER JOIN lngcode_contents lc ON lc.lngcodeid = lnc.id
-		WHERE lnc.name IN ('%s') AND lc.languageid = '%i'`
+		WHERE lnc.name IN ('%s') AND lc.languageid = %d`
 
 		query := fmt.Sprintf(querytemp, strings.Join(lcdata.Lngcodes, "','"), languageid)
 		//query := fmt.Sprintf("SELECT lngcode, text FROM language_codes Where language = '%s'", language)

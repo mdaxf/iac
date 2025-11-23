@@ -73,6 +73,7 @@ type Dialect interface {
 	// Query Translation
 	TranslatePagination(query string, limit, offset int) string
 	TranslateUpsert(table string, columns []string, conflictColumns []string) string
+	ConvertJSONQuery(query string) string // Convert MySQL JSON_TABLE to database-specific syntax
 
 	// DDL Generation - Schema Management
 	// These methods enable database-agnostic table schema definitions

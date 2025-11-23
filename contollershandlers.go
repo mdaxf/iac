@@ -25,6 +25,7 @@ import (
 	config "github.com/mdaxf/iac/config"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mdaxf/iac/controllers/aiconfig"
 	"github.com/mdaxf/iac/controllers/ai"
 	"github.com/mdaxf/iac/controllers/bpmcontroller"
 	"github.com/mdaxf/iac/controllers/collectionop"
@@ -168,6 +169,10 @@ func getModule(module string) reflect.Value {
 
 	case "QueryTemplateController":
 		moduleInstance := ai.NewQueryTemplateController()
+		return reflect.ValueOf(moduleInstance)
+
+	case "AIConfigController":
+		moduleInstance := &aiconfig.AIConfigController{}
 		return reflect.ValueOf(moduleInstance)
 	}
 	return reflect.Value{}

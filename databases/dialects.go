@@ -91,6 +91,11 @@ func (d *MySQLDialect) TranslatePagination(query string, limit, offset int) stri
 	return query + " " + d.LimitOffset(limit, offset)
 }
 
+func (d *MySQLDialect) ConvertJSONQuery(query string) string {
+	// MySQL queries don't need conversion - already in MySQL format
+	return query
+}
+
 func (d *MySQLDialect) TranslateUpsert(table string, columns []string, conflictColumns []string) string {
 	quotedColumns := make([]string, len(columns))
 	for i, col := range columns {
@@ -318,6 +323,23 @@ func (d *PostgreSQLDialect) SupportsFullTextSearch() bool {
 
 func (d *PostgreSQLDialect) TranslatePagination(query string, limit, offset int) string {
 	return query + " " + d.LimitOffset(limit, offset)
+}
+
+func (d *PostgreSQLDialect) ConvertJSONQuery(query string) string {
+	// Convert MySQL JSON_TABLE syntax to PostgreSQL jsonb_array_elements
+	// Example conversion:
+	// FROM: JSON_TABLE(we.workflow, '$.nodes[*]' COLUMNS (id VARCHAR(100) PATH '$.id', name VARCHAR(255) PATH '$.name')) AS jt
+	// TO: LATERAL (SELECT elem->>'id' AS id, elem->>'name' AS name FROM jsonb_array_elements(we.workflow->'nodes') AS elem) AS jt
+
+	// This is a simplified conversion - for complex JSON_TABLE queries, you may need a more sophisticated parser
+	if !strings.Contains(query, "JSON_TABLE") {
+		return query // No JSON_TABLE to convert
+	}
+
+	// For now, return query as-is with a warning comment
+	// TODO: Implement full JSON_TABLE to jsonb_array_elements conversion
+	// Users should use database-specific queries or store them in a table with database type flag
+	return query
 }
 
 func (d *PostgreSQLDialect) TranslateUpsert(table string, columns []string, conflictColumns []string) string {
@@ -554,6 +576,12 @@ func (d *MSSQLDialect) TranslatePagination(query string, limit, offset int) stri
 	return query + " " + d.LimitOffset(limit, offset)
 }
 
+func (d *MSSQLDialect) ConvertJSONQuery(query string) string {
+	// MSSQL uses OPENJSON for JSON queries
+	// MySQL JSON_TABLE would need to be converted to OPENJSON syntax
+	return query // TODO: Implement MySQL JSON_TABLE to MSSQL OPENJSON conversion
+}
+
 func (d *MSSQLDialect) TranslateUpsert(table string, columns []string, conflictColumns []string) string {
 	// MSSQL uses MERGE statement
 	quotedColumns := make([]string, len(columns))
@@ -637,6 +665,12 @@ func (d *OracleDialect) SupportsFullTextSearch() bool {
 
 func (d *OracleDialect) TranslatePagination(query string, limit, offset int) string {
 	return query + " " + d.LimitOffset(limit, offset)
+}
+
+func (d *OracleDialect) ConvertJSONQuery(query string) string {
+	// Oracle uses JSON_TABLE starting from 12c
+	// MySQL JSON_TABLE syntax is similar but may need minor adjustments
+	return query // TODO: Implement MySQL JSON_TABLE to Oracle JSON_TABLE conversion if needed
 }
 
 func (d *OracleDialect) TranslateUpsert(table string, columns []string, conflictColumns []string) string {

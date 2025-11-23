@@ -1,0 +1,246 @@
+Below is a clean, professional, production-oriented guide for using MySQL as a vector database with Go, including:
+
+How MySQL stores vector embeddings (MySQL ≥ 8.0.36 / 8.4 LTS)
+
+How to insert/query vectors using Go
+
+How to generate embeddings using OpenAI or LocalAI
+
+How to perform semantic search in MySQL from Go
+
+A recommended architecture for MES/portal (IACF) AI retrieval
+
+This is end-to-end and ready for implementation.
+
+✅ 1. MySQL support for vector embeddings
+
+Recent MySQL versions support the column type:
+
+FLOAT(n) ARRAY[n]
+
+
+Example:
+
+ALTER TABLE documents 
+  ADD COLUMN embedding VECTOR(1536) NOT NULL;
+
+
+(MySQL uses VECTOR(n) OR FLOAT ARRAY(n) depending on version.)
+
+You can create a vector index:
+
+ALTER TABLE documents
+  ADD VECTOR INDEX embedding_idx (embedding)
+  WITH DISTANCE_METRIC = COSINE;
+
+
+Supported distance metrics:
+
+COSINE
+
+L2
+
+DOT_PRODUCT
+
+✅ 2. Table Example for Storing Embeddings
+CREATE TABLE documents (
+    id           BIGINT PRIMARY KEY AUTO_INCREMENT,
+    title        VARCHAR(255),
+    content      TEXT,
+    embedding    VECTOR(1536) NOT NULL,
+    metadata     JSON,
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+✅ 3. Generating Embeddings in Go (OpenAI + LocalAI)
+Using official OpenAI Go SDK
+import (
+    "context"
+    openai "github.com/openai/openai-go"
+)
+
+func GenerateEmbedding(ctx context.Context, client *openai.Client, text string) ([]float32, error) {
+    resp, err := client.Embeddings.Create(ctx, openai.EmbeddingCreateRequest{
+        Model: openai.String("text-embedding-3-small"),
+        Input: openai.String(text),
+    })
+    if err != nil {
+        return nil, err
+    }
+
+    raw := resp.Data[0].Embedding
+    out := make([]float32, len(raw))
+    for i, v := range raw {
+        out[i] = float32(v)
+    }
+    return out, nil
+}
+
+Using LocalAI (OpenAI API-compatible)
+
+Just change the BaseURL:
+
+client := openai.NewClient(
+    openai.WithAPIKey("dummy"), 
+    openai.WithBaseURL("http://localhost:8080/v1"),
+)
+
+
+Everything else is the same.
+
+✅ 4. Insert Data + Embeddings into MySQL (Go)
+import (
+    "database/sql"
+    _ "github.com/go-sql-driver/mysql"
+)
+
+func InsertDocument(db *sql.DB, title, content string, embedding []float32) error {
+    // MySQL expects JSON array for vector inserts
+    jsonVector, err := json.Marshal(embedding)
+    if err != nil {
+        return err
+    }
+
+    _, err = db.Exec(`
+        INSERT INTO documents (title, content, embedding) 
+        VALUES (?, ?, CAST(? AS JSON))
+    `, title, content, string(jsonVector))
+
+    return err
+}
+
+
+MySQL parses JSON into vector type automatically.
+
+✅ 5. Querying Vectors (Semantic Search) in Go
+
+MySQL supports:
+
+SELECT id, title, content
+FROM documents
+ORDER BY embedding <-> CAST('[vector]' AS JSON)
+LIMIT 5;
+
+
+Go implementation:
+
+func SearchDocuments(db *sql.DB, embedding []float32, limit int) ([]Document, error) {
+    jsonVector, _ := json.Marshal(embedding)
+
+    query := `
+        SELECT id, title, content
+        FROM documents
+        ORDER BY embedding <-> CAST(? AS JSON)
+        LIMIT ?
+    `
+
+    rows, err := db.Query(query, string(jsonVector), limit)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var result []Document
+    for rows.Next() {
+        var d Document
+        if err := rows.Scan(&d.Id, &d.Title, &d.Content); err != nil {
+            return nil, err
+        }
+        result = append(result, d)
+    }
+    return result, nil
+}
+
+✅ 6. Building a Complete Retrieval Function (RAG in Go)
+func RetrieveRelevantContent(ctx context.Context, client *openai.Client, db *sql.DB, userQuery string) ([]Document, error) {
+    // 1. Embed user query
+    qEmbed, err := GenerateEmbedding(ctx, client, userQuery)
+    if err != nil {
+        return nil, err
+    }
+
+    // 2. Query vector DB
+    docs, err := SearchDocuments(db, qEmbed, 5)
+    if err != nil {
+        return nil, err
+    }
+
+    return docs, nil
+}
+
+✅ 7. Using Retrieved Docs + LLM to Answer Questions (RAG)
+func AnswerWithContext(ctx context.Context, client *openai.Client, docs []Document, query string) (string, error) {
+    var ctxText string
+    for _, d := range docs {
+        ctxText += d.Title + "\n" + d.Content + "\n\n"
+    }
+
+    prompt := fmt.Sprintf(`
+Use the following documents to answer the question:
+
+Documents:
+%s
+
+Question: %s
+`, ctxText, query)
+
+    resp, err := client.Chat.Create(ctx, openai.ChatCreateRequest{
+        Model: openai.String("gpt-4.1-mini"),
+        Messages: openai.ChatCompletionMessages{
+            {Role: openai.ChatMessageRoleUser, Content: prompt},
+        },
+    })
+
+    if err != nil {
+        return "", err
+    }
+
+    return resp.Choices[0].Message.Content, nil
+}
+
+✅ 8. Recommended Architecture for Your MES / Portal (IACF)
+1) Embedding Ingestion Service
+
+Take manufacturing documents / SOPs / quality instructions / MES events.
+
+Generate embeddings (OpenAI or LocalAI).
+
+Store into MySQL vector table.
+
+2) Query Layer
+
+On user query:
+
+Generate embedding
+
+Perform vector search on MySQL
+
+Retrieve top-k documents
+
+Pass to LLM for summarization or answer generation
+
+3) Index Types
+
+SOPs
+
+Work instructions
+
+Error codes & troubleshooting steps
+
+MES event logs
+
+Quality non-conformance explanations
+
+Machine parameters / recipes
+
+IACF internal configuration data
+
+4) Security Controls
+
+Store embeddings only (not raw PII)
+
+Use RBAC — each document tied to a role
+
+Use a restricted DB user (read-only except ingestion service)
+
+Cache embeddings locally to reduce cost
