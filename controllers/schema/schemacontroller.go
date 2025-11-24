@@ -66,6 +66,7 @@ type TablePosition struct {
 
 // SchemaGenerationRequest is the request for generating diagram
 type SchemaGenerationRequest struct {
+	Alias           string   `json:"alias"`  // Optional: database alias, defaults to 'default'
 	Tables          []string `json:"tables"`
 	IncludeChildren bool     `json:"includeChildren"`
 	Schema          string   `json:"schema"` // Optional: database schema name, defaults to current_schema()
@@ -237,13 +238,19 @@ func (sc *SchemaController) GenerateDiagram(c *gin.Context) {
 		return
 	}
 
-	iLog.Debug(fmt.Sprintf("Generating diagram for tables: %v, includeChildren: %v, schema: %s", request.Tables, request.IncludeChildren, request.Schema))
+	// Default to 'default' alias if not provided
+	alias := request.Alias
+	if alias == "" {
+		alias = "default"
+	}
+
+	iLog.Debug(fmt.Sprintf("Generating diagram for alias: %s, tables: %v, includeChildren: %v, schema: %s", alias, request.Tables, request.IncludeChildren, request.Schema))
 
 	// Get tables to include
 	var tableNames []string
 	if len(request.Tables) == 0 {
 		// Get all tables
-		tableNames, err = sc.getAllTableNames(request.Schema, &iLog)
+		tableNames, err = sc.getAllTableNamesWithAlias(alias, request.Schema, &iLog)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -252,7 +259,7 @@ func (sc *SchemaController) GenerateDiagram(c *gin.Context) {
 		tableNames = request.Tables
 		// If includeChildren, add related tables
 		if request.IncludeChildren {
-			tableNames, err = sc.getTablesWithChildren(tableNames, request.Schema, &iLog)
+			tableNames, err = sc.getTablesWithChildrenWithAlias(alias, tableNames, request.Schema, &iLog)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
@@ -263,7 +270,7 @@ func (sc *SchemaController) GenerateDiagram(c *gin.Context) {
 	// Get table structures
 	var tables []DBTable
 	for _, tableName := range tableNames {
-		table, err := sc.getTableStructure(tableName, request.Schema, &iLog)
+		table, err := sc.getTableStructureWithAlias(alias, tableName, request.Schema, &iLog)
 		if err != nil {
 			iLog.Error(fmt.Sprintf("Error getting table structure for %s: %v", tableName, err))
 			continue
@@ -271,12 +278,25 @@ func (sc *SchemaController) GenerateDiagram(c *gin.Context) {
 		tables = append(tables, *table)
 	}
 
-	// Get relationships
-	relationships, err := sc.getRelationships(tableNames, request.Schema, &iLog)
+	// Get relationships - convert to DBRelationship array
+	relationshipsRaw, err := sc.getRelationshipsWithAlias(alias, tableNames, request.Schema, &iLog)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error getting relationships: %v", err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	// Convert map relationships to DBRelationship structs
+	var relationships []DBRelationship
+	for _, rel := range relationshipsRaw {
+		relationships = append(relationships, DBRelationship{
+			ID:           fmt.Sprintf("%v", rel["constraintName"]),
+			SourceTable:  fmt.Sprintf("%v", rel["sourceTable"]),
+			SourceColumn: fmt.Sprintf("%v", rel["sourceColumn"]),
+			TargetTable:  fmt.Sprintf("%v", rel["targetTable"]),
+			TargetColumn: fmt.Sprintf("%v", rel["targetColumn"]),
+			Type:         "N:1", // Foreign key relationships are N:1
+		})
 	}
 
 	// Calculate positions (simple grid layout)

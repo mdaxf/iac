@@ -218,6 +218,38 @@ func getRelatedTablesQuery(db *sql.DB, inClause string) string {
 	}
 }
 
+// getParentTablesQuery returns database-specific query for parent tables (tables referenced by FKs)
+// This only returns tables that the selected tables reference (via foreign keys), not child tables
+func getParentTablesQuery(db *sql.DB, inClause string) string {
+	dbType := detectDatabaseTypeSimple(db)
+
+	switch dbType {
+	case "postgres", "postgresql":
+		// PostgreSQL version - get parent tables (tables referenced by selected tables)
+		return fmt.Sprintf(`
+			SELECT DISTINCT ccu.table_name AS parent_table
+			FROM information_schema.key_column_usage kcu
+			INNER JOIN information_schema.referential_constraints rc
+				ON kcu.constraint_name = rc.constraint_name
+				AND kcu.constraint_schema = rc.constraint_schema
+			INNER JOIN information_schema.constraint_column_usage ccu
+				ON rc.unique_constraint_name = ccu.constraint_name
+				AND rc.unique_constraint_schema = ccu.constraint_schema
+			WHERE kcu.table_schema = ?
+				AND kcu.table_name IN (%s)
+		`, inClause)
+	default:
+		// MySQL version - get parent tables (tables referenced by selected tables)
+		return fmt.Sprintf(`
+			SELECT DISTINCT kcu.referenced_table_name AS parent_table
+			FROM information_schema.key_column_usage AS kcu
+			WHERE kcu.referenced_table_name IS NOT NULL
+				AND kcu.table_schema = ?
+				AND kcu.table_name IN (%s)
+		`, inClause)
+	}
+}
+
 // getIncomingRelationshipsQuery returns database-specific query for incoming FKs to a table
 func getIncomingRelationshipsQuery(db *sql.DB) string {
 	dbType := detectDatabaseTypeSimple(db)
@@ -316,6 +348,49 @@ func getRelationshipsTablesFilter(db *sql.DB, placeholders string) string {
 	}
 }
 
+// getColumnsQuery returns database-specific query for table columns
+// MySQL has 'extra' column, PostgreSQL doesn't
+func getColumnsQuery(db *sql.DB) string {
+	dbType := detectDatabaseTypeSimple(db)
+
+	switch dbType {
+	case "postgres", "postgresql":
+		// PostgreSQL: no 'extra' column, use empty string
+		return `
+			SELECT
+				c.column_name,
+				c.data_type,
+				c.is_nullable,
+				c.column_default,
+				c.character_maximum_length,
+				c.numeric_precision,
+				c.numeric_scale,
+				'' as extra
+			FROM information_schema.columns c
+			WHERE c.table_name = ?
+			AND c.table_schema = ?
+			ORDER BY c.ordinal_position
+		`
+	default:
+		// MySQL: has 'extra' column for auto_increment, etc.
+		return `
+			SELECT
+				c.column_name,
+				c.data_type,
+				c.is_nullable,
+				c.column_default,
+				c.character_maximum_length,
+				c.numeric_precision,
+				c.numeric_scale,
+				coalesce(c.extra,'') as extra
+			FROM information_schema.columns c
+			WHERE c.table_name = ?
+			AND c.table_schema = ?
+			ORDER BY c.ordinal_position
+		`
+	}
+}
+
 // getCurrentSchema gets the current database schema/database name
 // For MySQL: uses DATABASE(), for PostgreSQL: uses current_schema()
 func (sc *SchemaController) getCurrentSchema(iLog *logger.Log) string {
@@ -360,22 +435,8 @@ func (sc *SchemaController) getTableStructure(tableName string, schemaName strin
 		Schema: schemaName,
 	}
 
-	// Get columns - using ? placeholders for MySQL/PostgreSQL compatibility
-	columnsQuery := `
-		SELECT
-			c.column_name,
-			c.data_type,
-			c.is_nullable,
-			c.column_default,
-			c.character_maximum_length,
-			c.numeric_precision,
-			c.numeric_scale,
-			coalesce(c.extra,'') as extra
-		FROM information_schema.columns c
-		WHERE c.table_name = ?
-		AND c.table_schema = ?
-		ORDER BY c.ordinal_position
-	`
+	// Get columns using database-specific query
+	columnsQuery := getColumnsQuery(db)
 
 	rows, err := queryWithPlaceholderConversion(db, columnsQuery, tableName, schemaName)
 	if err != nil {
@@ -1368,21 +1429,8 @@ func (sc *SchemaController) getTableStructureWithAlias(alias string, tableName s
 		Schema: schemaName,
 	}
 
-	// Get columns
-	columnsQuery := `
-		SELECT
-			c.column_name,
-			c.data_type,
-			c.is_nullable,
-			c.column_default,
-			c.character_maximum_length,
-			c.numeric_precision,
-			c.numeric_scale
-		FROM information_schema.columns c
-		WHERE c.table_name = ?
-		AND c.table_schema = ?
-		ORDER BY c.ordinal_position
-	`
+	// Get columns using database-specific query
+	columnsQuery := getColumnsQuery(db)
 
 	rows, err := queryWithPlaceholderConversion(db, columnsQuery, tableName, schemaName)
 	if err != nil {
@@ -1396,8 +1444,9 @@ func (sc *SchemaController) getTableStructureWithAlias(alias string, tableName s
 		var dataType string
 		var isNullable string
 		var defaultValue, charMaxLength, numericPrecision, numericScale interface{}
+		var extra string
 
-		err := rows.Scan(&col.Name, &dataType, &isNullable, &defaultValue, &charMaxLength, &numericPrecision, &numericScale)
+		err := rows.Scan(&col.Name, &dataType, &isNullable, &defaultValue, &charMaxLength, &numericPrecision, &numericScale, &extra)
 		if err != nil {
 			iLog.Error(fmt.Sprintf("Error scanning column: %v", err))
 			continue
@@ -1733,19 +1782,31 @@ func (sc *SchemaController) getRelationshipsWithAlias(alias string, tables []str
 
 	// If no schema provided, get current schema
 	if schemaName == "" {
-		var currentSchema string
-		err := db.QueryRow("SELECT DATABASE()").Scan(&currentSchema)
-		if err != nil {
-			// Try PostgreSQL syntax
-			err = db.QueryRow("SELECT current_schema()").Scan(&currentSchema)
-			if err != nil {
-				iLog.Warn(fmt.Sprintf("Could not determine current schema: %v, using 'public'", err))
+		schemaName = sc.getCurrentSchemaWithDB(db, iLog)
+		iLog.Debug(fmt.Sprintf("Using detected schema: %s", schemaName))
+	}
+
+	// Ensure schemaName is not empty
+	if schemaName == "" {
+		dbType := detectDatabaseTypeSimple(db)
+		if dbType == "postgres" {
+			// For PostgreSQL, try to find a schema with tables instead of defaulting to public
+			schemaName = sc.findSchemaWithTables(db, iLog)
+			if schemaName == "" {
 				schemaName = "public"
-			} else {
-				schemaName = currentSchema
+				iLog.Warn(fmt.Sprintf("No schema with tables found for relationships, defaulting to 'public'"))
 			}
 		} else {
-			schemaName = currentSchema
+			// For MySQL, use the database name
+			var dbName string
+			err := db.QueryRow("SELECT DATABASE()").Scan(&dbName)
+			if err == nil && dbName != "" {
+				schemaName = dbName
+				iLog.Debug(fmt.Sprintf("Using MySQL database name as schema: %s", schemaName))
+			} else {
+				schemaName = "public"
+				iLog.Warn(fmt.Sprintf("Schema name is empty for relationships, defaulting to 'public'"))
+			}
 		}
 	}
 
@@ -1795,6 +1856,91 @@ func (sc *SchemaController) getRelationshipsWithAlias(alias string, tables []str
 	}
 
 	return relationships, nil
+}
+
+// getTablesWithChildrenWithAlias retrieves tables and their parent tables (tables referenced via FKs) using alias
+// This only includes parent tables, not child tables, to avoid too many tables in the canvas
+func (sc *SchemaController) getTablesWithChildrenWithAlias(alias string, tableNames []string, schemaName string, iLog *logger.Log) ([]string, error) {
+	// Get database connection for alias
+	db, err := orm.GetDB(alias)
+	if err != nil {
+		return nil, fmt.Errorf("error getting database for alias '%s': %v", alias, err)
+	}
+
+	// If no schema provided, get current schema
+	if schemaName == "" {
+		schemaName = sc.getCurrentSchemaWithDB(db, iLog)
+	}
+
+	// Ensure schemaName is not empty
+	if schemaName == "" {
+		dbType := detectDatabaseTypeSimple(db)
+		if dbType == "postgres" {
+			schemaName = sc.findSchemaWithTables(db, iLog)
+			if schemaName == "" {
+				schemaName = "public"
+				iLog.Warn(fmt.Sprintf("No schema with tables found for parent lookup, defaulting to 'public'"))
+			}
+		} else {
+			var dbName string
+			err := db.QueryRow("SELECT DATABASE()").Scan(&dbName)
+			if err == nil && dbName != "" {
+				schemaName = dbName
+			} else {
+				schemaName = "public"
+				iLog.Warn(fmt.Sprintf("Schema name is empty for parent lookup, defaulting to 'public'"))
+			}
+		}
+	}
+
+	// Use a map to track unique tables
+	tablesMap := make(map[string]bool)
+	for _, t := range tableNames {
+		tablesMap[t] = true
+	}
+
+	// Build IN clause for parent tables query
+	placeholders := make([]string, len(tableNames))
+	for i := range tableNames {
+		placeholders[i] = "?"
+	}
+	inClause := strings.Join(placeholders, ",")
+
+	// Build arguments array: schema first, then table names
+	args := make([]interface{}, 0, len(tableNames)+1)
+	args = append(args, schemaName)
+	for _, t := range tableNames {
+		args = append(args, t)
+	}
+
+	// Query to find parent tables only (tables referenced by the selected tables)
+	query := getParentTablesQuery(db, inClause)
+
+	iLog.Debug(fmt.Sprintf("Finding parent tables for: %v in schema: %s", tableNames, schemaName))
+
+	rows, err := queryWithPlaceholderConversion(db, query, args...)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error querying parent tables: %v", err))
+		return tableNames, nil // Return original tables if query fails
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var parentTable string
+		if err := rows.Scan(&parentTable); err == nil && parentTable != "" {
+			tablesMap[parentTable] = true
+			iLog.Debug(fmt.Sprintf("Found parent table: %s", parentTable))
+		}
+	}
+
+	// Convert map back to slice
+	result := make([]string, 0, len(tablesMap))
+	for table := range tablesMap {
+		result = append(result, table)
+	}
+
+	iLog.Debug(fmt.Sprintf("Expanded %d tables to %d with parent tables", len(tableNames), len(result)))
+	return result, nil
 }
 
 // contains checks if a string slice contains a string
