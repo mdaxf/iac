@@ -663,6 +663,47 @@
               "method": "GET",
               "path": "/context",
               "handler": "GetTemplateContext"
+            },
+            {
+              "method": "GET",
+              "path": "/categories",
+              "handler": "GetCategories"
+            }
+          ]
+        },
+        {
+          "path": "api/ai/embeddings",
+          "module": "SchemaEmbeddingController",
+          "endpoints": [
+            {
+              "method": "POST",
+              "path": "/generate",
+              "handler": "GenerateEmbeddings"
+            },
+            {
+              "method": "GET",
+              "path": "/status/:databasealias",
+              "handler": "GetEmbeddingStatus"
+            },
+            {
+              "method": "DELETE",
+              "path": "/:databasealias",
+              "handler": "DeleteEmbeddings"
+            },
+            {
+              "method": "POST",
+              "path": "/search/tables",
+              "handler": "SearchTables"
+            },
+            {
+              "method": "POST",
+              "path": "/search/columns",
+              "handler": "SearchColumns"
+            },
+            {
+              "method": "POST",
+              "path": "/search/entities",
+              "handler": "SearchBusinessEntities"
             }
           ]
         },

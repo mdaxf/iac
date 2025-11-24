@@ -193,6 +193,26 @@ func (s *QueryTemplateService) GetTemplateContext(ctx context.Context, databaseA
 	return context, nil
 }
 
+// GetCategories retrieves distinct categories for a database
+func (s *QueryTemplateService) GetCategories(ctx context.Context, databaseAlias string) ([]string, error) {
+	var categories []string
+
+	query := s.db.WithContext(ctx).
+		Model(&models.QueryTemplate{}).
+		Distinct().
+		Where("category IS NOT NULL AND category != ''")
+
+	if databaseAlias != "" {
+		query = query.Where("databasealias = ?", databaseAlias)
+	}
+
+	if err := query.Pluck("category", &categories).Error; err != nil {
+		return nil, fmt.Errorf("failed to get categories: %w", err)
+	}
+
+	return categories, nil
+}
+
 // extractKeywords extracts important keywords from a string
 func extractKeywords(text string) []string {
 	// Simple keyword extraction - remove common words

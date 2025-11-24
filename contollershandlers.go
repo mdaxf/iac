@@ -25,8 +25,8 @@ import (
 	config "github.com/mdaxf/iac/config"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mdaxf/iac/controllers/aiconfig"
 	"github.com/mdaxf/iac/controllers/ai"
+	"github.com/mdaxf/iac/controllers/aiconfig"
 	"github.com/mdaxf/iac/controllers/bpmcontroller"
 	"github.com/mdaxf/iac/controllers/collectionop"
 	"github.com/mdaxf/iac/controllers/component"
@@ -174,6 +174,11 @@ func getModule(module string) reflect.Value {
 	case "AIConfigController":
 		moduleInstance := &aiconfig.AIConfigController{}
 		return reflect.ValueOf(moduleInstance)
+
+	case "AIEmbeddingController":
+		moduleInstance := ai.NewAIEmbeddingController()
+		return reflect.ValueOf(moduleInstance)
+
 	}
 	return reflect.Value{}
 }

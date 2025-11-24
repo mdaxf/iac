@@ -18,6 +18,7 @@ type ServiceFactory struct {
 	schemaMetadataSvc    *SchemaMetadataService
 	schemaMetadataMultiDBSvc *SchemaMetadataServiceMultiDB
 	aiReportSvc          *AIReportService
+	aiEmbeddingSvc       *AIEmbeddingService
 }
 
 // NewServiceFactory creates a new service factory
@@ -71,6 +72,14 @@ func (f *ServiceFactory) GetSchemaMetadataServiceMultiDB() *SchemaMetadataServic
 		f.schemaMetadataMultiDBSvc = NewSchemaMetadataServiceMultiDB(f.dbHelper, f.appDB)
 	}
 	return f.schemaMetadataMultiDBSvc
+}
+
+// GetAIEmbeddingService returns the AI embedding service
+func (f *ServiceFactory) GetAIEmbeddingService() *AIEmbeddingService {
+	if f.aiEmbeddingSvc == nil {
+		f.aiEmbeddingSvc = NewAIEmbeddingService(f.appDB)
+	}
+	return f.aiEmbeddingSvc
 }
 
 // GetDatabaseHelper returns the database helper for custom operations

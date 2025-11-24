@@ -21,10 +21,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 // DriverType database driver constant int.
@@ -526,6 +531,91 @@ func GetDB(aliasNames ...string) (*sql.DB, error) {
 		return al.DB.DB, nil
 	}
 	return nil, fmt.Errorf("DataBase of alias name `%s` not found", name)
+}
+
+// GetGormDB Get *gorm.DB from registered database by db alias name.
+// This wraps the existing SQL connection with GORM for ORM functionality.
+// Use "default" as alias name if you not set.
+func GetGormDB(aliasNames ...string) (*gorm.DB, error) {
+	var name string
+	if len(aliasNames) > 0 {
+		name = aliasNames[0]
+	} else {
+		name = "default"
+	}
+	al, ok := dataBaseCache.get(name)
+	if !ok {
+		return nil, fmt.Errorf("DataBase of alias name `%s` not found", name)
+	}
+
+	// Test the connection first
+	if err := al.DB.DB.Ping(); err != nil {
+		return nil, fmt.Errorf("database connection is not alive: %v", err)
+	}
+
+	// Determine the appropriate GORM dialector based on driver type
+	var dialector gorm.Dialector
+
+	switch al.Driver {
+	case DRMySQL, DRTiDB:
+		dialector = mysql.New(mysql.Config{
+			Conn: al.DB.DB,
+		})
+	case DRPostgres:
+		dialector = postgres.New(postgres.Config{
+			Conn: al.DB.DB,
+		})
+	case DRSqlite:
+		return nil, fmt.Errorf("GORM SQLite support requires gorm.io/driver/sqlite package. Use GetDB() for raw SQL operations or add the package to dependencies")
+	case DROracle:
+		return nil, fmt.Errorf("GORM does not support Oracle driver. Use GetDB() for raw SQL operations")
+	case DRMSSQL:
+		return nil, fmt.Errorf("GORM does not support SQL Server due to driver conflicts. Use GetDB() for raw SQL operations")
+	default:
+		return nil, fmt.Errorf("unsupported database type for GORM: %s", al.DriverName)
+	}
+
+	// Open GORM with the appropriate driver
+	gormDB, err := gorm.Open(dialector, &gorm.Config{
+		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize GORM with %s driver: %v", al.DriverName, err)
+	}
+
+	return gormDB, nil
+}
+
+// GetDialectName returns the database dialect name for a given alias
+func GetDialectName(aliasNames ...string) (string, error) {
+	var name string
+	if len(aliasNames) > 0 {
+		name = aliasNames[0]
+	} else {
+		name = "default"
+	}
+	al, ok := dataBaseCache.get(name)
+	if !ok {
+		return "", fmt.Errorf("DataBase of alias name `%s` not found", name)
+	}
+
+	switch al.Driver {
+	case DRMySQL:
+		return "mysql", nil
+	case DRPostgres:
+		return "postgres", nil
+	case DRSqlite:
+		return "sqlite", nil
+	case DROracle:
+		return "oracle", nil
+	case DRMSSQL:
+		return "mssql", nil
+	case DRTiDB:
+		return "mysql", nil // TiDB is MySQL compatible
+	default:
+		return strings.ToLower(al.DriverName), nil
+	}
 }
 
 type stmtDecorator struct {
