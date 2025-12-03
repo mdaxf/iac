@@ -11,6 +11,7 @@ import (
 	"github.com/mdaxf/iac/databases/orm"
 	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac/models"
+	"github.com/pgvector/pgvector-go"
 	"gorm.io/gorm"
 )
 
@@ -163,7 +164,7 @@ func (s *AIEmbeddingService) GenerateSchemaEmbeddings(ctx context.Context, req m
 			SchemaName:    schemaName,
 			MappedTableName:  table,
 			Description:   tableDesc,
-			Embedding:     embedding,
+			Embedding:     pgvector.NewVector(embedding),
 			EmbeddingHash: hash,
 			GeneratedAt:   time.Now(),
 			CreatedBy:     "system",
@@ -198,7 +199,7 @@ func (s *AIEmbeddingService) GenerateSchemaEmbeddings(ctx context.Context, req m
 				MappedTableName:  table,
 				ColumnName:    &column.Name,
 				Description:   colDesc,
-				Embedding:     colEmbedding,
+				Embedding:     pgvector.NewVector(colEmbedding),
 				EmbeddingHash: colHash,
 				GeneratedAt:   time.Now(),
 				CreatedBy:     "system",
@@ -273,7 +274,7 @@ func (s *AIEmbeddingService) SearchSchema(ctx context.Context, req models.Search
 		ConfigID:         req.ConfigID,
 		SearchType:       req.SearchType,
 		SearchQuery:      req.Query,
-		SearchVector:     queryEmbedding,
+		SearchVector:     pgvector.NewVector(queryEmbedding),
 		ResultsCount:     len(results),
 		TopResults:       topResultsJSON,
 		SearchDurationMs: searchTime,
@@ -419,7 +420,7 @@ func (s *AIEmbeddingService) CreateBusinessEntity(ctx context.Context, req model
 		FieldMappings:   fieldMappingsJSON,
 		Relationships:   relationshipsJSON,
 		BusinessRules:   businessRulesJSON,
-		Embedding:       embedding,
+		Embedding:       pgvector.NewVector(embedding),
 		EmbeddingHash:   hash,
 		GeneratedAt:     now,
 		Active:          true,
@@ -566,7 +567,7 @@ func (s *AIEmbeddingService) CreateQueryTemplate(ctx context.Context, req models
 		EntitiesUsed:          entitiesUsedJSON,
 		ExampleQueries:        exampleQueriesJSON,
 		ExpectedResultsSchema: expectedResultsJSON,
-		Embedding:             embedding,
+		Embedding:             pgvector.NewVector(embedding),
 		EmbeddingHash:         hash,
 		GeneratedAt:           now,
 		Active:                true,

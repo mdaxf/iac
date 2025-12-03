@@ -102,36 +102,35 @@ func (doc *docdbLogWriter) Init(config string) error {
 func (doc *docdbLogWriter) ConnectMongoDB() error {
 
 	var err error
-	doc.MongoDBClient, err = mongo.NewClient(options.Client().ApplyURI(doc.DatabaseConnection))
 
+	// Create direct MongoDB connection
+	// Note: Factory registration is handled separately to avoid import cycles
+	doc.MongoDBClient, err = mongo.NewClient(options.Client().ApplyURI(doc.DatabaseConnection))
 	if err != nil {
 		fmt.Errorf(fmt.Sprintf("failed to connect mongodb with error: %s", err))
 		return err
 	}
 
-	if com.MongoDBClients == nil {
-		com.MongoDBClients = make([]*mongo.Client, 0)
-	}
-
-	com.MongoDBClients = append(com.MongoDBClients, doc.MongoDBClient)
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
 	defer cancel()
 
 	err = doc.MongoDBClient.Connect(ctx)
-
 	if err != nil {
 		fmt.Errorf("failed to connect mongodb with error: %s", err)
 		return err
 	}
 
-	doc.MongoDBDatabase = doc.MongoDBClient.Database(doc.DatabaseName)
+	// Register with global array for backward compatibility (deprecated)
+	// Factory registration will be handled in initialization code
+	if com.MongoDBClients == nil {
+		com.MongoDBClients = make([]*mongo.Client, 0)
+	}
+	com.MongoDBClients = append(com.MongoDBClients, doc.MongoDBClient)
 
+	doc.MongoDBDatabase = doc.MongoDBClient.Database(doc.DatabaseName)
 	doc.MongoDBCollection_TC = doc.MongoDBDatabase.Collection(doc.CollectionName)
 
 	err = doc.MongoDBClient.Ping(context.Background(), nil)
-
 	if err != nil {
 		fmt.Errorf("failed to connect mongodb with error: %s", err)
 		return err

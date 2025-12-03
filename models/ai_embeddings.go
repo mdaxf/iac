@@ -1,27 +1,28 @@
 package models
 
 import (
-	"database/sql/driver"
 	"encoding/json"
 	"time"
+
+	"github.com/pgvector/pgvector-go"
 )
 
 // AIEmbeddingConfiguration stores AI configuration metadata (IAC Standard)
 type AIEmbeddingConfiguration struct {
 	ID                   int             `json:"id" gorm:"primaryKey"`
-	UUID                 string          `json:"uuid" gorm:"type:uuid;default:gen_random_uuid();uniqueIndex"`
-	ReferenceID          *string         `json:"referenceid" gorm:"uniqueIndex"`
-	ConfigName           string          `json:"config_name" gorm:"uniqueIndex;not null"`
-	EmbeddingModel       string          `json:"embedding_model" gorm:"not null"`
-	EmbeddingDimensions  int             `json:"embedding_dimensions" gorm:"not null"`
-	VectorDatabaseType   string          `json:"vector_database_type" gorm:"default:postgresql"`
-	VectorDatabaseConfig json.RawMessage `json:"vector_database_config" gorm:"type:jsonb"`
-	Active               bool            `json:"active" gorm:"default:true"`
-	CreatedBy            string          `json:"createdby" gorm:"not null"`
-	CreatedOn            time.Time       `json:"createdon" gorm:"default:CURRENT_TIMESTAMP"`
-	ModifiedBy           *string         `json:"modifiedby"`
-	ModifiedOn           *time.Time      `json:"modifiedon"`
-	RowVersionStamp      int             `json:"rowversionstamp" gorm:"default:1"`
+	UUID                 string          `json:"uuid" gorm:"column:uuid;type:uuid;default:gen_random_uuid();uniqueIndex"`
+	ReferenceID          *string         `json:"referenceid" gorm:"column:referenceid;uniqueIndex"`
+	ConfigName           string          `json:"config_name" gorm:"column:config_name;uniqueIndex;not null"`
+	EmbeddingModel       string          `json:"embedding_model" gorm:"column:embedding_model;not null"`
+	EmbeddingDimensions  int             `json:"embedding_dimensions" gorm:"column:embedding_dimensions;not null"`
+	VectorDatabaseType   string          `json:"vector_database_type" gorm:"column:vector_database_type;default:postgresql"`
+	VectorDatabaseConfig json.RawMessage `json:"vector_database_config" gorm:"column:vector_database_config;type:jsonb"`
+	Active               bool            `json:"active" gorm:"column:active;default:true"`
+	CreatedBy            string          `json:"createdby" gorm:"column:createdby;not null"`
+	CreatedOn            time.Time       `json:"createdon" gorm:"column:createdon;default:CURRENT_TIMESTAMP"`
+	ModifiedBy           *string         `json:"modifiedby" gorm:"column:modifiedby"`
+	ModifiedOn           *time.Time      `json:"modifiedon" gorm:"column:modifiedon"`
+	RowVersionStamp      int             `json:"rowversionstamp" gorm:"column:rowversionstamp;default:1"`
 }
 
 // TableName specifies the table name for GORM
@@ -98,23 +99,23 @@ func (AIQueryTemplate) TableName() string {
 type DatabaseSchemaEmbedding struct {
 	ID              int             `json:"id" gorm:"primaryKey"`
 	UUID            string          `json:"uuid" gorm:"type:uuid;default:gen_random_uuid();uniqueIndex"`
-	ReferenceID     *string         `json:"referenceid" gorm:"uniqueIndex"`
-	ConfigID        int             `json:"config_id" gorm:"not null"`
-	DatabaseAlias   string          `json:"database_alias" gorm:"not null"`
-	SchemaName      string          `json:"schema_name" gorm:"not null"`
+	ReferenceID     *string         `json:"referenceid" gorm:"column:referenceid;uniqueIndex"`
+	ConfigID        int             `json:"config_id" gorm:"column:config_id;not null"`
+	DatabaseAlias   string          `json:"database_alias" gorm:"column:database_alias;not null"`
+	SchemaName      string          `json:"schema_name" gorm:"column:schema_name;not null"`
 	MappedTableName string          `json:"table_name" gorm:"column:table_name;not null"`
-	ColumnName      *string         `json:"column_name"`
-	Description     string          `json:"description"`
-	Metadata        json.RawMessage `json:"metadata" gorm:"type:jsonb"`
-	Embedding       Vector          `json:"embedding,omitempty" gorm:"type:vector"`
-	EmbeddingHash   string          `json:"embedding_hash"`
-	GeneratedAt     time.Time       `json:"generated_at"`
-	Active          bool            `json:"active" gorm:"default:true"`
-	CreatedBy       string          `json:"createdby" gorm:"not null"`
-	CreatedOn       time.Time       `json:"createdon" gorm:"default:CURRENT_TIMESTAMP"`
-	ModifiedBy      *string         `json:"modifiedby"`
-	ModifiedOn      *time.Time      `json:"modifiedon"`
-	RowVersionStamp int             `json:"rowversionstamp" gorm:"default:1"`
+	ColumnName      *string         `json:"column_name" gorm:"column:column_name"`
+	Description     string          `json:"description" gorm:"column:description"`
+	Metadata        json.RawMessage `json:"metadata" gorm:"column:metadata;type:jsonb"`
+	Embedding       Vector          `json:"embedding,omitempty" gorm:"column:embedding;type:vector"`
+	EmbeddingHash   string          `json:"embedding_hash" gorm:"column:embedding_hash"`
+	GeneratedAt     time.Time       `json:"generated_at" gorm:"column:generated_at"`
+	Active          bool            `json:"active" gorm:"column:active;default:true"`
+	CreatedBy       string          `json:"createdby" gorm:"column:createdby;not null"`
+	CreatedOn       time.Time       `json:"createdon" gorm:"column:createdon;default:CURRENT_TIMESTAMP"`
+	ModifiedBy      *string         `json:"modifiedby" gorm:"column:modifiedby"`
+	ModifiedOn      *time.Time      `json:"modifiedon" gorm:"column:modifiedon"`
+	RowVersionStamp int             `json:"rowversionstamp" gorm:"column:rowversionstamp;default:1"`
 }
 
 // TableName specifies the table name for GORM
@@ -176,31 +177,9 @@ func (EmbeddingSearchLog) TableName() string {
 	return "embedding_search_logs"
 }
 
-// Vector represents a pgvector embedding
-type Vector []float32
-
-// Value implements the driver.Valuer interface
-func (v Vector) Value() (driver.Value, error) {
-	if v == nil {
-		return nil, nil
-	}
-	return json.Marshal(v)
-}
-
-// Scan implements the sql.Scanner interface
-func (v *Vector) Scan(value interface{}) error {
-	if value == nil {
-		*v = nil
-		return nil
-	}
-
-	bytes, ok := value.([]byte)
-	if !ok {
-		return nil
-	}
-
-	return json.Unmarshal(bytes, v)
-}
+// Vector represents a pgvector embedding using the official pgvector-go library
+// This type alias allows seamless integration with PostgreSQL's pgvector extension
+type Vector = pgvector.Vector
 
 // EmbeddingConfigStats holds statistics for embedding configurations (IAC Standard)
 type EmbeddingConfigStats struct {
@@ -234,9 +213,9 @@ type DatabaseSchemaMetadataSummary struct {
 
 // SchemaMetadataRequest represents request to generate schema embeddings
 type SchemaMetadataRequest struct {
-	ConfigID      int    `json:"config_id" binding:"required"`
-	DatabaseAlias string `json:"database_alias" binding:"required"`
-	SchemaName    string `json:"schema_name"`
+	ConfigID      int      `json:"config_id" binding:"required"`
+	DatabaseAlias string   `json:"database_alias" binding:"required"`
+	SchemaName    string   `json:"schema_name"`
 	Tables        []string `json:"tables"` // Empty means all tables
 }
 
@@ -256,15 +235,15 @@ type BusinessEntityRequest struct {
 
 // QueryTemplateRequest represents request to create/update query template
 type QueryTemplateRequest struct {
-	ConfigID             int                    `json:"config_id" binding:"required"`
-	TemplateName         string                 `json:"template_name" binding:"required"`
-	TemplateCategory     string                 `json:"template_category"`
-	NaturalLanguageQuery string                 `json:"natural_language_query" binding:"required"`
-	SQLTemplate          string                 `json:"sql_template" binding:"required"`
-	Parameters           map[string]interface{} `json:"parameters"`
-	DatabaseAlias        *string                `json:"database_alias"`
-	EntitiesUsed         []string               `json:"entities_used"`
-	ExampleQueries       []string               `json:"example_queries"`
+	ConfigID              int                    `json:"config_id" binding:"required"`
+	TemplateName          string                 `json:"template_name" binding:"required" gorm:"column:template_name"`
+	TemplateCategory      string                 `json:"template_category" gorm:"column:template_category"`
+	NaturalLanguageQuery  string                 `json:"natural_language_query" binding:"required" gorm:"column:natural_language_query"`
+	SQLTemplate           string                 `json:"sql_template" binding:"required"`
+	Parameters            map[string]interface{} `json:"parameters"`
+	DatabaseAlias         *string                `json:"database_alias"`
+	EntitiesUsed          []string               `json:"entities_used"`
+	ExampleQueries        []string               `json:"example_queries"`
 	ExpectedResultsSchema map[string]interface{} `json:"expected_results_schema"`
 }
 

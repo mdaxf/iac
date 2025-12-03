@@ -46,7 +46,34 @@ import (
 	"github.com/mdaxf/iac/controllers/user"
 	"github.com/mdaxf/iac/controllers/workflow"
 	"github.com/mdaxf/iac/framework/auth"
+	"github.com/mdaxf/iac/gormdb"
+	"github.com/mdaxf/iac/documents"
+	"github.com/mdaxf/iac/services"
 )
+
+// GetMongoDBConnection returns the MongoDB DocumentDB connection using the unified factory pattern
+func GetMongoDBConnection() documents.DocumentDB {
+	// Use unified factory pattern exclusively
+	factory := documents.GetDocFactory()
+	if factory != nil {
+		// Try to get the "default" instance first
+		if db, err := factory.GetDB("default"); err == nil && db != nil {
+			return db
+		}
+
+		// If default not found, log warning and return nil
+		ilog.Warn("No default MongoDB instance found in factory - document database may not be initialized")
+
+		// List available instances for debugging
+		instances := factory.ListInstances()
+		if len(instances) > 0 {
+			ilog.Info(fmt.Sprintf("Available database instances: %v", instances))
+		}
+	}
+
+	ilog.Warn("No MongoDB connection available - factory returned nil")
+	return nil
+}
 
 // loadControllers loads the specified controllers into the router.
 // It iterates over the controllers and calls createEndpoints to create the endpoints for each controller.
@@ -133,6 +160,31 @@ func getModule(module string) reflect.Value {
 		return reflect.ValueOf(moduleInstance)
 
 	case "IACAIController":
+		// Initialize AI Agency Service when IACAIController is loaded
+		// This happens once during application startup
+
+		// Get services needed for AI Agency
+		schemaMetadataService := services.NewSchemaMetadataService(gormdb.DB)
+		schemaEmbeddingService := services.NewSchemaEmbeddingService(gormdb.DB, config.OpenAiKey)
+		aiReportService := services.NewAIReportService(config.OpenAiKey, config.OpenAiModel)
+		chatService := services.NewChatService(gormdb.DB, config.OpenAiKey, config.OpenAiModel, schemaMetadataService)
+
+		// Initialize AI Agency Service
+		aiAgencyService := services.NewAIAgencyService(
+			gormdb.DB,
+			config.OpenAiKey,
+			config.OpenAiModel,
+			chatService,
+			aiReportService,
+			schemaMetadataService,
+			schemaEmbeddingService,
+		)
+
+		// Set the service for the controller
+		iacai.SetAIAgencyService(aiAgencyService)
+
+		ilog.Info("AI Agency Service initialized successfully")
+
 		moduleInstance := &iacai.IACAIController{}
 		return reflect.ValueOf(moduleInstance)
 
@@ -154,6 +206,19 @@ func getModule(module string) reflect.Value {
 	case "ReportController":
 		moduleInstance := report.NewReportController()
 		return reflect.ValueOf(moduleInstance)
+
+	case "ReportDocController":
+		// Get MongoDB connection from document DB registry
+		docDB := GetMongoDBConnection()
+		if docDB != nil {
+			// Create SchemaMetadataService for query execution
+			// Use the global GORM DB connection
+			schemaMetadataService := services.NewSchemaMetadataService(gormdb.DB)
+			moduleInstance := report.NewReportDocController(docDB, schemaMetadataService)
+			return reflect.ValueOf(moduleInstance)
+		}
+		ilog.Warn("MongoDB not available, ReportDocController not loaded")
+		return reflect.Value{}
 
 	case "ChatController":
 		moduleInstance := report.NewChatController()
@@ -179,8 +244,50 @@ func getModule(module string) reflect.Value {
 		moduleInstance := ai.NewAIEmbeddingController()
 		return reflect.ValueOf(moduleInstance)
 
+	case "SchemaEmbeddingController":
+		// Get OpenAI API key from AI configuration
+		openAIKey := getEmbeddingAPIKey()
+		moduleInstance := ai.NewSchemaEmbeddingController(gormdb.DB, openAIKey)
+		return reflect.ValueOf(moduleInstance)
+
+	case "SchemaContextController":
+		// Get OpenAI API key from AI configuration
+		openAIKey := getEmbeddingAPIKey()
+		moduleInstance := ai.NewSchemaContextController(gormdb.DB, openAIKey)
+		return reflect.ValueOf(moduleInstance)
+
 	}
 	return reflect.Value{}
+}
+
+// getEmbeddingAPIKey retrieves the API key for embedding from AI configuration
+// It looks for the embedding use case configuration and returns the appropriate vendor's API key
+func getEmbeddingAPIKey() string {
+	if config.AIConf == nil {
+		ilog.Warn("AI configuration not loaded, attempting to load...")
+		if _, err := config.LoadAIConfig(); err != nil {
+			ilog.Error(fmt.Sprintf("Failed to load AI config: %v", err))
+			return ""
+		}
+	}
+
+	// Check for embedding use case configuration
+	if embeddingConfig, exists := config.AIConf.UseCases["embedding"]; exists {
+		vendorName := embeddingConfig.Vendor
+		if vendor, vendorExists := config.AIConf.AIVendors[vendorName]; vendorExists && vendor.Enabled {
+			ilog.Info(fmt.Sprintf("Using %s for embeddings with model: %s", vendorName, embeddingConfig.ModelOverride))
+			return vendor.APIKey
+		}
+	}
+
+	// Fallback: check for OpenAI vendor if it's enabled
+	if openAI, exists := config.AIConf.AIVendors["openai"]; exists && openAI.Enabled {
+		ilog.Info("Using OpenAI for embeddings (fallback)")
+		return openAI.APIKey
+	}
+
+	ilog.Warn("No valid AI vendor configuration found for embeddings")
+	return ""
 }
 
 // createEndpoints creates API endpoints for a given module using the provided router.

@@ -2,9 +2,12 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 
+	"github.com/mdaxf/iac/databases/orm"
 	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac/models"
 	"gorm.io/gorm"
@@ -12,11 +15,12 @@ import (
 
 // SchemaMetadataService handles database schema discovery and metadata management
 type SchemaMetadataService struct {
-	db   *gorm.DB
+	db   *gorm.DB // Vector database for embeddings and legacy methods
 	iLog logger.Log
 }
 
 // NewSchemaMetadataService creates a new schema metadata service
+// db: The vector database connection for storing/checking embeddings
 func NewSchemaMetadataService(db *gorm.DB) *SchemaMetadataService {
 	return &SchemaMetadataService{
 		db: db,
@@ -32,24 +36,16 @@ func NewSchemaMetadataService(db *gorm.DB) *SchemaMetadataService {
 func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, databaseAlias, dbName string) error {
 	s.iLog.Info(fmt.Sprintf("Discovering schema for database '%s' with alias '%s'", dbName, databaseAlias))
 
-	// Get all tables
-	var tables []struct {
-		TableName    string `gorm:"column:tablename"`
-		TableComment string `gorm:"column:table_comment"`
-	}
+	// Get database dialect
+	dialect := s.db.Dialector.Name()
+	s.iLog.Debug(fmt.Sprintf("Using database dialect: %s", dialect))
 
-	query := `
-		SELECT
-			TABLE_NAME as tablename,
-			COALESCE(TABLE_COMMENT, '') as table_comment
-		FROM information_schema.TABLES
-		WHERE TABLE_SCHEMA = ?
-		AND TABLE_TYPE = 'BASE TABLE'
-		ORDER BY TABLE_NAME
-	`
+	// Get all tables using database-specific query
+	var tables []TableInfo
 
-	if err := s.db.Raw(query, dbName).Scan(&tables).Error; err != nil {
-		s.iLog.Error(fmt.Sprintf("Failed to query INFORMATION_SCHEMA.TABLES for database '%s': %v", dbName, err))
+	query := GetTablesQuery(dialect, dbName)
+	if err := s.db.Raw(query).Scan(&tables).Error; err != nil {
+		s.iLog.Error(fmt.Sprintf("Failed to query tables for database '%s': %v", dbName, err))
 		return fmt.Errorf("failed to discover tables: %w", err)
 	}
 
@@ -102,33 +98,15 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 		}
 		totalTablesSaved++
 
-		if (i+1) % 10 == 0 {
+		if (i+1)%10 == 0 {
 			s.iLog.Debug(fmt.Sprintf("Processed %d/%d tables so far", i+1, len(tables)))
 		}
 
-		// Get columns for this table
-		var columns []struct {
-			ColumnName    string `gorm:"column:columnname"`
-			DataType      string `gorm:"column:data_type"`
-			IsNullable    string `gorm:"column:is_nullable"`
-			ColumnKey     string `gorm:"column:column_key"`
-			ColumnComment string `gorm:"column:column_comment"`
-		}
+		// Get columns for this table using database-specific query
+		var columns []ColumnInfo
 
-		columnQuery := `
-			SELECT
-				COLUMN_NAME as columnname,
-				DATA_TYPE as data_type,
-				IS_NULLABLE as is_nullable,
-				COLUMN_KEY as column_key,
-				COALESCE(COLUMN_COMMENT, '') as column_comment
-			FROM information_schema.COLUMNS
-			WHERE TABLE_SCHEMA = ?
-			AND TABLE_NAME = ?
-			ORDER BY ORDINAL_POSITION
-		`
-
-		if err := s.db.Raw(columnQuery, dbName, table.TableName).Scan(&columns).Error; err != nil {
+		columnQuery := GetColumnsQuery(dialect, dbName, table.TableName)
+		if err := s.db.Raw(columnQuery).Scan(&columns).Error; err != nil {
 			s.iLog.Error(fmt.Sprintf("Failed to query columns for table '%s': %v", table.TableName, err))
 			return fmt.Errorf("failed to discover columns for %s: %w", table.TableName, err)
 		}
@@ -172,28 +150,122 @@ func (s *SchemaMetadataService) DiscoverDatabaseSchema(ctx context.Context, data
 }
 
 // GetTableMetadata retrieves metadata for all tables in a database
+// IMPORTANT: This dynamically discovers tables from the actual target database
+// and checks the vector database for embeddings (does NOT query stored metadata)
 func (s *SchemaMetadataService) GetTableMetadata(ctx context.Context, databaseAlias string) ([]models.DatabaseSchemaMetadata, error) {
-	var metadata []models.DatabaseSchemaMetadata
+	s.iLog.Info(fmt.Sprintf("Discovering tables for database alias: %s", databaseAlias))
 
-	if err := s.db.WithContext(ctx).
-		Where("databasealias = ? AND metadatatype = ?", databaseAlias, models.MetadataTypeTable).
-		Order("tablename").
-		Find(&metadata).Error; err != nil {
-		return nil, fmt.Errorf("failed to get table metadata: %w", err)
+	// Use the same method as schema designer to get tables
+	tableNames, err := s.getAllTableNamesWithAlias(databaseAlias, "")
+	if err != nil {
+		s.iLog.Error(fmt.Sprintf("Failed to get tables for alias '%s': %v", databaseAlias, err))
+		return nil, fmt.Errorf("failed to discover tables: %w", err)
+	}
+
+	s.iLog.Info(fmt.Sprintf("Discovered %d tables for database alias: %s", len(tableNames), databaseAlias))
+
+	// Convert to DatabaseSchemaMetadata format
+	var metadata []models.DatabaseSchemaMetadata
+	for _, tableName := range tableNames {
+		// Check if this table has an embedding in the vector database
+		hasEmbedding := s.checkTableEmbedding(ctx, databaseAlias, tableName)
+
+		meta := models.DatabaseSchemaMetadata{
+			DatabaseAlias: databaseAlias,
+			Table:         tableName,
+			MetadataType:  models.MetadataTypeTable,
+			// Note: embedding status could be added as a custom field if needed
+		}
+
+		// Log embedding status for debugging
+		if hasEmbedding {
+			s.iLog.Debug(fmt.Sprintf("Table %s has embedding", tableName))
+		}
+
+		metadata = append(metadata, meta)
 	}
 
 	return metadata, nil
 }
 
-// GetColumnMetadata retrieves metadata for all columns in a table
-func (s *SchemaMetadataService) GetColumnMetadata(ctx context.Context, databaseAlias, tableName string) ([]models.DatabaseSchemaMetadata, error) {
-	var metadata []models.DatabaseSchemaMetadata
+// checkTableEmbedding checks if a table has an embedding in the vector database
+func (s *SchemaMetadataService) checkTableEmbedding(ctx context.Context, databaseAlias, tableName string) bool {
+	var count int64
+	// Query the database_schema_embeddings table in vector database
+	err := s.db.WithContext(ctx).
+		Table("database_schema_embeddings").
+		Where("database_alias = ? AND table_name = ? AND column_name IS NULL AND embedding IS NOT NULL",
+			databaseAlias, tableName).
+		Count(&count).Error
 
-	if err := s.db.WithContext(ctx).
-		Where("databasealias = ? AND tablename = ? AND metadatatype = ?", databaseAlias, tableName, models.MetadataTypeColumn).
-		Order("columnname").
-		Find(&metadata).Error; err != nil {
-		return nil, fmt.Errorf("failed to get column metadata: %w", err)
+	return err == nil && count > 0
+}
+
+// GetColumnMetadata retrieves metadata for all columns in a table
+// IMPORTANT: This dynamically discovers columns from the actual target database
+// Columns are NOT stored or embedded - always retrieved fresh from the database
+func (s *SchemaMetadataService) GetColumnMetadata(ctx context.Context, databaseAlias, tableName string) ([]models.DatabaseSchemaMetadata, error) {
+	s.iLog.Info(fmt.Sprintf("Discovering columns for table: %s in database: %s", tableName, databaseAlias))
+
+	// Get the target database connection
+	targetDB, err := orm.GetGormDB(databaseAlias)
+	if err != nil {
+		s.iLog.Error(fmt.Sprintf("Failed to get database connection for alias '%s': %v", databaseAlias, err))
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
+	}
+
+	// Get database dialect
+	dialect := targetDB.Dialector.Name()
+
+	// Get schema/database name
+	var schemaName string
+	var dbName string
+
+	if dialect == "postgres" {
+		schemaName = "public" // Default PostgreSQL schema
+	} else if dialect == "mysql" {
+		var result string
+		if err := targetDB.Raw("SELECT DATABASE()").Scan(&result).Error; err == nil {
+			dbName = result
+		}
+	}
+
+	// Discover columns using database-specific query
+	var columns []ColumnInfo
+	query := GetColumnsQuery(dialect, schemaName, tableName)
+	if dbName != "" {
+		query = GetColumnsQuery(dialect, dbName, tableName)
+	}
+
+	s.iLog.Debug(fmt.Sprintf("Executing columns query for table: %s", tableName))
+	if err := targetDB.Raw(query).Scan(&columns).Error; err != nil {
+		s.iLog.Error(fmt.Sprintf("Failed to query columns: %v", err))
+		return nil, fmt.Errorf("failed to discover columns: %w", err)
+	}
+
+	s.iLog.Info(fmt.Sprintf("Discovered %d columns for table: %s", len(columns), tableName))
+
+	// Convert to DatabaseSchemaMetadata format
+	var metadata []models.DatabaseSchemaMetadata
+	for _, column := range columns {
+		isNullable := column.IsNullable == "YES"
+		isPrimaryKey := strings.ToUpper(column.ColumnKey) == "PRI"
+		isForeignKey := strings.ToUpper(column.ColumnKey) == "MUL"
+
+		meta := models.DatabaseSchemaMetadata{
+			DatabaseAlias: databaseAlias,
+			SchemaName:    schemaName,
+			Table:         tableName,
+			Column:        column.ColumnName,
+			MetadataType:  models.MetadataTypeColumn,
+			DataType:      column.DataType,
+			IsNullable:    &isNullable,
+			IsPrimaryKey:  &isPrimaryKey,
+			IsForeignKey:  &isForeignKey,
+			ColumnComment: column.ColumnComment,
+		}
+
+		metadata = append(metadata, meta)
 	}
 
 	return metadata, nil
@@ -319,26 +391,18 @@ func (s *SchemaMetadataService) SearchMetadata(ctx context.Context, databaseAlia
 // GetDatabaseMetadata retrieves complete metadata (tables and columns) for a database
 // If no metadata exists or existing metadata is incomplete, it automatically discovers and populates it from information_schema
 func (s *SchemaMetadataService) GetDatabaseMetadata(ctx context.Context, databaseAlias string) ([]models.DatabaseSchemaMetadata, error) {
+	// Always discover metadata directly from the target database
+	// Do NOT query the main db first - it doesn't have the databaseschemametadata table
+	// This method is called by ChatService for auto-discovery
+
 	var metadata []models.DatabaseSchemaMetadata
+	needsDiscovery := true
+	discoveryReason := "auto-discovery requested"
 
-	// Use Find which returns empty slice if no records found (not an error)
-	if err := s.db.WithContext(ctx).
-		Where("databasealias = ?", databaseAlias).
-		Order("tablename, metadatatype DESC, columnname").
-		Find(&metadata).Error; err != nil {
-		// Only return error for actual database errors, not "record not found"
-		return nil, fmt.Errorf("failed to get database metadata: %w", err)
-	}
+	s.iLog.Info(fmt.Sprintf("Discovering schema for alias '%s' from target database", databaseAlias))
 
-	// Check if existing metadata is useful (has both tables and columns)
-	needsDiscovery := false
-	discoveryReason := ""
-
-	if len(metadata) == 0 {
-		needsDiscovery = true
-		discoveryReason = "no metadata found"
-		s.iLog.Info(fmt.Sprintf("No metadata found for alias '%s', attempting auto-discovery", databaseAlias))
-	} else {
+	{
+		// Skip the metadata check in main db, go directly to discovery
 		// Count tables and columns
 		tableCount := 0
 		columnCount := 0
@@ -377,15 +441,33 @@ func (s *SchemaMetadataService) GetDatabaseMetadata(ctx context.Context, databas
 
 	// If metadata is missing or incomplete, automatically discover and populate it
 	if needsDiscovery {
-
-		// Get the current database name from the connection
-		var dbName string
-		if err := s.db.WithContext(ctx).Raw("SELECT DATABASE()").Scan(&dbName).Error; err != nil {
-			s.iLog.Error(fmt.Sprintf("Failed to execute SELECT DATABASE(): %v", err))
-			return nil, fmt.Errorf("failed to get current database name: %w", err)
+		// Get target database connection using orm.GetDB with the alias
+		// This uses configuration.json to find the database connection
+		targetDB, err := orm.GetGormDB(databaseAlias)
+		if err != nil {
+			s.iLog.Error(fmt.Sprintf("Failed to get database connection for alias '%s': %v", databaseAlias, err))
+			return nil, fmt.Errorf("failed to get database connection for alias '%s': %w", databaseAlias, err)
 		}
 
-		s.iLog.Debug(fmt.Sprintf("SELECT DATABASE() returned: '%s'", dbName))
+		// Get the current database name from the target connection
+		var dbName string
+		// Use database-specific query to get current database/schema name
+		dialectName := targetDB.Dialector.Name()
+		if dialectName == "postgres" || dialectName == "postgresql" {
+			// PostgreSQL: SELECT current_database()
+			if err := targetDB.WithContext(ctx).Raw("SELECT current_database()").Scan(&dbName).Error; err != nil {
+				s.iLog.Error(fmt.Sprintf("Failed to get current database (PostgreSQL): %v", err))
+				return nil, fmt.Errorf("failed to get current database name: %w", err)
+			}
+		} else {
+			// MySQL: SELECT DATABASE()
+			if err := targetDB.WithContext(ctx).Raw("SELECT DATABASE()").Scan(&dbName).Error; err != nil {
+				s.iLog.Error(fmt.Sprintf("Failed to get current database (MySQL): %v", err))
+				return nil, fmt.Errorf("failed to get current database name: %w", err)
+			}
+		}
+
+		s.iLog.Debug(fmt.Sprintf("Current database for alias '%s': '%s'", databaseAlias, dbName))
 
 		if dbName == "" {
 			s.iLog.Warn("SELECT DATABASE() returned empty string, attempting to find database via SHOW DATABASES")
@@ -643,4 +725,159 @@ func (s *SchemaMetadataService) executeQueryWithResults(ctx context.Context, dat
 		"count":   len(results),
 		"query":   sqlQuery,
 	}, nil
+}
+
+// getAllTableNamesWithAlias gets all table names for a database alias
+// This uses the same approach as the schema controller to ensure consistency
+func (s *SchemaMetadataService) getAllTableNamesWithAlias(alias string, schemaName string) ([]string, error) {
+	// Get database connection for alias using databases/orm package
+	db, err := orm.GetDB(alias)
+	if err != nil {
+		return nil, fmt.Errorf("error getting database for alias '%s': %v", alias, err)
+	}
+
+	// Detect database type
+	dbType := s.detectDatabaseType(db)
+
+	// If no schema provided, try to detect current schema
+	if schemaName == "" {
+		if dbType == "postgres" {
+			// For PostgreSQL: Try current_database() first (the database name)
+			var dbName string
+			err := db.QueryRow("SELECT current_database()").Scan(&dbName)
+			if err == nil && dbName != "" {
+				s.iLog.Debug(fmt.Sprintf("PostgreSQL current database: %s", dbName))
+
+				// Check if database name is a valid schema with tables
+				var tableCount int
+				countQuery := `
+					SELECT COUNT(*)
+					FROM information_schema.tables
+					WHERE table_schema = $1
+					AND table_type = 'BASE TABLE'
+				`
+				err = db.QueryRow(countQuery, dbName).Scan(&tableCount)
+				if err == nil && tableCount > 0 {
+					s.iLog.Debug(fmt.Sprintf("Using database name '%s' as schema (has %d tables)", dbName, tableCount))
+					schemaName = dbName
+				} else {
+					// Try current_schema()
+					err = db.QueryRow("SELECT current_schema()").Scan(&schemaName)
+					if err != nil {
+						s.iLog.Warn(fmt.Sprintf("Error getting PostgreSQL schema: %v, defaulting to 'public'", err))
+						schemaName = "public"
+					}
+				}
+			}
+		} else if dbType == "mysql" {
+			// Get current database name for MySQL
+			var result string
+			row := db.QueryRow("SELECT DATABASE()")
+			if err := row.Scan(&result); err == nil && result != "" {
+				schemaName = result
+			}
+		} else if dbType == "sqlserver" || dbType == "mssql" {
+			schemaName = "dbo" // Default SQL Server schema
+		}
+
+		s.iLog.Debug(fmt.Sprintf("Detected schema: %s for database type: %s", schemaName, dbType))
+	}
+
+	// Ensure schemaName is not empty
+	if schemaName == "" {
+		schemaName = "public"
+		s.iLog.Warn(fmt.Sprintf("Schema name is empty, defaulting to 'public'"))
+	}
+
+	// Query tables from information_schema with placeholder
+	query := `
+		SELECT table_name
+		FROM information_schema.tables
+		WHERE table_schema = ?
+		AND table_type = 'BASE TABLE'
+		ORDER BY table_name
+	`
+
+	// Convert placeholders based on database type
+	query = s.convertQueryPlaceholders(query, dbType)
+
+	s.iLog.Debug(fmt.Sprintf("Querying tables for schema: '%s'", schemaName))
+	s.iLog.Debug(fmt.Sprintf("Query: %s", query))
+
+	rows, err := db.Query(query, schemaName)
+	if err != nil {
+		return nil, fmt.Errorf("error querying tables: %v", err)
+	}
+	defer rows.Close()
+
+	var tables []string
+	for rows.Next() {
+		var tableName string
+		if err := rows.Scan(&tableName); err != nil {
+			s.iLog.Warn(fmt.Sprintf("Error scanning table name: %v", err))
+			continue
+		}
+		tables = append(tables, tableName)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating table rows: %v", err)
+	}
+
+	s.iLog.Debug(fmt.Sprintf("Found %d tables in schema '%s'", len(tables), schemaName))
+
+	return tables, nil
+}
+
+// detectDatabaseType detects database type from connection
+func (s *SchemaMetadataService) detectDatabaseType(db *sql.DB) string {
+	// Try MySQL
+	var mysqlTest string
+	if err := db.QueryRow("SELECT VERSION()").Scan(&mysqlTest); err == nil {
+		if strings.Contains(strings.ToLower(mysqlTest), "mysql") || strings.Contains(strings.ToLower(mysqlTest), "mariadb") {
+			return "mysql"
+		}
+	}
+
+	// Try PostgreSQL
+	var pgTest string
+	if err := db.QueryRow("SELECT version()").Scan(&pgTest); err == nil {
+		if strings.Contains(strings.ToLower(pgTest), "postgresql") {
+			return "postgres"
+		}
+	}
+
+	// Try MSSQL
+	var mssqlTest string
+	if err := db.QueryRow("SELECT @@VERSION").Scan(&mssqlTest); err == nil {
+		if strings.Contains(strings.ToLower(mssqlTest), "microsoft") {
+			return "sqlserver"
+		}
+	}
+
+	// Default to mysql
+	return "mysql"
+}
+
+// convertQueryPlaceholders converts ? placeholders to database-specific syntax
+func (s *SchemaMetadataService) convertQueryPlaceholders(query string, dbType string) string {
+	if dbType == "mysql" {
+		return query // MySQL uses ? - no conversion needed
+	}
+
+	placeholderCount := 0
+	result := regexp.MustCompile(`\?`).ReplaceAllStringFunc(query, func(match string) string {
+		placeholderCount++
+		switch dbType {
+		case "postgres", "postgresql":
+			return fmt.Sprintf("$%d", placeholderCount)
+		case "mssql", "sqlserver":
+			return fmt.Sprintf("@p%d", placeholderCount)
+		case "oracle":
+			return fmt.Sprintf(":%d", placeholderCount)
+		default:
+			return match // fallback to original
+		}
+	})
+	return result
 }

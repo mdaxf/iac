@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/mdaxf/iac/models"
@@ -46,10 +45,10 @@ func (s *BusinessEntityService) GetEntity(ctx context.Context, id string) (*mode
 func (s *BusinessEntityService) ListEntities(ctx context.Context, databaseAlias string) ([]models.BusinessEntity, error) {
 	var entities []models.BusinessEntity
 
-	query := s.db.WithContext(ctx).Order("entityname")
+	query := s.db.WithContext(ctx).Order("entity_name")
 
 	if databaseAlias != "" {
-		query = query.Where("databasealias = ?", databaseAlias)
+		query = query.Where("database_alias = ?", databaseAlias)
 	}
 
 	if err := query.Find(&entities).Error; err != nil {
@@ -146,10 +145,11 @@ func (s *BusinessEntityService) GetEntityContext(ctx context.Context, databaseAl
 			context += fmt.Sprintf("Description: %s\n", entity.Description)
 		}
 
-		if entity.Synonyms != nil && len(entity.Synonyms) > 0 {
-			synonymsJSON, _ := json.Marshal(entity.Synonyms)
-			context += fmt.Sprintf("Synonyms: %s\n", string(synonymsJSON))
-		}
+		// TODO: Synonyms field removed from BusinessEntity model
+		// if entity.Synonyms != nil && len(entity.Synonyms) > 0 {
+		// 	synonymsJSON, _ := json.Marshal(entity.Synonyms)
+		// 	context += fmt.Sprintf("Synonyms: %s\n", string(synonymsJSON))
+		// }
 
 		if entity.EntityType != "" {
 			context += fmt.Sprintf("Type: %s\n", string(entity.EntityType))

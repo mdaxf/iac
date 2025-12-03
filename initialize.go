@@ -512,11 +512,10 @@ func initializedDocuments() {
 		ilog.Error("Legacy document database connection failed - DocDBCon is nil")
 	}
 
-	// Initialize new database system
 	// Parse connection string to extract host and port
 	host, port := parseMongoDBConnectionString(DatabaseConnection)
 
-	// Create configuration for new system
+	// Create configuration for unified adapter system
 	docDBConfig := &documents.DocDBConfig{
 		Type:        documents.DocDBType(DatabaseType),
 		Host:        host,
@@ -528,14 +527,29 @@ func initializedDocuments() {
 	}
 
 	// Add authentication if present in connection string
-	// MongoDB connection strings can include username:password
 	if username, password := extractMongoDBCredentials(DatabaseConnection); username != "" {
 		docDBConfig.Username = username
 		docDBConfig.Password = password
 		docDBConfig.AuthSource = "admin" // Default auth source
 	}
 
-	// Initialize the new database initializer
+	// Initialize unified adapter pattern via factory
+	// This will create and register the "default" instance
+	factory := documents.GetDocFactory()
+	db, err := factory.GetOrCreateDB("default", docDBConfig)
+	if err != nil {
+		ilog.Error(fmt.Sprintf("Failed to initialize document database via factory: %v", err))
+		ilog.Info("Document database factory initialization failed")
+	} else {
+		ilog.Info(fmt.Sprintf("Document database factory initialized successfully - instance: default, type: %s", db.GetType()))
+
+		// Log connection info
+		if info, err := factory.GetInstanceInfo("default"); err == nil {
+			ilog.Info(fmt.Sprintf("Default DB instance - Type: %s, Connected: %v", info.Type, info.IsConnected))
+		}
+	}
+
+	// Initialize the new database initializer (if exists)
 	dbinitializer.GlobalInitializer = dbinitializer.NewDatabaseInitializer()
 
 	// Create custom config with document database
@@ -546,7 +560,7 @@ func initializedDocuments() {
 	// Initialize with the config
 	if err := dbinitializer.GlobalInitializer.InitializeWithConfig(dbConfig); err != nil {
 		ilog.Error(fmt.Sprintf("Failed to initialize new document database system: %v", err))
-		ilog.Info("Falling back to legacy mode only")
+		ilog.Info("Falling back to factory-only mode")
 	} else {
 		ilog.Info("New document database system initialized successfully")
 		dbinitializer.GlobalInitializer.PrintDatabaseInfo()

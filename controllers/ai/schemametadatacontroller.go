@@ -18,8 +18,17 @@ type SchemaMetadataController struct {
 
 // NewSchemaMetadataController creates a new schema metadata controller
 func NewSchemaMetadataController() *SchemaMetadataController {
+	// Use vector database for schema embeddings
+	// Note: Schema metadata is discovered dynamically from actual databases
+	// Only embeddings are stored in vector database
+	vectorDB, err := services.GetVectorDB(gormdb.DB)
+	if err != nil {
+		// Fallback to main DB if vector DB is not available
+		vectorDB = gormdb.DB
+	}
+
 	return &SchemaMetadataController{
-		service: services.NewSchemaMetadataService(gormdb.DB),
+		service: services.NewSchemaMetadataService(vectorDB),
 	}
 }
 

@@ -38,6 +38,7 @@ import (
 	dbconn "github.com/mdaxf/iac/databases"
 	mongodb "github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/gormdb"
+	"github.com/mdaxf/iac/services"
 
 	// Register database adapters
 	_ "github.com/mdaxf/iac/databases/mssql"
@@ -131,6 +132,13 @@ func main() {
 			ilog.Error("ChatController and AI features will not be available")
 		} else {
 			ilog.Info("GORM database initialized successfully")
+
+			// Initialize vector database if configured in aiconfig.json
+			ilog.Info("Checking for vector database configuration...")
+			if err := services.InitializeVectorDatabase(gormdb.DB); err != nil {
+				ilog.Error(fmt.Sprintf("Failed to initialize vector database: %v", err))
+				ilog.Error("Vector embeddings features may not work properly")
+			}
 		}
 	} else {
 		//log.Fatalf("Failed to connect to database")
@@ -138,23 +146,30 @@ func main() {
 		ilog.Error("GORM and ChatController will not be available")
 	}
 
+	// Cleanup legacy MongoDB connection (kept for backward compatibility)
 	if mongodb.DocDBCon.MongoDBClient != nil {
 		defer mongodb.DocDBCon.MongoDBClient.Disconnect(context.Background())
 	} else {
-		//log.Fatalf("Failed to connect to database")
-		ilog.Error("Failed to connect to document database")
+		ilog.Error("Failed to connect to legacy document database")
 	}
-	// Initialize the Gin router
 
+	// Cleanup global MongoDBClients array (kept for backward compatibility - deprecated)
 	for _, dbclient := range com.MongoDBClients {
 		if dbclient != nil {
 			defer dbclient.Disconnect(context.Background())
 		} else {
-			//log.Fatalf("Failed to connect to database")
 			ilog.Error("Failed to connect to the configured document database")
 		}
-
 	}
+
+	// Cleanup all document database instances via unified factory
+	defer func() {
+		if err := mongodb.CloseAllDocDBs(); err != nil {
+			ilog.Error(fmt.Sprintf("Failed to close all document database instances: %v", err))
+		} else {
+			ilog.Info("Successfully closed all document database instances via factory")
+		}
+	}()
 
 	if com.IACMessageBusClient != nil {
 		defer com.IACMessageBusClient.Stop()

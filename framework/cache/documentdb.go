@@ -201,6 +201,8 @@ func (doc *DocumentDBCache) StartAndGC(config string) error {
 		return berror.Errorf(InvalidMemCacheCfg, `config must contains "conn" field: %s`, config)
 	}
 
+	// Create direct MongoDB connection
+	// Note: Factory registration is handled separately to avoid import cycles
 	doc.MongoDBClient, err = mongo.NewClient(options.Client().ApplyURI(cf["conn"]))
 
 	if err != nil {

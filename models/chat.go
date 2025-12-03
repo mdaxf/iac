@@ -96,10 +96,8 @@ type DatabaseSchemaMetadata struct {
 	BusinessName  string       `json:"business_name" gorm:"column:business_name;type:varchar(255)"`
 	BusinessTerms JSONMap      `json:"business_terms" gorm:"column:businessterms;type:json"`
 
-	// Vector embedding fields for semantic search
-	Embedding            VectorArray  `json:"embedding,omitempty" gorm:"column:embedding;type:json"`
-	EmbeddingModel       string       `json:"embedding_model,omitempty" gorm:"column:embedding_model;type:varchar(100)"`
-	EmbeddingGeneratedAt sql.NullTime `json:"embedding_generated_at,omitempty" gorm:"column:embedding_generated_at"`
+	// Note: Vector embeddings are stored in separate database_schema_embeddings table
+	// This keeps metadata and embeddings decoupled
 
 	// Standard IAC audit fields (must be at end)
 	Active          bool         `json:"active" gorm:"column:active;default:true"`
@@ -162,63 +160,71 @@ const (
 
 // BusinessEntity represents business-level entity mappings
 type BusinessEntity struct {
-	ID                 string             `json:"id" gorm:"column:id;primaryKey;type:varchar(36);default:(UUID())"`
-	DatabaseAlias      string             `json:"database_alias" gorm:"column:databasealias;type:varchar(100);not null"`
-	EntityName         string             `json:"entity_name" gorm:"column:entityname;type:varchar(255);not null"`
-	EntityType         BusinessEntityType `json:"entity_type" gorm:"column:entitytype;type:enum('entity','metric','dimension');not null"`
-	Description        string             `json:"description" gorm:"column:description;type:text"`
-	TableMappings      JSONMap            `json:"table_mappings" gorm:"column:tablemappings;type:json"`
-	ColumnMappings     JSONMap            `json:"column_mappings" gorm:"column:columnmappings;type:json"`
-	CalculationFormula string             `json:"calculation_formula" gorm:"column:calculationformula;type:text"`
-	Synonyms           json.RawMessage    `json:"synonyms" gorm:"column:synonyms;type:json"`
-	Examples           json.RawMessage    `json:"examples" gorm:"column:examples;type:json"`
+	ID             int              `json:"id" gorm:"column:id;primaryKey;autoIncrement"`
+	UUID           string           `json:"uuid" gorm:"column:uuid;type:uuid;not null;uniqueIndex"`
+	ReferenceID    string           `json:"referenceid" gorm:"column:referenceid;type:varchar(255);uniqueIndex"`
+	ConfigID       int              `json:"config_id" gorm:"column:config_id;not null"`
+	EntityName     string           `json:"entity_name" gorm:"column:entity_name;type:varchar(255);not null"`
+	EntityType     string           `json:"entity_type" gorm:"column:entity_type;type:varchar(100)"`
+	Description    string           `json:"description" gorm:"column:description;type:text;not null"`
+	DatabaseAlias  string           `json:"database_alias" gorm:"column:database_alias;type:varchar(255)"`
+	SchemaName     string           `json:"schema_name" gorm:"column:schema_name;type:varchar(255)"`
+	Table          string           `json:"table_name" gorm:"column:table_name;type:varchar(255)"`
+	FieldMappings  JSONMap          `json:"field_mappings" gorm:"column:field_mappings;type:jsonb"`
+	Relationships  JSONMap          `json:"relationships" gorm:"column:relationships;type:jsonb"`
+	BusinessRules  JSONMap          `json:"business_rules" gorm:"column:business_rules;type:jsonb"`
+	Metadata       JSONMap          `json:"metadata" gorm:"column:metadata;type:jsonb"`
+	Embedding      VectorArray      `json:"embedding,omitempty" gorm:"column:embedding;type:vector"`
+	EmbeddingHash  string           `json:"embedding_hash" gorm:"column:embedding_hash;type:varchar(64)"`
+	GeneratedAt    sql.NullTime     `json:"generated_at" gorm:"column:generated_at;default:CURRENT_TIMESTAMP"`
 
-	// Vector embedding fields for semantic search
-	Embedding            VectorArray  `json:"embedding,omitempty" gorm:"column:embedding;type:json"`
-	EmbeddingModel       string       `json:"embedding_model,omitempty" gorm:"column:embedding_model;type:varchar(100)"`
-	EmbeddingGeneratedAt sql.NullTime `json:"embedding_generated_at,omitempty" gorm:"column:embedding_generated_at"`
-
-	// Standard IAC audit fields (must be at end)
+	// Standard IAC audit fields
 	Active          bool         `json:"active" gorm:"column:active;default:true"`
-	ReferenceID     string       `json:"reference_id" gorm:"column:referenceid;type:varchar(36)"`
-	CreatedBy       string       `json:"created_by" gorm:"column:createdby;type:varchar(45)"`
-	CreatedOn       sql.NullTime `json:"created_at" gorm:"column:createdon;autoCreateTime"`
-	ModifiedBy      string       `json:"modified_by" gorm:"column:modifiedby;type:varchar(45)"`
-	ModifiedOn      sql.NullTime `json:"updated_at" gorm:"column:modifiedon;autoUpdateTime"`
-	RowVersionStamp int          `json:"row_version_stamp" gorm:"column:rowversionstamp;default:1"`
+	CreatedBy       string       `json:"createdby" gorm:"column:createdby;type:varchar(255);not null"`
+	CreatedOn       sql.NullTime `json:"createdon" gorm:"column:createdon;default:CURRENT_TIMESTAMP"`
+	ModifiedBy      string       `json:"modifiedby" gorm:"column:modifiedby;type:varchar(255)"`
+	ModifiedOn      sql.NullTime `json:"modifiedon" gorm:"column:modifiedon"`
+	RowVersionStamp int          `json:"rowversionstamp" gorm:"column:rowversionstamp;default:1"`
 }
 
 // TableName specifies the table name
 func (BusinessEntity) TableName() string {
-	return "businessentities"
+	return "business_entities"
 }
 
 // QueryTemplate represents reusable query patterns
 type QueryTemplate struct {
-	ID                     string          `json:"id" gorm:"column:id;primaryKey;type:varchar(36);default:(UUID())"`
-	DatabaseAlias          string          `json:"databasealias" gorm:"column:databasealias;type:varchar(100);not null"`
-	TemplateName           string          `json:"templatename" gorm:"column:templatename;type:varchar(255);not null"`
-	Description            string          `json:"description" gorm:"column:description;type:text"`
-	NaturalLanguagePattern string          `json:"naturallanguagepattern" gorm:"column:naturallanguagepattern;type:text"`
-	SQLTemplate            string          `json:"sqltemplate" gorm:"column:sqltemplate;type:text;not null"`
-	ExampleQuestions       json.RawMessage `json:"examplequestions" gorm:"column:examplequestions;type:json"`
-	Parameters             JSONMap         `json:"parameters" gorm:"column:parameters;type:json"`
-	UsageCount             int             `json:"usagecount" gorm:"column:usagecount;default:0"`
-	SuccessRate            *float64        `json:"successrate" gorm:"column:successrate;type:decimal(3,2)"`
+	ID                     int             `json:"id" gorm:"column:id;primaryKey;autoIncrement"`
+	UUID                   string          `json:"uuid" gorm:"column:uuid;type:uuid;not null;uniqueIndex"`
+	ReferenceID            string          `json:"referenceid" gorm:"column:referenceid;type:varchar(255);uniqueIndex"`
+	ConfigID               int             `json:"config_id" gorm:"column:config_id;not null"`
+	TemplateName           string          `json:"template_name" gorm:"column:template_name;type:varchar(255);not null"`
+	TemplateCategory       string          `json:"template_category" gorm:"column:template_category;type:varchar(100)"`
+	NaturalLanguageQuery   string          `json:"natural_language_query" gorm:"column:natural_language_query;type:text;not null"`
+	SQLTemplate            string          `json:"sql_template" gorm:"column:sql_template;type:text;not null"`
+	Parameters             JSONMap         `json:"parameters" gorm:"column:parameters;type:jsonb"`
+	DatabaseAlias          string          `json:"database_alias" gorm:"column:database_alias;type:varchar(255)"`
+	EntitiesUsed           JSONMap         `json:"entities_used" gorm:"column:entities_used;type:jsonb"`
+	ExampleQueries         JSONMap         `json:"example_queries" gorm:"column:example_queries;type:jsonb"`
+	ExpectedResultsSchema  JSONMap         `json:"expected_results_schema" gorm:"column:expected_results_schema;type:jsonb"`
+	UsageCount             int             `json:"usage_count" gorm:"column:usage_count;default:0"`
+	LastUsedAt             sql.NullTime    `json:"last_used_at" gorm:"column:last_used_at"`
+	Embedding              VectorArray     `json:"embedding,omitempty" gorm:"column:embedding;type:vector"`
+	EmbeddingHash          string          `json:"embedding_hash" gorm:"column:embedding_hash;type:varchar(64)"`
+	GeneratedAt            sql.NullTime    `json:"generated_at" gorm:"column:generated_at;default:CURRENT_TIMESTAMP"`
 
-	// Standard IAC audit fields (must be at end)
+	// Standard IAC audit fields
 	Active          bool         `json:"active" gorm:"column:active;default:true"`
-	ReferenceID     string       `json:"referenceid" gorm:"column:referenceid;type:varchar(36)"`
-	CreatedBy       string       `json:"createdby" gorm:"column:createdby;type:varchar(45)"`
-	CreatedOn       sql.NullTime `json:"createdon" gorm:"column:createdon;autoCreateTime"`
-	ModifiedBy      string       `json:"modifiedby" gorm:"column:modifiedby;type:varchar(45)"`
-	ModifiedOn      sql.NullTime `json:"modifiedon" gorm:"column:modifiedon;autoUpdateTime"`
+	CreatedBy       string       `json:"createdby" gorm:"column:createdby;type:varchar(255);not null"`
+	CreatedOn       sql.NullTime `json:"createdon" gorm:"column:createdon;default:CURRENT_TIMESTAMP"`
+	ModifiedBy      string       `json:"modifiedby" gorm:"column:modifiedby;type:varchar(255)"`
+	ModifiedOn      sql.NullTime `json:"modifiedon" gorm:"column:modifiedon"`
 	RowVersionStamp int          `json:"rowversionstamp" gorm:"column:rowversionstamp;default:1"`
 }
 
 // TableName specifies the table name
 func (QueryTemplate) TableName() string {
-	return "querytemplates"
+	return "query_templates"
 }
 
 // GenerationType represents the type of AI generation

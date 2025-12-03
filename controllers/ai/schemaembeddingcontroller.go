@@ -15,15 +15,26 @@ import (
 // SchemaEmbeddingController handles API endpoints for vector embedding generation
 type SchemaEmbeddingController struct {
 	DB                     *gorm.DB
+	VectorDB               *gorm.DB
 	SchemaEmbeddingService *services.SchemaEmbeddingService
+	EmbeddingJobService    *services.EmbeddingJobService
 	iLog                   logger.Log
 }
 
 // NewSchemaEmbeddingController creates a new schema embedding controller
 func NewSchemaEmbeddingController(db *gorm.DB, openAIKey string) *SchemaEmbeddingController {
+	// Get vector database connection
+	vectorDB, err := services.GetVectorDB(db)
+	if err != nil {
+		// Fallback to main DB if vector DB connection fails
+		vectorDB = db
+	}
+
 	return &SchemaEmbeddingController{
 		DB:                     db,
+		VectorDB:               vectorDB,
 		SchemaEmbeddingService: services.NewSchemaEmbeddingService(db, openAIKey),
+		EmbeddingJobService:    services.NewEmbeddingJobService(db, openAIKey),
 		iLog: logger.Log{
 			ModuleName:     logger.Framework,
 			User:           "System",
@@ -34,7 +45,9 @@ func NewSchemaEmbeddingController(db *gorm.DB, openAIKey string) *SchemaEmbeddin
 
 // GenerateEmbeddingsRequest represents the request to generate embeddings
 type GenerateEmbeddingsRequest struct {
-	DatabaseAlias string `json:"databasealias" binding:"required"`
+	DatabaseAlias string   `json:"databasealias" binding:"required"`
+	TableNames    []string `json:"table_names,omitempty"` // Optional: specific tables to process
+	Force         bool     `json:"force,omitempty"`       // Force regeneration even if embeddings exist
 }
 
 // GenerateEmbeddingsResponse represents the response from embedding generation
@@ -53,10 +66,10 @@ type SearchRequest struct {
 	Limit         int    `json:"limit"`
 }
 
-// GenerateEmbeddings generates embeddings for all schema elements in a database
+// GenerateEmbeddings generates embeddings for all schema elements in a database (async)
 // POST /api/ai/embeddings/generate
 func (c *SchemaEmbeddingController) GenerateEmbeddings(ctx *gin.Context) {
-	c.iLog.Info("GenerateEmbeddings API called")
+	c.iLog.Info("GenerateEmbeddings API called (async mode)")
 
 	var req GenerateEmbeddingsRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -68,41 +81,30 @@ func (c *SchemaEmbeddingController) GenerateEmbeddings(ctx *gin.Context) {
 		return
 	}
 
-	c.iLog.Info(fmt.Sprintf("Generating embeddings for database: %s", req.DatabaseAlias))
+	c.iLog.Info(fmt.Sprintf("Creating async embedding job for database: %s, tables: %v, force: %v",
+		req.DatabaseAlias, req.TableNames, req.Force))
 
-	// Generate embeddings in background context
-	bgCtx := context.Background()
-	err := c.SchemaEmbeddingService.GenerateEmbeddingsForDatabase(bgCtx, req.DatabaseAlias)
+	// Create async job
+	job, err := c.EmbeddingJobService.CreateEmbeddingJob(req.DatabaseAlias, "generate_embeddings", req.TableNames, req.Force)
 	if err != nil {
-		c.iLog.Error(fmt.Sprintf("Failed to generate embeddings: %v", err))
+		c.iLog.Error(fmt.Sprintf("Failed to create embedding job: %v", err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
-			"error":   "Failed to generate embeddings: " + err.Error(),
+			"error":   "Failed to create embedding job: " + err.Error(),
 		})
 		return
 	}
 
-	// Count generated embeddings
-	var tablesCount, columnsCount, entitiesCount int64
-	c.DB.Table("databaseschemametadata").
-		Where("databasealias = ? AND metadatatype = ? AND embedding IS NOT NULL", req.DatabaseAlias, "table").
-		Count(&tablesCount)
-	c.DB.Table("databaseschemametadata").
-		Where("databasealias = ? AND metadatatype = ? AND embedding IS NOT NULL", req.DatabaseAlias, "column").
-		Count(&columnsCount)
-	c.DB.Table("businessentities").
-		Where("databasealias = ? AND embedding IS NOT NULL", req.DatabaseAlias).
-		Count(&entitiesCount)
+	// Start processing in background
+	c.EmbeddingJobService.ProcessEmbeddingJobAsync(job.ID, req.DatabaseAlias, req.TableNames, req.Force)
 
-	c.iLog.Info(fmt.Sprintf("Successfully generated embeddings: %d tables, %d columns, %d entities",
-		tablesCount, columnsCount, entitiesCount))
+	c.iLog.Info(fmt.Sprintf("Created embedding job with UUID: %s", job.UUID))
 
-	ctx.JSON(http.StatusOK, GenerateEmbeddingsResponse{
-		Success:       true,
-		Message:       "Embeddings generated successfully",
-		TablesCount:   int(tablesCount),
-		ColumnsCount:  int(columnsCount),
-		EntitiesCount: int(entitiesCount),
+	ctx.JSON(http.StatusAccepted, gin.H{
+		"success": true,
+		"message": "Embedding generation job started",
+		"job_id":  job.UUID,
+		"status":  job.Status,
 	})
 }
 
@@ -229,6 +231,57 @@ func (c *SchemaEmbeddingController) SearchBusinessEntities(ctx *gin.Context) {
 	})
 }
 
+// GetJobStatus returns the status of an embedding generation job
+// GET /api/ai/embeddings/job/:job_id
+func (c *SchemaEmbeddingController) GetJobStatus(ctx *gin.Context) {
+	jobUUID := ctx.Param("job_id")
+	c.iLog.Info(fmt.Sprintf("GetJobStatus API called for job: %s", jobUUID))
+
+	if jobUUID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Job ID is required",
+		})
+		return
+	}
+
+	job, err := c.EmbeddingJobService.GetJobByUUID(jobUUID)
+	if err != nil {
+		c.iLog.Error(fmt.Sprintf("Job not found: %v", err))
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"error":   "Job not found",
+		})
+		return
+	}
+
+	c.iLog.Info(fmt.Sprintf("Job %s status: %s (%d/%d items processed, %d failed)",
+		jobUUID, job.Status, job.ProcessedItems, job.TotalItems, job.FailedItems))
+
+	response := gin.H{
+		"success":         true,
+		"job_id":          job.UUID,
+		"status":          job.Status,
+		"total_items":     job.TotalItems,
+		"processed_items": job.ProcessedItems,
+		"failed_items":    job.FailedItems,
+		"started_at":      job.StartedAt,
+		"completed_at":    job.CompletedAt,
+	}
+
+	if job.ErrorMessage != nil {
+		response["error_message"] = *job.ErrorMessage
+	}
+
+	// Calculate progress percentage
+	if job.TotalItems > 0 {
+		progress := float64(job.ProcessedItems) / float64(job.TotalItems) * 100
+		response["progress"] = fmt.Sprintf("%.1f%%", progress)
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
 // GetEmbeddingStatus returns the status of embeddings for a database
 // GET /api/ai/embeddings/status/:databasealias
 func (c *SchemaEmbeddingController) GetEmbeddingStatus(ctx *gin.Context) {
@@ -248,25 +301,34 @@ func (c *SchemaEmbeddingController) GetEmbeddingStatus(ctx *gin.Context) {
 	var totalColumns, embeddedColumns int64
 	var totalEntities, embeddedEntities int64
 
+	// Count total tables from main database metadata
 	c.DB.Table("databaseschemametadata").
 		Where("databasealias = ? AND metadatatype = ?", databaseAlias, "table").
 		Count(&totalTables)
-	c.DB.Table("databaseschemametadata").
-		Where("databasealias = ? AND metadatatype = ? AND embedding IS NOT NULL", databaseAlias, "table").
+
+	// Count embedded tables from vector database
+	c.VectorDB.Table("database_schema_embeddings").
+		Where("database_alias = ? AND column_name IS NULL", databaseAlias).
 		Count(&embeddedTables)
 
+	// Count total columns from main database metadata
 	c.DB.Table("databaseschemametadata").
 		Where("databasealias = ? AND metadatatype = ?", databaseAlias, "column").
 		Count(&totalColumns)
-	c.DB.Table("databaseschemametadata").
-		Where("databasealias = ? AND metadatatype = ? AND embedding IS NOT NULL", databaseAlias, "column").
+
+	// Count embedded columns from vector database
+	c.VectorDB.Table("database_schema_embeddings").
+		Where("database_alias = ? AND column_name IS NOT NULL", databaseAlias).
 		Count(&embeddedColumns)
 
+	// Count total business entities from main database
 	c.DB.Table("businessentities").
 		Where("databasealias = ?", databaseAlias).
 		Count(&totalEntities)
-	c.DB.Table("businessentities").
-		Where("databasealias = ? AND embedding IS NOT NULL", databaseAlias).
+
+	// Count embedded business entities from vector database
+	c.VectorDB.Table("business_entities").
+		Where("database_alias = ? AND embedding IS NOT NULL", databaseAlias).
 		Count(&embeddedEntities)
 
 	tablesCoverage := float64(0)
@@ -321,37 +383,41 @@ func (c *SchemaEmbeddingController) DeleteEmbeddings(ctx *gin.Context) {
 		return
 	}
 
-	// Set embeddings to NULL for all schema metadata
-	err := c.DB.Exec(`
-		UPDATE databaseschemametadata
-		SET embedding = NULL, embedding_model = NULL, embedding_generated_at = NULL
-		WHERE databasealias = ?
+	// Delete schema embeddings from vector database
+	err := c.VectorDB.Exec(`
+		DELETE FROM database_schema_embeddings
+		WHERE database_alias = ?
 	`, databaseAlias).Error
 
 	if err != nil {
-		c.iLog.Error(fmt.Sprintf("Failed to delete schema metadata embeddings: %v", err))
+		c.iLog.Error(fmt.Sprintf("Failed to delete schema embeddings: %v", err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
-			"error":   "Failed to delete embeddings: " + err.Error(),
+			"error":   "Failed to delete schema embeddings: " + err.Error(),
 		})
 		return
 	}
 
-	// Set embeddings to NULL for all business entities
-	err = c.DB.Exec(`
-		UPDATE businessentities
-		SET embedding = NULL, embedding_model = NULL, embedding_generated_at = NULL
-		WHERE databasealias = ?
+	// Delete business entity embeddings from vector database
+	err = c.VectorDB.Exec(`
+		DELETE FROM business_entities
+		WHERE database_alias = ?
 	`, databaseAlias).Error
 
 	if err != nil {
 		c.iLog.Error(fmt.Sprintf("Failed to delete business entity embeddings: %v", err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
-			"error":   "Failed to delete embeddings: " + err.Error(),
+			"error":   "Failed to delete business entity embeddings: " + err.Error(),
 		})
 		return
 	}
+
+	// Also delete query template embeddings if they exist
+	c.VectorDB.Exec(`
+		DELETE FROM query_templates
+		WHERE database_alias = ? AND embedding IS NOT NULL
+	`, databaseAlias)
 
 	c.iLog.Info(fmt.Sprintf("Successfully deleted all embeddings for database: %s", databaseAlias))
 
@@ -366,6 +432,7 @@ func (c *SchemaEmbeddingController) RegisterRoutes(router *gin.RouterGroup) {
 	embeddings := router.Group("/embeddings")
 	{
 		embeddings.POST("/generate", c.GenerateEmbeddings)
+		embeddings.GET("/job/:job_id", c.GetJobStatus)
 		embeddings.GET("/status/:databasealias", c.GetEmbeddingStatus)
 		embeddings.DELETE("/:databasealias", c.DeleteEmbeddings)
 

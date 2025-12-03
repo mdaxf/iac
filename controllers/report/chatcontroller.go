@@ -10,6 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mdaxf/iac/config"
 	"github.com/mdaxf/iac/controllers/common"
+
+	//	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/gormdb"
 	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac/models"
@@ -36,8 +38,16 @@ func NewChatController() *ChatController {
 		}
 	}
 
-	// Initialize SchemaMetadataService for auto-discovery
-	// This service queries the current GORM database directly
+	// For now, use the legacy SchemaMetadataService
+	// The auto-discovery will fall back to using configuration.json databases
+	// TODO: Migrate to PoolManager-based approach when database connections are properly initialized
+	iLog := logger.Log{
+		ModuleName:     logger.API,
+		User:           "System",
+		ControllerName: "chat",
+	}
+	iLog.Debug("Creating ChatService with SchemaMetadataService (uses configuration.json for database connections)")
+
 	schemaService := services.NewSchemaMetadataService(gormdb.DB)
 
 	return &ChatController{
@@ -65,8 +75,10 @@ func (cc *ChatController) CreateConversation(c *gin.Context) {
 
 	var request struct {
 		Title            string `json:"title"`
-		DatabaseAlias    string `json:"database_alias"`
-		AutoExecuteQuery bool   `json:"auto_execute_query"`
+		DatabaseAlias    string `json:"database_alias,omitempty"`
+		DatabaseAliasAlt string `json:"databasealias,omitempty"`
+		AutoExecuteQuery bool   `json:"auto_execute_query,omitempty"`
+		AutoExecuteAlt   bool   `json:"autoexecutequery,omitempty"`
 	}
 
 	if err := json.Unmarshal(body, &request); err != nil {
@@ -82,7 +94,14 @@ func (cc *ChatController) CreateConversation(c *gin.Context) {
 		return
 	}
 
-	conversation, err := cc.service.CreateConversation(user, request.DatabaseAlias, request.Title, request.AutoExecuteQuery)
+	// Handle both naming conventions for database_alias and auto_execute_query
+	databaseAlias := request.DatabaseAlias
+	if databaseAlias == "" {
+		databaseAlias = request.DatabaseAliasAlt
+	}
+	autoExecute := request.AutoExecuteQuery || request.AutoExecuteAlt
+
+	conversation, err := cc.service.CreateConversation(user, databaseAlias, request.Title, autoExecute)
 	if err != nil {
 		iLog.Error(fmt.Sprintf("Error creating conversation: %v", err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create conversation"})
@@ -192,8 +211,10 @@ func (cc *ChatController) SendMessage(c *gin.Context) {
 
 	var request struct {
 		Message          string `json:"message"`
-		DatabaseAlias    string `json:"database_alias"`
-		AutoExecuteQuery bool   `json:"auto_execute_query"`
+		DatabaseAlias    string `json:"database_alias,omitempty"`
+		DatabaseAliasAlt string `json:"databasealias,omitempty"`
+		AutoExecuteQuery bool   `json:"auto_execute_query,omitempty"`
+		AutoExecuteAlt   bool   `json:"autoexecutequery,omitempty"`
 	}
 
 	if err := json.Unmarshal(body, &request); err != nil {
@@ -215,12 +236,19 @@ func (cc *ChatController) SendMessage(c *gin.Context) {
 	}
 
 	// Process message and generate AI response
+	// Handle both naming conventions for database_alias and auto_execute_query
+	databaseAlias := request.DatabaseAlias
+	if databaseAlias == "" {
+		databaseAlias = request.DatabaseAliasAlt
+	}
+	autoExecute := request.AutoExecuteQuery || request.AutoExecuteAlt
+
 	response, err := cc.service.ProcessMessage(
 		c.Request.Context(),
 		conversationID,
 		request.Message,
-		request.DatabaseAlias,
-		request.AutoExecuteQuery,
+		databaseAlias,
+		autoExecute,
 	)
 
 	if err != nil {
@@ -323,4 +351,85 @@ func (cc *ChatController) SearchSchema(c *gin.Context) {
 		"results": results,
 		"count":   len(results),
 	})
+}
+
+// GetMessageStatus handles GET /:conversation_id/messages/:message_id/status - Get message processing status
+func (cc *ChatController) GetMessageStatus(c *gin.Context) {
+	messageID := c.Param("message_id")
+	if messageID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Message ID is required"})
+		return
+	}
+
+	// Check if service is initialized
+	if cc.service == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Chat service is not available"})
+		return
+	}
+
+	message, err := cc.service.GetMessage(messageID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Message not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, message)
+}
+
+// ExecuteSQL handles POST /:conversation_id/messages/:message_id/execute - Execute or re-execute SQL
+func (cc *ChatController) ExecuteSQL(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "chat"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("chat.ExecuteSQL", elapsed)
+	}()
+
+	conversationID := c.Param("id")
+	messageID := c.Param("message_id")
+
+	if conversationID == "" || messageID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Conversation ID and Message ID are required"})
+		return
+	}
+
+	body, clientid, user, err := common.GetRequestBodyandUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	var request struct {
+		ModifiedSQL *string `json:"modified_sql,omitempty"`
+	}
+
+	// Allow empty body for execute without modification
+	if len(body) > 0 {
+		if err := json.Unmarshal(body, &request); err != nil {
+			iLog.Error(fmt.Sprintf("Error unmarshalling request: %v", err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+	}
+
+	// Check if service is initialized
+	if cc.service == nil {
+		iLog.Error("ChatService is not initialized - database may not be connected")
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Chat service is not available. Database may not be initialized."})
+		return
+	}
+
+	// Execute SQL for the message
+	result, err := cc.service.ExecuteMessageSQL(c.Request.Context(), messageID, request.ModifiedSQL)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error executing SQL: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to execute SQL"})
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("SQL executed successfully for message %s", messageID))
+	c.JSON(http.StatusOK, result)
 }

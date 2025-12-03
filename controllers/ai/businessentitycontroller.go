@@ -16,8 +16,15 @@ type BusinessEntityController struct {
 
 // NewBusinessEntityController creates a new business entity controller
 func NewBusinessEntityController() *BusinessEntityController {
+	// Use vector database for business entities
+	vectorDB, err := services.GetVectorDB(gormdb.DB)
+	if err != nil {
+		// Fallback to main DB if vector DB is not available
+		vectorDB = gormdb.DB
+	}
+
 	return &BusinessEntityController{
-		service: services.NewBusinessEntityService(gormdb.DB),
+		service: services.NewBusinessEntityService(vectorDB),
 	}
 }
 

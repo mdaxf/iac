@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mdaxf/iac/databases/orm"
 	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac/models"
+	openai "github.com/sashabaranov/go-openai"
 	"gorm.io/gorm"
 )
 
@@ -92,6 +94,15 @@ func (s *ChatService) DeleteConversation(id string) error {
 		Update("active", false).Error
 }
 
+// GetMessage retrieves a single message by ID
+func (s *ChatService) GetMessage(messageID string) (*models.ChatMessage, error) {
+	var message models.ChatMessage
+	if err := s.DB.First(&message, "id = ?", messageID).Error; err != nil {
+		return nil, fmt.Errorf("message not found: %w", err)
+	}
+	return &message, nil
+}
+
 // ProcessMessage processes a user message and generates AI response
 func (s *ChatService) ProcessMessage(ctx context.Context, conversationID, userMessage, databaseAlias string, autoExecute bool) (*models.ChatMessage, error) {
 	s.iLog.Info(fmt.Sprintf("ProcessMessage START - ConversationID: %s, DatabaseAlias: %s, Message: %s", conversationID, databaseAlias, userMessage))
@@ -121,65 +132,29 @@ func (s *ChatService) ProcessMessage(ctx context.Context, conversationID, userMe
 	s.iLog.Info(fmt.Sprintf("Schema context retrieved, length: %d characters", len(schemaContext)))
 	s.iLog.Debug(fmt.Sprintf("Schema context content:\n%s", schemaContext))
 
-	// 3. Generate SQL using AI
-	s.iLog.Info("Step 3: Generating SQL query using AI")
-	sqlResponse, err := s.generateSQLWithContext(ctx, userMessage, schemaContext)
-	if err != nil {
-		s.iLog.Error(fmt.Sprintf("Failed to generate SQL: %v", err))
-		return nil, fmt.Errorf("failed to generate SQL: %w", err)
-	}
-	s.iLog.Info(fmt.Sprintf("SQL generated successfully, confidence: %.2f", sqlResponse.Confidence))
-	s.iLog.Debug(fmt.Sprintf("Generated SQL: %s", sqlResponse.SQL))
-
-	// 4. Create assistant response
-	s.iLog.Debug("Step 4: Creating assistant response message")
-	confidence := sqlResponse.Confidence
+	// 3. Create assistant response placeholder immediately
+	s.iLog.Debug("Step 3: Creating assistant response placeholder")
 	assistantMsg := &models.ChatMessage{
 		ID:             uuid.New().String(),
 		ConversationID: conversationID,
 		MessageType:    models.MessageTypeAssistant,
-		Text:           sqlResponse.Explanation,
-		SQLQuery:       sqlResponse.SQL,
-		SQLConfidence:  &confidence,
+		Text:           "Generating SQL query...",
 		Provenance: map[string]interface{}{
-			"tables_used":  sqlResponse.TablesUsed,
-			"columns_used": sqlResponse.ColumnsUsed,
-			"reasoning":    sqlResponse.Reasoning,
-			"query_type":   sqlResponse.QueryType,
+			"sql_status": "generating",
 		},
 	}
 
-	// 5. Execute SQL if auto-execute is enabled
-	if autoExecute && sqlResponse.SQL != "" {
-		s.iLog.Info("Step 5: Auto-executing SQL query")
-		startTime := time.Now()
-		resultData, rowCount, execErr := s.executeSQL(databaseAlias, sqlResponse.SQL)
-		executionTime := int(time.Since(startTime).Milliseconds())
-		assistantMsg.ExecutionTimeMs = &executionTime
-
-		if execErr != nil {
-			s.iLog.Error(fmt.Sprintf("SQL execution failed: %v", execErr))
-			assistantMsg.ErrorMessage = execErr.Error()
-		} else {
-			s.iLog.Info(fmt.Sprintf("SQL executed successfully, returned %d rows in %dms", rowCount, executionTime))
-			assistantMsg.ResultData = resultData
-			assistantMsg.RowCount = &rowCount
-		}
-	} else {
-		s.iLog.Debug("Step 5: Skipping SQL execution (auto-execute disabled or no SQL generated)")
-	}
-
-	// 6. Save assistant message
-	s.iLog.Debug("Step 6: Saving assistant message to database")
+	// 4. Save assistant message placeholder
+	s.iLog.Debug("Step 4: Saving assistant message placeholder to database")
 	if err := s.DB.Create(assistantMsg).Error; err != nil {
 		s.iLog.Error(fmt.Sprintf("Failed to save assistant message: %v", err))
 		return nil, fmt.Errorf("failed to save assistant message: %w", err)
 	}
-	s.iLog.Debug(fmt.Sprintf("Assistant message saved with ID: %s", assistantMsg.ID))
+	s.iLog.Debug(fmt.Sprintf("Assistant message placeholder saved with ID: %s", assistantMsg.ID))
 
-	// 7. Log AI generation
-	s.iLog.Debug("Step 7: Logging AI generation metadata")
-	s.logAIGeneration(conversationID, assistantMsg.ID, sqlResponse)
+	// 5. Launch async SQL generation and execution
+	s.iLog.Info("Step 5: Launching async SQL generation and execution")
+	go s.generateAndExecuteSQL(conversationID, assistantMsg.ID, userMessage, databaseAlias, schemaContext, autoExecute)
 
 	s.iLog.Info(fmt.Sprintf("ProcessMessage COMPLETE - ConversationID: %s, AssistantMsgID: %s", conversationID, assistantMsg.ID))
 	return assistantMsg, nil
@@ -217,9 +192,10 @@ func (s *ChatService) getSchemaContext(databaseAlias, question string) (string, 
 		contextBuilder.WriteString("BUSINESS ENTITIES:\n")
 		for _, entity := range businessEntities {
 			contextBuilder.WriteString(fmt.Sprintf("- %s (%s): %s\n", entity.EntityName, entity.EntityType, entity.Description))
-			if entity.CalculationFormula != "" {
-				contextBuilder.WriteString(fmt.Sprintf("  Formula: %s\n", entity.CalculationFormula))
-			}
+			// TODO: CalculationFormula field removed from BusinessEntity model
+			// if entity.CalculationFormula != "" {
+			// 	contextBuilder.WriteString(fmt.Sprintf("  Formula: %s\n", entity.CalculationFormula))
+			// }
 		}
 		contextBuilder.WriteString("\n")
 	} else {
@@ -230,23 +206,68 @@ func (s *ChatService) getSchemaContext(databaseAlias, question string) (string, 
 		// Count tables vs columns
 		tableCount := 0
 		columnCount := 0
+		tableNames := make(map[string]bool) // Track unique table names
 		for _, meta := range tableMetadata {
 			if meta.MetadataType == models.MetadataTypeTable {
 				tableCount++
+				tableNames[meta.Table] = true
 			} else {
 				columnCount++
 			}
 		}
 		s.iLog.Info(fmt.Sprintf("Building context with %d tables and %d columns", tableCount, columnCount))
 
-		contextBuilder.WriteString("TABLES AND COLUMNS:\n")
+		contextBuilder.WriteString("TABLES, COLUMNS, AND SAMPLE DATA:\n\n")
+
+		// Group metadata by table for better organization
+		tableMap := make(map[string][]models.DatabaseSchemaMetadata)
 		for _, meta := range tableMetadata {
 			if meta.MetadataType == models.MetadataTypeTable {
-				contextBuilder.WriteString(fmt.Sprintf("Table: %s - %s\n", meta.Table, meta.Description))
-			} else {
-				contextBuilder.WriteString(fmt.Sprintf("  - %s.%s (%s): %s\n",
-					meta.Table, meta.Column, meta.DataType, meta.ColumnComment))
+				tableMap[meta.Table] = []models.DatabaseSchemaMetadata{meta}
 			}
+		}
+		for _, meta := range tableMetadata {
+			if meta.MetadataType == models.MetadataTypeColumn {
+				tableMap[meta.Table] = append(tableMap[meta.Table], meta)
+			}
+		}
+
+		// Build context for each table with columns and sample data
+		for tableName, metaList := range tableMap {
+			// Table description
+			for _, meta := range metaList {
+				if meta.MetadataType == models.MetadataTypeTable {
+					contextBuilder.WriteString(fmt.Sprintf("Table: %s\n", tableName))
+					if meta.Description != "" {
+						contextBuilder.WriteString(fmt.Sprintf("Description: %s\n", meta.Description))
+					}
+					break
+				}
+			}
+
+			// Columns
+			contextBuilder.WriteString("Columns:\n")
+			for _, meta := range metaList {
+				if meta.MetadataType == models.MetadataTypeColumn {
+					contextBuilder.WriteString(fmt.Sprintf("  - %s (%s)", meta.Column, meta.DataType))
+					if meta.ColumnComment != "" {
+						contextBuilder.WriteString(fmt.Sprintf(": %s", meta.ColumnComment))
+					}
+					contextBuilder.WriteString("\n")
+				}
+			}
+
+			// Fetch and include sample data (1-3 records)
+			sampleData, err := s.getSampleDataForTable(databaseAlias, tableName)
+			if err == nil && len(sampleData) > 0 {
+				contextBuilder.WriteString(fmt.Sprintf("Sample Data (%d rows):\n", len(sampleData)))
+				sampleJSON, _ := json.MarshalIndent(sampleData, "  ", "  ")
+				contextBuilder.WriteString(fmt.Sprintf("  %s\n", string(sampleJSON)))
+			} else if err != nil {
+				s.iLog.Debug(fmt.Sprintf("Could not fetch sample data for %s: %v", tableName, err))
+			}
+
+			contextBuilder.WriteString("\n")
 		}
 	} else {
 		s.iLog.Warn("WARNING: No table metadata found - schema context will be empty!")
@@ -261,35 +282,23 @@ func (s *ChatService) getSchemaContext(databaseAlias, question string) (string, 
 func (s *ChatService) getRelevantBusinessEntities(databaseAlias, question string) ([]models.BusinessEntity, error) {
 	s.iLog.Debug("Attempting vector-based business entity search")
 
-	// Try vector similarity search first (if embeddings exist)
+	// Use vector similarity search from vector database
+	// Business entities are ONLY stored in vector database, not in main database
 	ctx := context.Background()
 	entities, err := s.SchemaEmbeddingService.SearchSimilarBusinessEntities(ctx, databaseAlias, question, 5)
-	if err == nil && len(entities) > 0 {
-		s.iLog.Info(fmt.Sprintf("Vector search found %d business entities", len(entities)))
-		return entities, nil
-	}
 
 	if err != nil {
-		s.iLog.Warn(fmt.Sprintf("Vector search failed: %v, falling back to full-text search", err))
-	} else {
-		s.iLog.Debug("Vector search returned 0 results, falling back to full-text search")
+		s.iLog.Warn(fmt.Sprintf("Vector search failed: %v - returning empty result", err))
+		return []models.BusinessEntity{}, nil // Return empty result instead of error
 	}
 
-	// Fallback to full-text search (requires FULLTEXT index)
-	err = s.DB.Where("databasealias = ?", databaseAlias).
-		Where("MATCH(entityname, description) AGAINST(? IN NATURAL LANGUAGE MODE)", question).
-		Limit(5).
-		Find(&entities).Error
-
-	// If FULLTEXT search fails (no index or other error), fall back to simple query
-	if err != nil || len(entities) == 0 {
-		s.iLog.Debug("Full-text search failed or returned 0 results, using simple query")
-		err = s.DB.Where("databasealias = ?", databaseAlias).
-			Limit(10).
-			Find(&entities).Error
+	if len(entities) == 0 {
+		s.iLog.Debug("Vector search returned 0 results - no business entities found")
+		return []models.BusinessEntity{}, nil
 	}
 
-	return entities, err
+	s.iLog.Info(fmt.Sprintf("Vector search found %d business entities", len(entities)))
+	return entities, nil
 }
 
 // getRelevantTableMetadata finds table/column metadata relevant to the question
@@ -333,68 +342,17 @@ func (s *ChatService) getRelevantTableMetadata(databaseAlias, question string) (
 			s.iLog.Info(fmt.Sprintf("Vector search returned %d useful metadata entries", len(metadata)))
 			return metadata, nil
 		} else {
-			s.iLog.Warn("Vector search returned metadata but it's incomplete, falling back to full-text search")
+			s.iLog.Warn("Vector search returned metadata but it's incomplete, will trigger auto-discovery")
 			metadata = []models.DatabaseSchemaMetadata{}
 		}
 	} else {
-		s.iLog.Debug("Vector search returned 0 results, falling back to full-text search")
+		s.iLog.Debug("Vector search returned 0 results, will trigger auto-discovery")
 	}
 
-	// Fallback to full-text search (requires FULLTEXT index)
-	s.iLog.Debug("Attempting full-text search on schema metadata")
-	err = s.DB.Where("databasealias = ?", databaseAlias).
-		Where("MATCH(description, columncomment) AGAINST(? IN NATURAL LANGUAGE MODE)", question).
-		Limit(10).
-		Find(&metadata).Error
-
-	if err != nil {
-		s.iLog.Warn(fmt.Sprintf("Full-text search failed (likely no FULLTEXT index): %v", err))
-	} else if len(metadata) > 0 {
-		// Filter out invalid metadata entries
-		metadata = filterValidMetadata(metadata)
-		if len(metadata) > 0 {
-			s.iLog.Info(fmt.Sprintf("Full-text search found %d valid metadata entries", len(metadata)))
-			// Check if the metadata is actually useful (has both tables and columns)
-			if isMetadataUseful(metadata) {
-				s.iLog.Debug("Full-text search metadata is useful, returning it")
-				return metadata, nil
-			} else {
-				s.iLog.Warn("Full-text search returned metadata but it's incomplete (missing columns), will try simple query or auto-discovery")
-				// Clear metadata so we fall through to simple query and auto-discovery logic
-				metadata = []models.DatabaseSchemaMetadata{}
-			}
-		} else {
-			s.iLog.Debug("Full-text search returned only invalid entries")
-		}
-	} else {
-		s.iLog.Debug("Full-text search returned 0 results")
-	}
-
-	// If FULLTEXT search fails (no index or other error), fall back to get all tables
-	if err != nil || len(metadata) == 0 {
-		s.iLog.Debug("Falling back to simple query for all tables")
-		// Get tables and columns for the database (limited to avoid OpenAI context overflow)
-		// This will get approximately 10-20 tables with their columns, which is enough for most queries
-		err = s.DB.Where("databasealias = ?", databaseAlias).
-			Order("tablename, metadatatype DESC").
-			Limit(200).
-			Find(&metadata).Error
-
-		if err != nil {
-			s.iLog.Error(fmt.Sprintf("Simple query failed: %v", err))
-		} else {
-			// Filter out invalid metadata entries
-			originalCount := len(metadata)
-			metadata = filterValidMetadata(metadata)
-			if originalCount != len(metadata) {
-				s.iLog.Warn(fmt.Sprintf("Filtered out %d invalid metadata entries (empty table names)", originalCount-len(metadata)))
-			}
-			s.iLog.Info(fmt.Sprintf("Simple query found %d valid metadata entries", len(metadata)))
-		}
-	}
-
-	// Check if metadata is actually useful (has both tables AND columns)
-	hasUsefulMetadata := isMetadataUseful(metadata)
+	// Schema metadata is ONLY in vector database, not main database
+	// Don't fall back to querying main database - instead use auto-discovery
+	// which queries the actual target database's INFORMATION_SCHEMA
+	hasUsefulMetadata := false
 
 	// Log the metadata usefulness check
 	if len(metadata) > 0 && !hasUsefulMetadata {
@@ -511,6 +469,19 @@ CORE PRINCIPLES:
 4. Ensure queries are efficient and follow best practices
 5. Provide clear explanations for your reasoning
 
+AGGREGATION DETECTION - CRITICAL:
+When the question contains words like:
+- "by [column]" → Use GROUP BY on that column
+- "count", "total", "sum", "average", "max", "min" → Use appropriate aggregate function
+- "show X by Y" → SELECT Y, COUNT(*) FROM table GROUP BY Y
+- "statistics", "breakdown", "summary" → Use GROUP BY and COUNT/SUM
+- "each", "per", "for each" → Use GROUP BY
+
+Examples:
+- "show menus by page type" → SELECT pagetype, COUNT(*) as count FROM menus GROUP BY pagetype
+- "total sales by category" → SELECT category, SUM(amount) as total FROM sales GROUP BY category
+- "average price per product" → SELECT product, AVG(price) as avg_price FROM products GROUP BY product
+
 RESPONSE FORMAT (JSON):
 You MUST ALWAYS respond with valid JSON in this exact format, even if you cannot generate a perfect query:
 {
@@ -529,8 +500,9 @@ IMPORTANT:
 - ALWAYS return valid JSON, never plain text
 - Only generate SELECT queries (read-only)
 - Never generate INSERT, UPDATE, DELETE, DROP, ALTER, or other dangerous operations
-- Add LIMIT clause if not specified (default: 100)
-- Use clear aliases for readability`
+- Add LIMIT clause if not specified (default: 100 for detail queries, no limit for aggregations)
+- Use clear aliases for readability
+- Pay special attention to "by" keyword - it almost always means GROUP BY`
 
 	userPrompt := fmt.Sprintf(`%s
 
@@ -539,76 +511,66 @@ User's Question: %s
 
 ### INSTRUCTIONS ###
 1. Analyze the question to understand what data is being requested
-2. Identify the relevant tables and columns from the schema
-3. Determine the appropriate joins, filters, and aggregations
-4. Generate the SQL query following best practices
-5. Provide reasoning for your choices
+2. Check for aggregation keywords ("by", "count", "total", "sum", "average", etc.)
+3. If question contains "by [something]", you MUST use GROUP BY on that column
+4. Identify the relevant tables and columns from the schema
+5. Determine the appropriate joins, filters, and aggregations
+6. Generate the SQL query following best practices
+7. Provide reasoning for your choices
+
+CRITICAL: If the question says "show X by Y", the SQL MUST include GROUP BY Y and COUNT(*).
 
 Respond with JSON only, no additional text.`, schemaContext, question)
 
-	s.iLog.Debug("Building OpenAI API request")
-	// Call OpenAI
-	reqBody := OpenAIRequest{
-		Model: s.OpenAIModel,
-		Messages: []OpenAIMessage{
-			{Role: "system", Content: systemPrompt},
-			{Role: "user", Content: userPrompt},
-		},
-		Temperature: 0.1,
-	}
+	s.iLog.Debug("Creating OpenAI client using go-openai library")
 
-	jsonBody, err := json.Marshal(reqBody)
-	if err != nil {
-		s.iLog.Error(fmt.Sprintf("Failed to marshal OpenAI request: %v", err))
-		return nil, err
-	}
-	s.iLog.Debug(fmt.Sprintf("OpenAI request body size: %d bytes", len(jsonBody)))
-
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonBody))
-	if err != nil {
-		s.iLog.Error(fmt.Sprintf("Failed to create HTTP request: %v", err))
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.OpenAIKey)
+	// Create OpenAI client using go-openai library for better error handling and type safety
+	client := openai.NewClient(s.OpenAIKey)
 
 	s.iLog.Info(fmt.Sprintf("Sending request to OpenAI API (model: %s)", s.OpenAIModel))
-	client := &http.Client{Timeout: 60 * time.Second}
 	startTime := time.Now()
-	resp, err := client.Do(req)
+
+	// Create chat completion request
+	resp, err := client.CreateChatCompletion(
+		ctx,
+		openai.ChatCompletionRequest{
+			Model: s.OpenAIModel,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleSystem,
+					Content: systemPrompt,
+				},
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: userPrompt,
+				},
+			},
+			Temperature: 0.1,
+			ResponseFormat: &openai.ChatCompletionResponseFormat{
+				Type: openai.ChatCompletionResponseFormatTypeJSONObject,
+			},
+		},
+	)
+
 	elapsed := time.Since(startTime)
 
 	if err != nil {
 		s.iLog.Error(fmt.Sprintf("OpenAI API request failed after %v: %v", elapsed, err))
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	s.iLog.Info(fmt.Sprintf("OpenAI API responded in %v with status: %d", elapsed, resp.StatusCode))
-
-	if resp.StatusCode != http.StatusOK {
-		s.iLog.Error(fmt.Sprintf("OpenAI API returned error status: %d", resp.StatusCode))
-		return nil, fmt.Errorf("OpenAI API error: status %d", resp.StatusCode)
+		return nil, fmt.Errorf("OpenAI API request failed: %w", err)
 	}
 
-	s.iLog.Debug("Parsing OpenAI response")
-	var openAIResp OpenAIResponse
-	if err := json.NewDecoder(resp.Body).Decode(&openAIResp); err != nil {
-		s.iLog.Error(fmt.Sprintf("Failed to decode OpenAI response: %v", err))
-		return nil, err
-	}
+	s.iLog.Info(fmt.Sprintf("OpenAI API responded in %v", elapsed))
 
-	if len(openAIResp.Choices) == 0 {
+	if len(resp.Choices) == 0 {
 		s.iLog.Error("OpenAI response contains no choices")
 		return nil, fmt.Errorf("no choices in OpenAI response")
 	}
 
-	s.iLog.Debug(fmt.Sprintf("OpenAI returned %d choices", len(openAIResp.Choices)))
+	s.iLog.Debug(fmt.Sprintf("OpenAI returned %d choices", len(resp.Choices)))
 
 	// Parse SQL response
 	var result Text2SQLResponse
-	rawContent := openAIResp.Choices[0].Message.Content
+	rawContent := resp.Choices[0].Message.Content
 	s.iLog.Debug(fmt.Sprintf("Raw AI response (first 500 chars): %s", truncateString(rawContent, 500)))
 
 	cleanedContent := cleanJSONResponse(rawContent)
@@ -640,20 +602,150 @@ func truncateString(s string, maxLen int) string {
 	return s[:maxLen] + "..."
 }
 
+// getSampleDataForTable fetches 1-3 sample records from a table
+func (s *ChatService) getSampleDataForTable(databaseAlias, tableName string) ([]map[string]interface{}, error) {
+	s.iLog.Debug(fmt.Sprintf("Fetching sample data for table: %s", tableName))
+
+	// Get database connection
+	db, err := orm.GetDB(databaseAlias)
+	if err != nil {
+		s.iLog.Warn(fmt.Sprintf("Error getting database for sample data: %v", err))
+		return nil, err
+	}
+
+	// Build safe SELECT query with LIMIT 3
+	query := fmt.Sprintf("SELECT * FROM %s LIMIT 3", tableName)
+	s.iLog.Debug(fmt.Sprintf("Sample data query: %s", query))
+
+	rows, err := db.Query(query)
+	if err != nil {
+		s.iLog.Warn(fmt.Sprintf("Error fetching sample data from %s: %v", tableName, err))
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Get column names
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	// Read sample rows
+	var sampleData []map[string]interface{}
+	for rows.Next() {
+		// Create slice for scanning
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range columns {
+			valuePtrs[i] = &values[i]
+		}
+
+		if err := rows.Scan(valuePtrs...); err != nil {
+			s.iLog.Warn(fmt.Sprintf("Error scanning row: %v", err))
+			continue
+		}
+
+		// Convert to map
+		rowData := make(map[string]interface{})
+		for i, colName := range columns {
+			val := values[i]
+			// Convert byte arrays to strings
+			if b, ok := val.([]byte); ok {
+				rowData[colName] = string(b)
+			} else {
+				rowData[colName] = val
+			}
+		}
+		sampleData = append(sampleData, rowData)
+	}
+
+	s.iLog.Debug(fmt.Sprintf("Fetched %d sample rows from %s", len(sampleData), tableName))
+	return sampleData, nil
+}
+
 // executeSQL executes SQL query on the database
 func (s *ChatService) executeSQL(databaseAlias, sql string) (map[string]interface{}, int, error) {
-	// TODO: Implement actual SQL execution against the specified database
-	// This is a placeholder that returns mock data
-	// In production, you would:
-	// 1. Get database connection from alias
-	// 2. Execute query with timeout
-	// 3. Convert results to JSON
-	// 4. Return data and row count
+	s.iLog.Debug(fmt.Sprintf("executeSQL START - Alias: %s, SQL: %s", databaseAlias, sql))
 
-	return map[string]interface{}{
-		"message": "SQL execution not yet implemented - requires database connection pool",
-		"sql":     sql,
-	}, 0, nil
+	// Get database connection for alias
+	db, err := orm.GetDB(databaseAlias)
+	if err != nil {
+		s.iLog.Error(fmt.Sprintf("Error getting database for alias '%s': %v", databaseAlias, err))
+		return nil, 0, fmt.Errorf("error getting database connection: %v", err)
+	}
+
+	// Safety check - only allow SELECT queries
+	normalizedSQL := strings.ToUpper(strings.TrimSpace(sql))
+	if !strings.HasPrefix(normalizedSQL, "SELECT") {
+		s.iLog.Error("Non-SELECT query attempted")
+		return nil, 0, fmt.Errorf("only SELECT queries are allowed")
+	}
+
+	// Add LIMIT clause if not present (safety measure)
+	if !strings.Contains(normalizedSQL, "LIMIT") && !strings.Contains(normalizedSQL, "TOP") {
+		sql = fmt.Sprintf("%s LIMIT 1000", sql)
+		s.iLog.Debug("Added LIMIT 1000 to query")
+	}
+
+	s.iLog.Debug(fmt.Sprintf("Executing SQL: %s", sql))
+
+	// Execute query
+	rows, err := db.Query(sql)
+	if err != nil {
+		s.iLog.Error(fmt.Sprintf("Error executing query: %v", err))
+		return nil, 0, fmt.Errorf("error executing query: %v", err)
+	}
+	defer rows.Close()
+
+	// Get column names
+	columns, err := rows.Columns()
+	if err != nil {
+		s.iLog.Error(fmt.Sprintf("Error getting columns: %v", err))
+		return nil, 0, fmt.Errorf("error getting columns: %v", err)
+	}
+
+	// Read all rows
+	var resultRows []map[string]interface{}
+	for rows.Next() {
+		// Create slice of interface{} to hold each column
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range columns {
+			valuePtrs[i] = &values[i]
+		}
+
+		// Scan the row
+		if err := rows.Scan(valuePtrs...); err != nil {
+			s.iLog.Error(fmt.Sprintf("Error scanning row: %v", err))
+			continue
+		}
+
+		// Create a map for this row
+		rowData := make(map[string]interface{})
+		for i, col := range columns {
+			var v interface{}
+			val := values[i]
+			b, ok := val.([]byte)
+			if ok {
+				v = string(b)
+			} else {
+				v = val
+			}
+			rowData[col] = v
+		}
+		resultRows = append(resultRows, rowData)
+	}
+
+	rowCount := len(resultRows)
+	s.iLog.Info(fmt.Sprintf("executeSQL COMPLETE - Returned %d rows", rowCount))
+
+	// Build response with rows array
+	result := map[string]interface{}{
+		"columns": columns,
+		"rows":    resultRows,
+	}
+
+	return result, rowCount, nil
 }
 
 // logAIGeneration logs AI generation for audit purposes
@@ -874,4 +966,528 @@ func cleanJSONResponse(content string) string {
 	}
 
 	return content
+}
+
+// DataInsights represents AI-generated insights from query results
+type DataInsights struct {
+	Summary        string                 `json:"summary"`
+	KeyInsights    []string               `json:"key_insights"`
+	Visualizations []VisualizationSpec    `json:"visualizations"`
+	DataAnalysis   DataStatistics         `json:"data_analysis"`
+}
+
+// VisualizationSpec defines a recommended chart/visualization
+type VisualizationSpec struct {
+	Type        string            `json:"type"`  // bar, line, pie, table, area, scatter
+	Title       string            `json:"title"`
+	Description string            `json:"description,omitempty"`
+	XAxis       string            `json:"x_axis,omitempty"`
+	YAxis       string            `json:"y_axis,omitempty"`
+	YAxisMulti  []string          `json:"y_axis_multi,omitempty"`
+	GroupBy     string            `json:"group_by,omitempty"`
+	Config      map[string]string `json:"config,omitempty"`
+}
+
+// DataStatistics contains basic statistics about the data
+type DataStatistics struct {
+	RowCount        int                    `json:"row_count"`
+	ColumnCount     int                    `json:"column_count"`
+	NumericColumns  []string               `json:"numeric_columns"`
+	DateColumns     []string               `json:"date_columns"`
+	TextColumns     []string               `json:"text_columns"`
+	TopValues       map[string]interface{} `json:"top_values,omitempty"`
+}
+
+// generateAndUpdateInsights generates insights asynchronously and updates the message in database
+func (s *ChatService) generateAndUpdateInsights(messageID, question, sql string, data []map[string]interface{}) {
+	iLog := logger.Log{
+		ModuleName:     logger.Framework,
+		User:           "System",
+		ControllerName: "ChatService-Async",
+	}
+	iLog.Info(fmt.Sprintf("Async insights generation START - MessageID: %s", messageID))
+
+	// Create a context with timeout for the AI call
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	// Generate insights
+	insights, err := s.generateDataInsights(ctx, question, sql, data)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to generate insights asynchronously: %v", err))
+		// Update message with error status
+		s.DB.Model(&models.ChatMessage{}).
+			Where("id = ?", messageID).
+			Update("provenance", map[string]interface{}{
+				"insights_status": "error",
+				"insights_error":  err.Error(),
+			})
+		return
+	}
+
+	if insights == nil {
+		iLog.Warn("No insights generated")
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Generated %d insights and %d visualizations asynchronously",
+		len(insights.KeyInsights), len(insights.Visualizations)))
+
+	// Get the current message
+	var message models.ChatMessage
+	if err := s.DB.First(&message, "id = ?", messageID).Error; err != nil {
+		iLog.Error(fmt.Sprintf("Failed to fetch message for update: %v", err))
+		return
+	}
+
+	// Update provenance with insights
+	if message.Provenance == nil {
+		message.Provenance = make(map[string]interface{})
+	}
+	message.Provenance["ai_insights"] = insights.KeyInsights
+	message.Provenance["visualizations"] = insights.Visualizations
+	message.Provenance["report_summary"] = insights.Summary
+	message.Provenance["data_analysis"] = insights.DataAnalysis
+	message.Provenance["insights_status"] = "completed"
+
+	// Enhance text with insights
+	if len(insights.KeyInsights) > 0 {
+		insightsText := "\n\n📊 **Key Insights:**\n"
+		for i, insight := range insights.KeyInsights {
+			insightsText += fmt.Sprintf("%d. %s\n", i+1, insight)
+		}
+		message.Text += insightsText
+	}
+
+	// Debug: Log what we're about to save
+	iLog.Info(fmt.Sprintf("About to save insights - ai_insights count: %d, visualizations count: %d",
+		len(insights.KeyInsights), len(insights.Visualizations)))
+
+	// Marshal provenance to JSON to check structure
+	provenanceJSON, err := json.Marshal(message.Provenance)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to marshal provenance: %v", err))
+		return
+	}
+	iLog.Debug(fmt.Sprintf("Provenance JSON: %s", string(provenanceJSON)))
+
+	// Save updated message using Update with JSON string to ensure proper serialization
+	if err := s.DB.Model(&models.ChatMessage{}).Where("id = ?", messageID).Updates(map[string]interface{}{
+		"text":       message.Text,
+		"provenance": provenanceJSON, // Pass JSON bytes instead of map
+	}).Error; err != nil {
+		iLog.Error(fmt.Sprintf("Failed to update message with insights: %v", err))
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Async insights generation COMPLETE - MessageID: %s", messageID))
+}
+
+// generateAndExecuteSQL generates SQL and executes it asynchronously, then updates the message
+func (s *ChatService) generateAndExecuteSQL(conversationID, messageID, userMessage, databaseAlias, schemaContext string, autoExecute bool) {
+	iLog := logger.Log{
+		ModuleName:     logger.Framework,
+		User:           "System",
+		ControllerName: "ChatService-AsyncSQL",
+	}
+	iLog.Info(fmt.Sprintf("Async SQL generation START - MessageID: %s", messageID))
+
+	// Create a context with timeout for SQL generation
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	// Get the message to update
+	var message models.ChatMessage
+	if err := s.DB.First(&message, "id = ?", messageID).Error; err != nil {
+		iLog.Error(fmt.Sprintf("Failed to fetch message: %v", err))
+		return
+	}
+
+	// Update status to generating SQL
+	if message.Provenance == nil {
+		message.Provenance = make(map[string]interface{})
+	}
+	message.Provenance["sql_status"] = "generating"
+	s.DB.Save(&message)
+
+	// Generate SQL
+	iLog.Info("Generating SQL query using AI")
+	sqlResponse, err := s.generateSQLWithContext(ctx, userMessage, schemaContext)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to generate SQL: %v", err))
+		message.Provenance["sql_status"] = "error"
+		message.Provenance["sql_error"] = err.Error()
+		message.Text = "Failed to generate SQL query: " + err.Error()
+		s.DB.Save(&message)
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("SQL generated successfully, confidence: %.2f", sqlResponse.Confidence))
+
+	// Update message with SQL
+	confidence := sqlResponse.Confidence
+	message.SQLQuery = sqlResponse.SQL
+	message.SQLConfidence = &confidence
+	message.Text = sqlResponse.Explanation
+	message.Provenance["tables_used"] = sqlResponse.TablesUsed
+	message.Provenance["columns_used"] = sqlResponse.ColumnsUsed
+	message.Provenance["reasoning"] = sqlResponse.Reasoning
+	message.Provenance["query_type"] = sqlResponse.QueryType
+	message.Provenance["sql_status"] = "completed"
+
+	// Save SQL generation results
+	if err := s.DB.Save(&message).Error; err != nil {
+		iLog.Error(fmt.Sprintf("Failed to update message with SQL: %v", err))
+		return
+	}
+
+	// Log AI generation
+	s.logAIGeneration(conversationID, messageID, sqlResponse)
+
+	// Execute SQL if auto-execute is enabled
+	if autoExecute && sqlResponse.SQL != "" {
+		iLog.Info("Auto-executing SQL query")
+
+		// Update status to executing
+		message.Provenance["execution_status"] = "executing"
+		s.DB.Save(&message)
+
+		startTime := time.Now()
+		resultData, rowCount, execErr := s.executeSQL(databaseAlias, sqlResponse.SQL)
+		executionTime := int(time.Since(startTime).Milliseconds())
+		message.ExecutionTimeMs = &executionTime
+
+		if execErr != nil {
+			iLog.Error(fmt.Sprintf("SQL execution failed: %v", execErr))
+			message.ErrorMessage = execErr.Error()
+			message.Provenance["execution_status"] = "error"
+		} else {
+			iLog.Info(fmt.Sprintf("SQL executed successfully, returned %d rows in %dms", rowCount, executionTime))
+			message.ResultData = resultData
+			message.RowCount = &rowCount
+			message.Provenance["execution_status"] = "completed"
+
+			// Schedule async insights generation if data was returned
+			if rowCount > 0 && resultData != nil {
+				iLog.Info("Scheduling async AI BI report generation")
+
+				// Convert resultData to []map[string]interface{} format
+				var dataArray []map[string]interface{}
+				if rows, ok := resultData["rows"].([]interface{}); ok {
+					for _, row := range rows {
+						if rowMap, ok := row.(map[string]interface{}); ok {
+							dataArray = append(dataArray, rowMap)
+						}
+					}
+				} else if len(resultData) > 0 {
+					dataArray = []map[string]interface{}{resultData}
+				}
+
+				if len(dataArray) > 0 {
+					message.Provenance["insights_status"] = "generating"
+					// Launch another goroutine for insights
+					go s.generateAndUpdateInsights(messageID, userMessage, sqlResponse.SQL, dataArray)
+				}
+			}
+		}
+
+		// Save execution results
+		if err := s.DB.Save(&message).Error; err != nil {
+			iLog.Error(fmt.Sprintf("Failed to update message with execution results: %v", err))
+			return
+		}
+	}
+
+	iLog.Info(fmt.Sprintf("Async SQL generation and execution COMPLETE - MessageID: %s", messageID))
+}
+
+// generateDataInsights generates AI-powered insights and visualization recommendations
+func (s *ChatService) generateDataInsights(ctx context.Context, question, sql string, data []map[string]interface{}) (*DataInsights, error) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+
+	// Analyze data structure
+	stats := s.analyzeDataStructure(data)
+
+	// Build AI prompt
+	sampleData, _ := json.MarshalIndent(data[:min(3, len(data))], "", "  ")
+
+	systemPrompt := `You are an expert data analyst and business intelligence specialist. Analyze query results and provide actionable insights with visualization recommendations.
+
+RESPONSE FORMAT (JSON only, no markdown):
+{
+  "summary": "Brief 1-2 sentence summary of what the data shows",
+  "key_insights": ["Insight 1", "Insight 2", "Insight 3"],
+  "visualizations": [
+    {
+      "type": "bar|line|pie|area|scatter|table",
+      "title": "Chart Title",
+      "description": "What this shows",
+      "x_axis": "column_name",
+      "y_axis": "column_name",
+      "group_by": "column_name"
+    }
+  ]
+}
+
+Guidelines:
+- Focus on trends, patterns, and anomalies
+- Recommend 1-3 most useful visualizations
+- Keep insights concise and actionable
+- Choose appropriate chart types for the data
+- Use actual column names from the data`
+
+	userPrompt := fmt.Sprintf(`Question: %s
+
+SQL: %s
+
+Data Summary:
+- Rows: %d
+- Numeric columns: %v
+- Date columns: %v
+- Text columns: %v
+
+Sample Data (first 3 rows):
+%s
+
+Analyze this data and provide insights with visualization recommendations.`,
+		question, sql, stats.RowCount, stats.NumericColumns, stats.DateColumns, stats.TextColumns, string(sampleData))
+
+	// Create OpenAI client using go-openai library
+	client := openai.NewClient(s.OpenAIKey)
+
+	// Create chat completion request
+	resp, err := client.CreateChatCompletion(
+		ctx,
+		openai.ChatCompletionRequest{
+			Model: s.OpenAIModel,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleSystem,
+					Content: systemPrompt,
+				},
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: userPrompt,
+				},
+			},
+			Temperature: 0.3, // Lower temperature for more focused analysis
+			ResponseFormat: &openai.ChatCompletionResponseFormat{
+				Type: openai.ChatCompletionResponseFormatTypeJSONObject,
+			},
+		},
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("API request failed: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return nil, fmt.Errorf("no response from AI")
+	}
+
+	// Parse insights
+	content := cleanJSONResponse(resp.Choices[0].Message.Content)
+	var insights DataInsights
+	if err := json.Unmarshal([]byte(content), &insights); err != nil {
+		s.iLog.Warn(fmt.Sprintf("Failed to parse insights JSON: %v", err))
+		return nil, err
+	}
+
+	insights.DataAnalysis = stats
+	return &insights, nil
+}
+
+// analyzeDataStructure analyzes the structure and types of data
+func (s *ChatService) analyzeDataStructure(data []map[string]interface{}) DataStatistics {
+	stats := DataStatistics{
+		RowCount:       len(data),
+		NumericColumns: []string{},
+		DateColumns:    []string{},
+		TextColumns:    []string{},
+	}
+
+	if len(data) == 0 {
+		return stats
+	}
+
+	// Analyze first row to determine column types
+	firstRow := data[0]
+	stats.ColumnCount = len(firstRow)
+
+	for colName, val := range firstRow {
+		if val == nil {
+			continue
+		}
+
+		switch v := val.(type) {
+		case int, int32, int64, float32, float64:
+			stats.NumericColumns = append(stats.NumericColumns, colName)
+		case string:
+			// Check if it looks like a date
+			if s.looksLikeDate(v) {
+				stats.DateColumns = append(stats.DateColumns, colName)
+			} else {
+				stats.TextColumns = append(stats.TextColumns, colName)
+			}
+		case time.Time:
+			stats.DateColumns = append(stats.DateColumns, colName)
+		default:
+			stats.TextColumns = append(stats.TextColumns, colName)
+		}
+	}
+
+	return stats
+}
+
+// looksLikeDate checks if a string looks like a date
+func (s *ChatService) looksLikeDate(str string) bool {
+	dateFormats := []string{
+		"2006-01-02",
+		"2006-01-02 15:04:05",
+		"01/02/2006",
+		"2006-01-02T15:04:05Z",
+	}
+
+	for _, format := range dateFormats {
+		if _, err := time.Parse(format, str); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// ExecuteMessageSQL executes or re-executes SQL for a specific message
+func (s *ChatService) ExecuteMessageSQL(ctx context.Context, messageID string, modifiedSQL *string) (*models.ChatMessage, error) {
+	s.iLog.Info(fmt.Sprintf("ExecuteMessageSQL START - MessageID: %s, HasModifiedSQL: %v", messageID, modifiedSQL != nil))
+
+	// 1. Get the existing message
+	var message models.ChatMessage
+	if err := s.DB.First(&message, "id = ?", messageID).Error; err != nil {
+		s.iLog.Error(fmt.Sprintf("Message not found: %v", err))
+		return nil, fmt.Errorf("message not found: %w", err)
+	}
+
+	// 2. Get conversation to find database alias
+	var conversation models.Conversation
+	if err := s.DB.First(&conversation, "id = ?", message.ConversationID).Error; err != nil {
+		s.iLog.Error(fmt.Sprintf("Conversation not found: %v", err))
+		return nil, fmt.Errorf("conversation not found: %w", err)
+	}
+
+	// Use default database alias if not set in conversation
+	databaseAlias := conversation.DatabaseAlias
+	if databaseAlias == "" {
+		databaseAlias = "default"
+		s.iLog.Info("Using default database alias (conversation has empty alias)")
+	}
+
+	// 3. Determine which SQL to execute
+	sqlToExecute := message.SQLQuery
+	if modifiedSQL != nil && *modifiedSQL != "" {
+		sqlToExecute = *modifiedSQL
+		s.iLog.Info("Using modified SQL from request")
+	}
+
+	if sqlToExecute == "" {
+		return nil, fmt.Errorf("no SQL available to execute")
+	}
+
+	// 4. Execute the SQL
+	s.iLog.Info(fmt.Sprintf("Executing SQL on database '%s': %s", databaseAlias, sqlToExecute))
+	startTime := time.Now()
+	resultData, rowCount, execErr := s.executeSQL(databaseAlias, sqlToExecute)
+	executionTime := int(time.Since(startTime).Milliseconds())
+
+	// 5. Update the message with new results
+	message.ExecutionTimeMs = &executionTime
+	if modifiedSQL != nil && *modifiedSQL != "" {
+		message.SQLQuery = *modifiedSQL // Update with modified SQL
+	}
+
+	if execErr != nil {
+		s.iLog.Error(fmt.Sprintf("SQL execution failed: %v", execErr))
+		message.ErrorMessage = execErr.Error()
+		message.ResultData = nil
+		message.RowCount = nil
+	} else {
+		s.iLog.Info(fmt.Sprintf("SQL executed successfully, returned %d rows in %dms", rowCount, executionTime))
+		message.ResultData = resultData
+		message.RowCount = &rowCount
+		message.ErrorMessage = "" // Clear any previous error
+
+		// 5a. Generate AI BI Report if data was returned
+		if rowCount > 0 && resultData != nil {
+			s.iLog.Info("Generating AI BI report from execution results")
+
+			// Convert resultData to []map[string]interface{} format
+			var dataArray []map[string]interface{}
+			if rows, ok := resultData["rows"].([]interface{}); ok {
+				for _, row := range rows {
+					if rowMap, ok := row.(map[string]interface{}); ok {
+						dataArray = append(dataArray, rowMap)
+					}
+				}
+			} else if len(resultData) > 0 {
+				dataArray = []map[string]interface{}{resultData}
+			}
+
+			if len(dataArray) > 0 {
+				// Get the original user question from the conversation
+				userQuestion := message.Text // Fallback
+				var userMsg models.ChatMessage
+				if err := s.DB.Where("conversationid = ? AND messagetype = ?", message.ConversationID, models.MessageTypeUser).
+					Order("createdon DESC").First(&userMsg).Error; err == nil {
+					userQuestion = userMsg.Text
+				}
+
+				// Create a new context with longer timeout for AI insights (60 seconds)
+				insightsCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+				defer cancel()
+				reportInsights, reportErr := s.generateDataInsights(insightsCtx, userQuestion, sqlToExecute, dataArray)
+				if reportErr != nil {
+					s.iLog.Warn(fmt.Sprintf("Failed to generate data insights: %v", reportErr))
+				} else if reportInsights != nil {
+					s.iLog.Info(fmt.Sprintf("Generated %d insights and %d visualizations",
+						len(reportInsights.KeyInsights), len(reportInsights.Visualizations)))
+
+					// Add insights to provenance
+					if message.Provenance == nil {
+						message.Provenance = make(map[string]interface{})
+					}
+					message.Provenance["ai_insights"] = reportInsights.KeyInsights
+					message.Provenance["visualizations"] = reportInsights.Visualizations
+					message.Provenance["report_summary"] = reportInsights.Summary
+					message.Provenance["data_analysis"] = reportInsights.DataAnalysis
+
+					// Enhance explanation with insights
+					if len(reportInsights.KeyInsights) > 0 {
+						insightsText := "\n\n📊 **Key Insights:**\n"
+						for i, insight := range reportInsights.KeyInsights {
+							insightsText += fmt.Sprintf("%d. %s\n", i+1, insight)
+						}
+						message.Text += insightsText
+					}
+				}
+			}
+		}
+	}
+
+	// 6. Save updated message
+	if err := s.DB.Save(&message).Error; err != nil {
+		s.iLog.Error(fmt.Sprintf("Failed to update message: %v", err))
+		return nil, fmt.Errorf("failed to update message: %w", err)
+	}
+
+	s.iLog.Info(fmt.Sprintf("ExecuteMessageSQL COMPLETE - MessageID: %s", messageID))
+	return &message, nil
 }

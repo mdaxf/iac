@@ -17,8 +17,15 @@ type QueryTemplateController struct {
 
 // NewQueryTemplateController creates a new query template controller
 func NewQueryTemplateController() *QueryTemplateController {
+	// Use vector database for query templates
+	vectorDB, err := services.GetVectorDB(gormdb.DB)
+	if err != nil {
+		// Fallback to main DB if vector DB is not available
+		vectorDB = gormdb.DB
+	}
+
 	return &QueryTemplateController{
-		service: services.NewQueryTemplateService(gormdb.DB),
+		service: services.NewQueryTemplateService(vectorDB),
 	}
 }
 

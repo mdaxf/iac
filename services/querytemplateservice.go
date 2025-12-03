@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -47,10 +46,10 @@ func (s *QueryTemplateService) GetTemplate(ctx context.Context, id string) (*mod
 func (s *QueryTemplateService) ListTemplates(ctx context.Context, databaseAlias string) ([]models.QueryTemplate, error) {
 	var templates []models.QueryTemplate
 
-	query := s.db.WithContext(ctx).Order("templatename")
+	query := s.db.WithContext(ctx).Order("template_name")
 
 	if databaseAlias != "" {
-		query = query.Where("databasealias = ?", databaseAlias)
+		query = query.Where("database_alias = ?", databaseAlias)
 	}
 
 	if err := query.Find(&templates).Error; err != nil {
@@ -90,14 +89,14 @@ func (s *QueryTemplateService) SearchTemplates(ctx context.Context, databaseAlia
 	searchPattern := "%" + keyword + "%"
 
 	query := s.db.WithContext(ctx).
-		Where("templatename LIKE ? OR COALESCE(description, '') LIKE ? OR query_pattern LIKE ?",
-			searchPattern, searchPattern, searchPattern)
+		Where("templatename LIKE ?  OR query_pattern LIKE ?",
+			searchPattern, searchPattern)
 
 	if databaseAlias != "" {
-		query = query.Where("databasealias = ?", databaseAlias)
+		query = query.Where("database_alias = ?", databaseAlias)
 	}
 
-	if err := query.Order("templatename").Find(&templates).Error; err != nil {
+	if err := query.Order("template_name").Find(&templates).Error; err != nil {
 		return nil, fmt.Errorf("failed to search query templates: %w", err)
 	}
 
@@ -121,17 +120,17 @@ func (s *QueryTemplateService) GetTemplatesByIntent(ctx context.Context, databas
 
 	for _, keyword := range keywords {
 		searchPattern := "%" + keyword + "%"
-		conditions = append(conditions, "(templatename LIKE ? OR COALESCE(description, '') LIKE ? OR COALESCE(examplequestions, '') LIKE ?)")
-		args = append(args, searchPattern, searchPattern, searchPattern)
+		conditions = append(conditions, "(template_name LIKE ? OR COALESCE(natural_language_query, '') LIKE ?)")
+		args = append(args, searchPattern, searchPattern)
 	}
 
 	query := s.db.WithContext(ctx).Where(strings.Join(conditions, " OR "), args...)
 
 	if databaseAlias != "" {
-		query = query.Where("databasealias = ?", databaseAlias)
+		query = query.Where("database_alias = ?", databaseAlias)
 	}
 
-	if err := query.Order("templatename").Find(&templates).Error; err != nil {
+	if err := query.Order("template_name").Find(&templates).Error; err != nil {
 		return nil, fmt.Errorf("failed to get templates by intent: %w", err)
 	}
 
@@ -143,8 +142,8 @@ func (s *QueryTemplateService) IncrementUsageCount(ctx context.Context, id strin
 	if err := s.db.WithContext(ctx).
 		Model(&models.QueryTemplate{}).
 		Where("id = ?", id).
-		UpdateColumn("usagecount", gorm.Expr("usagecount + 1")).
-		UpdateColumn("lastrunat", gorm.Expr("CURRENT_TIMESTAMP")).
+		UpdateColumn("usage_count", gorm.Expr("usage_count + 1")).
+		UpdateColumn("last_used_at", gorm.Expr("CURRENT_TIMESTAMP")).
 		Error; err != nil {
 		return fmt.Errorf("failed to increment usage count: %w", err)
 	}
@@ -156,8 +155,8 @@ func (s *QueryTemplateService) IncrementUsageCount(ctx context.Context, id strin
 func (s *QueryTemplateService) GetTemplateContext(ctx context.Context, databaseAlias string, limit int) (string, error) {
 	var templates []models.QueryTemplate
 
-	query := s.db.WithContext(ctx).Where("databasealias = ?", databaseAlias).
-		Order("usagecount DESC, templatename")
+	query := s.db.WithContext(ctx).Where("database_alias = ?", databaseAlias).
+		Order("usage_count DESC, template_name")
 
 	if limit > 0 {
 		query = query.Limit(limit)
@@ -176,16 +175,18 @@ func (s *QueryTemplateService) GetTemplateContext(ctx context.Context, databaseA
 	for _, template := range templates {
 		context += fmt.Sprintf("## %s\n", template.TemplateName)
 
-		if template.Description != "" {
-			context += fmt.Sprintf("Description: %s\n", template.Description)
-		}
+		// TODO: Description field removed from QueryTemplate model
+		// if template.Description != "" {
+		// 	context += fmt.Sprintf("Description: %s\n", template.Description)
+		// }
 
 		context += fmt.Sprintf("Pattern:\n```sql\n%s\n```\n", template.SQLTemplate)
 
-		if template.ExampleQuestions != nil && len(template.ExampleQuestions) > 0 {
-			questionsJSON, _ := json.Marshal(template.ExampleQuestions)
-			context += fmt.Sprintf("Example Questions: %s\n", string(questionsJSON))
-		}
+		// TODO: ExampleQuestions field removed from QueryTemplate model
+		// if template.ExampleQuestions != nil && len(template.ExampleQuestions) > 0 {
+		// 	questionsJSON, _ := json.Marshal(template.ExampleQuestions)
+		// 	context += fmt.Sprintf("Example Questions: %s\n", string(questionsJSON))
+		// }
 
 		context += "\n"
 	}
@@ -200,13 +201,13 @@ func (s *QueryTemplateService) GetCategories(ctx context.Context, databaseAlias 
 	query := s.db.WithContext(ctx).
 		Model(&models.QueryTemplate{}).
 		Distinct().
-		Where("category IS NOT NULL AND category != ''")
+		Where("template_category IS NOT NULL AND template_category != ''")
 
 	if databaseAlias != "" {
-		query = query.Where("databasealias = ?", databaseAlias)
+		query = query.Where("database_alias = ?", databaseAlias)
 	}
 
-	if err := query.Pluck("category", &categories).Error; err != nil {
+	if err := query.Pluck("template_category", &categories).Error; err != nil {
 		return nil, fmt.Errorf("failed to get categories: %w", err)
 	}
 

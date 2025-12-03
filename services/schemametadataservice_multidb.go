@@ -293,19 +293,14 @@ func (s *SchemaMetadataServiceMultiDB) GetSchemaContext(ctx context.Context, dat
 // GetDatabaseMetadata retrieves complete metadata (tables and columns) for a database
 // If no metadata exists, it automatically discovers and populates it from the database schema
 func (s *SchemaMetadataServiceMultiDB) GetDatabaseMetadata(ctx context.Context, databaseAlias string) ([]models.DatabaseSchemaMetadata, error) {
+	// Always discover metadata directly from the target database
+	// Do NOT query the main appDB first - it doesn't have the databaseschemametadata table
+	// This method is called by ChatService for auto-discovery
+
 	var metadata []models.DatabaseSchemaMetadata
 
-	// Use Find which returns empty slice if no records found (not an error)
-	if err := s.appDB.WithContext(ctx).
-		Where("databasealias = ?", databaseAlias).
-		Order("tablename, metadatatype DESC, columnname").
-		Find(&metadata).Error; err != nil {
-		// Only return error for actual database errors, not "record not found"
-		return nil, fmt.Errorf("failed to get database metadata: %w", err)
-	}
-
-	// If no metadata found, automatically discover and populate it
-	if len(metadata) == 0 {
+	// Get database connection to discover schema from target database
+	{
 		// Get database connection to determine schema name
 		db, err := s.dbHelper.GetUserDB(ctx, databaseAlias)
 		if err != nil {

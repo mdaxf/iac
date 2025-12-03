@@ -38,6 +38,21 @@
           "method": "POST",
           "path": "/generate-flow",
           "handler": "GenerateFlow"
+        },
+        {
+          "method": "POST",
+          "path": "/ask-ai-agency",
+          "handler": "AskAIAgency"
+        },
+        {
+          "method": "GET",
+          "path": "/session/:sessionId",
+          "handler": "GetConversationSession"
+        },
+        {
+          "method": "DELETE",
+          "path": "/session/:sessionId",
+          "handler": "ClearConversationSession"
         }
       ]
     },
@@ -534,6 +549,92 @@
           ]
         },
         {
+          "path": "api/reportdocs",
+          "module": "ReportDocController",
+          "endpoints": [
+            {
+              "method": "POST",
+              "path": "/",
+              "handler": "CreateReport"
+            },
+            {
+              "method": "GET",
+              "path": "/",
+              "handler": "ListReports"
+            },
+            {
+              "method": "GET",
+              "path": "/search",
+              "handler": "SearchReports"
+            },
+            {
+              "method": "GET",
+              "path": "/default",
+              "handler": "GetDefaultReport"
+            },
+            {
+              "method": "POST",
+              "path": "/indexes/init",
+              "handler": "InitializeIndexes"
+            },
+            {
+              "method": "GET",
+              "path": "/category/:category",
+              "handler": "GetReportsByCategory"
+            },
+            {
+              "method": "GET",
+              "path": "/name/:name",
+              "handler": "GetReportByName"
+            },
+            {
+              "method": "GET",
+              "path": "/:id",
+              "handler": "GetReportByID"
+            },
+            {
+              "method": "PUT",
+              "path": "/:id",
+              "handler": "UpdateReport"
+            },
+            {
+              "method": "DELETE",
+              "path": "/:id",
+              "handler": "DeleteReport"
+            },
+            {
+              "method": "PUT",
+              "path": "/:id/default",
+              "handler": "SetDefaultReport"
+            },
+            {
+              "method": "POST",
+              "path": "/:id/datasources",
+              "handler": "AddDatasource"
+            },
+            {
+              "method": "POST",
+              "path": "/:id/components",
+              "handler": "AddComponent"
+            },
+            {
+              "method": "POST",
+              "path": "/:id/parameters",
+              "handler": "AddParameter"
+            },
+            {
+              "method": "POST",
+              "path": "/:id/executions",
+              "handler": "AddExecution"
+            },
+            {
+              "method": "POST",
+              "path": "/:id/execute",
+              "handler": "ExecuteReport"
+            }
+          ]
+        },
+        {
           "path": "api/chat",
           "module": "ChatController",
           "endpoints": [
@@ -571,6 +672,16 @@
               "method": "POST",
               "path": "/schema/search",
               "handler": "SearchSchema"
+            },
+            {
+              "method": "POST",
+              "path": "/:id/messages/:message_id/execute",
+              "handler": "ExecuteSQL"
+            },
+            {
+              "method": "GET",
+              "path": "/:id/messages/:message_id/status",
+              "handler": "GetMessageStatus"
             }
           ]
         },
@@ -704,6 +815,22 @@
               "method": "POST",
               "path": "/search/entities",
               "handler": "SearchBusinessEntities"
+            }
+          ]
+        },
+        {
+          "path": "api/ai/schema-context",
+          "module": "SchemaContextController",
+          "endpoints": [
+            {
+              "method": "POST",
+              "path": "",
+              "handler": "GetSchemaContext"
+            },
+            {
+              "method": "POST",
+              "path": "/formatted",
+              "handler": "GetSchemaContextFormatted"
             }
           ]
         },

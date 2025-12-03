@@ -1,6 +1,8 @@
 module github.com/mdaxf/iac
 
-go 1.21.4
+go 1.23.0
+
+toolchain go1.24.10
 
 require (
 	github.com/IBM/sarama v1.43.0
@@ -44,8 +46,8 @@ require (
 	go.mongodb.org/mongo-driver v1.12.1
 	go.opentelemetry.io/otel v1.20.0
 	go.opentelemetry.io/otel/trace v1.20.0
-	golang.org/x/crypto v0.31.0
-	golang.org/x/sync v0.10.0
+	golang.org/x/crypto v0.36.0
+	golang.org/x/sync v0.12.0
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
@@ -87,7 +89,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v5 v5.6.0 // indirect
+	github.com/jackc/pgx/v5 v5.7.2 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
 	github.com/jcmturner/dnsutils/v2 v2.0.0 // indirect
@@ -107,11 +109,13 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
+	github.com/pgvector/pgvector-go v0.3.0 // indirect
 	github.com/phpdave11/gofpdi v1.0.14-0.20211212211723-1f10f9844311 // indirect
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
-	github.com/rogpeppe/go-internal v1.8.1 // indirect
+	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/sashabaranov/go-openai v1.41.2 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/teivah/onecontext v1.3.0 // indirect
@@ -128,8 +132,8 @@ require (
 	golang.org/x/arch v0.5.0 // indirect
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/net v0.23.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df // indirect

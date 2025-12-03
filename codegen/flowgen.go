@@ -104,6 +104,25 @@ Best practices:
 - Include validation steps when needed
 - Consider error handling paths
 
+Function Grouping Rules (CRITICAL - MUST FOLLOW):
+- **DEFAULT**: Put ALL functions in ONE function group
+- **ONLY create multiple function groups if**:
+  * There is explicit routing/branching logic needed (use routing: true)
+  * More than 8 functions are needed (then split into logical groups of max 8)
+  * The user explicitly requests separate function groups
+- **NEVER create one function group with only one function** - always combine related functions together
+- **Example**: For a task with 5 functions, create 1 function group with all 5 functions
+- **Example**: For a task with 12 functions, create 2 function groups (6-7 functions each)
+- Prefer fewer, well-organized function groups over many small groups
+
+IMPORTANT:
+- Select the correct function type from the available list above
+- Use "query" for SELECT operations, "tableinsert" for INSERT, "tableupdate" for UPDATE, "tabledelete" for DELETE
+- Use "javascript" for data transformations, calculations, and complex logic
+- Use "sendemail" for email operations
+- Use "webservicecall" for external API calls
+- Only use function types that are listed in the "Available function types" section
+
 Return ONLY valid JSON. Do not include any explanations or markdown formatting.`
 
 // GenerateFlowFromDescription generates a BPM flow structure from a text description using OpenAI
@@ -149,6 +168,25 @@ func GenerateFlowFromDescription(description string, apiKey string, openaiModel 
 		}
 		if sessionVars, ok := currentTranCode["sessionVariables"].([]interface{}); ok && len(sessionVars) > 0 {
 			contextInfo += fmt.Sprintf("\nExisting session variables: %d defined", len(sessionVars))
+		}
+
+		// Include existing function groups information
+		if functionGroups, ok := currentTranCode["functiongroups"].([]interface{}); ok && len(functionGroups) > 0 {
+			contextInfo += fmt.Sprintf("\n\nExisting function groups: %d", len(functionGroups))
+			for i, fg := range functionGroups {
+				if fgMap, ok := fg.(map[string]interface{}); ok {
+					fgName := fgMap["name"]
+					if fgNameStr, ok := fgName.(string); ok {
+						// Count functions in this group
+						funcCount := 0
+						if functions, ok := fgMap["functions"].([]interface{}); ok {
+							funcCount = len(functions)
+						}
+						contextInfo += fmt.Sprintf("\n  %d. %s (%d functions)", i+1, fgNameStr, funcCount)
+					}
+				}
+			}
+			contextInfo += "\n\nIMPORTANT: If the user mentions adding to a specific function group (e.g., '1st fg', 'first function group'), ADD the new functions to that existing function group instead of creating a new one. Return only the updated function group with the new functions added."
 		}
 
 		if contextInfo != "" {
