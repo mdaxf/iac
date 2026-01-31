@@ -1,13 +1,13 @@
 package health
 
 import (
-	//"log"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mdaxf/iac/com"
+	"github.com/mdaxf/iac/config"
 	"github.com/mdaxf/iac/controllers/common"
 	"github.com/mdaxf/iac/health"
 	"github.com/mdaxf/iac/logger"
@@ -49,16 +49,20 @@ func (f *HealthController) CheckHealth(c *gin.Context) {
 
 	iLog.Debug("Health Check")
 	data, err := health.CheckSystemHealth(c)
-	//iLog.Debug(fmt.Sprintf("Health Check Result: %v", data))
-
-	//iLog.Debug(fmt.Sprintf("all node health data: %v", com.NodeHeartBeats))
 
 	nodehealth := make(map[string]interface{})
 	nodehealth["Result"] = data
 	nodehealth["Node"] = com.IACNode
 	nodehealth["ServiceStatus"] = make(map[string]interface{})
-	nodehealth["timestamp"] = time.Now().UTC()
-	//nodehealth["ServiceStatus"] = (com.NodeHeartBeats[com.IACNode["AppID"].(string)].(map[string]interface{}))["ServiceStatus"]
+	nodehealth["time"] = time.Now().UTC().Format(time.RFC3339)
+
+	// Add role information
+	roleInitializer := config.GetGlobalRoleInitializer()
+	if roleInitializer != nil {
+		roleStatus := roleInitializer.GetRoleStatus()
+		nodehealth["Roles"] = roleStatus
+	}
+
 	com.NodeHeartBeats[com.IACNode["AppID"].(string)] = nodehealth
 
 	if err != nil {

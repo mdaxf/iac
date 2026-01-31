@@ -17,6 +17,9 @@ import (
 	"github.com/mdaxf/iac/services"
 )
 
+// JobHandler represents a custom job handler function
+type JobHandler func(ctx context.Context, job *models.QueueJob) error
+
 // JobWorker processes jobs from the queue
 type JobWorker struct {
 	id              string
@@ -35,6 +38,8 @@ type JobWorker struct {
 	workers         []*Worker
 	ctx             context.Context
 	cancel          context.CancelFunc
+	customHandlers  map[string]JobHandler // Custom job handlers
+	handlerMu       sync.RWMutex          // Protects customHandlers map
 }
 
 // Worker represents a single worker goroutine
@@ -81,6 +86,7 @@ func NewJobWorker(
 		pollInterval:    pollInterval,
 		maxRetries:      maxRetries,
 		shutdownTimeout: 30 * time.Second,
+		customHandlers:  make(map[string]JobHandler),
 	}
 }
 
@@ -307,8 +313,41 @@ func (jw *JobWorker) executeJob(ctx context.Context, worker *Worker, job *models
 	}
 }
 
+// RegisterHandler registers a custom job handler for a specific handler name
+func (jw *JobWorker) RegisterHandler(handlerName string, handler JobHandler) {
+	jw.handlerMu.Lock()
+	defer jw.handlerMu.Unlock()
+
+	jw.customHandlers[handlerName] = handler
+	jw.logger.Info(fmt.Sprintf("Registered custom handler: %s", handlerName))
+}
+
+// UnregisterHandler removes a custom job handler
+func (jw *JobWorker) UnregisterHandler(handlerName string) {
+	jw.handlerMu.Lock()
+	defer jw.handlerMu.Unlock()
+
+	delete(jw.customHandlers, handlerName)
+	jw.logger.Info(fmt.Sprintf("Unregistered custom handler: %s", handlerName))
+}
+
 // executeJobHandler executes the job handler (transaction code or command)
 func (jw *JobWorker) executeJobHandler(ctx context.Context, job *models.QueueJob) (string, error) {
+	// Check for custom handler first
+	jw.handlerMu.RLock()
+	customHandler, hasCustomHandler := jw.customHandlers[job.Handler]
+	jw.handlerMu.RUnlock()
+
+	if hasCustomHandler {
+		// Execute custom handler
+		jw.logger.Info(fmt.Sprintf("Executing custom handler: %s", job.Handler))
+		if err := customHandler(ctx, job); err != nil {
+			return "", fmt.Errorf("custom handler execution failed: %w", err)
+		}
+		return "Custom handler executed successfully", nil
+	}
+
+	// Default: use transaction code executor
 	// Parse payload
 	var payloadData map[string]interface{}
 	if job.Payload != "" {
@@ -357,6 +396,52 @@ func (jw *JobWorker) IsRunning() bool {
 	jw.mu.RLock()
 	defer jw.mu.RUnlock()
 	return jw.running
+}
+
+// StartCleanupWorker starts a background worker to cleanup old completed jobs
+func (jw *JobWorker) StartCleanupWorker() {
+	go func() {
+		// Run cleanup every hour
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+
+		// Run cleanup immediately on start
+		jw.cleanupOldJobs()
+
+		for {
+			select {
+			case <-jw.ctx.Done():
+				jw.logger.Info("Cleanup worker shutting down")
+				return
+
+			case <-ticker.C:
+				jw.cleanupOldJobs()
+			}
+		}
+	}()
+
+	jw.logger.Info("Started cleanup worker (runs every hour)")
+}
+
+// cleanupOldJobs performs cleanup of old completed jobs
+func (jw *JobWorker) cleanupOldJobs() {
+	ctx := context.Background()
+
+	// Archive completed jobs older than 24 hours
+	archivedCount, err := jw.jobService.CleanupCompletedJobs(ctx, 24)
+	if err != nil {
+		jw.logger.Error(fmt.Sprintf("Failed to archive completed jobs: %v", err))
+	} else if archivedCount > 0 {
+		jw.logger.Info(fmt.Sprintf("Archived %d completed jobs", archivedCount))
+	}
+
+	// Delete archived jobs older than 90 days
+	deletedCount, err := jw.jobService.DeleteArchivedJobs(ctx, 90)
+	if err != nil {
+		jw.logger.Error(fmt.Sprintf("Failed to delete archived jobs: %v", err))
+	} else if deletedCount > 0 {
+		jw.logger.Info(fmt.Sprintf("Deleted %d archived jobs", deletedCount))
+	}
 }
 
 // GetStatus returns the current status of the worker

@@ -1042,6 +1042,112 @@ func getDataFromRequest(ctx *gin.Context) (TranCodeData, error) {
 	return data, nil
 }
 
+// DeleteTranCodeFromRepository deletes a transaction code from the repository.
+// Only transaction codes with status 4 (Canceled) can be deleted.
+func (e *TranCodeController) DeleteTranCodeFromRepository(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "DeleteTranCodeFromRepository"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("controllers.trans.DeleteTranCodeFromRepository", elapsed)
+	}()
+
+	_, userno, clientid, err := common.GetRequestUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("GetRequestUser error: %s", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.User = userno
+	iLog.ClientID = clientid
+
+	// Get ID from URL parameter
+	id := ctx.Param("id")
+	if id == "" {
+		iLog.Error("Transaction code ID is required")
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Transaction code ID is required"})
+		return
+	}
+
+	iLog.Debug(fmt.Sprintf("Delete transaction code from repository with ID: %s", id))
+
+	// Convert string ID to ObjectID
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Invalid ID format: %s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
+		return
+	}
+
+	// First, check if the transaction code exists and get its status
+	filter := bson.M{"_id": objID}
+	tcitems, err := documents.DocDBCon.QueryCollection("Transaction_Code", filter, nil)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to query transaction code: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(tcitems) == 0 {
+		iLog.Error("Transaction code not found")
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "Transaction code not found"})
+		return
+	}
+
+	// Debug: Log the retrieved document to see its structure
+	iLog.Info(fmt.Sprintf("Retrieved document keys: %v", getKeys(tcitems[0])))
+	iLog.Info(fmt.Sprintf("Status field value: %v (type: %T)", tcitems[0]["status"], tcitems[0]["status"]))
+
+	// Check status - only allow deletion if status is 4 (Canceled)
+	status, ok := tcitems[0]["status"].(int)
+	if !ok {
+		// Try converting from int32, int64, or float64 (BSON numbers are often float64)
+		switch v := tcitems[0]["status"].(type) {
+		case int32:
+			status = int(v)
+			iLog.Info(fmt.Sprintf("Converted status from int32: %d", status))
+		case int64:
+			status = int(v)
+			iLog.Info(fmt.Sprintf("Converted status from int64: %d", status))
+		case float64:
+			status = int(v)
+			iLog.Info(fmt.Sprintf("Converted status from float64: %d", status))
+		default:
+			iLog.Info(fmt.Sprintf("Status field is of unexpected type: %T, defaulting to 0", v))
+			status = 0
+		}
+	} else {
+		iLog.Info(fmt.Sprintf("Status is int: %d", status))
+	}
+
+	if status != 4 {
+		iLog.Error(fmt.Sprintf("Cannot delete transaction code with status %d. Only Canceled (status 4) can be deleted", status))
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "Only transaction codes with Canceled status can be deleted"})
+		return
+	}
+
+	// Delete the transaction code
+	err = documents.DocDBCon.DeleteItemFromCollection("Transaction_Code", id)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to delete transaction code: %v", err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Transaction code %s deleted successfully", id))
+	ctx.JSON(http.StatusOK, gin.H{"status": "success", "message": "Transaction code deleted successfully"})
+}
+
+// Helper function to get map keys for debugging
+func getKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 type TranCodeData struct {
 	TranCode string                 `json:"code"`
 	Version  string                 `json:"version"`

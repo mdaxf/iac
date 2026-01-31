@@ -1172,6 +1172,14 @@ func (f *Funcs) Execute() {
 		case types.WebServiceCall:
 			ws := WebServiceCallFunc{}
 			ws.Execute(f)
+
+		case types.AITask:
+			ai := AITaskFuncs{}
+			ai.Execute(f)
+
+		case types.AIAgent:
+			agent := AIAgentFuncs{}
+			agent.Execute(f)
 		}
 
 		f.iLog.Debug(fmt.Sprintf("executed function %s with outputs: %s", f.Fobj.Name, logger.ConvertJson(f.FunctionOutputs)))

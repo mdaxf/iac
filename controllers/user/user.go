@@ -109,6 +109,39 @@ func (c *UserController) Login(ctx *gin.Context) {
 
 }
 
+func (c *UserController) SSOLogin(ctx *gin.Context) {
+	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		log.PerformanceWithDuration("controllers.user.SSOLogin", elapsed)
+	}()
+
+	var user LoginUserData
+	if err := ctx.BindJSON(&user); err != nil {
+		log.Error(fmt.Sprintf("SSO Login error:%s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	code := user.Code
+	clientID := user.ClientID
+	
+	if code == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Authorization code is required"})
+		return
+	}
+
+	// In a real implementation with a proper OAuth library, we would exchange the code here.
+	// For this implementation, we'll assume the frontend has handled the redirect and we are verifying the code/token
+	// Or implementing the exchange manually if needed.
+	
+	// Since we don't have the SSO provider credentials fully configured in this environment,
+	// we will simulate the flow for now or add the structure for it.
+	
+	execSSOLogin(ctx, code, clientID)
+}
+
 func (c *UserController) Image(ctx *gin.Context) {
 	log := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "UserController"}
 

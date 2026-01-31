@@ -127,10 +127,12 @@ RESPONSE FORMAT (JSON):
   "query_type": "SELECT"
 }
 
-IMPORTANT:
-- Only generate SELECT queries (read-only)
-- Never generate INSERT, UPDATE, DELETE, DROP, ALTER, or other dangerous operations
-- Add LIMIT clause if not specified (default: 100)`
+CRITICAL REQUIREMENTS:
+- **ONLY** generate SELECT queries (read-only data retrieval)
+- **NEVER** generate INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, TRUNCATE, or any data modification operations
+- If the user asks to modify data, explain that only data retrieval is allowed and suggest a SELECT query alternative
+- Add LIMIT clause if not specified (default: 100)
+- The query will be validated and rejected if it contains any write operations`
 
 	// Build user prompt
 	userPrompt := fmt.Sprintf(`### DATABASE SCHEMA ###
@@ -163,7 +165,8 @@ Respond with JSON only, no additional text.`, schemaInfo, request.Question)
 
 	// Validate SQL is read-only
 	if !s.isReadOnlySQL(result.SQL) {
-		return nil, fmt.Errorf("generated SQL is not read-only")
+		fmt.Printf("[WARN] AI generated non-read-only SQL: %s\n", result.SQL)
+		return nil, fmt.Errorf("the generated query contains write operations (INSERT/UPDATE/DELETE). Only read-only SELECT queries are allowed. Please rephrase your question to request data retrieval instead of data modification")
 	}
 
 	return &result, nil
@@ -316,8 +319,19 @@ func (s *AIReportService) isReadOnlySQL(sql string) bool {
 		return false
 	}
 
-	// Block dangerous operations
-	dangerous := []string{"insert", "update", "delete", "drop", "alter", "create", "truncate", "exec", "execute"}
+	// Block dangerous operations - check for whole words only
+	// Use word boundaries to avoid false positives (e.g., "DATE" shouldn't match "UPDATE")
+	dangerous := []string{
+		"insert ", "insert(", " insert ",
+		"update ", "update(", " update ",
+		"delete ", "delete(", " delete ",
+		"drop ", "drop(", " drop ",
+		"alter ", "alter(", " alter ",
+		"create ", "create(", " create ",
+		"truncate ", "truncate(", " truncate ",
+		"exec ", "exec(", " exec ",
+		"execute ", "execute(", " execute ",
+	}
 	for _, keyword := range dangerous {
 		if strings.Contains(sqlLower, keyword) {
 			return false

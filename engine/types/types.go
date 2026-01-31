@@ -131,6 +131,8 @@ const (
 	WebServiceCall
 	PythonExpr
 	PythonScript
+	AITask
+	AIAgent
 )
 
 // String returns the string representation of FunctionType
@@ -184,6 +186,10 @@ func (ft FunctionType) String() string {
 		return "PythonExpr"
 	case PythonScript:
 		return "PythonScript"
+	case AITask:
+		return "AITask"
+	case AIAgent:
+		return "AIAgent"
 	default:
 		return "Unknown"
 	}

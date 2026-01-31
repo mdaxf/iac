@@ -21,6 +21,7 @@ type LoginUserData struct {
 	ClientID string `json:"clientid"`
 	Token    string `json:"token"`
 	Renew    bool   `json:"renew"`
+	Code     string `json:"code"`
 }
 
 type User struct {

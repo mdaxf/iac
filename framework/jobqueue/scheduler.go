@@ -3,11 +3,14 @@ package jobqueue
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/mdaxf/iac/config"
+	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac/models"
 	"github.com/mdaxf/iac/services"
@@ -28,6 +31,8 @@ type JobScheduler struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	scheduledJobs   map[string]cron.EntryID // jobID -> cronEntryID
+	lastCheckTime   time.Time                // Last time we checked for job changes
+	lastModifiedTime time.Time               // Last modification time from database
 }
 
 // NewJobScheduler creates a new job scheduler
@@ -42,7 +47,7 @@ func NewJobScheduler(db *sql.DB, queueManager *DistributedQueueManager) *JobSche
 		queueManager:  queueManager,
 		db:            db,
 		logger:        logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "JobScheduler"},
-		cron:          cron.New(cron.WithSeconds()),
+		cron:          cron.New(),
 		checkInterval: checkInterval,
 		scheduledJobs: make(map[string]cron.EntryID),
 	}
@@ -99,20 +104,77 @@ func (js *JobScheduler) Stop() error {
 	return nil
 }
 
+// convertPlaceholders converts ? placeholders to $1, $2, etc. for PostgreSQL
+func (js *JobScheduler) convertPlaceholders(query string) string {
+	dbType := strings.ToLower(dbconn.DatabaseType)
+	if dbType == "postgres" || dbType == "postgresql" {
+		result := query
+		count := 1
+		for strings.Contains(result, "?") {
+			result = strings.Replace(result, "?", fmt.Sprintf("$%d", count), 1)
+			count++
+		}
+		return result
+	}
+	return query
+}
+
 // loadScheduledJobs loads all scheduled jobs from database and schedules them
 func (js *JobScheduler) loadScheduledJobs() error {
 	ctx := context.Background()
 
-	// Get all active scheduled jobs
-	query := `
+	// PERFORMANCE OPTIMIZATION: Check if jobs have been modified since last check
+	// This avoids loading all jobs every 60 seconds when nothing has changed
+	if !js.lastCheckTime.IsZero() {
+		checkQuery := "SELECT MAX(modifiedon) FROM jobs WHERE active = ? AND enabled = ?"
+		checkQuery = js.convertPlaceholders(checkQuery)
+
+		var maxModified sql.NullTime
+		err := js.db.QueryRowContext(ctx, checkQuery, true, true).Scan(&maxModified)
+		if err != nil && err != sql.ErrNoRows {
+			js.logger.Debug(fmt.Sprintf("Failed to check job modifications: %v", err))
+			// Continue with full load on error
+		} else {
+			// If no modifications since last check, skip reload
+			if maxModified.Valid && !maxModified.Time.After(js.lastModifiedTime) {
+				js.logger.Debug("No job modifications detected, skipping reload")
+				js.lastCheckTime = time.Now()
+				return nil
+			}
+
+			// Update last modified time
+			if maxModified.Valid {
+				js.lastModifiedTime = maxModified.Time
+				js.logger.Debug(fmt.Sprintf("Jobs modified, reloading (last modified: %v)", maxModified.Time))
+			}
+		}
+	}
+
+	// Update last check time
+	js.lastCheckTime = time.Now()
+
+	// Build query with proper identifier quoting for different databases
+	conditionColumn := "condition"
+	dbType := strings.ToLower(dbconn.DatabaseType)
+	if dbType == "mysql" {
+		conditionColumn = "`condition`"
+	} else if dbType == "postgres" || dbType == "postgresql" {
+		conditionColumn = "\"condition\""
+	}
+
+	// Get all active scheduled jobs (with LIMIT to prevent excessive loading)
+	query := fmt.Sprintf(`
 		SELECT id, name, description, typeid, handler, cronexpression, intervalseconds,
-		       startat, endat, maxexecutions, executioncount, enabled, ` + "`condition`" + `,
+		       startat, endat, maxexecutions, executioncount, enabled, %s,
 		       priority, maxretries, timeout, metadata, lastrunat, nextrunat,
 		       active, referenceid, createdby, createdon, modifiedby, modifiedon, rowversionstamp
 		FROM jobs
 		WHERE active = ? AND enabled = ?
 		ORDER BY priority DESC
-	`
+		LIMIT 1000
+	`, conditionColumn)
+
+	query = js.convertPlaceholders(query)
 
 	rows, err := js.db.QueryContext(ctx, query, true, true)
 	if err != nil {
@@ -123,7 +185,7 @@ func (js *JobScheduler) loadScheduledJobs() error {
 	count := 0
 	for rows.Next() {
 		job := &models.Job{}
-		var metadataJSON string
+		var metadataJSON sql.NullString
 
 		err := rows.Scan(
 			&job.ID, &job.Name, &job.Description, &job.TypeID, &job.Handler, &job.CronExpression, &job.IntervalSeconds,
@@ -135,6 +197,13 @@ func (js *JobScheduler) loadScheduledJobs() error {
 		if err != nil {
 			js.logger.Error(fmt.Sprintf("Failed to scan scheduled job: %v", err))
 			continue
+		}
+
+		// Parse metadata if not null
+		if metadataJSON.Valid && metadataJSON.String != "" {
+			if err := json.Unmarshal([]byte(metadataJSON.String), &job.Metadata); err != nil {
+				js.logger.Debug(fmt.Sprintf("Failed to unmarshal metadata for job %s: %v", job.ID, err))
+			}
 		}
 
 		// Schedule the job
@@ -180,18 +249,18 @@ func (js *JobScheduler) scheduleJob(job *models.Job) error {
 	var entryID cron.EntryID
 	var err error
 
-	if job.CronExpression != "" {
+	if job.CronExpression != nil && *job.CronExpression != "" {
 		// Use cron expression
-		entryID, err = js.cron.AddFunc(job.CronExpression, func() {
+		entryID, err = js.cron.AddFunc(*job.CronExpression, func() {
 			js.executeScheduledJob(job)
 		})
 		if err != nil {
 			return fmt.Errorf("failed to add cron job: %w", err)
 		}
-		js.logger.Info(fmt.Sprintf("Scheduled job %s with cron: %s", job.Name, job.CronExpression))
-	} else if job.IntervalSeconds > 0 {
+		js.logger.Info(fmt.Sprintf("Scheduled job %s with cron: %s", job.Name, *job.CronExpression))
+	} else if job.IntervalSeconds != nil && *job.IntervalSeconds > 0 {
 		// Use interval
-		interval := time.Duration(job.IntervalSeconds) * time.Second
+		interval := time.Duration(*job.IntervalSeconds) * time.Second
 		entryID, err = js.cron.AddFunc(fmt.Sprintf("@every %s", interval), func() {
 			js.executeScheduledJob(job)
 		})
@@ -214,8 +283,8 @@ func (js *JobScheduler) executeScheduledJob(job *models.Job) {
 	js.logger.Info(fmt.Sprintf("Executing scheduled job: %s", job.Name))
 
 	// Check condition if specified
-	if job.Condition != "" {
-		shouldRun, err := js.evaluateCondition(ctx, job.Condition)
+	if job.Condition != nil && *job.Condition != "" {
+		shouldRun, err := js.evaluateCondition(ctx, *job.Condition)
 		if err != nil {
 			js.logger.Error(fmt.Sprintf("Failed to evaluate condition for job %s: %v", job.Name, err))
 			return
@@ -286,16 +355,16 @@ func (js *JobScheduler) executeScheduledJob(job *models.Job) {
 
 // calculateNextRunTime calculates the next run time for a scheduled job
 func (js *JobScheduler) calculateNextRunTime(job *models.Job) time.Time {
-	if job.CronExpression != "" {
+	if job.CronExpression != nil && *job.CronExpression != "" {
 		// Parse cron expression and get next run time
-		schedule, err := cron.ParseStandard(job.CronExpression)
+		schedule, err := cron.ParseStandard(*job.CronExpression)
 		if err != nil {
 			js.logger.Error(fmt.Sprintf("Failed to parse cron expression: %v", err))
 			return time.Now().Add(1 * time.Hour) // Default fallback
 		}
 		return schedule.Next(time.Now())
-	} else if job.IntervalSeconds > 0 {
-		return time.Now().Add(time.Duration(job.IntervalSeconds) * time.Second)
+	} else if job.IntervalSeconds != nil && *job.IntervalSeconds > 0 {
+		return time.Now().Add(time.Duration(*job.IntervalSeconds) * time.Second)
 	}
 
 	return time.Now().Add(1 * time.Hour) // Default fallback

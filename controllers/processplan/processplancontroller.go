@@ -445,7 +445,14 @@ func (c *ProcessPlanController) UpdateCollectionData(ctx *gin.Context, collectio
 		//filedvalue := primitive.ObjectID(param.ID)
 		filter := bson.M{"_id": parsedObjectID}
 		iLog.Debug(fmt.Sprintf("Update transaction code to respository with filter: %v", filter))
-		system := data["system"].(map[string]interface{})
+
+		// Handle system field - it might be nil or not exist
+		var system map[string]interface{}
+		if systemData, ok := data["system"].(map[string]interface{}); ok && systemData != nil {
+			system = systemData
+		} else {
+			system = make(map[string]interface{})
+		}
 		system["modifiedon"] = time.Now().UTC()
 		system["modifiedby"] = "system"
 		data["system"] = system

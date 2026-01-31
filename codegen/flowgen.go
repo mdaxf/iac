@@ -287,11 +287,64 @@ func GenerateFlowFromDescription(description string, apiKey string, openaiModel 
 		}
 	}
 
+	// Ensure all functions have IDs
+	ensureFunctionIDs(flowData)
+
 	result["flow"] = flowData
 
 	iLog.Info("Successfully generated BPM flow from description")
 
 	return result, nil
+}
+
+// ensureFunctionIDs ensures all functions and function groups have unique IDs
+func ensureFunctionIDs(flowData map[string]interface{}) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "FlowGenAI"}
+
+	// Get function groups from flow data
+	functionGroups, ok := flowData["functionGroups"].([]interface{})
+	if !ok {
+		// Try lowercase variant
+		functionGroups, ok = flowData["functiongroups"].([]interface{})
+		if !ok {
+			iLog.Warn("No function groups found in flow data")
+			return
+		}
+	}
+
+	// Process each function group
+	for fgIdx, fg := range functionGroups {
+		fgMap, ok := fg.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		// Ensure function group has ID
+		if _, hasID := fgMap["id"]; !hasID {
+			fgMap["id"] = fmt.Sprintf("fg-%d", fgIdx)
+			iLog.Info(fmt.Sprintf("Generated function group ID: %s", fgMap["id"]))
+		}
+
+		// Get functions from function group
+		functions, ok := fgMap["functions"].([]interface{})
+		if !ok {
+			continue
+		}
+
+		// Process each function
+		for funcIdx, fn := range functions {
+			funcMap, ok := fn.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			// Ensure function has ID
+			if _, hasID := funcMap["id"]; !hasID {
+				funcMap["id"] = fmt.Sprintf("fn-%d-%d", fgIdx, funcIdx)
+				iLog.Info(fmt.Sprintf("Generated function ID: %s for function: %s", funcMap["id"], funcMap["name"]))
+			}
+		}
+	}
 }
 
 // extractJSONFromMarkdown attempts to extract JSON from markdown code blocks

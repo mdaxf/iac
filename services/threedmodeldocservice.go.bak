@@ -1,0 +1,452 @@
+package services
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/mdaxf/iac/documents"
+	"github.com/mdaxf/iac/models"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
+)
+
+const (
+	Collection3DModelDocuments = "3D_Model_Documents"
+)
+
+// ThreeDModelDocumentService handles 3D model storage with one document per version
+type ThreeDModelDocumentService struct {
+	docDB documents.DocumentDB
+}
+
+// NewThreeDModelDocumentService creates a new 3D model document service
+func NewThreeDModelDocumentService(docDB documents.DocumentDB) *ThreeDModelDocumentService {
+	return &ThreeDModelDocumentService{
+		docDB: docDB,
+	}
+}
+
+// CreateModelDocument creates a new 3D model document
+// If modelId is provided in request, creates a new version of existing model
+// Otherwise creates a new model with version 1
+func (s *ThreeDModelDocumentService) CreateModelDocument(ctx context.Context, req *models.ThreeDModelDocumentCreateRequest, user string) (*models.ThreeDModelDocument, error) {
+	now := time.Now()
+	modelID := req.ModelID
+	version := 1
+
+	// If modelID is provided, this is a new version of an existing model
+	if modelID != "" {
+		// Get the latest version number for this model
+		latestVersion, err := s.getLatestVersion(ctx, modelID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get latest version: %w", err)
+		}
+		version = latestVersion + 1
+
+		// If this is to be the default version, unset isDefault on all other versions
+		if req.IsDefault {
+			if err := s.unsetDefaultVersion(ctx, modelID); err != nil {
+				return nil, fmt.Errorf("failed to unset default version: %w", err)
+			}
+		}
+	} else {
+		// New model - generate new modelID
+		modelID = uuid.New().String()
+		// First version is always default if not explicitly set to false
+		if !req.IsDefault {
+			req.IsDefault = true
+		}
+	}
+
+	// Set default format if not provided
+	format := req.Format
+	if format == "" {
+		format = models.ThreeDModelFormatJSON
+	}
+
+	// Calculate object count from objects array
+	objectCount := len(req.Objects)
+
+	// Extract materials from objects if available
+	materials := extractMaterials(req.Objects)
+
+	doc := &models.ThreeDModelDocument{
+		ID:              primitive.NewObjectID().Hex(),
+		ModelID:         modelID,
+		Version:         version,
+		IsDefault:       req.IsDefault,
+		Name:            req.Name,
+		Description:     req.Description,
+		Category:        req.Category,
+		Tags:            req.Tags,
+		Objects:         req.Objects,
+		Metadata:        req.Metadata,
+		Format:          format,
+		ObjectCount:     objectCount,
+		Materials:       materials,
+		Thumbnail:       req.Thumbnail,
+		IsAIGenerated:   req.IsAIGenerated,
+		AIPrompt:        req.AIPrompt,
+		GenerationType:  req.GenerationType,
+		ExportedFormats: make(map[models.ThreeDModelFormat]string),
+		CreatedBy:       user,
+		CreatedOn:       now,
+		ModifiedBy:      user,
+		ModifiedOn:      now,
+		RowVersionStamp: 1,
+		IsActive:        true,
+	}
+
+	// Save to database
+	data, err := bson.Marshal(doc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal 3D model document: %w", err)
+	}
+
+	var docMap map[string]interface{}
+	if err := bson.Unmarshal(data, &docMap); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal to map: %w", err)
+	}
+
+	if _, err := s.docDB.InsertOne(ctx, Collection3DModelDocuments, docMap); err != nil {
+		return nil, fmt.Errorf("failed to insert 3D model document: %w", err)
+	}
+
+	return doc, nil
+}
+
+// GetModelDocument retrieves a 3D model document by ID
+func (s *ThreeDModelDocumentService) GetModelDocument(ctx context.Context, id string) (*models.ThreeDModelDocument, error) {
+	filter := bson.M{"_id": id, "isActive": true}
+	result, err := s.docDB.FindOne(ctx, Collection3DModelDocuments, filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get 3D model document: %w", err)
+	}
+
+	doc := bson.M(result)
+	var modelDoc models.ThreeDModelDocument
+	data, err := bson.Marshal(doc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal 3D model document: %w", err)
+	}
+	if err := bson.Unmarshal(data, &modelDoc); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal 3D model document: %w", err)
+	}
+
+	return &modelDoc, nil
+}
+
+// GetDefaultVersion retrieves the default version of a model by modelID
+func (s *ThreeDModelDocumentService) GetDefaultVersion(ctx context.Context, modelID string) (*models.ThreeDModelDocument, error) {
+	filter := bson.M{
+		"modelId":   modelID,
+		"isdefault": true,
+		"isActive":  true,
+	}
+	result, err := s.docDB.FindOne(ctx, Collection3DModelDocuments, filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get default version: %w", err)
+	}
+
+	doc := bson.M(result)
+	var modelDoc models.ThreeDModelDocument
+	data, err := bson.Marshal(doc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal 3D model document: %w", err)
+	}
+	if err := bson.Unmarshal(data, &modelDoc); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal 3D model document: %w", err)
+	}
+
+	return &modelDoc, nil
+}
+
+// GetModelVersion retrieves a specific version of a model
+func (s *ThreeDModelDocumentService) GetModelVersion(ctx context.Context, modelID string, version int) (*models.ThreeDModelDocument, error) {
+	filter := bson.M{
+		"modelId":  modelID,
+		"version":  version,
+		"isActive": true,
+	}
+	result, err := s.docDB.FindOne(ctx, Collection3DModelDocuments, filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get model version: %w", err)
+	}
+
+	doc := bson.M(result)
+	var modelDoc models.ThreeDModelDocument
+	data, err := bson.Marshal(doc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal 3D model document: %w", err)
+	}
+	if err := bson.Unmarshal(data, &modelDoc); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal 3D model document: %w", err)
+	}
+
+	return &modelDoc, nil
+}
+
+// ListModelDocuments retrieves all active 3D model documents (all versions)
+// Optionally filter by category, tags, modelID, or default versions only
+func (s *ThreeDModelDocumentService) ListModelDocuments(ctx context.Context, category string, tags []string, modelID string, defaultOnly bool) ([]models.ThreeDModelDocument, error) {
+	filter := bson.M{"isActive": true}
+
+	// Add category filter if provided
+	if category != "" {
+		filter["category"] = category
+	}
+
+	// Add tags filter if provided
+	if len(tags) > 0 {
+		filter["tags"] = bson.M{"$in": tags}
+	}
+
+	// Add modelID filter if provided (get all versions of a specific model)
+	if modelID != "" {
+		filter["modelId"] = modelID
+	}
+
+	// Add default version filter if requested
+	if defaultOnly {
+		filter["isdefault"] = true
+	}
+
+	// Sort by modelId and version descending (latest first)
+	opts := options.Find().SetSort(bson.D{
+		{Key: "modelId", Value: 1},
+		{Key: "version", Value: -1},
+	})
+
+	results, err := s.docDB.FindMany(ctx, Collection3DModelDocuments, filter, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list 3D model documents: %w", err)
+	}
+
+	var docList []models.ThreeDModelDocument
+	for _, result := range results {
+		doc := bson.M(result)
+		var m models.ThreeDModelDocument
+		data, err := bson.Marshal(doc)
+		if err != nil {
+			continue
+		}
+		if err := bson.Unmarshal(data, &m); err != nil {
+			continue
+		}
+		docList = append(docList, m)
+	}
+
+	return docList, nil
+}
+
+// UpdateModelDocument updates a 3D model document
+func (s *ThreeDModelDocumentService) UpdateModelDocument(ctx context.Context, id string, req *models.ThreeDModelDocumentUpdateRequest, user string) (*models.ThreeDModelDocument, error) {
+	// Get existing document
+	existing, err := s.GetModelDocument(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+
+	// Update metadata if provided
+	if req.Name != "" {
+		existing.Name = req.Name
+	}
+	if req.Description != "" {
+		existing.Description = req.Description
+	}
+	if req.Tags != nil {
+		existing.Tags = req.Tags
+	}
+	if req.Category != "" {
+		existing.Category = req.Category
+	}
+	if req.Thumbnail != "" {
+		existing.Thumbnail = req.Thumbnail
+	}
+	if req.Metadata != nil {
+		existing.Metadata = req.Metadata
+	}
+
+	// Update objects if provided
+	if req.Objects != nil {
+		existing.Objects = req.Objects
+		existing.ObjectCount = len(req.Objects)
+		existing.Materials = extractMaterials(req.Objects)
+	}
+
+	// Update isDefault if provided
+	if req.IsDefault != nil {
+		// If setting to true, unset isDefault on all other versions of this model
+		if *req.IsDefault {
+			if err := s.unsetDefaultVersion(ctx, existing.ModelID); err != nil {
+				return nil, fmt.Errorf("failed to unset default version: %w", err)
+			}
+		}
+		existing.IsDefault = *req.IsDefault
+	}
+
+	existing.ModifiedBy = user
+	existing.ModifiedOn = now
+	existing.RowVersionStamp++
+
+	// Save to database
+	data, err := bson.Marshal(existing)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal 3D model document: %w", err)
+	}
+
+	var docMap map[string]interface{}
+	if err := bson.Unmarshal(data, &docMap); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal to map: %w", err)
+	}
+
+	filter := bson.M{"_id": id}
+	if err := s.docDB.UpdateOne(ctx, Collection3DModelDocuments, filter, bson.M{"$set": docMap}); err != nil {
+		return nil, fmt.Errorf("failed to update 3D model document: %w", err)
+	}
+
+	return existing, nil
+}
+
+// DeleteModelDocument soft deletes a 3D model document
+func (s *ThreeDModelDocumentService) DeleteModelDocument(ctx context.Context, id string) error {
+	filter := bson.M{"_id": id}
+	update := bson.M{"$set": bson.M{"isActive": false}}
+	if err := s.docDB.UpdateOne(ctx, Collection3DModelDocuments, filter, update); err != nil {
+		return fmt.Errorf("failed to delete 3D model document: %w", err)
+	}
+	return nil
+}
+
+// DeleteAllVersions soft deletes all versions of a model
+func (s *ThreeDModelDocumentService) DeleteAllVersions(ctx context.Context, modelID string) error {
+	filter := bson.M{"modelId": modelID}
+	update := bson.M{"$set": bson.M{"isActive": false}}
+	if err := s.docDB.UpdateMany(ctx, Collection3DModelDocuments, filter, update); err != nil {
+		return fmt.Errorf("failed to delete all versions: %w", err)
+	}
+	return nil
+}
+
+// SearchModelDocuments searches 3D model documents by name, description, tags, or category
+func (s *ThreeDModelDocumentService) SearchModelDocuments(ctx context.Context, query string, defaultOnly bool) ([]models.ThreeDModelDocument, error) {
+	filter := bson.M{
+		"isActive": true,
+		"$or": []bson.M{
+			{"name": bson.M{"$regex": query, "$options": "i"}},
+			{"description": bson.M{"$regex": query, "$options": "i"}},
+			{"tags": bson.M{"$regex": query, "$options": "i"}},
+			{"category": bson.M{"$regex": query, "$options": "i"}},
+		},
+	}
+
+	if defaultOnly {
+		filter["isdefault"] = true
+	}
+
+	// Sort by modelId and version descending
+	opts := options.Find().SetSort(bson.D{
+		{Key: "modelId", Value: 1},
+		{Key: "version", Value: -1},
+	})
+
+	results, err := s.docDB.FindMany(ctx, Collection3DModelDocuments, filter, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search 3D model documents: %w", err)
+	}
+
+	var docList []models.ThreeDModelDocument
+	for _, result := range results {
+		doc := bson.M(result)
+		var m models.ThreeDModelDocument
+		data, err := bson.Marshal(doc)
+		if err != nil {
+			continue
+		}
+		if err := bson.Unmarshal(data, &m); err != nil {
+			continue
+		}
+		docList = append(docList, m)
+	}
+
+	return docList, nil
+}
+
+// ListAllModelVersions retrieves all versions of a specific model
+func (s *ThreeDModelDocumentService) ListAllModelVersions(ctx context.Context, modelID string) ([]models.ThreeDModelDocument, error) {
+	return s.ListModelDocuments(ctx, "", nil, modelID, false)
+}
+
+// Helper functions
+
+// getLatestVersion returns the highest version number for a model
+func (s *ThreeDModelDocumentService) getLatestVersion(ctx context.Context, modelID string) (int, error) {
+	filter := bson.M{
+		"modelId":  modelID,
+		"isActive": true,
+	}
+
+	// Sort by version descending to get the latest
+	opts := options.Find().SetSort(bson.D{{Key: "version", Value: -1}}).SetLimit(1)
+
+	results, err := s.docDB.FindMany(ctx, Collection3DModelDocuments, filter, opts)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get latest version: %w", err)
+	}
+
+	if len(results) == 0 {
+		return 0, fmt.Errorf("no versions found for model %s", modelID)
+	}
+
+	doc := bson.M(results[0])
+	if version, ok := doc["version"].(int32); ok {
+		return int(version), nil
+	}
+	if version, ok := doc["version"].(int); ok {
+		return version, nil
+	}
+
+	return 0, fmt.Errorf("failed to parse version number")
+}
+
+// unsetDefaultVersion sets isDefault to false for all versions of a model
+func (s *ThreeDModelDocumentService) unsetDefaultVersion(ctx context.Context, modelID string) error {
+	filter := bson.M{
+		"modelId":   modelID,
+		"isdefault": true,
+		"isActive":  true,
+	}
+	update := bson.M{"$set": bson.M{"isdefault": false}}
+	return s.docDB.UpdateMany(ctx, Collection3DModelDocuments, filter, update)
+}
+
+// extractMaterials extracts material names from objects array
+func extractMaterials(objects []map[string]interface{}) []string {
+	materialsMap := make(map[string]bool)
+	var materials []string
+
+	for _, obj := range objects {
+		if material, ok := obj["material"].(string); ok && material != "" {
+			if !materialsMap[material] {
+				materialsMap[material] = true
+				materials = append(materials, material)
+			}
+		}
+		// Also check for material object
+		if materialObj, ok := obj["material"].(map[string]interface{}); ok {
+			if name, ok := materialObj["name"].(string); ok && name != "" {
+				if !materialsMap[name] {
+					materialsMap[name] = true
+					materials = append(materials, name)
+				}
+			}
+		}
+	}
+
+	return materials
+}

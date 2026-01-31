@@ -269,57 +269,121 @@ Return ONLY valid JSON.`,
 }
 
 // Step4_CombinePageComponents combines all generated components into final page structure
-func Step4_CombinePageComponents(plan *PageGenerationPlan, components []GeneratedComponent) (map[string]interface{}, error) {
+func Step4_CombinePageComponents(plan *PageGenerationPlan, components []GeneratedComponent, pageName string) (map[string]interface{}, error) {
 	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "PageGenMultiStep"}
 
-	sections := make([]map[string]interface{}, plan.SectionCount)
+	// Convert components to panels in PageDefinition format
+	// Supports nested panels: panels can contain either a view OR child panels
+	panels := make([]map[string]interface{}, 0)
 
-	// Distribute components into sections
-	currentCompIndex := 0
-	for sectionIdx := 0; sectionIdx < plan.SectionCount; sectionIdx++ {
-		sectionComponents := make([]map[string]interface{}, 0)
+	// Group components by section to create nested structure
+	sectionMap := make(map[int][]GeneratedComponent)
+	for _, comp := range components {
+		sectionMap[comp.SectionIndex] = append(sectionMap[comp.SectionIndex], comp)
+	}
 
-		for i := 0; i < len(components); i++ {
-			if components[i].SectionIndex == sectionIdx || plan.SectionCount == 1 {
-				comp := components[currentCompIndex]
+	// If multiple sections, create container panels with nested child panels
+	if plan.SectionCount > 1 {
+		for sectionIdx := 0; sectionIdx < plan.SectionCount; sectionIdx++ {
+			sectionComps := sectionMap[sectionIdx]
+			if len(sectionComps) == 0 {
+				continue
+			}
 
-				componentMap := map[string]interface{}{
-					"id":          fmt.Sprintf("comp-%d-%d", sectionIdx, i),
-					"name":        comp.Name,
-					"type":        comp.Type,
-					"description": comp.Description,
-					"props":       comp.Props,
-					"dataBinding": comp.DataBinding,
-					"events":      comp.Events,
-					"validation":  comp.Validation,
-					"style":       comp.Style,
+			// Create child panels for this section
+			childPanels := make([]map[string]interface{}, 0)
+			for childIdx, comp := range sectionComps {
+				// Extract view name from dataBinding if available
+				viewName := ""
+				if comp.DataBinding != nil {
+					if view, ok := comp.DataBinding["view"].(string); ok {
+						viewName = view
+					}
 				}
 
-				sectionComponents = append(sectionComponents, componentMap)
-				currentCompIndex++
-				if currentCompIndex >= len(components) {
-					break
+				childPanel := map[string]interface{}{
+					"name":        comp.Name,
+					"orientation": 1, // Vertical
+					"width":       "100%",
+					"height":      "auto",
+				}
+
+				// If component has a view, add view reference
+				if viewName != "" {
+					childPanel["view"] = map[string]interface{}{
+						"name": viewName,
+						"type": "document",
+					}
+				}
+
+				// Add component metadata
+				if comp.Props != nil {
+					childPanel["attrs"] = comp.Props
+				}
+
+				childPanels = append(childPanels, childPanel)
+				iLog.Debug(fmt.Sprintf("  Added child panel %d: %s (view: %s)", childIdx, comp.Name, viewName))
+			}
+
+			// Create container panel for this section
+			sectionPanel := map[string]interface{}{
+				"name":        fmt.Sprintf("Section_%d", sectionIdx+1),
+				"orientation": 1, // Vertical orientation for section container
+				"width":       "100%",
+				"height":      "auto",
+				"panels":      childPanels, // Nested child panels
+			}
+
+			panels = append(panels, sectionPanel)
+			iLog.Debug(fmt.Sprintf("Created section panel %d with %d children", sectionIdx, len(childPanels)))
+		}
+	} else {
+		// Single section - create flat panel structure
+		for idx, comp := range components {
+			// Extract view name from dataBinding if available
+			viewName := ""
+			if comp.DataBinding != nil {
+				if view, ok := comp.DataBinding["view"].(string); ok {
+					viewName = view
 				}
 			}
-		}
 
-		sections[sectionIdx] = map[string]interface{}{
-			"name":       fmt.Sprintf("Section_%d", sectionIdx+1),
-			"components": sectionComponents,
-		}
+			panel := map[string]interface{}{
+				"name":        comp.Name,
+				"orientation": 1, // Vertical
+				"width":       "100%",
+				"height":      "auto",
+			}
 
-		if currentCompIndex >= len(components) {
-			break
+			// If component has a view, add view reference
+			if viewName != "" {
+				panel["view"] = map[string]interface{}{
+					"name": viewName,
+					"type": "document",
+				}
+			}
+
+			// Add component metadata
+			if comp.Props != nil {
+				panel["attrs"] = comp.Props
+			}
+
+			panels = append(panels, panel)
+			iLog.Debug(fmt.Sprintf("Added panel %d: %s (view: %s)", idx, comp.Name, viewName))
 		}
 	}
 
+	// Return in PageDefinition format that the Page Editor expects
 	result := map[string]interface{}{
-		"pageType":    plan.PageType,
-		"layoutType":  plan.LayoutType,
-		"sections":    sections,
+		"name":        pageName,
+		"version":     "1.0",
+		"isdefault":   false,
+		"orientation": 1, // Vertical orientation for root
+		"panels":      panels,
+		"actions":     map[string]interface{}{},
 	}
 
-	iLog.Info(fmt.Sprintf("Step 4 - Combined %d components into %d sections", len(components), plan.SectionCount))
+	iLog.Info(fmt.Sprintf("Step 4 - Created %d panels (%d sections) in PageDefinition format", len(panels), plan.SectionCount))
 
 	return result, nil
 }
@@ -356,8 +420,16 @@ func GeneratePageMultiStep(ctx context.Context, description string, apiKey strin
 		return nil, fmt.Errorf("step 3 failed: %v", err)
 	}
 
+	// Extract page name from currentPage or generate default
+	pageName := "GeneratedPage"
+	if currentPage != nil {
+		if name, ok := currentPage["name"].(string); ok && name != "" {
+			pageName = name
+		}
+	}
+
 	// Step 4: Combine into final structure
-	result, err := Step4_CombinePageComponents(plan, components)
+	result, err := Step4_CombinePageComponents(plan, components, pageName)
 	if err != nil {
 		return nil, fmt.Errorf("step 4 failed: %v", err)
 	}

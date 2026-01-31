@@ -29,6 +29,53 @@ type Node struct {
 	PostCondition map[string]interface{} `json:"postcondition"`
 	ProcessData   map[string]interface{} `json:"processdata"`
 	RoutingTables []RoutingTable         `json:"routingtables"`
+	AIConfig      *AITaskConfig          `json:"aiconfig,omitempty"`
+	SubflowId     string                 `json:"subflowId,omitempty"` // ID/UUID of the workflow to execute as subflow
+	AIAgentConfig *AIAgentConfig         `json:"aiAgentConfig,omitempty"` // AI Agent/Skills configuration
+}
+
+// AIAgentConfig represents the configuration for an AI Agent/Skills call
+type AIAgentConfig struct {
+	AgentName    string   `json:"agentName,omitempty"`     // Name of the AI agent to call
+	Skills       []string `json:"skills,omitempty"`        // Skills to use
+	AIModel      string   `json:"aiModel,omitempty"`       // AI model from aiconfig.json
+	AIVendor     string   `json:"aiVendor,omitempty"`      // AI vendor override
+	SystemPrompt string   `json:"systemPrompt,omitempty"`  // System prompt for the agent
+	UserPrompt   string   `json:"userPrompt,omitempty"`    // User prompt template
+	Temperature  float64  `json:"temperature,omitempty"`   // Temperature setting
+	MaxTokens    int      `json:"maxTokens,omitempty"`     // Max tokens
+	Timeout      int      `json:"timeout,omitempty"`       // Timeout in seconds
+}
+
+type AITaskConfig struct {
+	UseCaseName   string              `json:"useCaseName,omitempty"`
+	AIVendor      string              `json:"aiVendor,omitempty"`
+	Agent         string              `json:"agent,omitempty"`
+	Skills        []string            `json:"skills,omitempty"`
+	MCPServers    []string            `json:"mcpServers,omitempty"`
+	SystemPrompt  string              `json:"systemPrompt,omitempty"`
+	UserPrompt    string              `json:"userPrompt,omitempty"`
+	InputMapping  []AIInputMapping    `json:"inputMapping,omitempty"`
+	OutputMapping []AIOutputMapping   `json:"outputMapping,omitempty"`
+	Temperature   float64             `json:"temperature,omitempty"`
+	MaxTokens     int                 `json:"maxTokens,omitempty"`
+	Timeout       int                 `json:"timeout,omitempty"`
+	RetryAttempts int                 `json:"retryAttempts,omitempty"`
+}
+
+type AIInputMapping struct {
+	ID             string `json:"id"`
+	InputName      string `json:"inputName"`
+	PromptVariable string `json:"promptVariable"`
+	Transformation string `json:"transformation,omitempty"`
+}
+
+type AIOutputMapping struct {
+	ID             string `json:"id"`
+	OutputName     string `json:"outputName"`
+	AIResponsePath string `json:"aiResponsePath"`
+	Transformation string `json:"transformation,omitempty"`
+	DefaultValue   string `json:"defaultValue,omitempty"`
 }
 
 type Link struct {

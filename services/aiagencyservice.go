@@ -42,11 +42,16 @@ func NewAIAgencyService(
 		ControllerName: "AIAgencyService",
 	}
 
-	// Auto-migrate the conversation sessions table
-	if err := db.AutoMigrate(&models.AIConversationSession{}); err != nil {
-		iLog.Error(fmt.Sprintf("Failed to auto-migrate AIConversationSession table: %v", err))
+	// Auto-migrate the conversation sessions table (only if it doesn't exist)
+	migrator := db.Migrator()
+	if !migrator.HasTable(&models.AIConversationSession{}) {
+		if err := db.AutoMigrate(&models.AIConversationSession{}); err != nil {
+			iLog.Error(fmt.Sprintf("Failed to auto-migrate AIConversationSession table: %v", err))
+		} else {
+			iLog.Info("AIConversationSession table created successfully")
+		}
 	} else {
-		iLog.Info("AIConversationSession table migrated successfully")
+		iLog.Debug("AIConversationSession table already exists, skipping migration")
 	}
 
 	return &AIAgencyService{
@@ -429,9 +434,12 @@ func (s *AIAgencyService) getHandlers() []TransactionHandler {
 	return []TransactionHandler{
 		// Code modification should be checked first (more specific)
 		&CodeModificationHandler{
-			OpenAIKey:   s.OpenAIKey,
-			OpenAIModel: s.OpenAIModel,
-			iLog:        s.iLog,
+			OpenAIKey:              s.OpenAIKey,
+			OpenAIModel:            s.OpenAIModel,
+			AIReportService:        s.AIReportService,
+			SchemaEmbeddingService: s.SchemaEmbeddingService,
+			SchemaMetadataService:  s.SchemaMetadataService,
+			iLog:                   s.iLog,
 		},
 		&BPMGenerationHandler{
 			OpenAIKey:   s.OpenAIKey,

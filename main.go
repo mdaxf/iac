@@ -16,7 +16,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -35,10 +34,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	configuration "github.com/mdaxf/iac/config"
+	"github.com/mdaxf/iac/controllers/roles"
 	dbconn "github.com/mdaxf/iac/databases"
 	mongodb "github.com/mdaxf/iac/documents"
+	funcs "github.com/mdaxf/iac/engine/function"
+	"github.com/mdaxf/iac/framework/jobqueue"
+	"github.com/mdaxf/iac/framework/middleware"
 	"github.com/mdaxf/iac/gormdb"
+	"github.com/mdaxf/iac/hubexecutor"
 	"github.com/mdaxf/iac/services"
+	"github.com/mdaxf/iac/services/inthubhistory"
+	"github.com/mdaxf/iac/signalrserver"
 
 	// Register database adapters
 	_ "github.com/mdaxf/iac/databases/mssql"
@@ -93,6 +99,24 @@ func main() {
 		log.Fatalf("Failed to load global configuration: %v", err)
 		//	ilog.Error("Failed to load global configuration: %v", err)
 	}
+
+	// Initialize role-based execution
+	rolesConfig := configuration.GetRolesConfig()
+	roleInitializer := configuration.InitGlobalRoleInitializer(rolesConfig)
+	log.Printf("Configured roles: %v", rolesConfig.GetEnabledRoles())
+
+	// Load AI configuration
+	log.Println("Loading AI configuration...")
+	if _, err := configuration.LoadAIConfig(); err != nil {
+		log.Printf("Warning: Failed to load AI configuration: %v", err)
+		log.Println("AI features will be limited. Please ensure aiconfig.json exists in the working directory.")
+	} else {
+		log.Println("AI configuration loaded successfully")
+	}
+
+	// Initialize AI config accessor for workflow AI tasks
+	initializeAITaskAccessor()
+
 	com.NodeHeartBeats = make(map[string]interface{})
 
 	com.IACNode = make(map[string]interface{})
@@ -111,6 +135,9 @@ func main() {
 	com.NodeHeartBeats[appid] = data
 
 	initialize()
+
+	// Set up role initializer callbacks
+	setupRoleCallbacks(roleInitializer, config)
 
 	// Log database connection status
 	ilog.Info(fmt.Sprintf("Database connection status - Type: %s, Connected: %v", dbconn.DatabaseType, dbconn.DB != nil))
@@ -171,133 +198,103 @@ func main() {
 		}
 	}()
 
+	// Wait for SignalR to be ready (it's initialized in a goroutine)
+	ilog.Info("Waiting for SignalR connection to complete...")
+	select {
+	case <-SignalRReady:
+		ilog.Info("SignalR initialization complete")
+	case <-time.After(10 * time.Second):
+		ilog.Warn("SignalR connection timeout - continuing with job system initialization")
+	}
+
+	// Initialize background job system (only if job_executor role is enabled)
+	if configuration.HasRole(configuration.RoleJobExecutor) {
+		if dbconn.DB != nil && mongodb.DocDBCon != nil {
+			ilog.Info("Initializing background job system (job_executor role enabled)...")
+			ctx := context.Background()
+
+			// Get cache instance for job queue (if available)
+			var cacheInstance = configuration.SessionCache
+
+			if err := jobqueue.InitializeJobSystem(ctx, dbconn.DB, mongodb.DocDBCon, cacheInstance, com.IACMessageBusClient); err != nil {
+				ilog.Error(fmt.Sprintf("Failed to initialize job system: %v", err))
+				ilog.Error("Background jobs and scheduled tasks will not be available")
+			} else {
+				ilog.Info("Background job system initialized successfully")
+
+				// Ensure job system is shut down gracefully
+				defer func() {
+					ilog.Info("Shutting down job system...")
+					if err := jobqueue.ShutdownJobSystem(); err != nil {
+						ilog.Error(fmt.Sprintf("Error shutting down job system: %v", err))
+					}
+				}()
+			}
+		} else {
+			ilog.Warn("Skipping job system initialization - database or document DB not available")
+		}
+	} else {
+		ilog.Info("Job executor role not enabled - skipping job system initialization")
+	}
+
 	if com.IACMessageBusClient != nil {
 		defer com.IACMessageBusClient.Stop()
 	} else {
 		//log.Fatalf("Failed to connect to database")
 		ilog.Error("Failed to connect to the configured message bus")
 	}
-	portal := config.Portal
+
+	ilog.Info("Initializing IAC application server...")
 
 	router = gin.Default()
 	// Ensure CORS middleware is registered early so it runs even for preflight requests
 	router.Use(CORSMiddleware("*"))
 
-	// Global OPTIONS handler to make sure preflight requests always receive a 204
-	router.OPTIONS("/*path", func(c *gin.Context) {
-		origin := c.Request.Header.Get("Origin")
-		if origin != "" {
-			c.Header("Access-Control-Allow-Origin", origin)
-			c.Header("Access-Control-Allow-Credentials", "true")
-		} else {
-			c.Header("Access-Control-Allow-Origin", "*")
-		}
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, Content-Length, X-CSRF-Token, X-Client-Id, Token, session, Origin, Host, Connection, Accept-Encoding, Accept-Language, X-Requested-With")
-		c.AbortWithStatus(http.StatusNoContent)
-	})
-	// Load controllers dynamically based on the configuration file
-	plugincontrollers := make(map[string]interface{})
-	for _, controllerConfig := range config.PluginControllers {
+	// Add API call history middleware (records API calls for auditing)
+	router.Use(middleware.APICallHistoryMiddleware())
 
-		jsonString, err := json.Marshal(controllerConfig)
-		if err != nil {
-
-			ilog.Error(fmt.Sprintf("Error marshaling json: %v", err))
-			return
-		}
-		fmt.Println(string(jsonString))
-		controllerModule, err := loadpluginControllerModule(controllerConfig.Path)
-		if err != nil {
-			ilog.Error(fmt.Sprintf("Failed to load controller module %s: %v", controllerConfig.Path, err))
-		}
-		plugincontrollers[controllerConfig.Path] = controllerModule
+	// Initialize roles with the router
+	if err := roleInitializer.Initialize(context.Background(), router); err != nil {
+		ilog.Error(fmt.Sprintf("Failed to initialize roles: %v", err))
+	} else {
+		ilog.Info("Roles initialized successfully")
 	}
 
-	go func() {
-		// Create endpoints dynamically based on the configuration file
-		for _, controllerConfig := range config.PluginControllers {
-			for _, endpointConfig := range controllerConfig.Endpoints {
-				method := endpointConfig.Method
-				path := fmt.Sprintf("/%s%s", controllerConfig.Path, endpointConfig.Path)
-				handler := plugincontrollers[controllerConfig.Path].(map[string]interface{})[endpointConfig.Handler].(func(*gin.Context))
-				router.Handle(method, path, handler)
+	// Ensure roles are shut down gracefully
+	defer func() {
+		ilog.Info("Shutting down roles...")
+		if err := roleInitializer.Shutdown(context.Background()); err != nil {
+			ilog.Error(fmt.Sprintf("Error shutting down roles: %v", err))
+		}
+	}()
+
+	// Note: OPTIONS requests are handled by CORSMiddleware
+	// Do NOT add a global OPTIONS("/*path") handler as it conflicts with other wildcard routes
+	// Note: Controllers, portal, and static files are now loaded by the app role initializer
+	// in setupRoleCallbacks. This ensures proper sequencing with other role components.
+
+	// Start the HTTP server only if app role is enabled (API endpoints)
+	if configuration.HasRole(configuration.RoleApp) {
+		server := &http.Server{
+			Addr:         fmt.Sprintf(":%d", config.Port), // Set your desired port
+			Handler:      router,
+			ReadTimeout:  time.Duration(config.Timeout) * time.Millisecond,   // Set read timeout
+			WriteTimeout: time.Duration(2*config.Timeout) * time.Millisecond, // Set write timeout
+			IdleTimeout:  time.Duration(3*config.Timeout) * time.Millisecond, // Set idle timeout
+		}
+
+		go func() {
+			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				ilog.Error(fmt.Sprintf("Failed to start server: %v", err))
+				panic(err)
 			}
-		}
-	}()
-	// Load controllers statically based on the configuration file
-	ilog.Info("Loading controllers")
+		}()
 
-	go func() {
-		loadControllers(router, config.Controllers)
-	}()
-	// Start the portals
-	ilog.Info("Starting portals")
-
-	jsonString, err := json.Marshal(config.Portal)
-	if err != nil {
-		ilog.Error(fmt.Sprintf("Error marshaling json: %v", err))
-		return
-	}
-	fmt.Println(string(jsonString))
-
-	ilog.Info(fmt.Sprintf("Starting portal on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
-
-	clientconfig := make(map[string]interface{})
-	clientconfig["signalrconfig"] = com.SingalRConfig
-	clientconfig["instance"] = com.Instance
-	clientconfig["instanceType"] = com.InstanceType
-	clientconfig["instanceName"] = com.InstanceName
-	clientconfig["dbtype"] = dbconn.DatabaseType
-
-	router.GET("/app/config", func(c *gin.Context) {
-		c.JSON(http.StatusOK, clientconfig)
-	})
-
-	router.GET("/app/debug", func(c *gin.Context) {
-		headers := c.Request.Header
-		useragent := c.Request.Header.Get("User-Agent")
-		ilog.Debug(fmt.Sprintf("User-Agent: %s, headers: %v", useragent, headers))
-		debugInfo := map[string]interface{}{
-			"Route":          c.FullPath(),
-			"requestheader":  headers,
-			"User-Agent":     useragent,
-			"requestbody":    c.Request.Body,
-			"responseheader": c.Writer.Header(),
-			"Method":         c.Request.Method,
-		}
-
-		c.JSON(http.StatusOK, debugInfo)
-	})
-
-	// Serve static files for 3D models storage
-	router.Static("/storage/3d_models", "./storage/3d_models")
-
-	/*
-		router.Use(static.Serve("/portal", static.LocalFile("./portal", true)))
-		router.Use(static.Serve("/portal/scripts", static.LocalFile("./portal/scripts", true)))*/
-	/*
-
-	 */
-	// Start the server
-	//go router.Run(fmt.Sprintf(":%d", config.Port))
-
-	server := &http.Server{
-		Addr:         fmt.Sprintf(":%d", config.Port), // Set your desired port
-		Handler:      router,
-		ReadTimeout:  time.Duration(config.Timeout) * time.Millisecond,   // Set read timeout
-		WriteTimeout: time.Duration(2*config.Timeout) * time.Millisecond, // Set write timeout
-		IdleTimeout:  time.Duration(3*config.Timeout) * time.Millisecond, // Set idle timeout
+		ilog.Info(fmt.Sprintf("Started IAC API server on port %d", config.Port))
+	} else {
+		ilog.Info("App role not enabled - API server not started")
 	}
 
-	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			ilog.Error(fmt.Sprintf("Failed to start server: %v", err))
-			panic(err)
-		}
-	}()
-
-	ilog.Info(fmt.Sprintf("Started iac endpoint server on port %d, page:%s, logon: %s", portal.Port, portal.Home, portal.Logon))
 	waitForTerminationSignal()
 	elapsed := time.Since(startTime)
 	ilog.PerformanceWithDuration("main.main", elapsed)
@@ -463,6 +460,18 @@ func renderproxy(proxy map[string]interface{}, router *gin.Engine) {
 	}
 }
 
+func initializeAITaskAccessor() {
+	// Set up the global AI config accessor for workflow AI tasks
+	// This allows engine/function to access config without creating import cycle
+	log.Println("Initializing AI task accessor for workflows...")
+
+	funcs.InitializeAITaskConfig(func() interface{} {
+		return configuration.GetAIConfig()
+	})
+
+	log.Println("AI task accessor initialized successfully")
+}
+
 func waitForTerminationSignal() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -471,4 +480,257 @@ func waitForTerminationSignal() {
 
 	time.Sleep(2 * time.Second) // Add any cleanup or graceful shutdown logic here
 	os.Exit(0)
+}
+
+// setupRoleCallbacks configures the role initializer with role-specific callbacks
+func setupRoleCallbacks(roleInitializer *configuration.RoleInitializer, appConfig *configuration.Config) {
+	log.Println("Setting up role callbacks...")
+
+	// App role callback - registers API endpoints, portal, and static files
+	log.Println("  - Setting app role callback")
+	roleInitializer.SetAppInitializer(
+		func(ctx context.Context, roleConfig *configuration.AppRoleConfig, router *gin.Engine) error {
+			log.Println(">>> App role callback INVOKED <<<")
+			ilog.Info("Initializing app role...")
+
+			// Register roles API controller (fast, do synchronously)
+			rolesController := roles.NewRolesController()
+			rolesController.RegisterRoutes(router.Group("/api"))
+			ilog.Info("Registered roles API controller")
+
+			// Setup portal and static files if enabled (fast, do synchronously)
+			if roleConfig != nil && roleConfig.EnablePortal {
+				ilog.Info("Setting up portal...")
+				setupPortal(router, appConfig)
+			}
+
+			if roleConfig != nil && roleConfig.EnableStaticFiles {
+				ilog.Info("Setting up static files...")
+				setupStaticFiles(router, appConfig)
+			}
+
+			// Setup proxy routes from webserver config (fast, do synchronously)
+			if configuration.GlobalConfiguration != nil && configuration.GlobalConfiguration.WebServerConfig != nil {
+				if proxy, ok := configuration.GlobalConfiguration.WebServerConfig["proxy"].(map[string]interface{}); ok && len(proxy) > 0 {
+					ilog.Info("Setting up proxy routes...")
+					renderproxy(proxy, router)
+				}
+			}
+
+			// Load plugin controllers
+			plugincontrollers := make(map[string]interface{})
+			for _, controllerConfig := range appConfig.PluginControllers {
+				controllerModule, err := loadpluginControllerModule(controllerConfig.Path)
+				if err != nil {
+					ilog.Error(fmt.Sprintf("Failed to load controller module %s: %v", controllerConfig.Path, err))
+					continue
+				}
+				plugincontrollers[controllerConfig.Path] = controllerModule
+			}
+
+			// Create endpoints for plugin controllers
+			for _, controllerConfig := range appConfig.PluginControllers {
+				for _, endpointConfig := range controllerConfig.Endpoints {
+					method := endpointConfig.Method
+					path := fmt.Sprintf("/%s%s", controllerConfig.Path, endpointConfig.Path)
+					if module, ok := plugincontrollers[controllerConfig.Path]; ok {
+						if moduleMap, ok := module.(map[string]interface{}); ok {
+							if handler, ok := moduleMap[endpointConfig.Handler].(func(*gin.Context)); ok {
+								router.Handle(method, path, handler)
+								ilog.Info(fmt.Sprintf("Registered plugin endpoint: %s %s", method, path))
+							}
+						}
+					}
+				}
+			}
+
+			// Load all API controllers
+			ilog.Info("Loading API controllers...")
+			loadControllers(router, appConfig.Controllers)
+			ilog.Info("API controllers loaded successfully")
+			return nil
+		},
+		func(ctx context.Context) error {
+			ilog.Info("Shutting down app role...")
+			return nil
+		},
+	)
+
+	// Integration Hub role callback
+	roleInitializer.SetIntegrationHubInitializer(
+		func(ctx context.Context, config *configuration.IntegrationHubRoleConfig, router *gin.Engine) error {
+			ilog.Info("Initializing integration hub role...")
+
+			// Initialize the hub history service
+			historyService, err := inthubhistory.NewIntHubHistoryService(nil)
+			if err != nil {
+				ilog.Error(fmt.Sprintf("Failed to initialize hub history service: %v", err))
+			} else {
+				inthubhistory.SetGlobalIntHubHistoryService(historyService)
+				ilog.Info("Global hub history service initialized and set")
+			}
+
+			// Initialize the hub executor manager
+			manager := hubexecutor.InitGlobalManager(hubexecutor.ManagerConfig{
+				HubLoader: hubexecutor.NewMongoHubLoader(hubexecutor.MongoHubLoaderConfig{
+					GetHubByHubName: services.GetDefaultHub,
+					GetHubByID:      services.GetHub,
+					GetAllHubs:      services.GetDefaultEnabledHubs,
+				}),
+				HistoryRecorder: historyService,
+			})
+			ilog.Info("Global hub executor manager initialized with history recorder")
+
+			// Set job executor callback
+			manager.SetJobExecutor(func(ctx context.Context, jobName string, params map[string]interface{}) error {
+				// Execute job using job queue
+				return jobqueue.ExecuteJobByName(ctx, jobName, params)
+			})
+
+			// Register hub executor API endpoints if enabled
+			if config.EnableAPI {
+				controller := hubexecutor.NewHubExecutorController(manager)
+				controller.RegisterRoutes(router.Group("/api"))
+				ilog.Info("Registered hub executor API controller")
+			}
+
+			// Auto-start hubs if configured
+			if config.AutoStart {
+				go func() {
+					// Wait a bit for everything to be ready
+					time.Sleep(2 * time.Second)
+
+					if len(config.HubNames) > 0 {
+						// Start specific hubs
+						for _, hubName := range config.HubNames {
+							ilog.Info(fmt.Sprintf("Auto-starting hub executor: %s", hubName))
+							if err := manager.StartExecutor(hubName); err != nil {
+								ilog.Error(fmt.Sprintf("Failed to auto-start hub executor %s: %v", hubName, err))
+							}
+						}
+					} else {
+						// Start all enabled hubs
+						ilog.Info("Auto-starting all enabled hub executors")
+						if results := manager.StartAllExecutors(); len(results) > 0 {
+							for name, err := range results {
+								if err != nil {
+									ilog.Error(fmt.Sprintf("Failed to auto-start hub executor %s: %v", name, err))
+								} else {
+									ilog.Info(fmt.Sprintf("Auto-started hub executor: %s", name))
+								}
+							}
+						}
+					}
+				}()
+			}
+
+			return nil
+		},
+		func(ctx context.Context) error {
+			ilog.Info("Shutting down integration hub role...")
+			manager := hubexecutor.GetGlobalManager()
+			if manager != nil {
+				manager.StopAll()
+			}
+			return nil
+		},
+	)
+
+	// SignalR role callback - starts embedded SignalR server
+	roleInitializer.SetSignalRInitializer(
+		func(ctx context.Context, config *configuration.SignalRRoleConfig) error {
+			ilog.Info("Initializing SignalR server role...")
+
+			// Create and start SignalR server
+			server := signalrserver.InitGlobalSignalRServer(config)
+			if err := server.Start(ctx); err != nil {
+				return fmt.Errorf("failed to start SignalR server: %v", err)
+			}
+
+			ilog.Info(fmt.Sprintf("SignalR server started on port %d", config.Port))
+			return nil
+		},
+		func(ctx context.Context) error {
+			ilog.Info("Shutting down SignalR server role...")
+			server := signalrserver.GetGlobalSignalRServer()
+			if server != nil {
+				return server.Stop(ctx)
+			}
+			return nil
+		},
+	)
+
+	// Job Executor role callback
+	roleInitializer.SetJobExecutorInitializer(
+		func(ctx context.Context, config *configuration.JobExecutorRoleConfig) error {
+			ilog.Info("Initializing job executor role...")
+			// Note: Job system is initialized separately in main() due to dependencies
+			// This callback is for role-specific configuration
+			ilog.Info(fmt.Sprintf("Job executor config: workers=%d, scheduler=%v", config.Workers, config.EnableScheduler))
+			return nil
+		},
+		func(ctx context.Context) error {
+			ilog.Info("Shutting down job executor role...")
+			// Note: Job system shutdown is handled separately in main()
+			return nil
+		},
+	)
+
+	ilog.Info("Role callbacks configured")
+}
+
+// setupPortal sets up the portal routes and client configuration endpoint
+func setupPortal(router *gin.Engine, config *configuration.Config) {
+	portal := config.Portal
+
+	clientconfig := make(map[string]interface{})
+	clientconfig["signalrconfig"] = com.SingalRConfig
+	clientconfig["instance"] = com.Instance
+	clientconfig["instanceType"] = com.InstanceType
+	clientconfig["instanceName"] = com.InstanceName
+	clientconfig["dbtype"] = dbconn.DatabaseType
+
+	router.GET("/app/config", func(c *gin.Context) {
+		c.JSON(http.StatusOK, clientconfig)
+	})
+
+	router.GET("/app/debug", func(c *gin.Context) {
+		headers := c.Request.Header
+		useragent := c.Request.Header.Get("User-Agent")
+		ilog.Debug(fmt.Sprintf("User-Agent: %s, headers: %v", useragent, headers))
+		debugInfo := map[string]interface{}{
+			"Route":          c.FullPath(),
+			"requestheader":  headers,
+			"User-Agent":     useragent,
+			"requestbody":    c.Request.Body,
+			"responseheader": c.Writer.Header(),
+			"Method":         c.Request.Method,
+		}
+		c.JSON(http.StatusOK, debugInfo)
+	})
+
+	ilog.Info(fmt.Sprintf("Portal configured: page=%s, logon=%s", portal.Home, portal.Logon))
+}
+
+// setupStaticFiles sets up static file serving routes
+func setupStaticFiles(router *gin.Engine, config *configuration.Config) {
+	// Serve static files for 3D models storage with CORS headers
+	router.GET("/storage/3d_models/*filepath", func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+		c.Header("Access-Control-Expose-Headers", "Content-Length, Content-Type")
+		c.File("./storage/3d_models/" + c.Param("filepath"))
+	})
+
+	// Serve static files for documents storage with CORS headers
+	router.GET("/storage/documents/*filepath", func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+		c.Header("Access-Control-Expose-Headers", "Content-Length, Content-Type")
+		c.File("./storage/documents/" + c.Param("filepath"))
+	})
+
+	ilog.Info("Static file routes configured")
 }

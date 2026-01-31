@@ -51,6 +51,18 @@ type Config struct {
 	ApiKey            string             `json:"apikey"`
 	OpenAiKey         string             `json:"openaikey"`
 	OpenAiModel       string             `json:"openaimodel"`
+	SSO               SSOConfig          `json:"sso"`
+}
+
+type SSOConfig struct {
+	Enabled      bool   `json:"enabled"`
+	Provider     string `json:"provider"`
+	AuthURL      string `json:"auth_url"`
+	TokenURL     string `json:"token_url"`
+	UserInfoURL  string `json:"user_info_url"`
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	RedirectURI  string `json:"redirect_uri"`
 }
 
 type Portal struct {
@@ -190,6 +202,78 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 	com.TransactionTimeout = com.ConverttoIntwithDefault(Transaction["timeout"], 15)
 	com.DBTransactionTimeout = com.ConverttoIntwithDefault(jsonData.DatabaseConfig["timeout"], 5)
 
+	// Initialize roles configuration
+	if jsonData.Roles == nil {
+		// Use default roles if not configured
+		fmt.Println("  - No roles configuration found, using defaults (app + job_executor)")
+		jsonData.Roles = DefaultRolesConfig()
+	} else {
+		// Validate roles configuration
+		if err := jsonData.Roles.Validate(); err != nil {
+			fmt.Printf("  - Warning: roles configuration invalid: %v, using defaults\n", err)
+			jsonData.Roles = DefaultRolesConfig()
+		} else {
+			fmt.Printf("  - Roles configured: %v\n", jsonData.Roles.GetEnabledRoles())
+		}
+	}
+
 	fmt.Println("loaded global configuration:", jsonData)
 	return &jsonData, nil
+}
+
+// GetRolesConfig returns the roles configuration from the global configuration
+func GetRolesConfig() *InstanceRolesConfig {
+	if GlobalConfiguration == nil || GlobalConfiguration.Roles == nil {
+		return DefaultRolesConfig()
+	}
+	return GlobalConfiguration.Roles
+}
+
+// HasRole checks if a specific role is enabled in the global configuration
+func HasRole(roleType InstanceRoleType) bool {
+	roles := GetRolesConfig()
+	return roles.HasRole(roleType)
+}
+
+// GetAppRoleConfig returns the app role configuration
+func GetAppRoleConfig() *AppRoleConfig {
+	roles := GetRolesConfig()
+	role := roles.GetRole(RoleApp)
+	if role != nil && role.App != nil {
+		return role.App
+	}
+	return &AppRoleConfig{
+		EnablePortal:      true,
+		EnableStaticFiles: true,
+	}
+}
+
+// GetIntegrationHubRoleConfig returns the integration hub role configuration
+func GetIntegrationHubRoleConfig() *IntegrationHubRoleConfig {
+	roles := GetRolesConfig()
+	role := roles.GetRole(RoleIntegrationHub)
+	if role != nil && role.IntegrationHub != nil {
+		return role.IntegrationHub
+	}
+	return nil
+}
+
+// GetSignalRRoleConfig returns the SignalR role configuration
+func GetSignalRRoleConfig() *SignalRRoleConfig {
+	roles := GetRolesConfig()
+	role := roles.GetRole(RoleSignalR)
+	if role != nil && role.SignalR != nil {
+		return role.SignalR
+	}
+	return nil
+}
+
+// GetJobExecutorRoleConfig returns the job executor role configuration
+func GetJobExecutorRoleConfig() *JobExecutorRoleConfig {
+	roles := GetRolesConfig()
+	role := roles.GetRole(RoleJobExecutor)
+	if role != nil && role.JobExecutor != nil {
+		return role.JobExecutor
+	}
+	return nil
 }

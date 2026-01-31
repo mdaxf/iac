@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -46,6 +47,10 @@ import (
 
 	"github.com/mdaxf/iac/integration/activemq"
 	"github.com/mdaxf/iac/integration/kafka"
+	"github.com/mdaxf/iac/services/apicallhistory"
+	"github.com/mdaxf/iac/services/cluster"
+	"github.com/mdaxf/iac/services/configstore"
+	"github.com/mdaxf/iac/services/session"
 
 	// Import document database adapters
 	_ "github.com/mdaxf/iac/documents/mongodb"
@@ -55,6 +60,7 @@ import (
 var err error
 var ilog logger.Log
 var Initialized bool
+var SignalRReady = make(chan bool, 1)
 
 // initialize is a function that performs the initialization process of the application.
 // It sets up the logger, initializes the cache, database, documents, MQTT client, and IAC message bus.
@@ -86,22 +92,37 @@ func initialize() {
 	config.SessionCacheTimeout = 1800
 	initializecache()
 	initializeDatabase()
+
+	// Initialize distributed sessions if enabled
+	initializeDistributedSessions()
 	//	nats.MB_NATS_CONN, err = nats.ConnectNATSServer()
 
 	initializedDocuments()
 
 	//	initializeIACMessageBus()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		com.IACMessageBusClient, err = signalr.Connect(com.SingalRConfig)
-		if err != nil {
-			//	fmt.Errorf("Failed to connect to IAC Message Bus: %v", err)
-			ilog.Error(fmt.Sprintf("Failed to connect to IAC Message Bus: %v", err))
-		}
-		//	fmt.Printf("IAC Message Bus: %v", com.IACMessageBusClient)
-		//	ilog.Debug(fmt.Sprintf("IAC Message Bus: %v", com.IACMessageBusClient))
-	}()
+	// Check if the embedded SignalR server role is enabled
+	// If so, skip external client connection - the embedded server handles it
+	if config.HasRole(config.RoleSignalR) {
+		ilog.Info("SignalR role is enabled - embedded server will handle connections")
+		ilog.Info("Skipping external SignalR client connection")
+		// Signal that SignalR initialization is complete
+		SignalRReady <- true
+	} else {
+		// Connect to external SignalR server
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ilog.Info(fmt.Sprintf("Connecting to external SignalR server: %v", com.SingalRConfig))
+			com.IACMessageBusClient, err = signalr.Connect(com.SingalRConfig)
+			if err != nil {
+				ilog.Error(fmt.Sprintf("Failed to connect to IAC Message Bus: %v", err))
+			} else {
+				ilog.Info("SignalR client connected successfully")
+			}
+			// Signal that SignalR initialization is complete (success or failure)
+			SignalRReady <- true
+		}()
+	}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -119,6 +140,13 @@ func initialize() {
 	//initializeKafka()
 
 	//initializeActiveMQConnection()
+
+	// Initialize cluster services (registry, discovery, config store)
+	// This is done after SignalR setup to ensure connectivity
+	initializeClusterServices()
+
+	// Initialize API call history service
+	initializeAPICallHistoryService()
 
 	fmt.Printf("initialize end time: %v", time.Now())
 	Initialized = true
@@ -849,4 +877,190 @@ func initializeActiveMQConnection() {
 		ilog.Debug(fmt.Sprintf("ActiveMQ Connections: %v, %d", config.ActiveMQs, i))
 	}()
 
+}
+
+// initializeDistributedSessions initializes the distributed session service if cluster mode is enabled
+func initializeDistributedSessions() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		ilog.PerformanceWithDuration("main.initializeDistributedSessions", elapsed)
+	}()
+
+	ilog.Debug("Checking distributed session configuration")
+
+	// Check if cluster configuration exists and distributed sessions are enabled
+	clusterConfig := config.GetClusterConfig()
+	if clusterConfig == nil || !clusterConfig.Enabled {
+		ilog.Info("Cluster mode disabled - using local session management")
+		return
+	}
+
+	if clusterConfig.Session == nil || !clusterConfig.Session.Distributed {
+		ilog.Info("Distributed sessions disabled - using local session management")
+		return
+	}
+
+	// Validate cluster configuration
+	if err := config.ValidateClusterConfig(clusterConfig); err != nil {
+		ilog.Error(fmt.Sprintf("Invalid cluster configuration: %v - falling back to local sessions", err))
+		return
+	}
+
+	// Get instance ID
+	instanceID := config.GetInstanceName()
+	if instanceID == "" {
+		instanceID = com.InstanceID
+	}
+
+	// Convert cluster session config to distributed session config
+	sessionConfig := clusterConfig.Session.ToDistributedSessionConfig(instanceID)
+
+	// Create distributed session service
+	ilog.Info(fmt.Sprintf("Initializing distributed session service (backend: %s, fallback: %s)",
+		sessionConfig.BackendType, sessionConfig.FallbackType))
+
+	sessionService, err := session.NewDistributedSessionService(sessionConfig)
+	if err != nil {
+		ilog.Error(fmt.Sprintf("Failed to initialize distributed session service: %v", err))
+		ilog.Info("Falling back to local session management")
+		return
+	}
+
+	// Set as global session service
+	session.SetGlobalSessionService(sessionService)
+
+	ilog.Info(fmt.Sprintf("Distributed session service initialized successfully"))
+	ilog.Info(fmt.Sprintf("  - Backend: %s", sessionService.GetBackendName()))
+	ilog.Info(fmt.Sprintf("  - Instance ID: %s", sessionService.GetInstanceID()))
+	ilog.Info(fmt.Sprintf("  - Session TTL: %s", sessionConfig.SessionTTL.String()))
+	ilog.Info(fmt.Sprintf("  - Auto Extend: %v", sessionConfig.AutoExtend))
+}
+
+// initializeClusterServices initializes all cluster-related services
+func initializeClusterServices() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		ilog.PerformanceWithDuration("main.initializeClusterServices", elapsed)
+	}()
+
+	clusterConfig := config.GetClusterConfig()
+	if clusterConfig == nil || !clusterConfig.Enabled {
+		ilog.Info("Cluster mode disabled - skipping cluster services initialization")
+		return
+	}
+
+	ilog.Info("Initializing cluster services...")
+
+	// Initialize instance registry service
+	if clusterConfig.Registry != nil {
+		ilog.Info("Initializing instance registry service...")
+		registryService, err := cluster.NewInstanceRegistryService(clusterConfig.Registry)
+		if err != nil {
+			ilog.Error(fmt.Sprintf("Failed to initialize instance registry service: %v", err))
+		} else {
+			cluster.SetGlobalRegistryService(registryService)
+
+			// Start the registry service (heartbeat, cleanup)
+			ctx := context.Background()
+			if err := registryService.Start(ctx); err != nil {
+				ilog.Error(fmt.Sprintf("Failed to start instance registry service: %v", err))
+			} else {
+				ilog.Info("Instance registry service started successfully")
+			}
+		}
+	}
+
+	// Initialize SignalR discovery service
+	if clusterConfig.Registry != nil && clusterConfig.Registry.SignalRDiscovery {
+		ilog.Info("Initializing SignalR discovery service...")
+		discoveryService := cluster.NewSignalRDiscoveryService()
+		cluster.SetGlobalDiscoveryService(discoveryService)
+
+		// Start after SignalR is connected
+		go func() {
+			// Wait for SignalR to be ready
+			<-SignalRReady
+
+			registryService := cluster.GetGlobalRegistryService()
+			if registryService != nil {
+				localInstance := registryService.GetLocalInstance()
+				if localInstance != nil {
+					if err := discoveryService.Start(localInstance); err != nil {
+						ilog.Error(fmt.Sprintf("Failed to start SignalR discovery service: %v", err))
+					} else {
+						ilog.Info("SignalR discovery service started successfully")
+					}
+				}
+			}
+		}()
+	}
+
+	// Initialize configuration store service
+	if clusterConfig.ConfigStore != nil && clusterConfig.ConfigStore.Enabled {
+		ilog.Info("Initializing configuration store service...")
+		configStoreService, err := configstore.NewConfigStoreService(clusterConfig.ConfigStore)
+		if err != nil {
+			ilog.Error(fmt.Sprintf("Failed to initialize configuration store service: %v", err))
+		} else {
+			configstore.SetGlobalConfigStoreService(configStoreService)
+			ilog.Info("Configuration store service initialized successfully")
+		}
+	}
+
+	ilog.Info("Cluster services initialization complete")
+}
+
+// initializeAPICallHistoryService initializes the API call history tracking service
+func initializeAPICallHistoryService() {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		ilog.PerformanceWithDuration("main.initializeAPICallHistoryService", elapsed)
+	}()
+
+	// Recover from panics
+	defer func() {
+		if r := recover(); r != nil {
+			ilog.Error(fmt.Sprintf("Panic during API call history service initialization: %v", r))
+		}
+	}()
+
+	ilog.Info("Initializing API call history service...")
+
+	// Check if SQL database is available
+	if dbconn.DB == nil {
+		ilog.Warn("SQL database not available - API call history service will not be initialized")
+		ilog.Warn(fmt.Sprintf("dbconn.DatabaseType: %s, dbconn.DatabaseConnection: %s", dbconn.DatabaseType, dbconn.DatabaseConnection))
+		return
+	}
+
+	// Test database connection
+	if err := dbconn.DB.Ping(); err != nil {
+		ilog.Error(fmt.Sprintf("SQL database ping failed - API call history service will not be initialized: %v", err))
+		return
+	}
+
+	ilog.Info("SQL database connection verified for API call history service")
+
+	// Create service with default configuration
+	cfg := apicallhistory.DefaultServiceConfig()
+	ilog.Info(fmt.Sprintf("Creating API call history service with tables: %s, %s", cfg.HistoryTable, cfg.ConfigTable))
+
+	service, err := apicallhistory.NewAPICallHistoryService(cfg)
+	if err != nil {
+		ilog.Error(fmt.Sprintf("Failed to initialize API call history service: %v", err))
+		return
+	}
+
+	// Set global service instance
+	apicallhistory.SetGlobalAPICallHistoryService(service)
+	ilog.Info("API call history service initialized successfully")
+
+	// Log current configuration
+	config := service.GetConfig()
+	if config != nil {
+		ilog.Info(fmt.Sprintf("API call history tracking enabled: %v", config.Enabled))
+	}
 }

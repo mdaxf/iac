@@ -1,0 +1,829 @@
+package integrationhub
+
+import (
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/mdaxf/iac/controllers/common"
+	"github.com/mdaxf/iac/documents"
+	"github.com/mdaxf/iac/logger"
+	"github.com/mdaxf/iac/models"
+	"github.com/mdaxf/iac/services"
+)
+
+// HubController handles hierarchical integration hub HTTP requests
+type HubController struct {
+}
+
+// getHubService creates a new HubService with MongoDB connection
+func (hc *HubController) getHubService() (*services.HubService, error) {
+	factory := documents.GetDocFactory()
+	if factory == nil {
+		return nil, fmt.Errorf("document factory not available")
+	}
+
+	docDB, err := factory.GetDB("default")
+	if err != nil || docDB == nil {
+		return nil, fmt.Errorf("document database not available: %w", err)
+	}
+
+	return services.NewHubService(docDB), nil
+}
+
+// =====================================================
+// Hub Instance Endpoints
+// =====================================================
+
+// ListInstances handles GET /api/integration-hub/instances
+func (hc *HubController) ListInstances(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.ListInstances", elapsed)
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	hubService, err := hc.getHubService()
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get hub service: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service not available"})
+		return
+	}
+	instances, err := hubService.ListInstances(c.Request.Context())
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to list instances: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": instances, "count": len(instances)})
+}
+
+// GetInstance handles GET /api/integration-hub/instances/:id
+func (hc *HubController) GetInstance(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.GetInstance", elapsed)
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	instanceID := c.Param("id")
+	if instanceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "instance ID is required"})
+		return
+	}
+
+	hubService, err := hc.getHubService()
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get hub service: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service not available"})
+		return
+	}
+	instance, err := hubService.GetInstanceByID(c.Request.Context(), instanceID)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get instance: %v", err))
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": instance})
+}
+
+// CreateInstance handles POST /api/integration-hub/instances
+func (hc *HubController) CreateInstance(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.CreateInstance", elapsed)
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	var instance models.HubInstance
+	if err := c.ShouldBindJSON(&instance); err != nil {
+		iLog.Error(fmt.Sprintf("Failed to bind JSON: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	instance.CreatedBy = user
+	instance.ModifiedBy = user
+
+	hubService, err := hc.getHubService()
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get hub service: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service not available"})
+		return
+	}
+	err = hubService.CreateInstance(c.Request.Context(), &instance)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to create instance: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Created hub instance: %s", instance.ID))
+	c.JSON(http.StatusCreated, gin.H{"data": instance})
+}
+
+// UpdateInstance handles PUT /api/integration-hub/instances/:id
+func (hc *HubController) UpdateInstance(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.UpdateInstance", elapsed)
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	instanceID := c.Param("id")
+	if instanceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "instance ID is required"})
+		return
+	}
+
+	var instance models.HubInstance
+	if err := c.ShouldBindJSON(&instance); err != nil {
+		iLog.Error(fmt.Sprintf("Failed to bind JSON: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	instance.ID = instanceID
+	instance.ModifiedBy = user
+
+	hubService, err := hc.getHubService()
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get hub service: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service not available"})
+		return
+	}
+	err = hubService.UpdateInstance(c.Request.Context(), &instance)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to update instance: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Updated hub instance: %s", instance.ID))
+	c.JSON(http.StatusOK, gin.H{"data": instance})
+}
+
+// DeleteInstance handles DELETE /api/integration-hub/instances/:id
+func (hc *HubController) DeleteInstance(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.DeleteInstance", elapsed)
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	instanceID := c.Param("id")
+	if instanceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "instance ID is required"})
+		return
+	}
+
+	hubService, err := hc.getHubService()
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get hub service: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service not available"})
+		return
+	}
+	err = hubService.DeleteInstance(c.Request.Context(), instanceID)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to delete instance: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Deleted hub instance: %s", instanceID))
+	c.JSON(http.StatusOK, gin.H{"message": "Instance deleted successfully"})
+}
+
+// =====================================================
+// Protocol Group Endpoints
+// =====================================================
+
+// ListProtocolGroups handles GET /api/integration-hub/instances/:id/groups
+func (hc *HubController) ListProtocolGroups(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.ListProtocolGroups", elapsed)
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	instanceID := c.Param("id")
+	if instanceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "instance ID is required"})
+		return
+	}
+
+	direction := c.Query("direction") // optional: "inbound" or "outbound"
+
+	hubService, err := hc.getHubService()
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get hub service: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service not available"})
+		return
+	}
+	groups, err := hubService.ListProtocolGroups(c.Request.Context(), instanceID, direction)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to list protocol groups: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": groups, "count": len(groups)})
+}
+
+// CreateProtocolGroup handles POST /api/integration-hub/instances/:id/groups
+func (hc *HubController) CreateProtocolGroup(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.CreateProtocolGroup", elapsed)
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	instanceID := c.Param("id")
+	if instanceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "instance ID is required"})
+		return
+	}
+
+	var group models.HubProtocolGroup
+	if err := c.ShouldBindJSON(&group); err != nil {
+		iLog.Error(fmt.Sprintf("Failed to bind JSON: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	group.InstanceID = instanceID
+	group.CreatedBy = user
+	group.ModifiedBy = user
+
+	hubService, err := hc.getHubService()
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get hub service: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service not available"})
+		return
+	}
+	err = hubService.CreateProtocolGroup(c.Request.Context(), &group)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to create protocol group: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Created protocol group: %s", group.ID))
+	c.JSON(http.StatusCreated, gin.H{"data": group})
+}
+
+// UpdateProtocolGroup handles PUT /api/integration-hub/groups/:id
+func (hc *HubController) UpdateProtocolGroup(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.UpdateProtocolGroup", elapsed)
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	groupID := c.Param("id")
+	if groupID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "group ID is required"})
+		return
+	}
+
+	var group models.HubProtocolGroup
+	if err := c.ShouldBindJSON(&group); err != nil {
+		iLog.Error(fmt.Sprintf("Failed to bind JSON: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	group.ID = groupID
+	group.ModifiedBy = user
+
+	hubService, err := hc.getHubService()
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get hub service: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service not available"})
+		return
+	}
+	err = hubService.UpdateProtocolGroup(c.Request.Context(), &group)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to update protocol group: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Updated protocol group: %s", group.ID))
+	c.JSON(http.StatusOK, gin.H{"data": group})
+}
+
+// DeleteProtocolGroup handles DELETE /api/integration-hub/groups/:id
+func (hc *HubController) DeleteProtocolGroup(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.DeleteProtocolGroup", elapsed)
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	groupID := c.Param("id")
+	if groupID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "group ID is required"})
+		return
+	}
+
+	hubService, err := hc.getHubService()
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get hub service: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service not available"})
+		return
+	}
+	err = hubService.DeleteProtocolGroup(c.Request.Context(), groupID)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to delete protocol group: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Deleted protocol group: %s", groupID))
+	c.JSON(http.StatusOK, gin.H{"message": "Protocol group deleted successfully"})
+}
+
+// =====================================================
+// Endpoint Endpoints
+// =====================================================
+
+// ListEndpoints handles GET /api/integration-hub/groups/:id/endpoints
+func (hc *HubController) ListEndpoints(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.ListEndpoints", elapsed)
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	groupID := c.Param("id")
+	if groupID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "group ID is required"})
+		return
+	}
+
+	hubService, err := hc.getHubService()
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get hub service: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service not available"})
+		return
+	}
+	endpoints, err := hubService.ListEndpoints(c.Request.Context(), groupID)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to list endpoints: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": endpoints, "count": len(endpoints)})
+}
+
+// GetEndpoint handles GET /api/integration-hub/endpoints/:id
+func (hc *HubController) GetEndpoint(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.GetEndpoint", elapsed)
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	endpointID := c.Param("id")
+	if endpointID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "endpoint ID is required"})
+		return
+	}
+
+	hubService, err := hc.getHubService()
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get hub service: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service not available"})
+		return
+	}
+	endpoint, err := hubService.GetEndpointByID(c.Request.Context(), endpointID)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get endpoint: %v", err))
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": endpoint})
+}
+
+// CreateEndpoint handles POST /api/integration-hub/groups/:id/endpoints
+func (hc *HubController) CreateEndpoint(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.CreateEndpoint", elapsed)
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	groupID := c.Param("id")
+	if groupID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "group ID is required"})
+		return
+	}
+
+	var endpoint models.HubEndpoint
+	if err := c.ShouldBindJSON(&endpoint); err != nil {
+		iLog.Error(fmt.Sprintf("Failed to bind JSON: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	endpoint.ProtocolGroupID = groupID
+	endpoint.CreatedBy = user
+	endpoint.ModifiedBy = user
+
+	hubService, err := hc.getHubService()
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get hub service: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service not available"})
+		return
+	}
+	err = hubService.CreateEndpoint(c.Request.Context(), &endpoint)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to create endpoint: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Created endpoint: %s", endpoint.ID))
+	c.JSON(http.StatusCreated, gin.H{"data": endpoint})
+}
+
+// UpdateEndpoint handles PUT /api/integration-hub/endpoints/:id
+func (hc *HubController) UpdateEndpoint(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.UpdateEndpoint", elapsed)
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	endpointID := c.Param("id")
+	if endpointID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "endpoint ID is required"})
+		return
+	}
+
+	var endpoint models.HubEndpoint
+	if err := c.ShouldBindJSON(&endpoint); err != nil {
+		iLog.Error(fmt.Sprintf("Failed to bind JSON: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	endpoint.ID = endpointID
+	endpoint.ModifiedBy = user
+
+	hubService, err := hc.getHubService()
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get hub service: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service not available"})
+		return
+	}
+	err = hubService.UpdateEndpoint(c.Request.Context(), &endpoint)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to update endpoint: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Updated endpoint: %s", endpoint.ID))
+	c.JSON(http.StatusOK, gin.H{"data": endpoint})
+}
+
+// DeleteEndpoint handles DELETE /api/integration-hub/endpoints/:id
+func (hc *HubController) DeleteEndpoint(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.DeleteEndpoint", elapsed)
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	endpointID := c.Param("id")
+	if endpointID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "endpoint ID is required"})
+		return
+	}
+
+	hubService, err := hc.getHubService()
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get hub service: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service not available"})
+		return
+	}
+	err = hubService.DeleteEndpoint(c.Request.Context(), endpointID)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to delete endpoint: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Deleted endpoint: %s", endpointID))
+	c.JSON(http.StatusOK, gin.H{"message": "Endpoint deleted successfully"})
+}
+
+// =====================================================
+// Special Endpoints
+// =====================================================
+
+// GetResolvedConfig handles GET /api/integration-hub/endpoints/:id/resolved
+func (hc *HubController) GetResolvedConfig(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.GetResolvedConfig", elapsed)
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	endpointID := c.Param("id")
+	if endpointID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "endpoint ID is required"})
+		return
+	}
+
+	hubService, err := hc.getHubService()
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get hub service: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service not available"})
+		return
+	}
+	resolved, err := hubService.ResolveEndpointConfig(c.Request.Context(), endpointID)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to resolve endpoint config: %v", err))
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": resolved})
+}
+
+// GetHierarchicalTree handles GET /api/integration-hub/tree/:id
+func (hc *HubController) GetHierarchicalTree(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.GetHierarchicalTree", elapsed)
+	}()
+
+	_, user, clientid, err := common.GetRequestUser(c)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Get user information Error: %v", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	instanceID := c.Param("id")
+	if instanceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "instance ID is required"})
+		return
+	}
+
+	hubService, err := hc.getHubService()
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get hub service: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service not available"})
+		return
+	}
+	tree, err := hubService.GetHierarchicalTree(c.Request.Context(), instanceID)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to get hierarchical tree: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": tree})
+}
+
+// =====================================================
+// Utility Endpoints
+// =====================================================
+
+// GetAvailableProtocols handles GET /api/integration/protocols
+func (hc *HubController) GetAvailableProtocols(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.GetAvailableProtocols", elapsed)
+	}()
+
+	protocols := []string{
+		"HTTP",
+		"HTTPS",
+		"REST",
+		"SOAP",
+		"MQTT",
+		"AMQP",
+		"Kafka",
+		"WebSocket",
+		"gRPC",
+		"File",
+		"FTP",
+		"SFTP",
+		"Database",
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": protocols})
+}
+
+// GetAvailableAuthTypes handles GET /api/integration/auth-types
+func (hc *HubController) GetAvailableAuthTypes(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.GetAvailableAuthTypes", elapsed)
+	}()
+
+	authTypes := []string{
+		"None",
+		"Basic",
+		"Bearer",
+		"OAuth2",
+		"API-Key",
+		"Certificate",
+		"JWT",
+		"SAML",
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": authTypes})
+}
+
+// GetAvailableMessageTypes handles GET /api/integration/message-types
+func (hc *HubController) GetAvailableMessageTypes(c *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "HubController"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("integrationhub.GetAvailableMessageTypes", elapsed)
+	}()
+
+	messageTypes := []string{
+		"JSON",
+		"XML",
+		"CSV",
+		"Binary",
+		"Plain-Text",
+		"HL7",
+		"EDI",
+		"Avro",
+		"Protobuf",
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": messageTypes})
+}

@@ -42,6 +42,7 @@ type GlobalConfig struct {
 	SingalRConfig      map[string]interface{}   `json:"singalrconfig"`
 	LogConfig          map[string]interface{}   `json:"log"`
 	DocumentConfig     map[string]interface{}   `json:"documentdb"`
+	DocumentStorage    map[string]interface{}   `json:"documentstorage"`
 	DatabaseConfig     map[string]interface{}   `json:"database"`
 	AltDatabasesConfig []map[string]interface{} `json:"altdatabases"`
 	CacheConfig        map[string]interface{}   `json:"cache"`
@@ -51,6 +52,124 @@ type GlobalConfig struct {
 	AppServer          map[string]interface{}   `json:"appserver"`
 	Services           []map[string]interface{} `json:"services"`
 	JobsConfig         JobsConfiguration        `json:"jobs"`
+
+	// Instance roles configuration - defines what features this instance handles
+	// At least one role must be enabled
+	Roles *InstanceRolesConfig `json:"roles,omitempty"`
+
+	// Cluster configuration for distributed deployments
+	Cluster *ClusterConfig `json:"cluster,omitempty"`
+}
+
+// ClusterConfig holds configuration for distributed/clustered deployments
+type ClusterConfig struct {
+	// Enabled determines if cluster mode is active
+	Enabled bool `json:"enabled"`
+
+	// Mode specifies the cluster mode: "standalone", "distributed"
+	Mode string `json:"mode"`
+
+	// InstanceName is a unique name for this instance in the cluster
+	InstanceName string `json:"instance_name"`
+
+	// Environment specifies the deployment environment: "development", "test", "production"
+	Environment string `json:"environment"`
+
+	// Registry configuration for instance registration
+	Registry *RegistryConfig `json:"registry,omitempty"`
+
+	// ConfigStore configuration for centralized configuration
+	ConfigStore *ConfigStoreConfig `json:"config_store,omitempty"`
+
+	// Session configuration for distributed sessions
+	Session *ClusterSessionConfig `json:"session,omitempty"`
+}
+
+// RegistryConfig holds configuration for instance registry
+type RegistryConfig struct {
+	// Collection name in MongoDB for instance registry
+	Collection string `json:"collection"`
+
+	// HeartbeatInterval in seconds
+	HeartbeatInterval int `json:"heartbeat_interval"`
+
+	// HeartbeatTTL in seconds - instance considered dead if no heartbeat within this time
+	HeartbeatTTL int `json:"heartbeat_ttl"`
+
+	// CleanupInterval in seconds - how often to clean up stale instances
+	CleanupInterval int `json:"cleanup_interval"`
+
+	// SignalRDiscovery enables SignalR-based instance discovery
+	SignalRDiscovery bool `json:"signalr_discovery"`
+}
+
+// ConfigStoreConfig holds configuration for centralized configuration store
+type ConfigStoreConfig struct {
+	// Enabled determines if config store is active
+	Enabled bool `json:"enabled"`
+
+	// Collection name in MongoDB for configurations
+	Collection string `json:"collection"`
+
+	// WatchEnabled enables MongoDB change stream watching
+	WatchEnabled bool `json:"watch_enabled"`
+
+	// AutoReload automatically reloads configuration on changes
+	AutoReload bool `json:"auto_reload"`
+}
+
+// ClusterSessionConfig holds configuration for distributed session management
+type ClusterSessionConfig struct {
+	// Distributed enables distributed session mode
+	Distributed bool `json:"distributed"`
+
+	// Backend specifies the primary session backend: "redis", "mongodb", "memory"
+	Backend string `json:"backend"`
+
+	// FallbackBackend specifies the fallback backend if primary fails
+	FallbackBackend string `json:"fallback_backend"`
+
+	// TTL is the session TTL in seconds
+	TTL int `json:"ttl"`
+
+	// LockTTL is the session lock TTL in seconds
+	LockTTL int `json:"lock_ttl"`
+
+	// AutoExtend enables automatic session extension
+	AutoExtend bool `json:"auto_extend"`
+
+	// Redis configuration for Redis backend
+	Redis *RedisSessionConfig `json:"redis,omitempty"`
+
+	// MongoDB configuration for MongoDB backend
+	MongoDB *MongoSessionConfig `json:"mongodb,omitempty"`
+}
+
+// RedisSessionConfig holds Redis-specific session configuration
+type RedisSessionConfig struct {
+	// URL is the Redis connection URL
+	URL string `json:"url"`
+
+	// DB is the Redis database number
+	DB int `json:"db"`
+
+	// Password is the Redis password
+	Password string `json:"password"`
+
+	// PoolSize is the connection pool size
+	PoolSize int `json:"pool_size"`
+
+	// KeyPrefix is the prefix for all session keys
+	KeyPrefix string `json:"key_prefix"`
+}
+
+// MongoSessionConfig holds MongoDB-specific session configuration
+type MongoSessionConfig struct {
+	// Collection name for sessions
+	Collection string `json:"collection"`
+
+	// Database name (uses global if empty)
+	Database string `json:"database"`
 }
 
 // JobsConfiguration holds the configuration for the background job system

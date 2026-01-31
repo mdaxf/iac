@@ -27,17 +27,29 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mdaxf/iac/controllers/ai"
 	"github.com/mdaxf/iac/controllers/aiconfig"
+	"github.com/mdaxf/iac/controllers/aischedule"
+	"github.com/mdaxf/iac/controllers/apicallhistory"
 	"github.com/mdaxf/iac/controllers/bpmcontroller"
+	"github.com/mdaxf/iac/controllers/cluster"
 	"github.com/mdaxf/iac/controllers/collectionop"
 	"github.com/mdaxf/iac/controllers/component"
 	"github.com/mdaxf/iac/controllers/configmng"
+	"github.com/mdaxf/iac/controllers/configstore"
 	"github.com/mdaxf/iac/controllers/databaseop"
+	"github.com/mdaxf/iac/controllers/dataset"
+	"github.com/mdaxf/iac/controllers/document"
 	"github.com/mdaxf/iac/controllers/function"
+	"github.com/mdaxf/iac/controllers/globalmap"
 	healthcheck "github.com/mdaxf/iac/controllers/health"
 	"github.com/mdaxf/iac/controllers/iacai"
+	"github.com/mdaxf/iac/controllers/integrationhub"
+	"github.com/mdaxf/iac/controllers/inthubhistory"
+	"github.com/mdaxf/iac/controllers/jobs"
 	"github.com/mdaxf/iac/controllers/lngcodes"
 	"github.com/mdaxf/iac/controllers/models3d"
 	"github.com/mdaxf/iac/controllers/notifications"
+	"github.com/mdaxf/iac/controllers/planscheduler"
+	"github.com/mdaxf/iac/controllers/plantstudio"
 	"github.com/mdaxf/iac/controllers/processplan"
 	"github.com/mdaxf/iac/controllers/report"
 	"github.com/mdaxf/iac/controllers/role"
@@ -45,9 +57,10 @@ import (
 	"github.com/mdaxf/iac/controllers/trans"
 	"github.com/mdaxf/iac/controllers/user"
 	"github.com/mdaxf/iac/controllers/workflow"
+	"github.com/mdaxf/iac/controllers/workinstruction"
+	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/framework/auth"
 	"github.com/mdaxf/iac/gormdb"
-	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/services"
 )
 
@@ -199,6 +212,17 @@ func getModule(module string) reflect.Value {
 		moduleInstance := &models3d.Models3DController{}
 		return reflect.ValueOf(moduleInstance)
 
+	case "ThreeDModelController":
+		docDB := GetMongoDBConnection()
+		if docDB != nil {
+			threeDModelService := services.NewThreeDModelService(docDB)
+			threeDAssetService := services.NewThreeDModelAssetService(docDB)
+			models3d.SetThreeDServices(threeDModelService, threeDAssetService)
+			moduleInstance := &models3d.ThreeDModelController{}
+			return reflect.ValueOf(moduleInstance)
+		}
+		return reflect.Value{}
+
 	case "ConfigController":
 		moduleInstance := &configmng.ConfigController{}
 		return reflect.ValueOf(moduleInstance)
@@ -236,6 +260,39 @@ func getModule(module string) reflect.Value {
 		moduleInstance := ai.NewQueryTemplateController()
 		return reflect.ValueOf(moduleInstance)
 
+	case "AIScheduleController":
+		moduleInstance := aischedule.NewAIScheduleController()
+
+		// Initialize batch service with database connections
+		ilog.Debug("AIScheduleController: Starting batch service initialization")
+
+		if gormdb.DB == nil {
+			ilog.Warn("AIScheduleController: gormdb.DB is nil")
+		} else {
+			ilog.Debug("AIScheduleController: GORM DB is available, getting SQL DB")
+			sqlDB, err := gormdb.DB.DB()
+			if err != nil {
+				ilog.Error(fmt.Sprintf("AIScheduleController: Failed to get SQL DB: %v", err))
+			} else {
+				ilog.Debug("AIScheduleController: SQL DB obtained successfully, getting MongoDB connection")
+				docDB := GetMongoDBConnection()
+				if docDB == nil {
+					ilog.Warn("AIScheduleController: DocumentDB connection is nil, batch service not initialized")
+				} else {
+					// Try to convert DocumentDB interface to *documents.DocDB
+					ilog.Debug(fmt.Sprintf("AIScheduleController: DocumentDB connection obtained (type: %T), attempting to initialize batch service", docDB))
+
+					// Create batch service - it will work with the DocumentDB interface
+					// The service uses docdb for AI-related operations which work with the interface
+					batchService := services.NewAIScheduleBatchService(sqlDB, nil) // Pass nil for now, will fix service to use interface
+					moduleInstance.SetBatchService(batchService)
+					ilog.Info("AIScheduleController: Batch service initialized successfully")
+				}
+			}
+		}
+
+		return reflect.ValueOf(moduleInstance)
+
 	case "AIConfigController":
 		moduleInstance := &aiconfig.AIConfigController{}
 		return reflect.ValueOf(moduleInstance)
@@ -256,6 +313,84 @@ func getModule(module string) reflect.Value {
 		moduleInstance := ai.NewSchemaContextController(gormdb.DB, openAIKey)
 		return reflect.ValueOf(moduleInstance)
 
+	case "PlanSchedulerProfileController":
+		moduleInstance := planscheduler.NewPlanSchedulerProfileController()
+		return reflect.ValueOf(moduleInstance)
+
+	case "IntegrationHubController":
+		moduleInstance := &integrationhub.IntegrationHubController{}
+		return reflect.ValueOf(moduleInstance)
+
+	case "PlantStudioController":
+		docDB := GetMongoDBConnection()
+		moduleInstance := plantstudio.NewPlantStudioController(docDB)
+		return reflect.ValueOf(moduleInstance)
+
+	case "PlantStudioAIController":
+		moduleInstance := plantstudio.NewPlantStudioAIController()
+		return reflect.ValueOf(moduleInstance)
+
+	case "GlobalMapAIController":
+		moduleInstance := globalmap.NewGlobalMapAIController()
+		return reflect.ValueOf(moduleInstance)
+
+	case "WorkInstructionController":
+		docDB := GetMongoDBConnection()
+		// Get server URL from configuration
+		serverURL := "http://127.0.0.1:8080" // Default
+		if config.GlobalConfiguration != nil && config.GlobalConfiguration.DocumentStorage != nil {
+			if srvURL, ok := config.GlobalConfiguration.DocumentStorage["serverurl"].(string); ok {
+				serverURL = srvURL
+			}
+		}
+		moduleInstance := workinstruction.NewWorkInstructionController(docDB, serverURL)
+		return reflect.ValueOf(moduleInstance)
+
+	case "DocumentController":
+		docDB := GetMongoDBConnection()
+		// Get document storage configuration
+		storagePath := "./storage/documents" // Default
+		baseURL := "/storage/documents"      // Default
+		serverURL := "http://127.0.0.1:8080" // Default
+		if config.GlobalConfiguration != nil && config.GlobalConfiguration.DocumentStorage != nil {
+			if path, ok := config.GlobalConfiguration.DocumentStorage["path"].(string); ok {
+				storagePath = path
+			}
+			if url, ok := config.GlobalConfiguration.DocumentStorage["baseurl"].(string); ok {
+				baseURL = url
+			}
+			if srvURL, ok := config.GlobalConfiguration.DocumentStorage["serverurl"].(string); ok {
+				serverURL = srvURL
+			}
+		}
+		moduleInstance := document.NewDocumentController(docDB, storagePath, baseURL, serverURL)
+		return reflect.ValueOf(moduleInstance)
+
+	case "DataSetController":
+		docDB := GetMongoDBConnection()
+		moduleInstance := dataset.NewDataSetController(docDB)
+		return reflect.ValueOf(moduleInstance)
+
+	case "JobController":
+		moduleInstance := jobs.NewJobController()
+		return reflect.ValueOf(moduleInstance)
+
+	case "ClusterController":
+		moduleInstance := cluster.NewClusterController()
+		return reflect.ValueOf(moduleInstance)
+
+	case "ConfigStoreController":
+		moduleInstance := configstore.NewConfigStoreController()
+		return reflect.ValueOf(moduleInstance)
+
+	case "APICallHistoryController":
+		moduleInstance := apicallhistory.NewAPICallHistoryController()
+		return reflect.ValueOf(moduleInstance)
+
+	case "IntHubHistoryController":
+		moduleInstance := inthubhistory.NewIntHubHistoryController()
+		return reflect.ValueOf(moduleInstance)
+
 	}
 	return reflect.Value{}
 }
@@ -265,10 +400,21 @@ func getModule(module string) reflect.Value {
 func getEmbeddingAPIKey() string {
 	if config.AIConf == nil {
 		ilog.Warn("AI configuration not loaded, attempting to load...")
-		if _, err := config.LoadAIConfig(); err != nil {
+		aiConf, err := config.LoadAIConfig()
+		if err != nil {
 			ilog.Error(fmt.Sprintf("Failed to load AI config: %v", err))
 			return ""
 		}
+		if aiConf == nil {
+			ilog.Error("AI config loaded but returned nil")
+			return ""
+		}
+	}
+
+	// Verify AI config is loaded after load attempt
+	if config.AIConf == nil {
+		ilog.Error("AI configuration is still nil after load attempt - check if aiconfig.json exists in working directory")
+		return ""
 	}
 
 	// Check for embedding use case configuration

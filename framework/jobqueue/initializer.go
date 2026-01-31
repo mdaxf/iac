@@ -5,11 +5,12 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/mdaxf/iac-signalr/signalr"
 	"github.com/mdaxf/iac/config"
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/framework/cache"
 	"github.com/mdaxf/iac/logger"
-	"github.com/mdaxf/iac-signalr/signalr"
+	"github.com/mdaxf/iac/models"
 )
 
 var (
@@ -78,6 +79,9 @@ func InitializeJobSystem(
 	}
 	logger.Info(fmt.Sprintf("Started job worker with %d workers", config.GlobalConfiguration.JobsConfig.Workers))
 
+	// Start cleanup worker to archive old completed jobs
+	GlobalJobWorker.StartCleanupWorker()
+
 	// Initialize job scheduler
 	GlobalJobScheduler = NewJobScheduler(db, GlobalQueueManager)
 
@@ -90,6 +94,10 @@ func InitializeJobSystem(
 	// Initialize integration job creator
 	GlobalJobCreator = NewIntegrationJobCreator(db, GlobalQueueManager)
 	logger.Info("Initialized integration job creator")
+
+	// Register AI Schedule Batch Handler
+	RegisterAIScheduleBatchHandler(db, docDB)
+	logger.Info("Registered AI Schedule Batch Handler")
 
 	JobSystemInitialized = true
 	logger.Info("Background job system initialized successfully")
@@ -223,4 +231,36 @@ func IsJobSystemRunning() bool {
 	}
 
 	return true
+}
+
+// ExecuteJobByName executes a job by its name with given parameters
+// This is used by the hub executor to trigger job execution
+func ExecuteJobByName(ctx context.Context, jobName string, params map[string]interface{}) error {
+	if !JobSystemInitialized {
+		return fmt.Errorf("job system not initialized")
+	}
+
+	if GlobalJobCreator == nil {
+		return fmt.Errorf("job creator not available")
+	}
+
+	logger := logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "ExecuteJobByName"}
+	logger.Info(fmt.Sprintf("Executing job by name: %s with params: %v", jobName, params))
+
+	// Create a job from integration message
+	_, err := GlobalJobCreator.CreateJobFromMessage(
+		ctx,
+		jobName,                    // topic
+		params,                     // payload
+		jobName,                    // handler
+		"execute",                  // method
+		"integration",              // protocol
+		models.JobDirectionInbound, // direction
+		0,                          // priority (normal)
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create job %s: %w", jobName, err)
+	}
+
+	return nil
 }

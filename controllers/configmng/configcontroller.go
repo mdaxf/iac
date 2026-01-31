@@ -187,6 +187,39 @@ func (cc *ConfigController) GetWebServerConfig(c *gin.Context) {
 	})
 }
 
+// GetSSOConfig retrieves SSO configuration from apiconfig.json (excluding secrets)
+func (cc *ConfigController) GetSSOConfig(c *gin.Context) {
+	iLog := logger.Log{ModuleName: "ConfigController", ControllerName: "GetSSOConfig"}
+	iLog.Info("Getting SSO configuration")
+
+	configPath := "./apiconfig.json"
+	data, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Failed to read apiconfig.json: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read API configuration", "details": err.Error()})
+		return
+	}
+
+	var config struct {
+		SSO struct {
+			Enabled     bool   `json:"enabled"`
+			Provider    string `json:"provider"`
+			AuthURL     string `json:"auth_url"`
+			ClientID    string `json:"client_id"`
+			RedirectURI string `json:"redirect_uri"`
+			// Exclude ClientSecret
+		} `json:"sso"`
+	}
+
+	if err := json.Unmarshal(data, &config); err != nil {
+		iLog.Error(fmt.Sprintf("Failed to parse apiconfig.json: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse API configuration", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, config.SSO)
+}
+
 // ListBackups lists all backup configuration files
 func (cc *ConfigController) ListBackups(c *gin.Context) {
 	iLog := logger.Log{ModuleName: "ConfigController", ControllerName: "ListBackups"}

@@ -127,29 +127,29 @@ type JobHistory struct {
 // Job represents a scheduled/interval job configuration
 type Job struct {
 	ID              string      `json:"id" db:"id"`
-	Name            string      `json:"name" db:"name"`                   // Job name
-	Description     string      `json:"description" db:"description"`     // Job description
-	TypeID          int         `json:"typeid" db:"typeid"`               // Job type
-	Handler         string      `json:"handler" db:"handler"`             // Transaction code or command to execute
-	CronExpression  string      `json:"cronexpression" db:"cronexpression"` // Cron expression for scheduling
-	IntervalSeconds int         `json:"intervalseconds" db:"intervalseconds"` // Interval in seconds (alternative to cron)
-	StartAt         *time.Time  `json:"startat" db:"startat"`             // When to start execution
-	EndAt           *time.Time  `json:"endat" db:"endat"`                 // When to stop execution
-	MaxExecutions   int         `json:"maxexecutions" db:"maxexecutions"` // Maximum number of executions (0 = unlimited)
-	ExecutionCount  int         `json:"executioncount" db:"executioncount"` // Current execution count
-	Enabled         bool        `json:"enabled" db:"enabled"`             // Whether job is enabled
-	Condition       string      `json:"condition" db:"condition"`         // SQL or expression to evaluate before execution
-	Priority        int         `json:"priority" db:"priority"`           // Job priority
-	MaxRetries      int         `json:"maxretries" db:"maxretries"`       // Maximum retry attempts for generated jobs
-	Timeout         int         `json:"timeout" db:"timeout"`             // Timeout in seconds
-	Metadata        JobMetadata `json:"metadata" db:"metadata"`           // Additional configuration
-	LastRunAt       *time.Time  `json:"lastRunAt" db:"lastRunAt"`         // Last execution time
-	NextRunAt       *time.Time  `json:"nextRunAt" db:"nextRunAt"`         // Next scheduled execution time
+	Name            string      `json:"name" db:"name"`                       // Job name
+	Description     *string     `json:"description" db:"description"`         // Job description - nullable
+	TypeID          int         `json:"typeid" db:"typeid"`                   // Job type
+	Handler         string      `json:"handler" db:"handler"`                 // Transaction code or command to execute
+	CronExpression  *string     `json:"cronexpression" db:"cronexpression"`   // Cron expression for scheduling - nullable
+	IntervalSeconds *int        `json:"intervalseconds" db:"intervalseconds"` // Interval in seconds (alternative to cron) - nullable
+	StartAt         *time.Time  `json:"startat" db:"startat"`                 // When to start execution
+	EndAt           *time.Time  `json:"endat" db:"endat"`                     // When to stop execution
+	MaxExecutions   int         `json:"maxexecutions" db:"maxexecutions"`     // Maximum number of executions (0 = unlimited)
+	ExecutionCount  int         `json:"executioncount" db:"executioncount"`   // Current execution count
+	Enabled         bool        `json:"enabled" db:"enabled"`                 // Whether job is enabled
+	Condition       *string     `json:"condition" db:"condition"`             // SQL or expression to evaluate before execution - nullable
+	Priority        int         `json:"priority" db:"priority"`               // Job priority
+	MaxRetries      int         `json:"maxretries" db:"maxretries"`           // Maximum retry attempts for generated jobs
+	Timeout         int         `json:"timeout" db:"timeout"`                 // Timeout in seconds
+	Metadata        JobMetadata `json:"metadata" db:"metadata"`               // Additional configuration
+	LastRunAt       *time.Time  `json:"lastRunAt" db:"lastRunAt"`             // Last execution time
+	NextRunAt       *time.Time  `json:"nextRunAt" db:"nextRunAt"`             // Next scheduled execution time
 	Active          bool        `json:"active" db:"active"`
-	ReferenceID     string      `json:"referenceid" db:"referenceid"`
-	CreatedBy       string      `json:"createdby" db:"createdby"`
+	ReferenceID     *string     `json:"referenceid" db:"referenceid"`         // nullable
+	CreatedBy       *string     `json:"createdby" db:"createdby"`             // nullable
 	CreatedOn       time.Time   `json:"createdon" db:"createdon"`
-	ModifiedBy      string      `json:"modifiedby" db:"modifiedby"`
+	ModifiedBy      *string     `json:"modifiedby" db:"modifiedby"`           // nullable
 	ModifiedOn      time.Time   `json:"modifiedon" db:"modifiedon"`
 	RowVersionStamp int         `json:"rowversionstamp" db:"rowversionstamp"`
 }

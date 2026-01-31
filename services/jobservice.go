@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mdaxf/iac/config"
+	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac/models"
 
@@ -26,6 +28,21 @@ func NewJobService(db *sql.DB) *JobService {
 		db:   db,
 		iLog: logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "JobService"},
 	}
+}
+
+// convertPlaceholders converts ? placeholders to $1, $2, etc. for PostgreSQL
+func (js *JobService) convertPlaceholders(query string) string {
+	dbType := strings.ToLower(dbconn.DatabaseType)
+	if dbType == "postgres" || dbType == "postgresql" {
+		result := query
+		count := 1
+		for strings.Contains(result, "?") {
+			result = strings.Replace(result, "?", fmt.Sprintf("$%d", count), 1)
+			count++
+		}
+		return result
+	}
+	return query
 }
 
 // CreateQueueJob creates a new job in the queue
@@ -67,6 +84,8 @@ func (js *JobService) CreateQueueJob(ctx context.Context, job *models.QueueJob) 
 			createdby, createdon, modifiedby, modifiedon, rowversionstamp
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
+
+	query = js.convertPlaceholders(query)
 
 	_, err = js.db.ExecContext(ctx, query,
 		job.ID, job.TypeID, job.Method, job.Protocol, job.Direction, job.Handler, string(metadataJSON), job.Payload,
@@ -112,6 +131,8 @@ func (js *JobService) UpdateQueueJobStatus(ctx context.Context, jobID string, st
 	query += ` WHERE id = ?`
 	args = append(args, jobID)
 
+	query = js.convertPlaceholders(query)
+
 	_, err := js.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		js.iLog.Error(fmt.Sprintf("Failed to update job status: %v", err))
@@ -124,6 +145,7 @@ func (js *JobService) UpdateQueueJobStatus(ctx context.Context, jobID string, st
 // IncrementRetryCount increments the retry count for a job
 func (js *JobService) IncrementRetryCount(ctx context.Context, jobID string) error {
 	query := `UPDATE queue_jobs SET retrycount = retrycount + 1, modifiedon = ? WHERE id = ?`
+	query = js.convertPlaceholders(query)
 
 	_, err := js.db.ExecContext(ctx, query, time.Now(), jobID)
 	if err != nil {
@@ -148,6 +170,8 @@ func (js *JobService) GetNextPendingJob(ctx context.Context) (*models.QueueJob, 
 		ORDER BY priority DESC, createdon ASC
 		LIMIT 1
 	`
+
+	query = js.convertPlaceholders(query)
 
 	row := js.db.QueryRowContext(
 		ctx,
@@ -221,6 +245,8 @@ func (js *JobService) CreateJobHistory(ctx context.Context, history *models.JobH
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
+	query = js.convertPlaceholders(query)
+
 	_, err = js.db.ExecContext(ctx, query,
 		history.ID, history.JobID, history.ExecutionID, history.StatusID, history.StartedAt, history.CompletedAt,
 		history.Duration, history.Result, history.ErrorMessage, history.RetryAttempt, history.ExecutedBy,
@@ -246,6 +272,8 @@ func (js *JobService) GetJobByID(ctx context.Context, jobID string) (*models.Que
 		FROM queue_jobs
 		WHERE id = ?
 	`
+
+	query = js.convertPlaceholders(query)
 
 	row := js.db.QueryRowContext(ctx, query, jobID)
 
@@ -279,9 +307,18 @@ func (js *JobService) GetJobByID(ctx context.Context, jobID string) (*models.Que
 
 // GetScheduledJobs retrieves all enabled scheduled jobs that should run
 func (js *JobService) GetScheduledJobs(ctx context.Context) ([]*models.Job, error) {
-	query := `
+	// Build query with proper identifier quoting for different databases
+	conditionColumn := "condition"
+	dbType := strings.ToLower(dbconn.DatabaseType)
+	if dbType == "mysql" {
+		conditionColumn = "`condition`"
+	} else if dbType == "postgres" || dbType == "postgresql" {
+		conditionColumn = "\"condition\""
+	}
+
+	query := fmt.Sprintf(`
 		SELECT id, name, description, typeid, handler, cronexpression, intervalseconds,
-		       startat, endat, maxexecutions, executioncount, enabled, ` + "`condition`" + `,
+		       startat, endat, maxexecutions, executioncount, enabled, %s,
 		       priority, maxretries, timeout, metadata, lastrunat, nextrunat,
 		       active, referenceid, createdby, createdon, modifiedby, modifiedon, rowversionstamp
 		FROM jobs
@@ -290,7 +327,9 @@ func (js *JobService) GetScheduledJobs(ctx context.Context) ([]*models.Job, erro
 		  AND (endat IS NULL OR endat >= ?)
 		  AND (maxexecutions = 0 OR executioncount < maxexecutions)
 		ORDER BY priority DESC, nextrunat ASC
-	`
+	`, conditionColumn)
+
+	query = js.convertPlaceholders(query)
 
 	rows, err := js.db.QueryContext(ctx, query, true, true, time.Now(), time.Now())
 	if err != nil {
@@ -302,7 +341,7 @@ func (js *JobService) GetScheduledJobs(ctx context.Context) ([]*models.Job, erro
 	var jobs []*models.Job
 	for rows.Next() {
 		job := &models.Job{}
-		var metadataJSON string
+		var metadataJSON sql.NullString
 
 		err := rows.Scan(
 			&job.ID, &job.Name, &job.Description, &job.TypeID, &job.Handler, &job.CronExpression, &job.IntervalSeconds,
@@ -316,8 +355,9 @@ func (js *JobService) GetScheduledJobs(ctx context.Context) ([]*models.Job, erro
 			continue
 		}
 
-		if metadataJSON != "" {
-			if err := json.Unmarshal([]byte(metadataJSON), &job.Metadata); err != nil {
+		// Parse metadata if not null
+		if metadataJSON.Valid && metadataJSON.String != "" {
+			if err := json.Unmarshal([]byte(metadataJSON.String), &job.Metadata); err != nil {
 				js.iLog.Debug(fmt.Sprintf("Failed to unmarshal metadata for job %s: %v", job.ID, err))
 			}
 		}
@@ -335,6 +375,8 @@ func (js *JobService) UpdateScheduledJobNextRun(ctx context.Context, jobID strin
 		SET nextrunat = ?, lastrunat = ?, executioncount = executioncount + 1, modifiedon = ?
 		WHERE id = ?
 	`
+
+	query = js.convertPlaceholders(query)
 
 	_, err := js.db.ExecContext(ctx, query, nextRunAt, time.Now(), time.Now(), jobID)
 	if err != nil {
@@ -380,6 +422,8 @@ func (js *JobService) GetJobStatistics(ctx context.Context) (map[string]interfac
 		GROUP BY statusid
 	`
 
+	query = js.convertPlaceholders(query)
+
 	rows, err := js.db.QueryContext(ctx, query, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get job statistics: %w", err)
@@ -399,4 +443,83 @@ func (js *JobService) GetJobStatistics(ctx context.Context) (map[string]interfac
 	stats["timestamp"] = time.Now()
 
 	return stats, nil
+}
+
+// CleanupCompletedJobs archives or deletes old completed jobs
+func (js *JobService) CleanupCompletedJobs(ctx context.Context, retentionHours int) (int, error) {
+	if retentionHours <= 0 {
+		retentionHours = 24 // Default: cleanup jobs completed more than 24 hours ago
+	}
+
+	cutoffTime := time.Now().Add(-time.Duration(retentionHours) * time.Hour)
+
+	// Mark old completed/failed/cancelled jobs as inactive instead of deleting
+	// This preserves them for historical reference while keeping the active queue clean
+	query := `
+		UPDATE queue_jobs
+		SET active = ?, modifiedon = ?
+		WHERE active = ?
+		  AND statusid IN (?, ?, ?)
+		  AND completedat IS NOT NULL
+		  AND completedat < ?
+	`
+
+	query = js.convertPlaceholders(query)
+
+	result, err := js.db.ExecContext(
+		ctx,
+		query,
+		false,                           // Set active = false
+		time.Now(),                      // Update modified time
+		true,                            // WHERE active = true
+		int(models.JobStatusCompleted),  // Completed jobs
+		int(models.JobStatusFailed),     // Failed jobs
+		int(models.JobStatusCancelled),  // Cancelled jobs
+		cutoffTime,                      // Older than retention period
+	)
+
+	if err != nil {
+		js.iLog.Error(fmt.Sprintf("Failed to cleanup completed jobs: %v", err))
+		return 0, fmt.Errorf("failed to cleanup completed jobs: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+
+	if rowsAffected > 0 {
+		js.iLog.Info(fmt.Sprintf("Archived %d completed jobs older than %d hours", rowsAffected, retentionHours))
+	}
+
+	return int(rowsAffected), nil
+}
+
+// DeleteArchivedJobs permanently deletes archived jobs older than specified days
+func (js *JobService) DeleteArchivedJobs(ctx context.Context, retentionDays int) (int, error) {
+	if retentionDays <= 0 {
+		retentionDays = 90 // Default: delete archived jobs older than 90 days
+	}
+
+	cutoffTime := time.Now().Add(-time.Duration(retentionDays) * 24 * time.Hour)
+
+	// Permanently delete inactive jobs that are very old
+	query := `
+		DELETE FROM queue_jobs
+		WHERE active = ?
+		  AND modifiedon < ?
+	`
+
+	query = js.convertPlaceholders(query)
+
+	result, err := js.db.ExecContext(ctx, query, false, cutoffTime)
+	if err != nil {
+		js.iLog.Error(fmt.Sprintf("Failed to delete archived jobs: %v", err))
+		return 0, fmt.Errorf("failed to delete archived jobs: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+
+	if rowsAffected > 0 {
+		js.iLog.Info(fmt.Sprintf("Deleted %d archived jobs older than %d days", rowsAffected, retentionDays))
+	}
+
+	return int(rowsAffected), nil
 }

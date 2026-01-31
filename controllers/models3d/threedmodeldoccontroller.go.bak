@@ -1,0 +1,419 @@
+// Copyright 2025 IAC. All Rights Reserved.
+
+package models3d
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/mdaxf/iac/controllers/common"
+	"github.com/mdaxf/iac/logger"
+	"github.com/mdaxf/iac/models"
+	"github.com/mdaxf/iac/services"
+)
+
+var (
+	threeDModelDocService *services.ThreeDModelDocumentService
+)
+
+// SetThreeDDocServices sets the service instances for 3D model documents
+func SetThreeDDocServices(docService *services.ThreeDModelDocumentService) {
+	threeDModelDocService = docService
+}
+
+// ThreeDModelDocumentController handles simplified 3D model document management
+// where each version is a separate document
+type ThreeDModelDocumentController struct{}
+
+// =============================================================================
+// 3D MODEL DOCUMENT CRUD OPERATIONS
+// =============================================================================
+
+// CreateThreeDModelDocument creates a new 3D model document
+// POST /api/3dstudio/documents
+func (c *ThreeDModelDocumentController) CreateThreeDModelDocument(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "ThreeDModelDocument"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("threedmodeldoc.CreateThreeDModelDocument", elapsed)
+	}()
+
+	body, clientid, user, err := common.GetRequestBodyandUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	var req models.ThreeDModelDocumentCreateRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		iLog.Error(fmt.Sprintf("Error unmarshalling request: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	doc, err := threeDModelDocService.CreateModelDocument(ctx.Request.Context(), &req, user)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error creating 3D model document: %v", err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Created 3D model document: %s (Model: %s, Version: %d)", doc.ID, doc.ModelID, doc.Version))
+	ctx.JSON(http.StatusOK, gin.H{"data": doc})
+}
+
+// GetThreeDModelDocument retrieves a 3D model document by ID
+// GET /api/3dstudio/documents/:id
+func (c *ThreeDModelDocumentController) GetThreeDModelDocument(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "ThreeDModelDocument"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("threedmodeldoc.GetThreeDModelDocument", elapsed)
+	}()
+
+	_, clientid, user, err := common.GetRequestBodyandUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	docID := ctx.Param("id")
+	if docID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Document ID is required"})
+		return
+	}
+
+	doc, err := threeDModelDocService.GetModelDocument(ctx.Request.Context(), docID)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error getting 3D model document: %v", err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": doc})
+}
+
+// GetDefaultModelVersion retrieves the default version of a model by modelID
+// GET /api/3dstudio/documents/models/:modelId/default
+func (c *ThreeDModelDocumentController) GetDefaultModelVersion(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "ThreeDModelDocument"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("threedmodeldoc.GetDefaultModelVersion", elapsed)
+	}()
+
+	_, clientid, user, err := common.GetRequestBodyandUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	modelID := ctx.Param("modelId")
+	if modelID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Model ID is required"})
+		return
+	}
+
+	doc, err := threeDModelDocService.GetDefaultVersion(ctx.Request.Context(), modelID)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error getting default model version: %v", err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": doc})
+}
+
+// GetModelVersionByNumber retrieves a specific version of a model
+// GET /api/3dstudio/documents/models/:modelId/versions/:version
+func (c *ThreeDModelDocumentController) GetModelVersionByNumber(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "ThreeDModelDocument"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("threedmodeldoc.GetModelVersionByNumber", elapsed)
+	}()
+
+	_, clientid, user, err := common.GetRequestBodyandUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	modelID := ctx.Param("modelId")
+	versionStr := ctx.Param("version")
+	if modelID == "" || versionStr == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Model ID and version are required"})
+		return
+	}
+
+	version, err := strconv.Atoi(versionStr)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid version number"})
+		return
+	}
+
+	doc, err := threeDModelDocService.GetModelVersion(ctx.Request.Context(), modelID, version)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error getting model version: %v", err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": doc})
+}
+
+// ListAllModelVersions retrieves all versions of a specific model
+// GET /api/3dstudio/documents/models/:modelId/versions
+func (c *ThreeDModelDocumentController) ListAllModelVersions(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "ThreeDModelDocument"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("threedmodeldoc.ListAllModelVersions", elapsed)
+	}()
+
+	_, clientid, user, err := common.GetRequestBodyandUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	modelID := ctx.Param("modelId")
+	if modelID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Model ID is required"})
+		return
+	}
+
+	docs, err := threeDModelDocService.ListAllModelVersions(ctx.Request.Context(), modelID)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error listing model versions: %v", err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"data":  docs,
+		"count": len(docs),
+	})
+}
+
+// ListThreeDModelDocuments retrieves all 3D model documents
+// POST /api/3dstudio/documents/list
+func (c *ThreeDModelDocumentController) ListThreeDModelDocuments(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "ThreeDModelDocument"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("threedmodeldoc.ListThreeDModelDocuments", elapsed)
+	}()
+
+	body, clientid, user, err := common.GetRequestBodyandUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	// Parse optional filters
+	var filters struct {
+		Category    string   `json:"category"`
+		Tags        []string `json:"tags"`
+		ModelID     string   `json:"modelId"`
+		DefaultOnly bool     `json:"defaultOnly"`
+	}
+	if len(body) > 0 {
+		json.Unmarshal(body, &filters)
+	}
+
+	docs, err := threeDModelDocService.ListModelDocuments(ctx.Request.Context(), filters.Category, filters.Tags, filters.ModelID, filters.DefaultOnly)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error listing 3D model documents: %v", err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"data":  docs,
+		"count": len(docs),
+	})
+}
+
+// UpdateThreeDModelDocument updates a 3D model document
+// PUT /api/3dstudio/documents/:id
+func (c *ThreeDModelDocumentController) UpdateThreeDModelDocument(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "ThreeDModelDocument"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("threedmodeldoc.UpdateThreeDModelDocument", elapsed)
+	}()
+
+	body, clientid, user, err := common.GetRequestBodyandUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	docID := ctx.Param("id")
+	if docID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Document ID is required"})
+		return
+	}
+
+	var req models.ThreeDModelDocumentUpdateRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		iLog.Error(fmt.Sprintf("Error unmarshalling request: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	doc, err := threeDModelDocService.UpdateModelDocument(ctx.Request.Context(), docID, &req, user)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error updating 3D model document: %v", err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Updated 3D model document: %s", docID))
+	ctx.JSON(http.StatusOK, gin.H{"data": doc})
+}
+
+// DeleteThreeDModelDocument soft deletes a 3D model document
+// DELETE /api/3dstudio/documents/:id
+func (c *ThreeDModelDocumentController) DeleteThreeDModelDocument(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "ThreeDModelDocument"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("threedmodeldoc.DeleteThreeDModelDocument", elapsed)
+	}()
+
+	_, clientid, user, err := common.GetRequestBodyandUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	docID := ctx.Param("id")
+	if docID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Document ID is required"})
+		return
+	}
+
+	if err := threeDModelDocService.DeleteModelDocument(ctx.Request.Context(), docID); err != nil {
+		iLog.Error(fmt.Sprintf("Error deleting 3D model document: %v", err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Deleted 3D model document: %s", docID))
+	ctx.JSON(http.StatusOK, gin.H{"message": "Document deleted successfully"})
+}
+
+// DeleteAllModelVersions soft deletes all versions of a model
+// DELETE /api/3dstudio/documents/models/:modelId
+func (c *ThreeDModelDocumentController) DeleteAllModelVersions(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "ThreeDModelDocument"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("threedmodeldoc.DeleteAllModelVersions", elapsed)
+	}()
+
+	_, clientid, user, err := common.GetRequestBodyandUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	modelID := ctx.Param("modelId")
+	if modelID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Model ID is required"})
+		return
+	}
+
+	if err := threeDModelDocService.DeleteAllVersions(ctx.Request.Context(), modelID); err != nil {
+		iLog.Error(fmt.Sprintf("Error deleting all model versions: %v", err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	iLog.Info(fmt.Sprintf("Deleted all versions of model: %s", modelID))
+	ctx.JSON(http.StatusOK, gin.H{"message": "All model versions deleted successfully"})
+}
+
+// SearchThreeDModelDocuments searches 3D model documents
+// POST /api/3dstudio/documents/search
+func (c *ThreeDModelDocumentController) SearchThreeDModelDocuments(ctx *gin.Context) {
+	iLog := logger.Log{ModuleName: logger.API, User: "System", ControllerName: "ThreeDModelDocument"}
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		iLog.PerformanceWithDuration("threedmodeldoc.SearchThreeDModelDocuments", elapsed)
+	}()
+
+	body, clientid, user, err := common.GetRequestBodyandUser(ctx)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error reading body: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	iLog.ClientID = clientid
+	iLog.User = user
+
+	var req struct {
+		Query       string `json:"query"`
+		DefaultOnly bool   `json:"defaultOnly"`
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
+		iLog.Error(fmt.Sprintf("Error unmarshalling request: %v", err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	docs, err := threeDModelDocService.SearchModelDocuments(ctx.Request.Context(), req.Query, req.DefaultOnly)
+	if err != nil {
+		iLog.Error(fmt.Sprintf("Error searching 3D model documents: %v", err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"data":  docs,
+		"count": len(docs),
+	})
+}

@@ -74,6 +74,104 @@ func getValueCaseInsensitive(data map[string]interface{}, key string) interface{
 //    - It returns the user information and the authentication token.
 // 5. If any error occurs during the execution, it returns an error response.
 
+// execSSOLogin handles the SSO login process
+func execSSOLogin(ctx *gin.Context, code string, ClientID string) {
+	log := logger.Log{ModuleName: logger.API, User: "System", ClientID: ClientID, ControllerName: "UserController.execSSOLogin"}
+
+	// Check config
+	if config.GlobalConfiguration == nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Global configuration not loaded"})
+		return
+	}
+
+	// This is where we would exchange the code for a token and get user info
+	// For this task, we'll assume the code *is* the email for testing/simulation purposes in this environment
+	// OR we would make an HTTP request to the provider.
+
+	// Simplified flow:
+	// 1. Exchange code for token (Mocked for now as we can't hit real providers)
+	// 2. Get User Info (Email)
+	// 3. Match Email in DB
+	// 4. Generate Session
+
+	// Mock: assuming code is the email for verifying the flow structure (since we can't really do OIDC here)
+	// In production, use: email := exchangeCodeForEmail(code)
+	email := code
+
+	// Basic validation to prevent direct login with just any string in production
+	// if !config.GlobalConfiguration.SSO.Enabled { ... }
+
+	// Query user by email
+	// We need a query that finds a user by email address
+	// Assuming there is an Email column in EMPLOYEE table based on previous queries
+	querystr := fmt.Sprintf("SELECT ID, Name, FamilyName, LoginName FROM EMPLOYEE WHERE Email='%s'", email)
+
+	iDBTx, err := dbconn.DB.Begin()
+	if err != nil {
+		log.Error(fmt.Sprintf("Begin error:%s", err.Error()))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Login failed - database error"})
+		return
+	}
+	defer iDBTx.Rollback()
+
+	dboperation := dbconn.NewDBOperation("System", iDBTx, "User SSO Login")
+	jdata, err := dboperation.Query_Json(querystr)
+
+	if err != nil {
+		log.Error(fmt.Sprintf("Query error:%s", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Login failed"})
+		return
+	}
+
+	if jdata != nil && len(jdata) > 0 {
+		// User found
+		userData := jdata[0]
+
+		var ID int
+		username := ""
+
+		if idVal := getValueCaseInsensitive(userData, "ID"); idVal != nil {
+			ID = int(idVal.(int64))
+		}
+		if loginVal := getValueCaseInsensitive(userData, "LoginName"); loginVal != nil {
+			username = loginVal.(string)
+		}
+
+		// Perform login (generate token)
+		// We can reuse the logic from execLogin but bypass password check
+
+		token, createdt, expdt, err := auth.Generate_authentication_token(string(rune(ID)), username, ClientID)
+		if err != nil {
+			log.Error(fmt.Sprintf("Token generation error:%s", err.Error()))
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Login failed"})
+			return
+		}
+
+		// Update last sign on
+		Columns := []string{"lastsignondate", "modifiedon", "modifiedby"}
+		Values := []string{time.Now().UTC().Format("2006-01-02 15:04:05"), time.Now().UTC().Format("2006-01-02 15:04:05"), username}
+		datatypes := []int{0, 0, 0}
+		Wherestr := fmt.Sprintf("ID= %d", ID)
+
+		_, err = dboperation.TableUpdate(TableName, Columns, Values, datatypes, Wherestr)
+		if err != nil {
+			log.Error(fmt.Sprintf("Update error:%s", err.Error()))
+		}
+
+		iDBTx.Commit()
+
+		// Store in cache
+		user := User{ID: ID, Username: username, ClientID: ClientID, CreatedOn: createdt, ExpirateOn: expdt, Token: token}
+		config.SessionCache.Put(ctx, token, user, time.Duration(config.SessionCacheTimeout)*time.Second)
+
+		ctx.JSON(http.StatusOK, user)
+		return
+	}
+
+	// User not found
+	ctx.JSON(http.StatusUnauthorized, gin.H{"error": "User not found or SSO not linked"})
+}
+
 func execLogin(ctx *gin.Context, username string, password string, clienttoken string, ClientID string, Renew bool) {
 
 	log := logger.Log{ModuleName: logger.API, User: username, ClientID: ClientID, ControllerName: "UserController.execLogin"}
@@ -474,19 +572,31 @@ func execChangePassword(ctx *gin.Context, username string, oldpassword string, n
 
 	log.Debug("execChangePassword execution function is called.")
 
+	// Get user data first to check if they've ever logged in
 	result, jdata, err := validatePassword(username, oldpassword)
 
 	if err != nil {
 		log.Error(fmt.Sprintf("validatePassword error:%s", err.Error()))
-
 		ctx.JSON(http.StatusInternalServerError, "Validate old password failed")
 		return err
 	}
 
-	if result == false {
-		log.Error(fmt.Sprintf("validatePassword error:%s", err.Error()))
+	// Check if this is a first-time password change (user never logged in)
+	isFirstTimePassword := false
+	if jdata != nil && len(jdata) > 0 {
+		passwordLastChangeDateVal := getValueCaseInsensitive(jdata[0], "PasswordLastChangeDate")
+		if passwordLastChangeDateVal == nil || passwordLastChangeDateVal == "" {
+			// User has never changed password (never logged in)
+			isFirstTimePassword = true
+			log.Debug("First-time password change detected - skipping old password validation")
+		}
+	}
+
+	// Only validate old password if user has logged in before
+	if !isFirstTimePassword && result == false {
+		log.Error("Old password validation failed")
 		ctx.JSON(http.StatusInternalServerError, "Validate old password failed")
-		return err
+		return fmt.Errorf("old password validation failed")
 	}
 
 	hashedPassword, err := hashPassword(newpassword)

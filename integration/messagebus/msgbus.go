@@ -58,6 +58,24 @@ func (mb *MessageBus) CreateServer() *glue.Server {
 	server := glue.NewServer(glue.Options{
 		HTTPListenAddress: port,
 		HTTPSocketType:    glue.HTTPSocketTypeTCP,
+		EnableCORS:        true, // Enable CORS for cross-origin requests
+		CheckOrigin: func(r *http.Request) bool {
+			// Allow requests from localhost:3000 (frontend dev server) and 127.0.0.1:8080 (backend)
+			origin := r.Header.Get("Origin")
+			allowedOrigins := []string{
+				"http://localhost:3000",
+				"http://127.0.0.1:3000",
+				"http://localhost:8080",
+				"http://127.0.0.1:8080",
+			}
+			for _, allowed := range allowedOrigins {
+				if origin == allowed {
+					return true
+				}
+			}
+			// Also allow requests with no origin (same-origin, Postman, etc.)
+			return origin == ""
+		},
 	})
 	return server
 }

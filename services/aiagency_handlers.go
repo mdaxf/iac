@@ -216,22 +216,43 @@ func (h *QueryGenerationHandler) CanHandle(ctx context.Context, intent string, e
 }
 
 func (h *QueryGenerationHandler) Handle(ctx context.Context, request *AIAgencyRequest, conversation *ConversationContext) (*AIAgencyResponse, error) {
-	// Get database alias - default to "it" if not provided
+	// Get database alias - default to "default" if not provided
 	databaseAlias := request.DatabaseAlias
 	if databaseAlias == "" {
 		databaseAlias = conversation.DatabaseAlias
 	}
 	if databaseAlias == "" {
-		// Default to "it" (the default database)
-		databaseAlias = "it"
-		h.iLog.Info("No database alias provided, using default 'it'")
+		// Default to "default" (the default database)
+		databaseAlias = "default"
+		h.iLog.Info("No database alias provided, using default 'default'")
 	}
 
 	// Get schema information using existing AI report service logic
 	schemaInfo, err := h.getSchemaContext(ctx, databaseAlias, request.Question)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get schema context: %w", err)
+		h.iLog.Error(fmt.Sprintf("Failed to get schema context: %v", err))
+		return &AIAgencyResponse{
+			Answer:         fmt.Sprintf("❌ Unable to generate SQL query. The database schema for '%s' is not available or could not be retrieved. Please ensure the database is connected and schema metadata has been loaded.", databaseAlias),
+			ResponseType:   "error",
+			IntentType:     "query_generation",
+			RequiresAction: false,
+			Confidence:     0.0,
+		}, nil
 	}
+
+	// Check if schema info is empty
+	if schemaInfo == "" || schemaInfo == "Database Schema:\n\n" {
+		h.iLog.Warn(fmt.Sprintf("Empty schema info for database: %s", databaseAlias))
+		return &AIAgencyResponse{
+			Answer:         fmt.Sprintf("❌ No schema metadata found for database '%s'. Please load the database schema first using the Schema Manager.", databaseAlias),
+			ResponseType:   "error",
+			IntentType:     "query_generation",
+			RequiresAction: false,
+			Confidence:     0.0,
+		}, nil
+	}
+
+	h.iLog.Info(fmt.Sprintf("Retrieved schema context for database '%s', length: %d chars", databaseAlias, len(schemaInfo)))
 
 	// Generate SQL using AI report service
 	sqlRequest := Text2SQLRequest{
@@ -589,9 +610,12 @@ func toConversationHistory(messages []ConversationMessage) []map[string]interfac
 
 // CodeModificationHandler handles code/query/script modifications for existing functions
 type CodeModificationHandler struct {
-	OpenAIKey   string
-	OpenAIModel string
-	iLog        logger.Log
+	OpenAIKey              string
+	OpenAIModel            string
+	AIReportService        *AIReportService
+	SchemaEmbeddingService *SchemaEmbeddingService
+	SchemaMetadataService  *SchemaMetadataService
+	iLog                   logger.Log
 }
 
 func (h *CodeModificationHandler) GetName() string {
@@ -621,7 +645,98 @@ func (h *CodeModificationHandler) Handle(ctx context.Context, request *AIAgencyR
 		}
 	}
 
+	// Check if this is a query function modification - if so, use text2SQL generation
+	if data, ok := entityContext["data"].(map[string]interface{}); ok {
+		// Check function type - 3 is query type
+		if funcType, ok := data["functype"].(float64); ok && int(funcType) == 3 {
+			h.iLog.Info("Modifying query function - using text2SQL generation")
+
+			// Get database alias from function data or request
+			databaseAlias := ""
+			if dbAlias, ok := data["database_alias"].(string); ok && dbAlias != "" {
+				databaseAlias = dbAlias
+			} else if request.DatabaseAlias != "" {
+				databaseAlias = request.DatabaseAlias
+			} else if conversation.DatabaseAlias != "" {
+				databaseAlias = conversation.DatabaseAlias
+			} else {
+				databaseAlias = "default"
+			}
+
+			h.iLog.Info(fmt.Sprintf("Using database alias '%s' for query modification", databaseAlias))
+
+			// Get schema context
+			schemaInfo, err := h.getSchemaContext(ctx, databaseAlias, request.Question)
+			if err != nil {
+				h.iLog.Error(fmt.Sprintf("Failed to get schema context: %v", err))
+				return &AIAgencyResponse{
+					Answer:         fmt.Sprintf("❌ Unable to modify SQL query. The database schema for '%s' is not available. Please ensure the database is connected and schema metadata has been loaded.", databaseAlias),
+					ResponseType:   "error",
+					IntentType:     "code_modification",
+					RequiresAction: false,
+					Confidence:     0.0,
+				}, nil
+			}
+
+			if schemaInfo == "" || schemaInfo == "Database Schema:\n\n" {
+				h.iLog.Warn(fmt.Sprintf("Empty schema info for database: %s", databaseAlias))
+				return &AIAgencyResponse{
+					Answer:         fmt.Sprintf("❌ No schema metadata found for database '%s'. Please load the database schema first using the Schema Manager.", databaseAlias),
+					ResponseType:   "error",
+					IntentType:     "code_modification",
+					RequiresAction: false,
+					Confidence:     0.0,
+				}, nil
+			}
+
+			// Use AIReportService to generate SQL (same as QueryGenerationHandler)
+			sqlRequest := Text2SQLRequest{
+				Question:   request.Question,
+				DatabaseID: databaseAlias,
+			}
+
+			sqlResponse, err := h.AIReportService.GenerateSQL(ctx, sqlRequest, schemaInfo)
+			if err != nil {
+				h.iLog.Error(fmt.Sprintf("Failed to generate SQL: %v", err))
+				return nil, fmt.Errorf("failed to generate SQL: %w", err)
+			}
+
+			// Get function ID from entity context
+			var functionID string
+			if metadata, ok := entityContext["metadata"].(map[string]interface{}); ok {
+				if id, ok := metadata["id"].(string); ok {
+					functionID = id
+				}
+			}
+
+			// Return the modified function with new SQL
+			modifiedFunction := map[string]interface{}{
+				"id":      functionID,
+				"content": sqlResponse.SQL,
+				"functype": 3,
+			}
+
+			// Preserve function name if it exists
+			if name, ok := data["name"].(string); ok && name != "" {
+				modifiedFunction["name"] = name
+			}
+
+			h.iLog.Info(fmt.Sprintf("Generated SQL for query function using text2SQL: %s", sqlResponse.SQL))
+
+			return &AIAgencyResponse{
+				Answer:         fmt.Sprintf("✅ I've updated the SQL query:\n\n```sql\n%s\n```\n\n**Explanation:** %s", sqlResponse.SQL, sqlResponse.Explanation),
+				ResponseType:   "code_generation",
+				IntentType:     "code_modification",
+				Data:           modifiedFunction,
+				RequiresAction: true,
+				NextStep:       "apply_to_editor",
+				Confidence:     sqlResponse.Confidence,
+			}, nil
+		}
+	}
+
 	// Build the full context for code generation including current function data
+	// (Note: Query functions are handled above with text2SQL, this is for other function types)
 	fullContext := map[string]interface{}{
 		"entity_context":   entityContext,
 		"page_context":     request.PageContext,
@@ -694,6 +809,102 @@ func (h *CodeModificationHandler) Handle(ctx context.Context, request *AIAgencyR
 		NextStep:       "apply_to_editor",
 		Confidence:     0.9,
 	}, nil
+}
+
+// getSchemaContext retrieves database schema for query modification
+func (h *CodeModificationHandler) getSchemaContext(ctx context.Context, databaseAlias string, question string) (string, error) {
+	// Get relevant schema information using vector search
+	relevantTables, err := h.SchemaEmbeddingService.SearchSimilarTables(ctx, databaseAlias, question, 10)
+	if err != nil {
+		h.iLog.Warn(fmt.Sprintf("Failed to search similar tables: %v, falling back to metadata", err))
+
+		// Fallback: Get all metadata
+		metadata, err := h.SchemaMetadataService.GetDatabaseMetadata(ctx, databaseAlias)
+		if err != nil {
+			return "", fmt.Errorf("failed to get database metadata: %w", err)
+		}
+
+		// Build schema context from metadata
+		return h.buildSchemaInfoFromMetadata(metadata), nil
+	}
+
+	// Build schema context from relevant tables
+	return h.buildSchemaInfoFromEmbeddings(relevantTables), nil
+}
+
+func (h *CodeModificationHandler) buildSchemaInfoFromMetadata(metadata []models.DatabaseSchemaMetadata) string {
+	schemaInfo := "Database Schema:\n\n"
+
+	// Group metadata by table
+	tableMap := make(map[string][]models.DatabaseSchemaMetadata)
+	for _, meta := range metadata {
+		tableMap[meta.Table] = append(tableMap[meta.Table], meta)
+	}
+
+	// Build schema info
+	for tableName, columns := range tableMap {
+		schemaInfo += fmt.Sprintf("Table: %s\n", tableName)
+
+		// Find table description
+		for _, meta := range columns {
+			if meta.MetadataType == models.MetadataTypeTable && meta.Description != "" {
+				schemaInfo += fmt.Sprintf("Description: %s\n", meta.Description)
+				break
+			}
+		}
+
+		schemaInfo += "Columns:\n"
+		for _, col := range columns {
+			if col.MetadataType == models.MetadataTypeColumn && col.Column != "" {
+				nullable := ""
+				if col.IsNullable != nil && *col.IsNullable {
+					nullable = " (nullable)"
+				}
+				pk := ""
+				if col.IsPrimaryKey != nil && *col.IsPrimaryKey {
+					pk = " [PK]"
+				}
+				schemaInfo += fmt.Sprintf("  - %s %s%s%s\n", col.Column, col.DataType, nullable, pk)
+			}
+		}
+		schemaInfo += "\n"
+	}
+
+	return schemaInfo
+}
+
+func (h *CodeModificationHandler) buildSchemaInfoFromEmbeddings(tables []models.DatabaseSchemaMetadata) string {
+	schemaInfo := "Relevant Database Schema:\n\n"
+
+	// Group metadata by table
+	tableMap := make(map[string][]models.DatabaseSchemaMetadata)
+	for _, meta := range tables {
+		tableMap[meta.Table] = append(tableMap[meta.Table], meta)
+	}
+
+	// Build schema info
+	for tableName, columns := range tableMap {
+		schemaInfo += fmt.Sprintf("Table: %s\n", tableName)
+
+		// Find table description
+		for _, meta := range columns {
+			if meta.MetadataType == models.MetadataTypeTable && meta.Description != "" {
+				schemaInfo += fmt.Sprintf("Description: %s\n", meta.Description)
+				break
+			}
+		}
+
+		// List columns
+		schemaInfo += "Columns:\n"
+		for _, col := range columns {
+			if col.MetadataType == models.MetadataTypeColumn && col.Column != "" {
+				schemaInfo += fmt.Sprintf("  - %s (%s)\n", col.Column, col.DataType)
+			}
+		}
+		schemaInfo += "\n"
+	}
+
+	return schemaInfo
 }
 
 // extractModifiedFunction extracts the specific function from the AI-generated flow
