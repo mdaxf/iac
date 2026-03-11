@@ -5,6 +5,7 @@ package commands
 import (
 	"fmt"
 
+	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/dbinitializer"
 	"github.com/spf13/cobra"
 )
@@ -26,47 +27,43 @@ func NewMetricsCommand() *cobra.Command {
 				return fmt.Errorf("failed to initialize databases: %w", err)
 			}
 
-			poolManager := dbInit.GetPoolManager()
+			poolManager := dbconn.GetPoolManager()
 			if poolManager == nil {
 				return fmt.Errorf("no databases configured")
-			}
-
-			databases := poolManager.GetAllDatabases()
-			if len(databases) == 0 {
-				fmt.Println("No databases configured")
-				return nil
 			}
 
 			fmt.Println("Database Metrics")
 			fmt.Println("================")
 			fmt.Println("")
 
-			for _, dbType := range databases {
-				db, err := poolManager.GetPrimary(dbType)
-				if err != nil {
-					fmt.Printf("✗ %s: Failed to get connection\n\n", dbType)
-					continue
-				}
-
-				fmt.Printf("Database: %s\n", dbType)
+			printDBMetrics := func(label string, db dbconn.RelationalDB) {
+				fmt.Printf("Database: %s\n", label)
 				fmt.Printf("  Dialect:  %s\n", db.GetDialect())
 				fmt.Printf("  Status:   %s\n", getStatus(db))
 
-				// TODO: Get actual metrics from metrics collector
 				fmt.Printf("\n  Connection Pool:\n")
 				fmt.Printf("    Active:     %d\n", 5)  // Placeholder
 				fmt.Printf("    Idle:       %d\n", 10) // Placeholder
 				fmt.Printf("    Max:        %d\n", 15) // Placeholder
 
 				fmt.Printf("\n  Query Statistics:\n")
-				fmt.Printf("    Total:      %d\n", 1234) // Placeholder
-				fmt.Printf("    Errors:     %d\n", 0)    // Placeholder
-				fmt.Printf("    Slow:       %d\n", 5)    // Placeholder
+				fmt.Printf("    Total:      %d\n", 1234)   // Placeholder
+				fmt.Printf("    Errors:     %d\n", 0)      // Placeholder
+				fmt.Printf("    Slow:       %d\n", 5)      // Placeholder
 				fmt.Printf("    Avg Time:   %.2fms\n", 45.3) // Placeholder
 
 				fmt.Println("")
-
 				db.Close()
+			}
+
+			if primary, err := poolManager.GetPrimary(); err == nil {
+				printDBMetrics("primary", primary)
+			} else {
+				fmt.Printf("✗ primary: Failed to get connection\n\n")
+			}
+
+			if replica, err := poolManager.GetReplica(); err == nil {
+				printDBMetrics("replica", replica)
 			}
 
 			if watch {

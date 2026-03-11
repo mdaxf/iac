@@ -59,6 +59,9 @@ type GlobalConfig struct {
 
 	// Cluster configuration for distributed deployments
 	Cluster *ClusterConfig `json:"cluster,omitempty"`
+
+	// Notifications holds system-level defaults for all notification channels (SMTP, Telegram, Slack, etc.)
+	Notifications NotificationsConfig `json:"notifications"`
 }
 
 // ClusterConfig holds configuration for distributed/clustered deployments
@@ -170,6 +173,82 @@ type MongoSessionConfig struct {
 
 	// Database name (uses global if empty)
 	Database string `json:"database"`
+}
+
+// NotificationsConfig holds system-level defaults for all notification channels.
+// Values here are used as fallbacks when agents do not supply credentials per-call
+// and the agent definition does not carry its own notification_config overrides.
+type NotificationsConfig struct {
+	SMTP    SMTPConfig    `json:"smtp"`
+	Telegram TelegramConfig `json:"telegram"`
+	Slack   SlackConfig   `json:"slack"`
+	Teams   WebhookChannel `json:"teams"`
+	Discord WebhookChannel `json:"discord"`
+}
+
+// SMTPConfig holds SMTP server connection settings.
+//
+// Auth modes (auth_type):
+//   "plain"  — standard SMTP AUTH PLAIN using username + password (default).
+//              Works for: Gmail App Password, Outlook, Amazon SES, Mailgun.
+//   "token"  — API token as the SMTP password (username may differ by provider):
+//              • SendGrid  → username="apikey",      api_token=<SendGrid key>
+//              • Postmark  → username=(leave empty), api_token=<Server token>   (token used as both user & pass)
+//              • Brevo     → username=<your email>,  api_token=<Brevo SMTP key>
+//              • Custom    → set username + api_token as needed
+//   "none"   — no SMTP authentication (open relay / local MTA).
+//
+// Provider hint (provider) — optional, for documentation only, does not change behaviour:
+//   "gmail", "sendgrid", "mailgun", "postmark", "ses", "outlook", "brevo", "custom"
+//
+// Credentials may also be supplied via environment variables to avoid storing secrets in JSON:
+//   IAC_SMTP_HOST, IAC_SMTP_PORT, IAC_SMTP_USERNAME, IAC_SMTP_PASSWORD,
+//   IAC_SMTP_API_TOKEN, IAC_SMTP_FROM
+type SMTPConfig struct {
+	// Host is the SMTP server hostname (e.g. "smtp.gmail.com", "smtp.sendgrid.net").
+	Host string `json:"host"`
+
+	// Port is the SMTP port. Common values: 587 (STARTTLS), 465 (TLS), 25 (plain/relay).
+	Port int `json:"port"`
+
+	// AuthType controls how authentication credentials are presented.
+	// Values: "plain" (default), "token", "none".
+	AuthType string `json:"auth_type"`
+
+	// Username is the SMTP auth username.
+	// For SendGrid set to "apikey"; for Postmark leave empty when using auth_type="token".
+	Username string `json:"username"`
+
+	// Password is used when auth_type="plain".
+	Password string `json:"password"`
+
+	// APIToken is used when auth_type="token".
+	// Acts as the SMTP password; if Username is empty the token is also used as the username.
+	APIToken string `json:"api_token"`
+
+	// From is the default sender address, e.g. "IAC System <noreply@example.com>".
+	From string `json:"from"`
+
+	// UseTLS enables STARTTLS (recommended for port 587). Default: true when port is 587.
+	UseTLS bool `json:"use_tls"`
+
+	// Provider is an optional label for documentation ("gmail", "sendgrid", "postmark", etc.).
+	Provider string `json:"provider"`
+}
+
+// TelegramConfig holds system-level Telegram Bot API settings.
+type TelegramConfig struct {
+	BotToken string `json:"bot_token"`
+}
+
+// SlackConfig holds system-level Slack Incoming Webhook settings.
+type SlackConfig struct {
+	WebhookURL string `json:"webhook_url"`
+}
+
+// WebhookChannel holds a generic webhook URL for Teams, Discord, etc.
+type WebhookChannel struct {
+	WebhookURL string `json:"webhook_url"`
 }
 
 // JobsConfiguration holds the configuration for the background job system

@@ -27,9 +27,110 @@ type AIConfig struct {
 	AIVendors       map[string]AIVendorConfig `json:"ai_vendors"`
 	UseCases        map[string]UseCaseConfig  `json:"use_cases"`
 	VectorDatabase  VectorDatabaseConfig      `json:"vector_database"`
+	Search          SearchConfig              `json:"search"`
 	Thresholds      ThresholdsConfig          `json:"thresholds"`
 	Features        FeaturesConfig            `json:"features"`
 	Monitoring      MonitoringConfig          `json:"monitoring"`
+}
+
+// SearchConfig configures the web search provider used by agent tools.
+// Set provider to one of: "brave", "tavily", "serpapi", "google_cse", "duckduckgo".
+// "duckduckgo" requires no API key and can be used as a free fallback.
+type SearchConfig struct {
+	// Provider selects the active search engine.
+	Provider   string           `json:"provider"` // brave | tavily | serpapi | google_cse | duckduckgo
+	// Fallback is tried when the primary provider fails or has no key configured.
+	Fallback   string           `json:"fallback"` // same options; defaults to "duckduckgo"
+	Brave      BraveSearch      `json:"brave"`
+	Tavily     TavilySearch     `json:"tavily"`
+	SerpAPI    SerpAPISearch    `json:"serpapi"`
+	GoogleCSE  GoogleCSESearch  `json:"google_cse"`
+	DuckDuckGo DDGSearch        `json:"duckduckgo"`
+}
+
+// BraveSearch holds Brave Search API credentials.
+// Free tier: 2,000 queries/month. https://brave.com/search/api/
+type BraveSearch struct {
+	APIKey string `json:"api_key"`
+}
+
+// TavilySearch holds Tavily credentials.
+// AI-optimised results; free tier: 1,000 queries/month. https://tavily.com/
+type TavilySearch struct {
+	APIKey      string `json:"api_key"`
+	SearchDepth string `json:"search_depth"` // "basic" (default) | "advanced"
+}
+
+// SerpAPISearch covers Google, Bing, and many other engines via SerpAPI.
+// Free tier: 100 queries/month. https://serpapi.com/
+type SerpAPISearch struct {
+	APIKey string `json:"api_key"`
+	Engine string `json:"engine"` // "google" | "bing" | "duckduckgo" (default "google")
+}
+
+// GoogleCSESearch uses Google's Custom Search JSON API.
+// Free tier: 100 queries/day. Requires a Programmable Search Engine (cx) ID.
+// https://programmablesearchengine.google.com/
+type GoogleCSESearch struct {
+	APIKey string `json:"api_key"`
+	CX     string `json:"cx"` // Custom Search Engine ID
+}
+
+// DDGSearch uses the DuckDuckGo Instant Answer API (no key required).
+// Returns Wikipedia summaries and related topics; not a full web index.
+type DDGSearch struct {
+	Enabled bool `json:"enabled"` // set true to allow as primary or fallback
+}
+
+// GetSearchConfig returns the global search configuration.
+// It resolves env-var overrides so callers get the final effective values.
+func GetSearchConfig() SearchConfig {
+	cfg := GetAIConfig()
+	if cfg == nil {
+		return SearchConfig{Provider: "duckduckgo", DuckDuckGo: DDGSearch{Enabled: true}}
+	}
+	sc := cfg.Search
+
+	// Env-var overrides (backward compat + container-friendly secrets)
+	if v := os.Getenv("BRAVE_API_KEY"); v != "" && sc.Brave.APIKey == "" {
+		sc.Brave.APIKey = v
+	}
+	if v := os.Getenv("TAVILY_API_KEY"); v != "" && sc.Tavily.APIKey == "" {
+		sc.Tavily.APIKey = v
+	}
+	if v := os.Getenv("SERPAPI_API_KEY"); v != "" && sc.SerpAPI.APIKey == "" {
+		sc.SerpAPI.APIKey = v
+	}
+	if v := os.Getenv("GOOGLE_CSE_API_KEY"); v != "" && sc.GoogleCSE.APIKey == "" {
+		sc.GoogleCSE.APIKey = v
+	}
+	if v := os.Getenv("GOOGLE_CSE_CX"); v != "" && sc.GoogleCSE.CX == "" {
+		sc.GoogleCSE.CX = v
+	}
+
+	// Defaults
+	if sc.Provider == "" {
+		// Auto-detect: pick first provider with a key configured
+		switch {
+		case sc.Tavily.APIKey != "":
+			sc.Provider = "tavily"
+		case sc.Brave.APIKey != "":
+			sc.Provider = "brave"
+		case sc.SerpAPI.APIKey != "":
+			sc.Provider = "serpapi"
+		case sc.GoogleCSE.APIKey != "" && sc.GoogleCSE.CX != "":
+			sc.Provider = "google_cse"
+		default:
+			sc.Provider = "duckduckgo"
+		}
+	}
+	if sc.Fallback == "" {
+		sc.Fallback = "duckduckgo"
+	}
+	if sc.DuckDuckGo == (DDGSearch{}) {
+		sc.DuckDuckGo = DDGSearch{Enabled: true}
+	}
+	return sc
 }
 
 // AIVendorConfig represents configuration for an AI vendor
@@ -270,6 +371,35 @@ func mergeAIConfig(base, local *AIConfig) {
 	}
 	if local.VectorDatabase.Pinecone.Enabled {
 		base.VectorDatabase.Pinecone = local.VectorDatabase.Pinecone
+	}
+
+	// Merge Search config — local keys override base
+	if local.Search.Provider != "" {
+		base.Search.Provider = local.Search.Provider
+	}
+	if local.Search.Fallback != "" {
+		base.Search.Fallback = local.Search.Fallback
+	}
+	if local.Search.Brave.APIKey != "" {
+		base.Search.Brave.APIKey = local.Search.Brave.APIKey
+	}
+	if local.Search.Tavily.APIKey != "" {
+		base.Search.Tavily.APIKey = local.Search.Tavily.APIKey
+		if local.Search.Tavily.SearchDepth != "" {
+			base.Search.Tavily.SearchDepth = local.Search.Tavily.SearchDepth
+		}
+	}
+	if local.Search.SerpAPI.APIKey != "" {
+		base.Search.SerpAPI.APIKey = local.Search.SerpAPI.APIKey
+		if local.Search.SerpAPI.Engine != "" {
+			base.Search.SerpAPI.Engine = local.Search.SerpAPI.Engine
+		}
+	}
+	if local.Search.GoogleCSE.APIKey != "" {
+		base.Search.GoogleCSE.APIKey = local.Search.GoogleCSE.APIKey
+	}
+	if local.Search.GoogleCSE.CX != "" {
+		base.Search.GoogleCSE.CX = local.Search.GoogleCSE.CX
 	}
 }
 

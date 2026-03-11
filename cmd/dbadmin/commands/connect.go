@@ -3,7 +3,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -28,7 +27,7 @@ func NewConnectCommand() *cobra.Command {
 		Long:  `Test connection to a database and verify credentials`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config := dbconn.DBConfig{
-				Type:         dbType,
+				Type:         dbconn.DBType(dbType),
 				Host:         host,
 				Port:         port,
 				Database:     database,
@@ -46,14 +45,14 @@ func NewConnectCommand() *cobra.Command {
 
 			fmt.Printf("Connecting to %s database at %s:%d...\n", dbType, host, port)
 
-			db, err := dbconn.NewRelationalDB(config)
+			db, err := dbconn.NewRelationalDB(&config)
 			if err != nil {
 				return fmt.Errorf("failed to create database instance: %w", err)
 			}
 			defer db.Close()
 
 			start := time.Now()
-			if err := db.Connect(config); err != nil {
+			if err := db.Connect(&config); err != nil {
 				return fmt.Errorf("connection failed: %w", err)
 			}
 
@@ -81,7 +80,7 @@ func NewConnectCommand() *cobra.Command {
 			fmt.Printf("\nSupported Features:\n")
 			features := []string{"transactions", "jsonb", "cte", "window_functions", "fulltext", "arrays"}
 			for _, feature := range features {
-				if db.SupportsFeature(feature) {
+				if db.SupportsFeature(dbconn.Feature(feature)) {
 					fmt.Printf("  ✓ %s\n", feature)
 				} else {
 					fmt.Printf("  ✗ %s\n", feature)

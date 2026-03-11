@@ -1,71 +1,17 @@
 package codegen
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"io/ioutil"
-	"net/http"
+
+	"github.com/mdaxf/iac/llm"
 )
 
-// CallOpenAI makes a generic call to OpenAI API
+// CallOpenAI makes a chat completion call via the unified LLM client.
+// The vendor and model are resolved from aiconfig.json (code_generation use case).
+// Falls back to OpenAI using apiKey/model if config is unavailable.
 func CallOpenAI(apiKey string, model string, messages []map[string]interface{}, temperature float64) (string, error) {
-	// Prepare OpenAI request
-	requestBody := map[string]interface{}{
-		"model":       model,
-		"messages":    messages,
-		"temperature": temperature,
-		"max_tokens":  1500,
-	}
-
-	jsonData, err := json.Marshal(requestBody)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %v", err)
-	}
-
-	// Make OpenAI API request
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %v", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to make request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response: %v", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("OpenAI API error (status %d): %s", resp.StatusCode, string(body))
-	}
-
-	// Parse OpenAI response
-	var openAIResp struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-
-	if err := json.Unmarshal(body, &openAIResp); err != nil {
-		return "", fmt.Errorf("failed to parse OpenAI response: %v", err)
-	}
-
-	if len(openAIResp.Choices) == 0 {
-		return "", fmt.Errorf("no choices in OpenAI response")
-	}
-
-	return openAIResp.Choices[0].Message.Content, nil
+	return llm.CallLLM(context.Background(), "code_generation", apiKey, model, messages, temperature)
 }
 
 // AssistantRequest represents the incoming request for AI assistant
@@ -75,12 +21,12 @@ type AssistantRequest struct {
 	ConversationHistory  []map[string]interface{} `json:"conversationHistory"`
 }
 
-// GenerateAssistantResponse generates context-aware responses for the AI assistant
+// GenerateAssistantResponse generates context-aware responses for the AI assistant.
+// Uses the chatbot use case from aiconfig.json, falling back to OpenAI.
 func GenerateAssistantResponse(question string, apiKey string, openaiModel string, pageContext map[string]interface{}, conversationHistory []map[string]interface{}) (string, error) {
 	systemPrompt := buildSystemPrompt(pageContext)
 
-	// Build conversation messages
-	messages := []map[string]string{
+	messages := []map[string]interface{}{
 		{"role": "system", "content": systemPrompt},
 	}
 
@@ -91,14 +37,11 @@ func GenerateAssistantResponse(question string, apiKey string, openaiModel strin
 		if len(conversationHistory) > maxHistory {
 			startIdx = len(conversationHistory) - maxHistory
 		}
-
 		for _, msg := range conversationHistory[startIdx:] {
 			role, _ := msg["role"].(string)
 			content, _ := msg["content"].(string)
-
-			// Only add user and assistant messages (skip system)
 			if role == "user" || role == "assistant" {
-				messages = append(messages, map[string]string{
+				messages = append(messages, map[string]interface{}{
 					"role":    role,
 					"content": content,
 				})
@@ -106,68 +49,12 @@ func GenerateAssistantResponse(question string, apiKey string, openaiModel strin
 		}
 	}
 
-	// Add current question
-	messages = append(messages, map[string]string{
+	messages = append(messages, map[string]interface{}{
 		"role":    "user",
 		"content": question,
 	})
 
-	// Prepare OpenAI request
-	requestBody := map[string]interface{}{
-		"model":       openaiModel,
-		"messages":    messages,
-		"temperature": 0.7,
-		"max_tokens":  1500,
-	}
-
-	jsonData, err := json.Marshal(requestBody)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %v", err)
-	}
-
-	// Make OpenAI API request
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %v", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to make request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response: %v", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("OpenAI API error (status %d): %s", resp.StatusCode, string(body))
-	}
-
-	// Parse OpenAI response
-	var openAIResp struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-
-	if err := json.Unmarshal(body, &openAIResp); err != nil {
-		return "", fmt.Errorf("failed to parse OpenAI response: %v", err)
-	}
-
-	if len(openAIResp.Choices) == 0 {
-		return "", fmt.Errorf("no choices in OpenAI response")
-	}
-
-	return openAIResp.Choices[0].Message.Content, nil
+	return llm.CallLLM(context.Background(), "chatbot", apiKey, openaiModel, messages, 0.7)
 }
 
 func buildSystemPrompt(pageContext map[string]interface{}) string {
@@ -206,7 +93,6 @@ func buildSystemPrompt(pageContext map[string]interface{}) string {
 
 `
 
-	// Add page-specific guidance
 	pageGuidance := getPageSpecificGuidance(pageName, pageType)
 	if pageGuidance != "" {
 		basePrompt += "\n" + pageGuidance
@@ -231,7 +117,6 @@ Now, answer the user's question with context-aware, helpful information.`
 func getPageSpecificGuidance(pageName string, pageType string) string {
 	guidance := make(map[string]string)
 
-	// BPM Editor
 	guidance["BPM Editor"] = `**BPM Editor Help:**
 - Create function groups to organize business logic
 - Define routing between function groups based on conditions
@@ -240,7 +125,6 @@ func getPageSpecificGuidance(pageName string, pageType string) string {
 - Test functions with the test panel
 - Save and version your TranCode`
 
-	// Page Editor
 	guidance["Page Editor"] = `**Page Editor Help:**
 - Add panels to structure your page layout
 - Assign views to panels for UI content
@@ -249,7 +133,6 @@ func getPageSpecificGuidance(pageName string, pageType string) string {
 - Use AI chat bot to generate complete page structures
 - Preview and test your page before saving`
 
-	// View Editor
 	guidance["View Editor"] = `**View Editor Help:**
 - Write HTML for your view structure
 - Add JavaScript for interactivity and data binding
@@ -258,7 +141,6 @@ func getPageSpecificGuidance(pageName string, pageType string) string {
 - Use AI chat bot to generate views from descriptions
 - Test your view in the preview panel`
 
-	// Workflow Editor
 	guidance["Workflow Editor"] = `**Workflow Editor Help:**
 - Drag nodes from the left toolbar (Start, Task, Gateway, Subflow, End)
 - Connect nodes by dragging from one to another
@@ -267,7 +149,6 @@ func getPageSpecificGuidance(pageName string, pageType string) string {
 - Use AI chat bot to generate workflow structures
 - Validate before saving`
 
-	// Whiteboard Editor
 	guidance["Whiteboard Editor"] = `**Whiteboard Editor Help:**
 - Use drawing tools to create shapes, arrows, text
 - Right-click selected elements to "Generate BPM by AI" or "Generate View by AI"
@@ -276,7 +157,6 @@ func getPageSpecificGuidance(pageName string, pageType string) string {
 - Export as PNG or SVG
 - Collaborate in real-time (if enabled)`
 
-	// List pages
 	if pageType == "list" {
 		guidance[pageName] = `**` + pageName + ` Help:**
 - Click rows to view/edit items
@@ -286,7 +166,6 @@ func getPageSpecificGuidance(pageName string, pageType string) string {
 - Sort columns by clicking headers`
 	}
 
-	// Dashboard
 	guidance["Home Dashboard"] = `**Dashboard Help:**
 - Navigate using the menu on the left
 - Check system health and notifications
@@ -294,7 +173,6 @@ func getPageSpecificGuidance(pageName string, pageType string) string {
 - Use search to find features quickly
 - AI Assistant (me!) is always available to help`
 
-	// Settings
 	guidance["Settings"] = `**Settings Help:**
 - Configure user preferences
 - Manage system settings
@@ -302,7 +180,6 @@ func getPageSpecificGuidance(pageName string, pageType string) string {
 - View and restore backups
 - Check system information`
 
-	// System Health Monitor
 	guidance["System Health Monitor"] = `**Health Monitor Help:**
 - View real-time status of all system components
 - Check backend servers, nodes, and web servers
@@ -313,6 +190,5 @@ func getPageSpecificGuidance(pageName string, pageType string) string {
 	if help, exists := guidance[pageName]; exists {
 		return help
 	}
-
-	return ""
+	return fmt.Sprintf("")
 }

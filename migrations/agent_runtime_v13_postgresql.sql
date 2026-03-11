@@ -1,0 +1,19 @@
+-- Agent Runtime v13: Agent Gateway feature
+-- Agent Gateway data is stored in MongoDB (agent_gateways + gateway_tasks collections).
+-- No new PostgreSQL tables are required for this feature.
+--
+-- This file serves as a version marker and documents the MongoDB collections added:
+--
+--   Collection: agent_gateways
+--     Fields: _id, name, description, workflow_id, agent_ids[], mcp_server_ids[],
+--             hub_id, hub_route_id, agent_card{}, output_type, output_config{},
+--             enabled, active, createdby, createdon, modifiedby, modifiedon
+--     Indexes: idx_gateway_name (unique), idx_gateway_enabled
+--
+--   Collection: gateway_tasks
+--     Fields: _id, gateway_id, status, input, output, error, createdon, updatedon
+--     Status values: submitted | working | completed | failed | canceled
+--     Indexes: idx_task_gateway
+--
+-- No SQL changes required.
+SELECT 1;

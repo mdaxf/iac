@@ -251,6 +251,8 @@ func (e *HubExecutor) createProtocolHandler(pg *models.HubSimpleProtocolGroup, d
 		return e.createTCPHandler(pg, direction)
 	case ProtocolSignalR:
 		return e.createSignalRHandler(pg, direction)
+	case ProtocolMCP:
+		return e.createMCPHandler(pg, direction)
 	default:
 		return nil, fmt.Errorf("unsupported protocol: %s", pg.Protocol)
 	}
@@ -277,6 +279,8 @@ func (e *HubExecutor) mapProtocol(protocol string) ProtocolType {
 		return ProtocolTCP
 	case "SignalR":
 		return ProtocolSignalR
+	case "MCP":
+		return ProtocolMCP
 	default:
 		return ProtocolType(protocol)
 	}
@@ -436,6 +440,25 @@ func (e *HubExecutor) createSignalRHandler(pg *models.HubSimpleProtocolGroup, di
 	return handler, nil
 }
 
+// createMCPHandler creates an MCP client handler for outbound MCP tool calls.
+func (e *HubExecutor) createMCPHandler(pg *models.HubSimpleProtocolGroup, direction string) (ProtocolHandler, error) {
+	if pg.MCPConfig == nil {
+		return nil, fmt.Errorf("mcp_config is required for MCP protocol group '%s'", pg.Name)
+	}
+
+	handler := NewMCPClientHandler(MCPClientHandlerConfig{
+		Name:          pg.Name,
+		ProtocolGroup: pg,
+		MCPConfig:     pg.MCPConfig,
+		Direction:     direction,
+		DestExecutor:  e.destExecutor,
+		OnMessage:     e.handleMessage,
+		OnError:       e.handleError,
+		State:         e.state,
+	})
+	return handler, nil
+}
+
 // handleMessage handles incoming messages from handlers
 func (e *HubExecutor) handleMessage(payload *MessagePayload) {
 	e.state.IncrementMessageCount()
@@ -447,10 +470,17 @@ func (e *HubExecutor) handleMessage(payload *MessagePayload) {
 		e.iLog.Info(fmt.Sprintf("HubExecutor %s: found endpoint %v for ID %s", e.hubName, endpoint != nil, payload.EndpointID))
 		if endpoint != nil && endpoint.ShouldTrackHistory() {
 			e.iLog.Info(fmt.Sprintf("HubExecutor %s: recording history for endpoint %s", e.hubName, endpoint.Name))
+
+			// Use direction from payload, default to "inbound" if not specified
+			direction := payload.Direction
+			if direction == "" {
+				direction = "inbound"
+			}
+
 			history := &models.IntHubHistory{
 				HubID:        e.hub.ID,
 				HubName:      e.hub.Name,
-				Direction:    "inbound",
+				Direction:    direction,
 				Protocol:     string(payload.Protocol),
 				EndpointID:   endpoint.ID,
 				EndpointName: endpoint.Name,

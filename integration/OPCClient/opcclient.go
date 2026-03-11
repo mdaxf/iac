@@ -100,10 +100,8 @@ package opcclient
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -814,14 +812,10 @@ func (c *OPCClient) CallMethod(objectID, methodID string, inputArgs ...interface
 		inputVariants[i] = v
 	}
 
-	req := &ua.CallRequest{
-		MethodsToCall: []*ua.CallMethodRequest{
-			{
-				ObjectID:       objID,
-				MethodID:       methID,
-				InputArguments: inputVariants,
-			},
-		},
+	req := &ua.CallMethodRequest{
+		ObjectID:       objID,
+		MethodID:       methID,
+		InputArguments: inputVariants,
 	}
 
 	resp, err := c.Client.Call(c.ctx, req)
@@ -830,20 +824,15 @@ func (c *OPCClient) CallMethod(objectID, methodID string, inputArgs ...interface
 		return nil, err
 	}
 
-	if len(resp.Results) == 0 {
-		return nil, fmt.Errorf("no results returned from method call")
-	}
-
-	result := resp.Results[0]
-	if result.StatusCode != ua.StatusOK {
-		err := fmt.Errorf("method call failed with status: %v", result.StatusCode)
+	if resp.StatusCode != ua.StatusOK {
+		err := fmt.Errorf("method call failed with status: %v", resp.StatusCode)
 		c.iLog.Error(err.Error())
 		return nil, err
 	}
 
 	// Convert output arguments
-	outputs := make([]interface{}, len(result.OutputArguments))
-	for i, variant := range result.OutputArguments {
+	outputs := make([]interface{}, len(resp.OutputArguments))
+	for i, variant := range resp.OutputArguments {
 		outputs[i] = variant.Value()
 	}
 
@@ -906,23 +895,16 @@ func (c *OPCClient) ReadHistory(nodeID string, startTime, endTime time.Time, max
 		return nil, err
 	}
 
-	req := &ua.HistoryReadRequest{
-		TimestampsToReturn: ua.TimestampsToReturnBoth,
-		HistoryReadDetails: &ua.ReadRawModifiedDetails{
-			IsReadModified:   false,
-			StartTime:        startTime,
-			EndTime:          endTime,
-			NumValuesPerNode: maxValues,
-			ReturnBounds:     true,
-		},
-		NodesToRead: []*ua.HistoryReadValueID{
-			{
-				NodeID: id,
-			},
-		},
+	nodes := []*ua.HistoryReadValueID{{NodeID: id}}
+	details := &ua.ReadRawModifiedDetails{
+		IsReadModified:   false,
+		StartTime:        startTime,
+		EndTime:          endTime,
+		NumValuesPerNode: maxValues,
+		ReturnBounds:     true,
 	}
 
-	resp, err := c.Client.HistoryRead(c.ctx, req)
+	resp, err := c.Client.HistoryReadRawModified(c.ctx, nodes, details)
 	if err != nil {
 		c.iLog.Error(fmt.Sprintf("History read failed: %v", err))
 		return nil, err
@@ -939,8 +921,7 @@ func (c *OPCClient) ReadHistory(nodeID string, startTime, endTime time.Time, max
 		return nil, err
 	}
 
-	// Extract data values from history data
-	historyData, ok := result.HistoryData.(*ua.HistoryData)
+	historyData, ok := result.HistoryData.Value.(*ua.HistoryData)
 	if !ok {
 		return nil, fmt.Errorf("unexpected history data type")
 	}
@@ -959,23 +940,16 @@ func (c *OPCClient) ReadHistoryModified(nodeID string, startTime, endTime time.T
 		return nil, err
 	}
 
-	req := &ua.HistoryReadRequest{
-		TimestampsToReturn: ua.TimestampsToReturnBoth,
-		HistoryReadDetails: &ua.ReadRawModifiedDetails{
-			IsReadModified:   true, // Read modified values
-			StartTime:        startTime,
-			EndTime:          endTime,
-			NumValuesPerNode: maxValues,
-			ReturnBounds:     true,
-		},
-		NodesToRead: []*ua.HistoryReadValueID{
-			{
-				NodeID: id,
-			},
-		},
+	nodes := []*ua.HistoryReadValueID{{NodeID: id}}
+	details := &ua.ReadRawModifiedDetails{
+		IsReadModified:   true,
+		StartTime:        startTime,
+		EndTime:          endTime,
+		NumValuesPerNode: maxValues,
+		ReturnBounds:     true,
 	}
 
-	resp, err := c.Client.HistoryRead(c.ctx, req)
+	resp, err := c.Client.HistoryReadRawModified(c.ctx, nodes, details)
 	if err != nil {
 		c.iLog.Error(fmt.Sprintf("History read modified failed: %v", err))
 		return nil, err
@@ -992,7 +966,7 @@ func (c *OPCClient) ReadHistoryModified(nodeID string, startTime, endTime time.T
 		return nil, err
 	}
 
-	historyData, ok := result.HistoryData.(*ua.HistoryData)
+	historyData, ok := result.HistoryData.Value.(*ua.HistoryData)
 	if !ok {
 		return nil, fmt.Errorf("unexpected history data type")
 	}
@@ -1014,22 +988,15 @@ func (c *OPCClient) ReadHistoryProcessed(nodeID string, startTime, endTime time.
 	// Create aggregate node ID
 	aggregateNodeID := ua.NewNumericNodeID(0, uint32(aggregateType))
 
-	req := &ua.HistoryReadRequest{
-		TimestampsToReturn: ua.TimestampsToReturnBoth,
-		HistoryReadDetails: &ua.ReadProcessedDetails{
-			StartTime:          startTime,
-			EndTime:            endTime,
-			ProcessingInterval: float64(processingInterval.Milliseconds()),
-			AggregateType:      []*ua.NodeID{aggregateNodeID},
-		},
-		NodesToRead: []*ua.HistoryReadValueID{
-			{
-				NodeID: id,
-			},
-		},
+	nodes := []*ua.HistoryReadValueID{{NodeID: id}}
+	details := &ua.ReadProcessedDetails{
+		StartTime:          startTime,
+		EndTime:            endTime,
+		ProcessingInterval: float64(processingInterval.Milliseconds()),
+		AggregateType:      []*ua.NodeID{aggregateNodeID},
 	}
 
-	resp, err := c.Client.HistoryRead(c.ctx, req)
+	resp, err := c.Client.HistoryReadProcessed(c.ctx, nodes, details)
 	if err != nil {
 		c.iLog.Error(fmt.Sprintf("History read processed failed: %v", err))
 		return nil, err
@@ -1046,7 +1013,7 @@ func (c *OPCClient) ReadHistoryProcessed(nodeID string, startTime, endTime time.
 		return nil, err
 	}
 
-	historyData, ok := result.HistoryData.(*ua.HistoryData)
+	historyData, ok := result.HistoryData.Value.(*ua.HistoryData)
 	if !ok {
 		return nil, fmt.Errorf("unexpected history data type")
 	}
@@ -1065,20 +1032,13 @@ func (c *OPCClient) ReadHistoryAtTime(nodeID string, timestamps []time.Time, use
 		return nil, err
 	}
 
-	req := &ua.HistoryReadRequest{
-		TimestampsToReturn: ua.TimestampsToReturnBoth,
-		HistoryReadDetails: &ua.ReadAtTimeDetails{
-			ReqTimes:        timestamps,
-			UseSimpleBounds: useSimpleBounds,
-		},
-		NodesToRead: []*ua.HistoryReadValueID{
-			{
-				NodeID: id,
-			},
-		},
+	nodes := []*ua.HistoryReadValueID{{NodeID: id}}
+	details := &ua.ReadAtTimeDetails{
+		ReqTimes:        timestamps,
+		UseSimpleBounds: useSimpleBounds,
 	}
 
-	resp, err := c.Client.HistoryRead(c.ctx, req)
+	resp, err := c.Client.HistoryReadAtTime(c.ctx, nodes, details)
 	if err != nil {
 		c.iLog.Error(fmt.Sprintf("History read at time failed: %v", err))
 		return nil, err
@@ -1095,7 +1055,7 @@ func (c *OPCClient) ReadHistoryAtTime(nodeID string, timestamps []time.Time, use
 		return nil, err
 	}
 
-	historyData, ok := result.HistoryData.(*ua.HistoryData)
+	historyData, ok := result.HistoryData.Value.(*ua.HistoryData)
 	if !ok {
 		return nil, fmt.Errorf("unexpected history data type")
 	}
@@ -1119,22 +1079,15 @@ func (c *OPCClient) ReadHistoryEvents(nodeID string, startTime, endTime time.Tim
 		eventFilter = createDefaultEventFilter()
 	}
 
-	req := &ua.HistoryReadRequest{
-		TimestampsToReturn: ua.TimestampsToReturnBoth,
-		HistoryReadDetails: &ua.ReadEventDetails{
-			StartTime:        startTime,
-			EndTime:          endTime,
-			NumValuesPerNode: maxValues,
-			Filter:           eventFilter,
-		},
-		NodesToRead: []*ua.HistoryReadValueID{
-			{
-				NodeID: id,
-			},
-		},
+	nodes := []*ua.HistoryReadValueID{{NodeID: id}}
+	details := &ua.ReadEventDetails{
+		StartTime:        startTime,
+		EndTime:          endTime,
+		NumValuesPerNode: maxValues,
+		Filter:           eventFilter,
 	}
 
-	resp, err := c.Client.HistoryRead(c.ctx, req)
+	resp, err := c.Client.HistoryReadEvent(c.ctx, nodes, details)
 	if err != nil {
 		c.iLog.Error(fmt.Sprintf("History read events failed: %v", err))
 		return nil, err
@@ -1151,7 +1104,7 @@ func (c *OPCClient) ReadHistoryEvents(nodeID string, startTime, endTime time.Tim
 		return nil, err
 	}
 
-	historyEvent, ok := result.HistoryData.(*ua.HistoryEvent)
+	historyEvent, ok := result.HistoryData.Value.(*ua.HistoryEvent)
 	if !ok {
 		return nil, fmt.Errorf("unexpected history data type, expected HistoryEvent")
 	}
@@ -1163,230 +1116,41 @@ func (c *OPCClient) ReadHistoryEvents(nodeID string, startTime, endTime time.Tim
 // WriteHistory inserts historical data values for a node
 func (c *OPCClient) WriteHistory(nodeID string, dataValues []*ua.DataValue) ([]ua.StatusCode, error) {
 	c.iLog.Debug(fmt.Sprintf("Writing %d historical values for node %s", len(dataValues), nodeID))
-
-	id, err := ua.ParseNodeID(nodeID)
-	if err != nil {
-		c.iLog.Error(fmt.Sprintf("Invalid node ID: %v", err))
-		return nil, err
-	}
-
-	req := &ua.HistoryUpdateRequest{
-		HistoryUpdateDetails: []*ua.ExtensionObject{
-			{
-				EncodingMask: ua.ExtensionObjectBinary,
-				TypeID: &ua.ExpandedNodeID{
-					NodeID: ua.NewNumericNodeID(0, id.UpdateDataDetails_Encoding_DefaultBinary),
-				},
-				Value: &ua.UpdateDataDetails{
-					NodeID:               id,
-					PerformInsertReplace: ua.PerformUpdateTypeInsert,
-					UpdateValues:         dataValues,
-				},
-			},
-		},
-	}
-
-	resp, err := c.Client.HistoryUpdate(c.ctx, req)
-	if err != nil {
-		c.iLog.Error(fmt.Sprintf("History write failed: %v", err))
-		return nil, err
-	}
-
-	if len(resp.Results) == 0 {
-		return nil, fmt.Errorf("no results returned from history write")
-	}
-
-	result := resp.Results[0]
-	updateResult, ok := result.(*ua.HistoryUpdateResult)
-	if !ok {
-		return nil, fmt.Errorf("unexpected result type")
-	}
-
-	c.iLog.Debug(fmt.Sprintf("History write completed with status: %v", updateResult.StatusCode))
-	return updateResult.OperationResults, nil
+	// HistoryUpdate is not supported in gopcua v0.5.1
+	c.iLog.Error("WriteHistory: HistoryUpdate not supported in current OPC UA client library version")
+	return nil, fmt.Errorf("WriteHistory not supported: HistoryUpdate unavailable in gopcua v0.5.1")
 }
 
 // UpdateHistory replaces existing historical data values for a node
 func (c *OPCClient) UpdateHistory(nodeID string, dataValues []*ua.DataValue) ([]ua.StatusCode, error) {
 	c.iLog.Debug(fmt.Sprintf("Updating %d historical values for node %s", len(dataValues), nodeID))
-
-	id, err := ua.ParseNodeID(nodeID)
-	if err != nil {
-		c.iLog.Error(fmt.Sprintf("Invalid node ID: %v", err))
-		return nil, err
-	}
-
-	req := &ua.HistoryUpdateRequest{
-		HistoryUpdateDetails: []*ua.ExtensionObject{
-			{
-				EncodingMask: ua.ExtensionObjectBinary,
-				TypeID: &ua.ExpandedNodeID{
-					NodeID: ua.NewNumericNodeID(0, id.UpdateDataDetails_Encoding_DefaultBinary),
-				},
-				Value: &ua.UpdateDataDetails{
-					NodeID:               id,
-					PerformInsertReplace: ua.PerformUpdateTypeReplace,
-					UpdateValues:         dataValues,
-				},
-			},
-		},
-	}
-
-	resp, err := c.Client.HistoryUpdate(c.ctx, req)
-	if err != nil {
-		c.iLog.Error(fmt.Sprintf("History update failed: %v", err))
-		return nil, err
-	}
-
-	if len(resp.Results) == 0 {
-		return nil, fmt.Errorf("no results returned from history update")
-	}
-
-	result := resp.Results[0]
-	updateResult, ok := result.(*ua.HistoryUpdateResult)
-	if !ok {
-		return nil, fmt.Errorf("unexpected result type")
-	}
-
-	c.iLog.Debug(fmt.Sprintf("History update completed with status: %v", updateResult.StatusCode))
-	return updateResult.OperationResults, nil
+	// HistoryUpdate is not supported in gopcua v0.5.1
+	c.iLog.Error("UpdateHistory: HistoryUpdate not supported in current OPC UA client library version")
+	return nil, fmt.Errorf("UpdateHistory not supported: HistoryUpdate unavailable in gopcua v0.5.1")
 }
 
 // DeleteHistory deletes historical data for a node within a time range
 func (c *OPCClient) DeleteHistory(nodeID string, startTime, endTime time.Time) (ua.StatusCode, error) {
 	c.iLog.Debug(fmt.Sprintf("Deleting historical data for node %s from %v to %v", nodeID, startTime, endTime))
-
-	id, err := ua.ParseNodeID(nodeID)
-	if err != nil {
-		c.iLog.Error(fmt.Sprintf("Invalid node ID: %v", err))
-		return ua.StatusBad, err
-	}
-
-	req := &ua.HistoryUpdateRequest{
-		HistoryUpdateDetails: []*ua.ExtensionObject{
-			{
-				EncodingMask: ua.ExtensionObjectBinary,
-				TypeID: &ua.ExpandedNodeID{
-					NodeID: ua.NewNumericNodeID(0, id.DeleteRawModifiedDetails_Encoding_DefaultBinary),
-				},
-				Value: &ua.DeleteRawModifiedDetails{
-					NodeID:           id,
-					IsDeleteModified: false,
-					StartTime:        startTime,
-					EndTime:          endTime,
-				},
-			},
-		},
-	}
-
-	resp, err := c.Client.HistoryUpdate(c.ctx, req)
-	if err != nil {
-		c.iLog.Error(fmt.Sprintf("History delete failed: %v", err))
-		return ua.StatusBad, err
-	}
-
-	if len(resp.Results) == 0 {
-		return ua.StatusBad, fmt.Errorf("no results returned from history delete")
-	}
-
-	result := resp.Results[0]
-	updateResult, ok := result.(*ua.HistoryUpdateResult)
-	if !ok {
-		return ua.StatusBad, fmt.Errorf("unexpected result type")
-	}
-
-	c.iLog.Debug(fmt.Sprintf("History delete completed with status: %v", updateResult.StatusCode))
-	return updateResult.StatusCode, nil
+	// HistoryUpdate is not supported in gopcua v0.5.1
+	c.iLog.Error("DeleteHistory: HistoryUpdate not supported in current OPC UA client library version")
+	return ua.StatusBad, fmt.Errorf("DeleteHistory not supported: HistoryUpdate unavailable in gopcua v0.5.1")
 }
 
 // DeleteHistoryAtTime deletes historical data at specific timestamps
 func (c *OPCClient) DeleteHistoryAtTime(nodeID string, timestamps []time.Time) ([]ua.StatusCode, error) {
 	c.iLog.Debug(fmt.Sprintf("Deleting historical data for node %s at %d specific times", nodeID, len(timestamps)))
-
-	id, err := ua.ParseNodeID(nodeID)
-	if err != nil {
-		c.iLog.Error(fmt.Sprintf("Invalid node ID: %v", err))
-		return nil, err
-	}
-
-	req := &ua.HistoryUpdateRequest{
-		HistoryUpdateDetails: []*ua.ExtensionObject{
-			{
-				EncodingMask: ua.ExtensionObjectBinary,
-				TypeID: &ua.ExpandedNodeID{
-					NodeID: ua.NewNumericNodeID(0, id.DeleteAtTimeDetails_Encoding_DefaultBinary),
-				},
-				Value: &ua.DeleteAtTimeDetails{
-					NodeID:   id,
-					ReqTimes: timestamps,
-				},
-			},
-		},
-	}
-
-	resp, err := c.Client.HistoryUpdate(c.ctx, req)
-	if err != nil {
-		c.iLog.Error(fmt.Sprintf("History delete at time failed: %v", err))
-		return nil, err
-	}
-
-	if len(resp.Results) == 0 {
-		return nil, fmt.Errorf("no results returned from history delete at time")
-	}
-
-	result := resp.Results[0]
-	updateResult, ok := result.(*ua.HistoryUpdateResult)
-	if !ok {
-		return nil, fmt.Errorf("unexpected result type")
-	}
-
-	c.iLog.Debug(fmt.Sprintf("History delete at time completed with status: %v", updateResult.StatusCode))
-	return updateResult.OperationResults, nil
+	// HistoryUpdate is not supported in gopcua v0.5.1
+	c.iLog.Error("DeleteHistoryAtTime: HistoryUpdate not supported in current OPC UA client library version")
+	return nil, fmt.Errorf("DeleteHistoryAtTime not supported: HistoryUpdate unavailable in gopcua v0.5.1")
 }
 
 // DeleteHistoryEvents deletes historical events for a node
 func (c *OPCClient) DeleteHistoryEvents(nodeID string, eventIDs [][]byte) ([]ua.StatusCode, error) {
 	c.iLog.Debug(fmt.Sprintf("Deleting %d historical events for node %s", len(eventIDs), nodeID))
-
-	id, err := ua.ParseNodeID(nodeID)
-	if err != nil {
-		c.iLog.Error(fmt.Sprintf("Invalid node ID: %v", err))
-		return nil, err
-	}
-
-	req := &ua.HistoryUpdateRequest{
-		HistoryUpdateDetails: []*ua.ExtensionObject{
-			{
-				EncodingMask: ua.ExtensionObjectBinary,
-				TypeID: &ua.ExpandedNodeID{
-					NodeID: ua.NewNumericNodeID(0, id.DeleteEventDetails_Encoding_DefaultBinary),
-				},
-				Value: &ua.DeleteEventDetails{
-					NodeID:   id,
-					EventIDs: eventIDs,
-				},
-			},
-		},
-	}
-
-	resp, err := c.Client.HistoryUpdate(c.ctx, req)
-	if err != nil {
-		c.iLog.Error(fmt.Sprintf("History delete events failed: %v", err))
-		return nil, err
-	}
-
-	if len(resp.Results) == 0 {
-		return nil, fmt.Errorf("no results returned from history delete events")
-	}
-
-	result := resp.Results[0]
-	updateResult, ok := result.(*ua.HistoryUpdateResult)
-	if !ok {
-		return nil, fmt.Errorf("unexpected result type")
-	}
-
-	c.iLog.Debug(fmt.Sprintf("History delete events completed with status: %v", updateResult.StatusCode))
-	return updateResult.OperationResults, nil
+	// HistoryUpdate is not supported in gopcua v0.5.1
+	c.iLog.Error("DeleteHistoryEvents: HistoryUpdate not supported in current OPC UA client library version")
+	return nil, fmt.Errorf("DeleteHistoryEvents not supported: HistoryUpdate unavailable in gopcua v0.5.1")
 }
 
 // createDefaultEventFilter creates a default event filter for historical event reading
@@ -1428,50 +1192,15 @@ func (c *OPCClient) BrowseWithPath(startingNode string, relativePath []string) (
 		}
 	}
 
-	req := &ua.TranslateBrowsePathsToNodeIDsRequest{
-		BrowsePaths: []*ua.BrowsePath{
-			{
-				StartingNode: startID,
-				RelativePath: &ua.RelativePath{
-					Elements: make([]*ua.RelativePathElement, len(browsePath)),
-				},
-			},
-		},
-	}
-
-	for i, qn := range browsePath {
-		req.BrowsePaths[0].RelativePath.Elements[i] = &ua.RelativePathElement{
-			ReferenceTypeID: ua.NewNumericNodeID(0, id.HierarchicalReferences),
-			IsInverse:       false,
-			IncludeSubtypes: true,
-			TargetName:      qn,
-		}
-	}
-
-	resp, err := c.Client.TranslateBrowsePathsToNodeIDs(c.ctx, req)
+	node := c.Client.Node(startID)
+	nodeID, err := node.TranslateBrowsePathsToNodeIDs(c.ctx, browsePath)
 	if err != nil {
 		c.iLog.Error(fmt.Sprintf("Translate browse paths failed: %v", err))
 		return nil, err
 	}
 
-	if len(resp.Results) == 0 {
-		return nil, fmt.Errorf("no results returned")
-	}
-
-	result := resp.Results[0]
-	if result.StatusCode != ua.StatusOK {
-		err := fmt.Errorf("translate failed with status: %v", result.StatusCode)
-		c.iLog.Error(err.Error())
-		return nil, err
-	}
-
-	nodeIDs := make([]string, len(result.Targets))
-	for i, target := range result.Targets {
-		nodeIDs[i] = target.TargetID.NodeID.String()
-	}
-
-	c.iLog.Debug(fmt.Sprintf("Found %d target nodes", len(nodeIDs)))
-	return nodeIDs, nil
+	c.iLog.Debug(fmt.Sprintf("Resolved browse path to node: %s", nodeID.String()))
+	return []string{nodeID.String()}, nil
 }
 
 // BrowseNext continues browsing when the initial browse result has more data
@@ -1508,11 +1237,7 @@ func (c *OPCClient) BrowseNext(continuationPoint []byte) ([]*ua.ReferenceDescrip
 func (c *OPCClient) FindServers() ([]*ua.ApplicationDescription, error) {
 	c.iLog.Debug(fmt.Sprintf("Finding servers at %s", c.Endpoint))
 
-	req := &ua.FindServersRequest{
-		EndpointURL: c.Endpoint,
-	}
-
-	resp, err := c.Client.FindServers(c.ctx, req)
+	resp, err := c.Client.FindServers(c.ctx)
 	if err != nil {
 		c.iLog.Error(fmt.Sprintf("FindServers failed: %v", err))
 		return nil, err

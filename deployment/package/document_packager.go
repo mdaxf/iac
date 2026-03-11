@@ -27,7 +27,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // DocumentPackager handles packaging of document database data
@@ -108,9 +107,13 @@ func (dp *DocumentPackager) packageCollection(pkg *models.Package, collectionNam
 	// Build filter query
 	filterQuery := bson.M{}
 	if whereClause, ok := filter.WhereClause[collectionName]; ok && whereClause != "" {
-		// Parse WHERE clause as BSON
+		// Parse WHERE clause as BSON.
+		// ObjectIDs are serialised as 24-char hex strings by the browser; convert them
+		// back to primitive.ObjectID so MongoDB can match _id fields correctly.
 		if err := json.Unmarshal([]byte(whereClause), &filterQuery); err != nil {
 			dp.logger.Warn(fmt.Sprintf("Failed to parse filter for %s: %v", collectionName, err))
+		} else {
+			convertBSONObjectIDsInFilter(filterQuery)
 		}
 	}
 
@@ -167,12 +170,27 @@ func (dp *DocumentPackager) packageCollection(pkg *models.Package, collectionNam
 
 	pkg.DocumentData.Collections = append(pkg.DocumentData.Collections, collData)
 
+	// Determine ID strategy — auto-detect UUID from first document
+	idType := "objectid"
+	strategy := dp.determineIDStrategy(pkg.DocumentData.SkipIDs)
+	if len(collData.Documents) > 0 {
+		if idVal, ok := collData.Documents[0]["_id"]; ok {
+			if idStr, ok := idVal.(string); ok {
+				if _, err := uuid.Parse(idStr); err == nil {
+					idType = "uuid"
+					strategy = "preserve" // UUID _id is globally unique → preserve
+				}
+			}
+		}
+	}
+
 	// Create ID mapping
 	idMapping := models.IDMapping{
-		CollectionName: collectionName,
-		IDField:        "_id",
-		IDType:         "objectid",
-		Strategy:       dp.determineIDStrategy(pkg.DocumentData.SkipIDs),
+		CollectionName:  collectionName,
+		IDField:         "_id",
+		IDType:          idType,
+		Strategy:        strategy,
+		GlobalKeyFields: filter.GlobalKeyColumns[collectionName], // from filter
 	}
 	pkg.DocumentData.IDMappings[collectionName] = idMapping
 
@@ -261,6 +279,34 @@ type ReferencePattern struct {
 	Field            string
 	TargetCollection string
 	ReferenceType    string
+}
+
+// convertBSONObjectIDsInFilter recursively walks a parsed-JSON filter map and
+// converts any 24-char lowercase hex string into a primitive.ObjectID.
+// This is required because the browser serialises ObjectID _id values as hex
+// strings; MongoDB needs the native ObjectID type to match _id fields.
+func convertBSONObjectIDsInFilter(obj map[string]interface{}) {
+	for key, val := range obj {
+		switch v := val.(type) {
+		case string:
+			if oid, err := primitive.ObjectIDFromHex(v); err == nil {
+				obj[key] = oid
+			}
+		case map[string]interface{}:
+			convertBSONObjectIDsInFilter(v)
+		case []interface{}:
+			for i, item := range v {
+				switch s := item.(type) {
+				case string:
+					if oid, err := primitive.ObjectIDFromHex(s); err == nil {
+						v[i] = oid
+					}
+				case map[string]interface{}:
+					convertBSONObjectIDsInFilter(s)
+				}
+			}
+		}
+	}
 }
 
 // convertObjectIDs recursively converts ObjectIDs to strings

@@ -1,13 +1,9 @@
 package codegen
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"time"
 
 	"github.com/mdaxf/iac/logger"
@@ -267,68 +263,12 @@ func GeneratePageFromDescription(description string, apiKey string, openaiModel 
 		},
 	}
 
-	// Create request
-	requestBody := GPT4VCompletionRequest{
-		Model:       openaiModel,
-		Messages:    messages,
-		Temperature: 0.7,
-		MaxTokens:   4096,
-	}
-
-	jsonBody, err := json.Marshal(requestBody)
+	// Call LLM via unified client (vendor resolved from aiconfig.json)
+	content, err := CallOpenAI(apiKey, openaiModel, messages, 0.7)
 	if err != nil {
-		iLog.Error(fmt.Sprintf("Error marshaling request: %v", err))
+		iLog.Error(fmt.Sprintf("AI request failed: %v", err))
 		return result, err
 	}
-
-	iLog.Debug(fmt.Sprintf("Request to OpenAI: %s", string(jsonBody)))
-
-	// Make HTTP request to OpenAI
-	req, err := http.NewRequestWithContext(context.Background(), "POST", url, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		iLog.Error(fmt.Sprintf("Error creating request: %v", err))
-		return result, err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
-
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		iLog.Error(fmt.Sprintf("Error making request: %v", err))
-		return result, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		iLog.Error(fmt.Sprintf("Error reading response: %v", err))
-		return result, err
-	}
-
-	iLog.Debug(fmt.Sprintf("Response from OpenAI: %s", string(body)))
-
-	if resp.StatusCode != http.StatusOK {
-		iLog.Error(fmt.Sprintf("OpenAI API error: %s", string(body)))
-		return result, fmt.Errorf("OpenAI API error: %s", string(body))
-	}
-
-	// Parse OpenAI response
-	var openAIResp GPT4VCompletionResponse
-	err = json.Unmarshal(body, &openAIResp)
-	if err != nil {
-		iLog.Error(fmt.Sprintf("Error unmarshaling response: %v", err))
-		return result, err
-	}
-
-	if len(openAIResp.Choices) == 0 {
-		iLog.Error("No choices returned from OpenAI")
-		return result, errors.New("No choices returned from OpenAI")
-	}
-
-	// Extract the generated page JSON from the response
-	content := openAIResp.Choices[0].Message.Content
 
 	iLog.Debug(fmt.Sprintf("Generated page content: %s", content))
 

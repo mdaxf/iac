@@ -1,4 +1,6 @@
-// Copyright 2023 IAC. All Rights Reserved.
+//go:build ignore
+// +build ignore
+Copyright 2023 IAC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,7 +49,8 @@ func main() {
 }
 
 func basicCachingExample() {
-	fmt.Println("\n1. Basic Query Caching")
+	fmt.Println("
+1. Basic Query Caching")
 	fmt.Println("-----------------------")
 
 	// Create in-memory cache backend
@@ -85,7 +88,8 @@ func basicCachingExample() {
 	} else {
 		var user map[string]interface{}
 		json.Unmarshal(cached, &user)
-		fmt.Printf("Retrieved from cache: %v\n", user)
+		fmt.Printf("Retrieved from cache: %v
+", user)
 	}
 
 	// Try to get non-existent entry
@@ -96,7 +100,8 @@ func basicCachingExample() {
 }
 
 func cacheInvalidationExample() {
-	fmt.Println("\n2. Cache Invalidation")
+	fmt.Println("
+2. Cache Invalidation")
 	fmt.Println("----------------------")
 
 	backend := dbconn.NewMemoryCache(10 * 1024 * 1024)
@@ -137,7 +142,8 @@ func cacheInvalidationExample() {
 
 	// Invalidate all users table queries
 	qc.InvalidateTable(ctx, "users")
-	fmt.Println("\nInvalidated all 'users' table queries")
+	fmt.Println("
+Invalidated all 'users' table queries")
 
 	// All user queries should be gone
 	_, err = qc.Get(ctx, "SELECT * FROM users WHERE id = ?", 2)
@@ -153,7 +159,8 @@ func cacheInvalidationExample() {
 }
 
 func cacheMetricsExample() {
-	fmt.Println("\n3. Cache Metrics")
+	fmt.Println("
+3. Cache Metrics")
 	fmt.Println("-----------------")
 
 	backend := dbconn.NewMemoryCache(10 * 1024 * 1024)
@@ -183,16 +190,23 @@ func cacheMetricsExample() {
 	// Get metrics
 	metrics := qc.GetMetrics()
 
-	fmt.Printf("Cache Metrics:\n")
-	fmt.Printf("  Hits: %d\n", metrics.Hits)
-	fmt.Printf("  Misses: %d\n", metrics.Misses)
-	fmt.Printf("  Sets: %d\n", metrics.Sets)
-	fmt.Printf("  Hit Rate: %.2f%%\n", metrics.HitRate*100)
-	fmt.Printf("  Invalidations: %d\n", metrics.Invalidations)
+	fmt.Printf("Cache Metrics:
+")
+	fmt.Printf("  Hits: %d
+", metrics.Hits)
+	fmt.Printf("  Misses: %d
+", metrics.Misses)
+	fmt.Printf("  Sets: %d
+", metrics.Sets)
+	fmt.Printf("  Hit Rate: %.2f%%
+", metrics.HitRate*100)
+	fmt.Printf("  Invalidations: %d
+", metrics.Invalidations)
 }
 
 func getOrSetExample() {
-	fmt.Println("\n4. GetOrSet Pattern")
+	fmt.Println("
+4. GetOrSet Pattern")
 	fmt.Println("--------------------")
 
 	backend := dbconn.NewMemoryCache(10 * 1024 * 1024)
@@ -217,7 +231,8 @@ func getOrSetExample() {
 
 		// Fetcher function - called on cache miss
 		fetcher := func() ([]byte, error) {
-			fmt.Printf("  Querying database for user %d...\n", userID)
+			fmt.Printf("  Querying database for user %d...
+", userID)
 
 			var id int
 			var name, email string
@@ -249,21 +264,27 @@ func getOrSetExample() {
 	// First call - cache miss, will query database
 	fmt.Println("First call (cache miss):")
 	user, _ := getUser(1)
-	fmt.Printf("  Result: %v\n", user)
+	fmt.Printf("  Result: %v
+", user)
 
 	// Second call - cache hit, won't query database
-	fmt.Println("\nSecond call (cache hit):")
+	fmt.Println("
+Second call (cache hit):")
 	user, _ = getUser(1)
-	fmt.Printf("  Result: %v\n", user)
+	fmt.Printf("  Result: %v
+", user)
 
 	// Different user - cache miss
-	fmt.Println("\nDifferent user (cache miss):")
+	fmt.Println("
+Different user (cache miss):")
 	user, _ = getUser(2)
-	fmt.Printf("  Result: %v\n", user)
+	fmt.Printf("  Result: %v
+", user)
 }
 
 func ttlConfigExample() {
-	fmt.Println("\n5. TTL Configuration")
+	fmt.Println("
+5. TTL Configuration")
 	fmt.Println("---------------------")
 
 	backend := dbconn.NewMemoryCache(10 * 1024 * 1024)
@@ -299,7 +320,8 @@ func ttlConfigExample() {
 
 // Example: Complete caching integration with database
 func completeCachingExample() {
-	fmt.Println("\n6. Complete Caching Integration")
+	fmt.Println("
+6. Complete Caching Integration")
 	fmt.Println("---------------------------------")
 
 	// Setup database
@@ -379,23 +401,33 @@ func completeCachingExample() {
 	// Demo usage
 	fmt.Println("Getting user 1 (cache miss):")
 	user, _ := getUserByID(1)
-	fmt.Printf("  %v\n", user)
+	fmt.Printf("  %v
+", user)
 
-	fmt.Println("\nGetting user 1 again (cache hit):")
+	fmt.Println("
+Getting user 1 again (cache hit):")
 	user, _ = getUserByID(1)
-	fmt.Printf("  %v\n", user)
+	fmt.Printf("  %v
+", user)
 
-	fmt.Println("\nUpdating user 1:")
+	fmt.Println("
+Updating user 1:")
 	updateUser(1, "Alice Smith")
 	fmt.Println("  Cache invalidated")
 
-	fmt.Println("\nGetting user 1 after update (cache miss):")
+	fmt.Println("
+Getting user 1 after update (cache miss):")
 	user, _ = getUserByID(1)
-	fmt.Printf("  %v\n", user)
+	fmt.Printf("  %v
+", user)
 
 	// Show final metrics
 	metrics := qc.GetMetrics()
-	fmt.Printf("\nFinal Metrics:\n")
-	fmt.Printf("  Hits: %d, Misses: %d\n", metrics.Hits, metrics.Misses)
-	fmt.Printf("  Hit Rate: %.2f%%\n", metrics.HitRate*100)
+	fmt.Printf("
+Final Metrics:
+")
+	fmt.Printf("  Hits: %d, Misses: %d
+", metrics.Hits, metrics.Misses)
+	fmt.Printf("  Hit Rate: %.2f%%
+", metrics.HitRate*100)
 }

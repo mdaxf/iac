@@ -40,6 +40,12 @@ type PackageDatabaseRequest struct {
 	Filter        models.PackageFilter  `json:"filter"`
 }
 
+// DeployFromDataRequest represents a deployment request using raw package data
+type DeployFromDataRequest struct {
+	PackageData json.RawMessage          `json:"package_data"`
+	Options     models.DeploymentOptions `json:"options"`
+}
+
 // PackageDocumentRequest represents a document packaging request
 type PackageDocumentRequest struct {
 	Name          string                `json:"name"`
@@ -47,12 +53,6 @@ type PackageDocumentRequest struct {
 	Description   string                `json:"description"`
 	Environment   string                `json:"environment"`   // dev, staging, production
 	Filter        models.PackageFilter  `json:"filter"`
-}
-
-// DeployPackageRequest represents a deployment request
-type DeployPackageRequest struct {
-	PackageData []byte                     `json:"package_data"`
-	Options     models.DeploymentOptions   `json:"options"`
 }
 
 // VersionControlRequest represents a version control request
@@ -274,7 +274,7 @@ func DeployDatabasePackage(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// Parse request
-	var req DeployPackageRequest
+	var req DeployFromDataRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, fmt.Sprintf("Invalid request: %v", err), http.StatusBadRequest)
 		return
@@ -331,7 +331,7 @@ func DeployDocumentPackage(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// Parse request
-	var req DeployPackageRequest
+	var req DeployFromDataRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, fmt.Sprintf("Invalid request: %v", err), http.StatusBadRequest)
 		return

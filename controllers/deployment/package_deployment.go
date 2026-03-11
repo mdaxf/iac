@@ -176,7 +176,7 @@ func (pc *PackageController) executeDeployment(packageID, userName string, req D
 		PackageID:    packageID,
 		ActionID:     deployAction.ID,
 		Environment:  req.Environment,
-		DatabaseName: dbconn.DatabaseName,
+		DatabaseName: dbconn.DatabaseType,
 		DeployedAt:   time.Now(),
 		DeployedBy:   userName,
 		IsActive:     true,
@@ -532,7 +532,7 @@ func (pc *PackageController) GetJobStatus(c *gin.Context) {
 
 	// Get job details
 	ctx := context.Background()
-	job, err := jobService.GetQueueJob(ctx, jobID)
+	job, err := jobService.GetJobByID(ctx, jobID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Job not found: %v", err)})
 		return

@@ -15,9 +15,11 @@
 package packagemgr
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -29,22 +31,94 @@ import (
 
 // DatabasePackager handles packaging of relational database data
 type DatabasePackager struct {
-	dbTx         *sql.Tx
+	db           *sql.DB  // for schema introspection (ListTables, GetTableSourceInfo, etc.)
+	dbTx         *sql.Tx  // for transactional data reads during actual packaging
 	dbOperation  *dbconn.DBOperation
 	logger       logger.Log
 	databaseType string
+	// tableSchema caches the schema name for each table, populated by ListTables()
+	tableSchema  map[string]string
 }
 
-// NewDatabasePackager creates a new database packager
+// NewDatabasePackager creates a packager for actual data packaging (uses transaction).
 func NewDatabasePackager(user string, dbTx *sql.Tx, databaseType string) *DatabasePackager {
 	iLog := logger.Log{ModuleName: logger.Framework, User: user, ControllerName: "DatabasePackager"}
-
 	return &DatabasePackager{
+		db:           dbconn.DB,
 		dbTx:         dbTx,
 		dbOperation:  dbconn.NewDBOperation(user, dbTx, logger.Framework),
 		logger:       iLog,
-		databaseType: databaseType,
+		databaseType: strings.ToLower(databaseType),
 	}
+}
+
+// NewDatabasePackagerFromDB creates a packager for schema-only operations (no transaction needed).
+func NewDatabasePackagerFromDB(user string, db *sql.DB, databaseType string) *DatabasePackager {
+	iLog := logger.Log{ModuleName: logger.Framework, User: user, ControllerName: "DatabasePackager"}
+	return &DatabasePackager{
+		db:           db,
+		dbTx:         nil,
+		dbOperation:  dbconn.NewDBOperation(user, nil, logger.Framework), // for QuoteIdentifier only
+		logger:       iLog,
+		databaseType: strings.ToLower(databaseType),
+	}
+}
+
+// getCurrentSchema detects the active schema/database name at runtime.
+// MySQL → SELECT DATABASE(), PostgreSQL → SELECT current_schema()
+func (dp *DatabasePackager) getCurrentSchema() string {
+	if dp.db == nil {
+		return "public"
+	}
+	var schema string
+	// MySQL
+	if err := dp.db.QueryRow("SELECT DATABASE()").Scan(&schema); err == nil && schema != "" {
+		return schema
+	}
+	// PostgreSQL / others
+	if err := dp.db.QueryRow("SELECT current_schema()").Scan(&schema); err == nil && schema != "" {
+		return schema
+	}
+	return "public"
+}
+
+// convertPlaceholders converts ? to database-specific placeholders ($1 for postgres, etc.)
+func convertPlaceholders(query string, dbType string) string {
+	switch dbType {
+	case "mysql", "mariadb":
+		return query // MySQL uses ?
+	}
+	count := 0
+	return regexp.MustCompile(`\?`).ReplaceAllStringFunc(query, func(_ string) string {
+		count++
+		switch dbType {
+		case "postgres", "postgresql":
+			return fmt.Sprintf("$%d", count)
+		case "mssql", "sqlserver":
+			return fmt.Sprintf("@p%d", count)
+		case "oracle":
+			return fmt.Sprintf(":%d", count)
+		}
+		return "?"
+	})
+}
+
+// execQuery runs a query on dp.db (schema queries) or dp.dbTx (data queries).
+// Placeholder conversion is applied automatically.
+func (dp *DatabasePackager) execQuery(query string, args ...interface{}) (*sql.Rows, error) {
+	q := convertPlaceholders(query, dp.databaseType)
+	if dp.db != nil {
+		return dp.db.Query(q, args...)
+	}
+	if dp.dbTx != nil {
+		return dp.dbTx.QueryContext(context.Background(), q, args...)
+	}
+	return nil, fmt.Errorf("no database connection available")
+}
+
+// rawQuery is kept for backward compatibility inside PackageTables data extraction.
+func (dp *DatabasePackager) rawQuery(query string, args ...interface{}) (*sql.Rows, error) {
+	return dp.execQuery(query, args...)
 }
 
 // PackageTables packages specified tables into a deployable package
@@ -155,7 +229,7 @@ func (dp *DatabasePackager) packageTable(pkg *models.Package, tableName string, 
 	query := dp.buildSelectQuery(tableName, columns, filter)
 
 	// Execute query and get data
-	rows, err := dp.dbOperation.Query(query)
+	rows, err := dp.rawQuery(query)
 	if err != nil {
 		return fmt.Errorf("failed to query table %s: %w", tableName, err)
 	}
@@ -195,9 +269,36 @@ func (dp *DatabasePackager) packageTable(pkg *models.Package, tableName string, 
 		// If include related is enabled, find related records
 		if filter.IncludeRelated && len(fkInfo) > 0 {
 			for _, fk := range fkInfo {
-				if !processedTables[fk.ReferencedTable] {
-					*relatedTables = append(*relatedTables, fk.ReferencedTable)
+				if processedTables[fk.ReferencedTable] {
+					continue
 				}
+				// Honor SelectRelations: if specified for this table, only follow listed FK columns
+				if selectCols, ok := filter.SelectRelations[tableName]; ok && len(selectCols) > 0 {
+					followed := false
+					for _, sc := range selectCols {
+						if sc == fk.ColumnName {
+							followed = true
+							break
+						}
+					}
+					if !followed {
+						continue
+					}
+				}
+				// Honor ExcludeRelations: skip FK columns listed for this table
+				if excludeCols, ok := filter.ExcludeRelations[tableName]; ok {
+					skip := false
+					for _, ec := range excludeCols {
+						if ec == fk.ColumnName {
+							skip = true
+							break
+						}
+					}
+					if skip {
+						continue
+					}
+				}
+				*relatedTables = append(*relatedTables, fk.ReferencedTable)
 			}
 		}
 	}
@@ -207,9 +308,10 @@ func (dp *DatabasePackager) packageTable(pkg *models.Package, tableName string, 
 
 	// Create PK mapping
 	pkMapping := models.PKMapping{
-		TableName: tableName,
-		PKColumns: pkColumns,
-		Strategy:  dp.determinePKStrategy(columns),
+		TableName:        tableName,
+		PKColumns:        pkColumns,
+		Strategy:         dp.determinePKStrategy(columns),
+		GlobalKeyColumns: filter.GlobalKeyColumns[tableName], // from filter
 	}
 
 	// Check if auto-increment
@@ -251,25 +353,34 @@ func (dp *DatabasePackager) getTableSchema(tableName string) ([]models.ColumnInf
 			WHERE TABLE_NAME = '%s'
 			AND TABLE_SCHEMA = DATABASE()
 			ORDER BY ORDINAL_POSITION`, tableName)
-	case "postgresql":
+	case "postgresql", "postgres":
+		// Use pg_catalog — works across all schemas without information_schema permission quirks
+		dp.lookupTableSchema(tableName)
+		schemaFilter := "n.nspname NOT IN ('pg_catalog','information_schema','pg_toast')"
+		if dp.tableSchema != nil {
+			if schema, ok := dp.tableSchema[tableName]; ok && schema != "" {
+				schemaFilter = fmt.Sprintf("n.nspname = '%s'", schema)
+			}
+		}
 		query = fmt.Sprintf(`
 			SELECT
-				column_name,
-				data_type,
-				CASE WHEN pk.column_name IS NOT NULL THEN true ELSE false END as is_pk,
-				is_nullable = 'YES' as is_nullable,
-				character_maximum_length
-			FROM information_schema.columns c
-			LEFT JOIN (
-				SELECT ku.column_name
-				FROM information_schema.table_constraints tc
-				JOIN information_schema.key_column_usage ku
-					ON tc.constraint_name = ku.constraint_name
-				WHERE tc.constraint_type = 'PRIMARY KEY'
-				AND tc.table_name = '%s'
-			) pk ON c.column_name = pk.column_name
-			WHERE c.table_name = '%s'
-			ORDER BY ordinal_position`, tableName, tableName)
+				a.attname AS column_name,
+				pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type,
+				EXISTS (
+					SELECT 1 FROM pg_index i
+					WHERE i.indrelid = a.attrelid AND i.indisprimary
+					AND a.attnum = ANY(i.indkey)
+				) AS is_pk,
+				NOT a.attnotnull AS is_nullable,
+				NULL::integer AS character_maximum_length
+			FROM pg_catalog.pg_attribute a
+			JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+			JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+			WHERE c.relname = '%s'
+			AND %s
+			AND a.attnum > 0
+			AND NOT a.attisdropped
+			ORDER BY a.attnum`, tableName, schemaFilter)
 	case "mssql":
 		query = fmt.Sprintf(`
 			SELECT
@@ -293,7 +404,7 @@ func (dp *DatabasePackager) getTableSchema(tableName string) ([]models.ColumnInf
 		return nil, fmt.Errorf("unsupported database type: %s", dp.databaseType)
 	}
 
-	rows, err := dp.dbOperation.Query(query)
+	rows, err := dp.rawQuery(query)
 	if err != nil {
 		return nil, err
 	}
@@ -355,20 +466,22 @@ func (dp *DatabasePackager) getForeignKeys(tableName string) ([]models.ForeignKe
 			WHERE TABLE_NAME = '%s'
 			AND TABLE_SCHEMA = DATABASE()
 			AND REFERENCED_TABLE_NAME IS NOT NULL`, tableName)
-	case "postgresql":
+	case "postgresql", "postgres":
+		// Use pg_catalog for FK info — reliable across all schemas
 		query = fmt.Sprintf(`
 			SELECT
-				kcu.column_name,
-				ccu.table_name AS referenced_table,
-				ccu.column_name AS referenced_column,
-				tc.constraint_name
-			FROM information_schema.table_constraints tc
-			JOIN information_schema.key_column_usage kcu
-				ON tc.constraint_name = kcu.constraint_name
-			JOIN information_schema.constraint_column_usage ccu
-				ON ccu.constraint_name = tc.constraint_name
-			WHERE tc.constraint_type = 'FOREIGN KEY'
-			AND tc.table_name = '%s'`, tableName)
+				a.attname AS column_name,
+				c2.relname AS referenced_table,
+				a2.attname AS referenced_column,
+				con.conname AS constraint_name
+			FROM pg_constraint con
+			JOIN pg_class c ON c.oid = con.conrelid
+			JOIN pg_class c2 ON c2.oid = con.confrelid
+			JOIN pg_namespace n ON n.oid = c.relnamespace
+			JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = con.conkey[1]
+			JOIN pg_attribute a2 ON a2.attrelid = c2.oid AND a2.attnum = con.confkey[1]
+			WHERE con.contype = 'f'
+			AND c.relname = '%s'`, tableName)
 	case "mssql":
 		query = fmt.Sprintf(`
 			SELECT
@@ -384,7 +497,7 @@ func (dp *DatabasePackager) getForeignKeys(tableName string) ([]models.ForeignKe
 		return nil, fmt.Errorf("unsupported database type: %s", dp.databaseType)
 	}
 
-	rows, err := dp.dbOperation.Query(query)
+	rows, err := dp.rawQuery(query)
 	if err != nil {
 		return nil, err
 	}
@@ -460,7 +573,7 @@ func (dp *DatabasePackager) getSequenceInfo(pkg *models.Package) error {
 			switch strings.ToLower(dp.databaseType) {
 			case "mysql":
 				query = fmt.Sprintf("SELECT AUTO_INCREMENT FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '%s' AND TABLE_SCHEMA = DATABASE()", tableName)
-			case "postgresql":
+			case "postgresql", "postgres":
 				// PostgreSQL uses sequences
 				query = fmt.Sprintf("SELECT last_value FROM %s_id_seq", tableName)
 			case "mssql":
@@ -469,7 +582,7 @@ func (dp *DatabasePackager) getSequenceInfo(pkg *models.Package) error {
 				continue
 			}
 
-			rows, err := dp.dbOperation.Query(query)
+			rows, err := dp.rawQuery(query)
 			if err != nil {
 				dp.logger.Warn(fmt.Sprintf("Failed to get sequence info for %s: %v", tableName, err))
 				continue
@@ -532,4 +645,233 @@ func (dp *DatabasePackager) ImportPackage(data []byte) (*models.Package, error) 
 		return nil, fmt.Errorf("failed to unmarshal package: %w", err)
 	}
 	return &pkg, nil
+}
+
+// lookupTableSchema finds which schema a table belongs to (for PostgreSQL).
+// Result is cached in dp.tableSchema. Safe to call multiple times.
+func (dp *DatabasePackager) lookupTableSchema(tableName string) {
+	if dp.tableSchema == nil {
+		dp.tableSchema = make(map[string]string)
+	}
+	if _, ok := dp.tableSchema[tableName]; ok {
+		return // already cached
+	}
+	switch dp.databaseType {
+	case "postgres", "postgresql":
+		var schema string
+		q := convertPlaceholders(`SELECT schemaname FROM pg_tables WHERE tablename = ? AND schemaname NOT IN ('pg_catalog','information_schema','pg_toast') LIMIT 1`, dp.databaseType)
+		if err := dp.db.QueryRow(q, tableName).Scan(&schema); err == nil && schema != "" {
+			dp.tableSchema[tableName] = schema
+		}
+	}
+}
+
+// qualifiedName returns a schema-qualified table reference for PostgreSQL when the table
+// was discovered via ListTables() or lookupTableSchema().
+func (dp *DatabasePackager) qualifiedName(tableName string) string {
+	dp.lookupTableSchema(tableName)
+	if dp.tableSchema != nil {
+		if schema, ok := dp.tableSchema[tableName]; ok && schema != "" {
+			return fmt.Sprintf("%q.%q", schema, tableName)
+		}
+	}
+	return dp.dbOperation.QuoteIdentifier(tableName)
+}
+
+// CountTableRows returns the total number of rows in a table.
+func (dp *DatabasePackager) CountTableRows(tableName string) (int, error) {
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", dp.qualifiedName(tableName))
+	rows, err := dp.rawQuery(query)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+	var count int
+	if rows.Next() {
+		rows.Scan(&count) //nolint:errcheck
+	}
+	return count, nil
+}
+
+// QueryTableRows returns paginated rows from a table for the record browser.
+// Returns (columnNames, pkColumns, rows, error).
+func (dp *DatabasePackager) QueryTableRows(tableName string, limit, offset int) ([]string, []string, []map[string]interface{}, error) {
+	columns, err := dp.getTableSchema(tableName)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get schema for %s: %w", tableName, err)
+	}
+
+	colNames := make([]string, len(columns))
+	pkCols := make([]string, 0)
+	for i, c := range columns {
+		colNames[i] = c.Name
+		if c.IsPrimaryKey {
+			pkCols = append(pkCols, c.Name)
+		}
+	}
+
+	quotedCols := make([]string, len(colNames))
+	for i, n := range colNames {
+		quotedCols[i] = dp.dbOperation.QuoteIdentifier(n)
+	}
+
+	var query string
+	switch dp.databaseType {
+	case "mssql":
+		query = fmt.Sprintf(
+			"SELECT %s FROM %s ORDER BY (SELECT NULL) OFFSET %d ROWS FETCH NEXT %d ROWS ONLY",
+			strings.Join(quotedCols, ", "),
+			dp.qualifiedName(tableName),
+			offset, limit,
+		)
+	default:
+		query = fmt.Sprintf(
+			"SELECT %s FROM %s LIMIT %d OFFSET %d",
+			strings.Join(quotedCols, ", "),
+			dp.qualifiedName(tableName),
+			limit, offset,
+		)
+	}
+
+	rows, err := dp.rawQuery(query)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to query rows from %s: %w", tableName, err)
+	}
+	defer rows.Close()
+
+	result := make([]map[string]interface{}, 0)
+	for rows.Next() {
+		values := make([]interface{}, len(colNames))
+		valuePtrs := make([]interface{}, len(colNames))
+		for i := range values {
+			valuePtrs[i] = &values[i]
+		}
+		if err := rows.Scan(valuePtrs...); err != nil {
+			continue
+		}
+		row := make(map[string]interface{})
+		for i, name := range colNames {
+			if b, ok := values[i].([]byte); ok {
+				row[name] = string(b)
+			} else {
+				row[name] = values[i]
+			}
+		}
+		result = append(result, row)
+	}
+
+	return colNames, pkCols, result, nil
+}
+
+// ListTables returns all user table names in the connected database.
+// For PostgreSQL it also populates dp.tableSchema so data queries can be schema-qualified.
+func (dp *DatabasePackager) ListTables() ([]string, error) {
+	dp.logger.Info(fmt.Sprintf("ListTables: dbType=%s", dp.databaseType))
+
+	dp.tableSchema = make(map[string]string)
+
+	switch dp.databaseType {
+	case "postgres", "postgresql":
+		// Select schemaname too so we can qualify data queries later
+		rows, err := dp.execQuery(`SELECT schemaname, tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema','pg_toast') ORDER BY tablename`)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list tables (type=%s): %w", dp.databaseType, err)
+		}
+		defer rows.Close()
+		names := make([]string, 0)
+		for rows.Next() {
+			var schema, tbl string
+			if err := rows.Scan(&schema, &tbl); err == nil {
+				names = append(names, tbl)
+				dp.tableSchema[tbl] = schema
+			}
+		}
+		dp.logger.Info(fmt.Sprintf("ListTables: found %d tables", len(names)))
+		return names, nil
+
+	case "mysql", "mariadb":
+		rows, err := dp.execQuery(`SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME`)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list tables (type=%s): %w", dp.databaseType, err)
+		}
+		defer rows.Close()
+		names := make([]string, 0)
+		for rows.Next() {
+			var name string
+			if err := rows.Scan(&name); err == nil {
+				names = append(names, name)
+			}
+		}
+		dp.logger.Info(fmt.Sprintf("ListTables: found %d tables", len(names)))
+		return names, nil
+
+	case "mssql", "sqlserver":
+		rows, err := dp.execQuery(`SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME`)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list tables (type=%s): %w", dp.databaseType, err)
+		}
+		defer rows.Close()
+		names := make([]string, 0)
+		for rows.Next() {
+			var name string
+			if err := rows.Scan(&name); err == nil {
+				names = append(names, name)
+			}
+		}
+		dp.logger.Info(fmt.Sprintf("ListTables: found %d tables", len(names)))
+		return names, nil
+
+	default:
+		schema := dp.getCurrentSchema()
+		rows, err := dp.execQuery(`SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_type = 'BASE TABLE' ORDER BY table_name`, schema)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list tables (type=%s): %w", dp.databaseType, err)
+		}
+		defer rows.Close()
+		names := make([]string, 0)
+		for rows.Next() {
+			var name string
+			if err := rows.Scan(&name); err == nil {
+				names = append(names, name)
+			}
+		}
+		dp.logger.Info(fmt.Sprintf("ListTables: found %d tables", len(names)))
+		return names, nil
+	}
+}
+
+// GetTableSourceInfo returns schema + row count for a single table (for the sources browser)
+func (dp *DatabasePackager) GetTableSourceInfo(tableName string) (*models.TableSource, error) {
+	columns, err := dp.getTableSchema(tableName)
+	if err != nil {
+		return nil, err
+	}
+
+	pkCols := make([]string, 0)
+	for _, c := range columns {
+		if c.IsPrimaryKey {
+			pkCols = append(pkCols, c.Name)
+		}
+	}
+
+	fks, _ := dp.getForeignKeys(tableName) // non-fatal
+
+	// Row count
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", dp.qualifiedName(tableName))
+	countRows, err := dp.rawQuery(countQuery)
+	rowCount := 0
+	if err == nil {
+		defer countRows.Close()
+		if countRows.Next() {
+			countRows.Scan(&rowCount) //nolint:errcheck
+		}
+	}
+
+	return &models.TableSource{
+		Name:      tableName,
+		RowCount:  rowCount,
+		Columns:   columns,
+		PKColumns: pkCols,
+		FKColumns: fks,
+	}, nil
 }

@@ -1,4 +1,6 @@
-// Copyright 2023 IAC. All Rights Reserved.
+//go:build ignore
+// +build ignore
+Copyright 2023 IAC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,7 +45,8 @@ func main() {
 	// Set custom slow query threshold (default is 1 second)
 	collector.SetSlowQueryThreshold(500 * time.Millisecond)
 
-	fmt.Println("\n1. Starting metrics dashboard...")
+	fmt.Println("
+1. Starting metrics dashboard...")
 	fmt.Println("   Dashboard URL: http://localhost:8080")
 	fmt.Println("   API Endpoint:  http://localhost:8080/api/metrics")
 
@@ -58,16 +61,19 @@ func main() {
 	// Wait for server to start
 	time.Sleep(1 * time.Second)
 
-	fmt.Println("\n2. Collecting metrics from dbconn...")
+	fmt.Println("
+2. Collecting metrics from dbconn...")
 
 	// Start periodic metrics collection
 	go collectMetricsPeriodically(poolManager, collector)
 
 	// Simulate some database operations
-	fmt.Println("\n3. Simulating database operations...")
+	fmt.Println("
+3. Simulating database operations...")
 	simulateDatabaseOperations(poolManager, collector)
 
-	fmt.Println("\n4. Dashboard is running!")
+	fmt.Println("
+4. Dashboard is running!")
 	fmt.Println("   Open http://localhost:8080 in your browser")
 	fmt.Println("   Press Ctrl+C to stop")
 	fmt.Println("")

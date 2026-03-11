@@ -1,0 +1,185 @@
+{
+    "altdatabases": [
+        {
+            "connection": "user:iacf12345678@tcp(localhost:3306)/iac25?parseTime=true\u0026loc=Local",
+            "name": "conn1",
+            "type": "mysql"
+        }
+    ],
+    "appserver": {
+        "apikey": "ahbcgj",
+        "url": "http://127.0.0.1:8080"
+    },
+    "author": "IAC",
+    "cache": {
+        "adapter": "memory",
+        "documentdb": {
+            "collection": "cache",
+            "conn": "mongodb://192.168.6.98:27017",
+            "db": "IAC_CACHE"
+        },
+        "file": {
+            "CachePath": "./cache",
+            "DirectoryLevel": 2,
+            "EmbedExpiry": 120,
+            "FileSuffix": ".cache"
+        },
+        "interval": 7200,
+        "memcache": {
+            "conn": "127.0.0.1:11211"
+        },
+        "objectinterval": 1800,
+        "redis": {
+            "conn": 6379,
+            "dbNum": 0,
+            "key": "collectionname",
+            "password": "",
+            "thePassWord": 3600
+        },
+        "testsessiontimeout": 900
+    },
+    "database": {
+        "connection": "postgresql://postgres:iacf12345678@192.168.6.98:5432/iac25?sslmode=disable",
+        "maxidleconns": 5,
+        "maxopenconns": 10,
+        "timeout": 5,
+        "type": "postgres"
+    },
+    "description": "IAC is a framework for building web applications with Go.",
+    "documentdb": {
+        "connection": "mongodb://192.168.6.98:27017",
+        "database": "IAC_CFG",
+        "type": "mongodb"
+    },
+    "documentstorage": {
+        "baseurl": "/storage/documents",
+        "path": "./storage/documents",
+        "serverurl": "http://127.0.0.1:8080"
+    },
+    "instance": "IAC_Instance",
+    "jobs": {
+        "enable_metrics": true,
+        "enabled": true,
+        "job_history_retention_days": 90,
+        "max_retries": 3,
+        "poll_interval": 5,
+        "scheduler_check_interval": 60,
+        "use_redis": false,
+        "workers": 5
+    },
+    "log": {
+        "adapter": "console",
+        "console": {},
+        "documentdb": {
+            "collection": "logger",
+            "conn": "mongodb://192.168.6.98:27017",
+            "db": "IAC_CACHE"
+        },
+        "file": {
+            "file": "iac.log",
+            "folder": "c:\\temp\\iac_loger",
+            "maxlines": 10000,
+            "maxsize": 1024
+        },
+        "level": "debug",
+        "multiplefile": {
+            "file": "iac.log",
+            "folder": "c:\\temp\\iac_loger",
+            "maxfiles": 10,
+            "maxlines": 10000,
+            "maxsize": 1024
+        },
+        "performance": true,
+        "performancethread": 1
+    },
+    "name": "IAC",
+    "roles": {
+        "roles": [
+            {
+                "app": {
+                    "enable_portal": false,
+                    "enable_static_files": true,
+                    "port": 8080
+                },
+                "enabled": true,
+                "type": "app"
+            },
+            {
+                "enabled": true,
+                "integration_hub": {
+                    "auto_start": true,
+                    "enable_api": true,
+                    "instance_names": [
+                        "New Instance_001"
+                    ]
+                },
+                "type": "integration_hub"
+            },
+            {
+                "enabled": false,
+                "signalr": {
+                    "allowed_origins": [
+                        "*,http://127.0.0.1:8080,https://127.0.0.1:8080,http://localhost:8080,https://localhost:8080,https://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"
+                    ],
+                    "enable_sse": false,
+                    "enable_websocket": true,
+                    "hub": "/iacmessagebus",
+                    "insecure_skip_verify": false,
+                    "keep_alive_interval": 30,
+                    "port": 8222,
+                    "timeout_interval": 60
+                },
+                "type": "signalr"
+            },
+            {
+                "enabled": true,
+                "job_executor": {
+                    "enable_metrics": true,
+                    "enable_scheduler": true,
+                    "max_retries": 3,
+                    "poll_interval": 5,
+                    "scheduler_check_interval": 60,
+                    "workers": 5
+                },
+                "type": "job_executor"
+            }
+        ]
+    },
+    "singalrconfig": {
+        "hub": "/iacmessagebus",
+        "server": "http://127.0.0.1:8222",
+        "serverwc": "ws://127.0.0.1:8222"
+    },
+    "transaction": {
+        "timeout": 30
+    },
+    "translation": {
+        "autopopulate": true,
+        "cache": true
+    },
+    "version": "1.0.0",
+    "webserver": {
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Headers": "Accept, Authorization, Content-Type, Content-Length, X-CSRF-Token, X-Client-Id, Token, session, Origin, Host, Connection, Accept-Encoding, Accept-Language, X-Requested-With",
+            "Access-Control-Allow-Methods": "POST, OPTIONS, GET, PUT, DELETE",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Expose-Headers": "Content-Length",
+            "Content-Type": "application/json; charset=utf-8"
+        },
+        "paths": {
+            "portal": {
+                "home": "../iac-ui/portal/uipage.html",
+                "path": "../iac-ui/portal"
+            },
+            "portal2": {
+                "home": "../iac-whiteboard/.next",
+                "path": "../iac-whiteboard/.next"
+            }
+        },
+        "port": 8000,
+        "proxy": {
+            "draw": "http://localhost:3000"
+        }
+    }
+}

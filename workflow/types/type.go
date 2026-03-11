@@ -29,9 +29,10 @@ type Node struct {
 	PostCondition map[string]interface{} `json:"postcondition"`
 	ProcessData   map[string]interface{} `json:"processdata"`
 	RoutingTables []RoutingTable         `json:"routingtables"`
-	AIConfig      *AITaskConfig          `json:"aiconfig,omitempty"`
-	SubflowId     string                 `json:"subflowId,omitempty"` // ID/UUID of the workflow to execute as subflow
-	AIAgentConfig *AIAgentConfig         `json:"aiAgentConfig,omitempty"` // AI Agent/Skills configuration
+	AIConfig        *AITaskConfig          `json:"aiconfig,omitempty"`
+	SubflowId       string                 `json:"subflowId,omitempty"` // ID/UUID of the workflow to execute as subflow
+	AIAgentConfig   *AIAgentConfig         `json:"aiAgentConfig,omitempty"`   // AI Agent/Skills configuration
+	OutboundConfig  *OutboundConfig        `json:"outboundConfig,omitempty"`  // Outbound hub call configuration
 }
 
 // AIAgentConfig represents the configuration for an AI Agent/Skills call
@@ -45,6 +46,22 @@ type AIAgentConfig struct {
 	Temperature  float64  `json:"temperature,omitempty"`   // Temperature setting
 	MaxTokens    int      `json:"maxTokens,omitempty"`     // Max tokens
 	Timeout      int      `json:"timeout,omitempty"`       // Timeout in seconds
+}
+
+// OutboundConfig holds the Integration Hub outbound endpoint configuration for a workflow node.
+type OutboundConfig struct {
+	HubID             string `json:"hubId,omitempty"`
+	HubName           string `json:"hubName,omitempty"`
+	ProtocolGroupID   string `json:"protocolGroupId,omitempty"`
+	ProtocolGroupName string `json:"protocolGroupName,omitempty"`
+	EndpointID        string `json:"endpointId,omitempty"`
+	EndpointName      string `json:"endpointName,omitempty"`
+	OutboundURL       string `json:"outboundUrl,omitempty"`  // Resolved URL cached at design time
+	Method            string `json:"method,omitempty"`       // HTTP method, default POST
+	ContentType       string `json:"contentType,omitempty"`  // default application/json
+	PayloadDataKey    string `json:"payloadDataKey,omitempty"`  // ProcessData key to use as body; empty = all ProcessData
+	ResponseDataKey   string `json:"responseDataKey,omitempty"` // ProcessData key to store response; default "outbound_response"
+	DynamicUrl        bool   `json:"dynamicUrl,omitempty"`      // If true, read URL from ProcessData["outbound_url"]
 }
 
 type AITaskConfig struct {

@@ -182,8 +182,15 @@ func (ri *RoleInitializer) Initialize(ctx context.Context, router *gin.Engine) e
 				}
 
 			case RoleSignalR:
+				fmt.Printf("    Processing signalr role, callback registered: %v, config present: %v\n", ri.onSignalRInit != nil, role.SignalR != nil)
 				if ri.onSignalRInit != nil && role.SignalR != nil {
+					fmt.Printf("    Starting SignalR server on port %d, hub: %s\n", role.SignalR.Port, role.SignalR.Hub)
 					initErr = ri.onSignalRInit(roleCtx, role.SignalR)
+					fmt.Printf("    SignalR role init completed, error: %v\n", initErr)
+				} else if ri.onSignalRInit == nil {
+					fmt.Println("    WARNING: SignalR role callback not registered!")
+				} else {
+					fmt.Println("    WARNING: SignalR config is nil!")
 				}
 
 			case RoleJobExecutor:

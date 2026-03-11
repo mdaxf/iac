@@ -1,11 +1,8 @@
 package codegen
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 )
 
 // WhiteboardGenerationRequest represents the incoming request for whiteboard generation
@@ -252,65 +249,15 @@ Remember:
 		userMessage = whiteboardInfo + "\n" + description
 	}
 
-	// Prepare OpenAI request
-	requestBody := map[string]interface{}{
-		"model": openaiModel,
-		"messages": []map[string]string{
-			{"role": "system", "content": systemPrompt},
-			{"role": "user", "content": userMessage},
-		},
-		"temperature": 0.7,
-		"max_tokens":  4096,
+	// Call LLM via unified client (vendor resolved from aiconfig.json)
+	messages := []map[string]interface{}{
+		{"role": "system", "content": systemPrompt},
+		{"role": "user", "content": userMessage},
 	}
-
-	jsonData, err := json.Marshal(requestBody)
+	content, err := CallOpenAI(apiKey, openaiModel, messages, 0.7)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %v", err)
+		return nil, fmt.Errorf("AI request failed: %v", err)
 	}
-
-	// Make OpenAI API request
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %v", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %v", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("OpenAI API error (status %d): %s", resp.StatusCode, string(body))
-	}
-
-	// Parse OpenAI response
-	var openAIResp struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-
-	if err := json.Unmarshal(body, &openAIResp); err != nil {
-		return nil, fmt.Errorf("failed to parse OpenAI response: %v", err)
-	}
-
-	if len(openAIResp.Choices) == 0 {
-		return nil, fmt.Errorf("no choices in OpenAI response")
-	}
-
-	content := openAIResp.Choices[0].Message.Content
 
 	// Try to parse the content as JSON
 	var whiteboardData map[string]interface{}

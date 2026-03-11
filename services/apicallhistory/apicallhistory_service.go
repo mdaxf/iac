@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/logger"
 	"github.com/mdaxf/iac/models"
@@ -105,16 +106,10 @@ func NewAPICallHistoryService(cfg *ServiceConfig) (*APICallHistoryService, error
 		config:        models.NewAPICallHistoryConfig(),
 	}
 
-	// Create tables if they don't exist
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := service.ensureTables(ctx); err != nil {
-		service.log.Error(fmt.Sprintf("Failed to create tables: %v", err))
-		return nil, err
-	}
-
-	// Load or create default configuration
+	// Load configuration from existing table (table must exist via SQL migration)
 	if err := service.loadOrCreateConfig(ctx); err != nil {
 		service.log.Error(fmt.Sprintf("Failed to load config: %v", err))
 	}
@@ -124,99 +119,6 @@ func NewAPICallHistoryService(cfg *ServiceConfig) (*APICallHistoryService, error
 
 	service.log.Info("API Call History Service initialized")
 	return service, nil
-}
-
-// ensureTables creates the necessary tables if they don't exist
-func (s *APICallHistoryService) ensureTables(ctx context.Context) error {
-	// Detect database type by trying a simple query
-	dbType := s.detectDatabaseType()
-	s.log.Info(fmt.Sprintf("Detected database type: %s", dbType))
-
-	// Use database-specific datetime type
-	datetimeType := "DATETIME"
-	defaultTimestamp := "CURRENT_TIMESTAMP"
-	if dbType == "postgres" {
-		datetimeType = "TIMESTAMP"
-		defaultTimestamp = "CURRENT_TIMESTAMP"
-	} else if dbType == "mysql" {
-		datetimeType = "DATETIME(6)"
-		defaultTimestamp = "CURRENT_TIMESTAMP(6)"
-	}
-
-	// Create history table
-	historyTableSQL := fmt.Sprintf(`
-		CREATE TABLE IF NOT EXISTS %s (
-			id VARCHAR(36) PRIMARY KEY,
-			method VARCHAR(10) NOT NULL,
-			endpoint VARCHAR(500) NOT NULL,
-			full_path VARCHAR(2000),
-			request_headers TEXT,
-			request_body TEXT,
-			query_params TEXT,
-			status_code INT NOT NULL,
-			response_body TEXT,
-			response_headers TEXT,
-			source_ip VARCHAR(45) NOT NULL,
-			source_machine VARCHAR(255),
-			user_agent VARCHAR(1000),
-			user_id VARCHAR(100),
-			user_name VARCHAR(255),
-			client_id VARCHAR(100),
-			auth_type VARCHAR(50),
-			start_time %s NOT NULL,
-			end_time %s NOT NULL,
-			duration_ms BIGINT NOT NULL,
-			instance_id VARCHAR(100),
-			instance_name VARCHAR(255),
-			error_message TEXT,
-			tags TEXT,
-			metadata TEXT,
-			created_at %s DEFAULT %s
-		)
-	`, s.historyTable, datetimeType, datetimeType, datetimeType, defaultTimestamp)
-
-	if _, err := s.db.ExecContext(ctx, historyTableSQL); err != nil {
-		return fmt.Errorf("failed to create history table: %w", err)
-	}
-
-	// Create config table
-	configTableSQL := fmt.Sprintf(`
-		CREATE TABLE IF NOT EXISTS %s (
-			id VARCHAR(36) PRIMARY KEY,
-			enabled BOOLEAN NOT NULL DEFAULT FALSE,
-			include_endpoints TEXT,
-			exclude_endpoints TEXT,
-			include_methods TEXT,
-			exclude_methods TEXT,
-			include_source_ips TEXT,
-			exclude_source_ips TEXT,
-			include_users TEXT,
-			exclude_users TEXT,
-			include_status_codes TEXT,
-			exclude_status_codes TEXT,
-			only_errors BOOLEAN NOT NULL DEFAULT FALSE,
-			capture_request_body BOOLEAN NOT NULL DEFAULT TRUE,
-			capture_response_body BOOLEAN NOT NULL DEFAULT TRUE,
-			capture_headers BOOLEAN NOT NULL DEFAULT FALSE,
-			max_body_size INT NOT NULL DEFAULT 10240,
-			mask_sensitive_fields TEXT,
-			retention_days INT NOT NULL DEFAULT 30,
-			sampling_rate DECIMAL(3,2) NOT NULL DEFAULT 1.00,
-			refresh_interval INT NOT NULL DEFAULT 5,
-			updated_by VARCHAR(100),
-			updated_at %s DEFAULT %s,
-			created_at %s DEFAULT %s
-		)
-	`, s.configTable, datetimeType, defaultTimestamp, datetimeType, defaultTimestamp)
-
-	if _, err := s.db.ExecContext(ctx, configTableSQL); err != nil {
-		return fmt.Errorf("failed to create config table: %w", err)
-	}
-
-	// Create indexes (ignore errors as syntax varies between databases)
-	s.createIndexes(ctx, dbType)
-
-	return nil
 }
 
 // backgroundTasks handles periodic tasks like buffer flushing and config refresh
@@ -266,61 +168,28 @@ func (s *APICallHistoryService) refreshConfig() {
 	}
 }
 
-// detectDatabaseType tries to detect the database type
+// detectDatabaseType returns the detected database type string.
 func (s *APICallHistoryService) detectDatabaseType() string {
-	// Check global configuration first
 	if dbconn.DatabaseType != "" {
-		if strings.Contains(strings.ToLower(dbconn.DatabaseType), "postgres") {
+		t := strings.ToLower(dbconn.DatabaseType)
+		if strings.Contains(t, "postgres") {
 			return "postgres"
 		}
-		if strings.Contains(strings.ToLower(dbconn.DatabaseType), "mysql") || strings.Contains(strings.ToLower(dbconn.DatabaseType), "mariadb") {
+		if strings.Contains(t, "mysql") || strings.Contains(t, "mariadb") {
 			return "mysql"
 		}
 	}
-
-	// Try PostgreSQL-specific query
 	var version string
-	err := s.db.QueryRow("SELECT version()").Scan(&version)
-	if err == nil {
-		if strings.Contains(strings.ToLower(version), "postgres") {
+	if err := s.db.QueryRow("SELECT version()").Scan(&version); err == nil {
+		v := strings.ToLower(version)
+		if strings.Contains(v, "postgres") {
 			return "postgres"
 		}
-		if strings.Contains(strings.ToLower(version), "mysql") || strings.Contains(strings.ToLower(version), "mariadb") {
+		if strings.Contains(v, "mysql") || strings.Contains(v, "mariadb") {
 			return "mysql"
 		}
 	}
-
-	// Default to MySQL syntax as it's more common
 	return "mysql"
-}
-
-// createIndexes creates indexes based on database type
-func (s *APICallHistoryService) createIndexes(ctx context.Context, dbType string) {
-	var indexes []string
-
-	if dbType == "postgres" {
-		indexes = []string{
-			fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_%s_start_time ON %s(start_time)", s.historyTable, s.historyTable),
-			fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_%s_endpoint ON %s(endpoint)", s.historyTable, s.historyTable),
-			fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_%s_method ON %s(method)", s.historyTable, s.historyTable),
-			fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_%s_status_code ON %s(status_code)", s.historyTable, s.historyTable),
-			fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_%s_user_id ON %s(user_id)", s.historyTable, s.historyTable),
-		}
-	} else {
-		// MySQL syntax with prefix length for TEXT columns
-		indexes = []string{
-			fmt.Sprintf("CREATE INDEX idx_%s_start_time ON %s(start_time)", s.historyTable, s.historyTable),
-			fmt.Sprintf("CREATE INDEX idx_%s_endpoint ON %s(endpoint(255))", s.historyTable, s.historyTable),
-			fmt.Sprintf("CREATE INDEX idx_%s_method ON %s(method)", s.historyTable, s.historyTable),
-			fmt.Sprintf("CREATE INDEX idx_%s_status_code ON %s(status_code)", s.historyTable, s.historyTable),
-			fmt.Sprintf("CREATE INDEX idx_%s_user_id ON %s(user_id)", s.historyTable, s.historyTable),
-		}
-	}
-
-	for _, idx := range indexes {
-		// Ignore errors for indexes as they may already exist
-		s.db.ExecContext(ctx, idx)
-	}
 }
 
 // loadOrCreateConfig loads configuration from database or creates default
@@ -331,32 +200,28 @@ func (s *APICallHistoryService) loadOrCreateConfig(ctx context.Context) error {
 	row := s.db.QueryRowContext(ctx, query)
 
 	var config models.APICallHistoryConfig
-	var includeEndpoints, excludeEndpoints, includeMethods, excludeMethods sql.NullString
-	var includeSourceIPs, excludeSourceIPs, includeUsers, excludeUsers sql.NullString
-	var includeStatusCodes, excludeStatusCodes, maskSensitiveFields sql.NullString
 	var updatedAt sql.NullTime
-	// Helper variable for scanning nullable int
 	var refreshInterval sql.NullInt64
 
 	err := row.Scan(
 		&config.ID,
 		&config.Enabled,
-		&includeEndpoints,
-		&excludeEndpoints,
-		&includeMethods,
-		&excludeMethods,
-		&includeSourceIPs,
-		&excludeSourceIPs,
-		&includeUsers,
-		&excludeUsers,
-		&includeStatusCodes,
-		&excludeStatusCodes,
+		pq.Array(&config.IncludeEndpoints),
+		pq.Array(&config.ExcludeEndpoints),
+		pq.Array(&config.IncludeMethods),
+		pq.Array(&config.ExcludeMethods),
+		pq.Array(&config.IncludeSourceIPs),
+		pq.Array(&config.ExcludeSourceIPs),
+		pq.Array(&config.IncludeUsers),
+		pq.Array(&config.ExcludeUsers),
+		pq.Array(&config.IncludeStatusCodes),
+		pq.Array(&config.ExcludeStatusCodes),
 		&config.OnlyErrors,
 		&config.CaptureRequestBody,
 		&config.CaptureResponseBody,
 		&config.CaptureHeaders,
 		&config.MaxBodySize,
-		&maskSensitiveFields,
+		pq.Array(&config.MaskSensitiveFields),
 		&config.RetentionDays,
 		&config.SamplingRate,
 		&refreshInterval,
@@ -386,18 +251,41 @@ func (s *APICallHistoryService) loadOrCreateConfig(ctx context.Context) error {
 		}
 		return fmt.Errorf("failed to load config: %w", err)
 	} else {
-		// Parse JSON arrays
-		config.IncludeEndpoints = parseJSONArray(includeEndpoints.String)
-		config.ExcludeEndpoints = parseJSONArray(excludeEndpoints.String)
-		config.IncludeMethods = parseJSONArray(includeMethods.String)
-		config.ExcludeMethods = parseJSONArray(excludeMethods.String)
-		config.IncludeSourceIPs = parseJSONArray(includeSourceIPs.String)
-		config.ExcludeSourceIPs = parseJSONArray(excludeSourceIPs.String)
-		config.IncludeUsers = parseJSONArray(includeUsers.String)
-		config.ExcludeUsers = parseJSONArray(excludeUsers.String)
-		config.IncludeStatusCodes = parseJSONIntArray(includeStatusCodes.String)
-		config.ExcludeStatusCodes = parseJSONIntArray(excludeStatusCodes.String)
-		config.MaskSensitiveFields = parseJSONArray(maskSensitiveFields.String)
+		// Arrays are already populated directly into config fields via pq.Array() scanner.
+		// Ensure nil slices become empty slices for consistent JSON serialisation.
+		if config.IncludeEndpoints == nil {
+			config.IncludeEndpoints = []string{}
+		}
+		if config.ExcludeEndpoints == nil {
+			config.ExcludeEndpoints = []string{}
+		}
+		if config.IncludeMethods == nil {
+			config.IncludeMethods = []string{}
+		}
+		if config.ExcludeMethods == nil {
+			config.ExcludeMethods = []string{}
+		}
+		if config.IncludeSourceIPs == nil {
+			config.IncludeSourceIPs = []string{}
+		}
+		if config.ExcludeSourceIPs == nil {
+			config.ExcludeSourceIPs = []string{}
+		}
+		if config.IncludeUsers == nil {
+			config.IncludeUsers = []string{}
+		}
+		if config.ExcludeUsers == nil {
+			config.ExcludeUsers = []string{}
+		}
+		if config.IncludeStatusCodes == nil {
+			config.IncludeStatusCodes = []int{}
+		}
+		if config.ExcludeStatusCodes == nil {
+			config.ExcludeStatusCodes = []int{}
+		}
+		if config.MaskSensitiveFields == nil {
+			config.MaskSensitiveFields = []string{}
+		}
 		config.RefreshInterval = int(refreshInterval.Int64)
 		if updatedAt.Valid {
 			config.UpdatedAt = updatedAt.Time
@@ -443,22 +331,22 @@ func (s *APICallHistoryService) insertConfig(ctx context.Context, config *models
 	_, err := s.db.ExecContext(ctx, query,
 		config.ID,
 		config.Enabled,
-		toJSONArray(config.IncludeEndpoints),
-		toJSONArray(config.ExcludeEndpoints),
-		toJSONArray(config.IncludeMethods),
-		toJSONArray(config.ExcludeMethods),
-		toJSONArray(config.IncludeSourceIPs),
-		toJSONArray(config.ExcludeSourceIPs),
-		toJSONArray(config.IncludeUsers),
-		toJSONArray(config.ExcludeUsers),
-		toJSONIntArray(config.IncludeStatusCodes),
-		toJSONIntArray(config.ExcludeStatusCodes),
+		pq.Array(config.IncludeEndpoints),
+		pq.Array(config.ExcludeEndpoints),
+		pq.Array(config.IncludeMethods),
+		pq.Array(config.ExcludeMethods),
+		pq.Array(config.IncludeSourceIPs),
+		pq.Array(config.ExcludeSourceIPs),
+		pq.Array(config.IncludeUsers),
+		pq.Array(config.ExcludeUsers),
+		pq.Array(config.IncludeStatusCodes),
+		pq.Array(config.ExcludeStatusCodes),
 		config.OnlyErrors,
 		config.CaptureRequestBody,
 		config.CaptureResponseBody,
 		config.CaptureHeaders,
 		config.MaxBodySize,
-		toJSONArray(config.MaskSensitiveFields),
+		pq.Array(config.MaskSensitiveFields),
 		config.RetentionDays,
 		config.SamplingRate,
 		config.RefreshInterval,
@@ -521,22 +409,22 @@ func (s *APICallHistoryService) UpdateConfig(ctx context.Context, config *models
 
 	result, err := s.db.ExecContext(ctx, query,
 		config.Enabled,
-		toJSONArray(config.IncludeEndpoints),
-		toJSONArray(config.ExcludeEndpoints),
-		toJSONArray(config.IncludeMethods),
-		toJSONArray(config.ExcludeMethods),
-		toJSONArray(config.IncludeSourceIPs),
-		toJSONArray(config.ExcludeSourceIPs),
-		toJSONArray(config.IncludeUsers),
-		toJSONArray(config.ExcludeUsers),
-		toJSONIntArray(config.IncludeStatusCodes),
-		toJSONIntArray(config.ExcludeStatusCodes),
+		pq.Array(config.IncludeEndpoints),
+		pq.Array(config.ExcludeEndpoints),
+		pq.Array(config.IncludeMethods),
+		pq.Array(config.ExcludeMethods),
+		pq.Array(config.IncludeSourceIPs),
+		pq.Array(config.ExcludeSourceIPs),
+		pq.Array(config.IncludeUsers),
+		pq.Array(config.ExcludeUsers),
+		pq.Array(config.IncludeStatusCodes),
+		pq.Array(config.ExcludeStatusCodes),
 		config.OnlyErrors,
 		config.CaptureRequestBody,
 		config.CaptureResponseBody,
 		config.CaptureHeaders,
 		config.MaxBodySize,
-		toJSONArray(config.MaskSensitiveFields),
+		pq.Array(config.MaskSensitiveFields),
 		config.RetentionDays,
 		config.SamplingRate,
 		config.RefreshInterval,
@@ -672,7 +560,7 @@ func (s *APICallHistoryService) insertHistory(ctx context.Context, history *mode
 		history.InstanceID,
 		history.InstanceName,
 		history.ErrorMessage,
-		toJSONArray(history.Tags),
+		pq.Array(history.Tags),
 		toJSON(history.Metadata),
 		time.Now(),
 	)
@@ -814,20 +702,21 @@ func (s *APICallHistoryService) ListHistory(ctx context.Context, params models.L
 
 // GetHistory returns a single history record by ID
 func (s *APICallHistoryService) GetHistory(ctx context.Context, id string) (*models.APICallHistory, error) {
+	dbType := s.detectDatabaseType()
 	query := fmt.Sprintf(`
 		SELECT id, method, endpoint, full_path, request_headers, request_body, query_params,
 			status_code, response_body, response_headers, source_ip, source_machine, user_agent,
 			user_id, user_name, client_id, auth_type, start_time, end_time, duration_ms,
 			instance_id, instance_name, error_message, tags, metadata
-		FROM %s WHERE id = ?
-	`, s.historyTable)
+		FROM %s WHERE id = %s
+	`, s.historyTable, s.getPlaceholder(dbType, 1))
 
 	row := s.db.QueryRowContext(ctx, query, id)
 
 	var history models.APICallHistory
 	var requestHeaders, requestBody, queryParams, responseBody, responseHeaders sql.NullString
 	var sourceMachine, userAgent, userID, userName, clientID, authType sql.NullString
-	var instanceID, instanceName, errorMessage, tags, metadata sql.NullString
+	var instanceID, instanceName, errorMessage, metadata sql.NullString
 
 	err := row.Scan(
 		&history.ID,
@@ -853,7 +742,7 @@ func (s *APICallHistoryService) GetHistory(ctx context.Context, id string) (*mod
 		&instanceID,
 		&instanceName,
 		&errorMessage,
-		&tags,
+		pq.Array(&history.Tags),
 		&metadata,
 	)
 
@@ -879,7 +768,6 @@ func (s *APICallHistoryService) GetHistory(ctx context.Context, id string) (*mod
 	history.InstanceID = instanceID.String
 	history.InstanceName = instanceName.String
 	history.ErrorMessage = errorMessage.String
-	history.Tags = parseJSONArray(tags.String)
 	history.Metadata = parseJSONMapInterface(metadata.String)
 
 	return &history, nil
@@ -887,7 +775,8 @@ func (s *APICallHistoryService) GetHistory(ctx context.Context, id string) (*mod
 
 // DeleteHistory deletes a history record by ID
 func (s *APICallHistoryService) DeleteHistory(ctx context.Context, id string) error {
-	query := fmt.Sprintf("DELETE FROM %s WHERE id = ?", s.historyTable)
+	dbType := s.detectDatabaseType()
+	query := fmt.Sprintf("DELETE FROM %s WHERE id = %s", s.historyTable, s.getPlaceholder(dbType, 1))
 	result, err := s.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
@@ -903,7 +792,8 @@ func (s *APICallHistoryService) DeleteHistory(ctx context.Context, id string) er
 
 // Cleanup deletes records older than the specified date
 func (s *APICallHistoryService) Cleanup(ctx context.Context, before time.Time) (int64, error) {
-	query := fmt.Sprintf("DELETE FROM %s WHERE start_time < ?", s.historyTable)
+	dbType := s.detectDatabaseType()
+	query := fmt.Sprintf("DELETE FROM %s WHERE start_time < %s", s.historyTable, s.getPlaceholder(dbType, 1))
 	result, err := s.db.ExecContext(ctx, query, before)
 	if err != nil {
 		return 0, err
@@ -915,62 +805,99 @@ func (s *APICallHistoryService) Cleanup(ctx context.Context, before time.Time) (
 // GetStats returns statistics about API calls
 func (s *APICallHistoryService) GetStats(ctx context.Context) (*models.APICallHistoryStats, error) {
 	stats := &models.APICallHistoryStats{
-		EndpointStats: make([]models.EndpointStat, 0),
-		UserStats:     make([]models.UserStat, 0),
+		TopEndpoints:  make([]models.EndpointStat, 0),
+		TopUsers:      make([]models.UserStat, 0),
+		CallsByMethod: make(map[string]int64),
+		CallsByStatus: make(map[string]int64),
 	}
 
-	// Total calls
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", s.historyTable)
-	s.db.QueryRowContext(ctx, countQuery).Scan(&stats.TotalCalls)
+	// 1. Summary: total, successful, failed, avg/min/max duration in one pass
+	summaryQuery := fmt.Sprintf(`
+		SELECT
+			COUNT(*) as total_calls,
+			COUNT(CASE WHEN status_code < 400 THEN 1 END) as successful_calls,
+			COUNT(CASE WHEN status_code >= 400 THEN 1 END) as failed_calls,
+			COALESCE(AVG(duration_ms), 0) as avg_duration_ms,
+			COALESCE(MIN(duration_ms), 0) as min_duration_ms,
+			COALESCE(MAX(duration_ms), 0) as max_duration_ms
+		FROM %s`, s.historyTable)
 
-	// Average duration
-	avgQuery := fmt.Sprintf("SELECT COALESCE(AVG(duration_ms), 0) FROM %s", s.historyTable)
-	s.db.QueryRowContext(ctx, avgQuery).Scan(&stats.AvgDurationMs)
-
-	// Error count
-	errorQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE status_code >= 400", s.historyTable)
-	s.db.QueryRowContext(ctx, errorQuery).Scan(&stats.ErrorCount)
-
-	// Calculate error rate
+	var avgDur, minDur, maxDur float64
+	if err := s.db.QueryRowContext(ctx, summaryQuery).Scan(
+		&stats.TotalCalls, &stats.SuccessfulCalls, &stats.FailedCalls,
+		&avgDur, &minDur, &maxDur,
+	); err != nil {
+		s.log.Error(fmt.Sprintf("GetStats summary query failed: %v", err))
+	}
+	stats.AverageDurationMs = avgDur
+	stats.MinDurationMs = int64(minDur)
+	stats.MaxDurationMs = int64(maxDur)
 	if stats.TotalCalls > 0 {
-		stats.ErrorRate = float64(stats.ErrorCount) / float64(stats.TotalCalls) * 100
+		stats.ErrorRate = float64(stats.FailedCalls) / float64(stats.TotalCalls) * 100
 	}
 
-	// Endpoint stats (top 10)
-	endpointQuery := fmt.Sprintf(`
-		SELECT endpoint, COUNT(*) as count, AVG(duration_ms) as avg_duration
-		FROM %s
-		GROUP BY endpoint
-		ORDER BY count DESC
-		LIMIT 10
-	`, s.historyTable)
-
-	rows, err := s.db.QueryContext(ctx, endpointQuery)
-	if err == nil {
+	// 2. Calls by HTTP method
+	methodQuery := fmt.Sprintf(`SELECT method, COUNT(*) FROM %s GROUP BY method ORDER BY COUNT(*) DESC`, s.historyTable)
+	if rows, err := s.db.QueryContext(ctx, methodQuery); err == nil {
 		defer rows.Close()
 		for rows.Next() {
-			var stat models.EndpointStat
-			rows.Scan(&stat.Endpoint, &stat.Count, &stat.AvgDurationMs)
-			stats.EndpointStats = append(stats.EndpointStats, stat)
+			var method string
+			var count int64
+			if err := rows.Scan(&method, &count); err == nil {
+				stats.CallsByMethod[method] = count
+			}
 		}
 	}
 
-	// User stats (top 10)
+	// 3. Calls by status code
+	statusQuery := fmt.Sprintf(`SELECT status_code, COUNT(*) FROM %s GROUP BY status_code ORDER BY status_code`, s.historyTable)
+	if rows, err := s.db.QueryContext(ctx, statusQuery); err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var code int
+			var count int64
+			if err := rows.Scan(&code, &count); err == nil {
+				stats.CallsByStatus[fmt.Sprintf("%d", code)] = count
+			}
+		}
+	}
+
+	// 4. Top 10 endpoints by call count (with avg duration and error rate)
+	endpointQuery := fmt.Sprintf(`
+		SELECT endpoint,
+			COUNT(*) as total_calls,
+			COALESCE(AVG(duration_ms), 0) as avg_duration_ms,
+			COUNT(CASE WHEN status_code >= 400 THEN 1 END) * 100.0 / COUNT(*) as error_rate
+		FROM %s
+		GROUP BY endpoint
+		ORDER BY total_calls DESC
+		LIMIT 10`, s.historyTable)
+
+	if rows, err := s.db.QueryContext(ctx, endpointQuery); err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var stat models.EndpointStat
+			if err := rows.Scan(&stat.Endpoint, &stat.TotalCalls, &stat.AvgDurationMs, &stat.ErrorRate); err == nil {
+				stats.TopEndpoints = append(stats.TopEndpoints, stat)
+			}
+		}
+	}
+
+	// 5. Top 10 users by call count
 	userQuery := fmt.Sprintf(`
-		SELECT COALESCE(user_id, 'anonymous') as user_id, COUNT(*) as count
+		SELECT COALESCE(NULLIF(user_id, ''), 'anonymous') as user_id, COUNT(*) as total_calls
 		FROM %s
 		GROUP BY user_id
-		ORDER BY count DESC
-		LIMIT 10
-	`, s.historyTable)
+		ORDER BY total_calls DESC
+		LIMIT 10`, s.historyTable)
 
-	rows, err = s.db.QueryContext(ctx, userQuery)
-	if err == nil {
+	if rows, err := s.db.QueryContext(ctx, userQuery); err == nil {
 		defer rows.Close()
 		for rows.Next() {
 			var stat models.UserStat
-			rows.Scan(&stat.UserID, &stat.Count)
-			stats.UserStats = append(stats.UserStats, stat)
+			if err := rows.Scan(&stat.UserID, &stat.TotalCalls); err == nil {
+				stats.TopUsers = append(stats.TopUsers, stat)
+			}
 		}
 	}
 
@@ -994,39 +921,6 @@ func toJSON(v interface{}) string {
 	return string(b)
 }
 
-func toJSONArray(arr []string) string {
-	if arr == nil || len(arr) == 0 {
-		return "[]"
-	}
-	b, _ := json.Marshal(arr)
-	return string(b)
-}
-
-func toJSONIntArray(arr []int) string {
-	if arr == nil || len(arr) == 0 {
-		return "[]"
-	}
-	b, _ := json.Marshal(arr)
-	return string(b)
-}
-
-func parseJSONArray(s string) []string {
-	if s == "" || s == "[]" {
-		return []string{}
-	}
-	var arr []string
-	json.Unmarshal([]byte(s), &arr)
-	return arr
-}
-
-func parseJSONIntArray(s string) []int {
-	if s == "" || s == "[]" {
-		return []int{}
-	}
-	var arr []int
-	json.Unmarshal([]byte(s), &arr)
-	return arr
-}
 
 func parseJSONMap(s string) map[string]string {
 	if s == "" {

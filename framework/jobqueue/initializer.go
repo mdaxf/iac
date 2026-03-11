@@ -99,6 +99,10 @@ func InitializeJobSystem(
 	RegisterAIScheduleBatchHandler(db, docDB)
 	logger.Info("Registered AI Schedule Batch Handler")
 
+	// Register Agent Runner Handler
+	RegisterAgentRunnerHandler()
+	logger.Info("Registered Agent Runner Handler")
+
 	JobSystemInitialized = true
 	logger.Info("Background job system initialized successfully")
 

@@ -1,13 +1,13 @@
 package services
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
+
+	"github.com/mdaxf/iac/llm"
 )
 
 // AIReportService handles AI-powered report generation
@@ -75,34 +75,6 @@ type ReportGenerationResponse struct {
 	Insights    []string                  `json:"insights"`
 }
 
-// OpenAIMessage represents a message in the OpenAI API
-type OpenAIMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-// OpenAIRequest represents a request to the OpenAI API
-type OpenAIRequest struct {
-	Model       string          `json:"model"`
-	Messages    []OpenAIMessage `json:"messages"`
-	Temperature float64         `json:"temperature"`
-}
-
-// OpenAIResponse represents a response from the OpenAI API
-type OpenAIResponse struct {
-	ID      string `json:"id"`
-	Object  string `json:"object"`
-	Created int64  `json:"created"`
-	Model   string `json:"model"`
-	Choices []struct {
-		Index   int `json:"index"`
-		Message struct {
-			Role    string `json:"role"`
-			Content string `json:"content"`
-		} `json:"message"`
-		FinishReason string `json:"finish_reason"`
-	} `json:"choices"`
-}
 
 // GenerateSQL generates SQL from natural language using AI
 func (s *AIReportService) GenerateSQL(ctx context.Context, request Text2SQLRequest, schemaInfo string) (*Text2SQLResponse, error) {
@@ -263,51 +235,16 @@ Respond with JSON only.`, request.SQL, dataInfo, request.Question)
 	return &result, nil
 }
 
-// callOpenAI makes a request to the OpenAI API
+// callOpenAI calls the LLM for this service, routing through the unified llm
+// package which reads aiconfig.json (text2sql use case). Falls back to
+// OpenAI using s.OpenAIKey / s.OpenAIModel when config is unavailable.
 func (s *AIReportService) callOpenAI(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
-	reqBody := OpenAIRequest{
-		Model: s.OpenAIModel,
-		Messages: []OpenAIMessage{
-			{Role: "system", Content: systemPrompt},
-			{Role: "user", Content: userPrompt},
-		},
-		Temperature: 0.1, // Low temperature for consistent, factual responses
+	messages := []map[string]interface{}{
+		{"role": "system", "content": systemPrompt},
+		{"role": "user", "content": userPrompt},
 	}
-
-	jsonBody, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.OpenAIKey)
-
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to call OpenAI: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("OpenAI API error: status %d", resp.StatusCode)
-	}
-
-	var openAIResp OpenAIResponse
-	if err := json.NewDecoder(resp.Body).Decode(&openAIResp); err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	if len(openAIResp.Choices) == 0 {
-		return "", fmt.Errorf("no choices in OpenAI response")
-	}
-
-	return openAIResp.Choices[0].Message.Content, nil
+	temp := 0.1 // low temperature for consistent SQL generation
+	return llm.CallLLM(ctx, "text2sql", s.OpenAIKey, s.OpenAIModel, messages, temp)
 }
 
 // isReadOnlySQL checks if SQL is a read-only SELECT query

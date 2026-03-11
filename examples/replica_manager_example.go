@@ -1,4 +1,6 @@
-// Copyright 2023 IAC. All Rights Reserved.
+//go:build ignore
+// +build ignore
+Copyright 2023 IAC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,7 +44,8 @@ func main() {
 }
 
 func basicReplicaManagement() {
-	fmt.Println("\n1. Basic Replica Management")
+	fmt.Println("
+1. Basic Replica Management")
 	fmt.Println("----------------------------")
 
 	// Create replica manager with default config
@@ -53,7 +56,8 @@ func basicReplicaManagement() {
 	rm.RegisterReplica("replica-2", 1)
 	rm.RegisterReplica("replica-3", 1)
 
-	fmt.Printf("Registered 3 replicas\n")
+	fmt.Printf("Registered 3 replicas
+")
 
 	// Select replicas using round-robin
 	for i := 0; i < 5; i++ {
@@ -62,17 +66,21 @@ func basicReplicaManagement() {
 			log.Printf("Error selecting replica: %v", err)
 			continue
 		}
-		fmt.Printf("  Request %d -> %s\n", i+1, replica)
+		fmt.Printf("  Request %d -> %s
+", i+1, replica)
 	}
 
 	// Get statistics
 	stats := rm.GetStats()
-	fmt.Printf("\nStats: %d total replicas, %d healthy\n",
+	fmt.Printf("
+Stats: %d total replicas, %d healthy
+",
 		stats.TotalReplicas, stats.HealthyReplicas)
 }
 
 func weightedLoadBalancing() {
-	fmt.Println("\n2. Weighted Load Balancing")
+	fmt.Println("
+2. Weighted Load Balancing")
 	fmt.Println("---------------------------")
 
 	// Create config with weighted round-robin strategy
@@ -87,7 +95,8 @@ func weightedLoadBalancing() {
 	rm.RegisterReplica("medium-capacity-replica", 2) // Gets 2x traffic
 	rm.RegisterReplica("low-capacity-replica", 1)    // Gets 1x traffic
 
-	fmt.Printf("Registered replicas with weights: 5, 2, 1\n")
+	fmt.Printf("Registered replicas with weights: 5, 2, 1
+")
 
 	// Distribute 16 requests
 	distribution := make(map[string]int)
@@ -100,14 +109,17 @@ func weightedLoadBalancing() {
 		distribution[replica]++
 	}
 
-	fmt.Println("\nRequest distribution:")
+	fmt.Println("
+Request distribution:")
 	for replica, count := range distribution {
-		fmt.Printf("  %s: %d requests\n", replica, count)
+		fmt.Printf("  %s: %d requests
+", replica, count)
 	}
 }
 
 func replicaLagMonitoring() {
-	fmt.Println("\n3. Replica Lag Monitoring")
+	fmt.Println("
+3. Replica Lag Monitoring")
 	fmt.Println("--------------------------")
 
 	config := dbconn.DefaultReplicaManagerConfig()
@@ -133,33 +145,39 @@ func replicaLagMonitoring() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("Selected replica: %s (has lowest lag)\n", replica)
+	fmt.Printf("Selected replica: %s (has lowest lag)
+", replica)
 
 	// Display health information
-	fmt.Println("\nReplica Health:")
+	fmt.Println("
+Replica Health:")
 	health := rm.GetReplicaHealth()
 	for name, h := range health {
 		if h.Lag != nil {
-			fmt.Printf("  %s: %.2fs lag, healthy=%v\n",
+			fmt.Printf("  %s: %.2fs lag, healthy=%v
+",
 				name, h.Lag.LagSeconds, h.Lag.IsHealthy)
 		}
 	}
 
 	// Simulate replica with excessive lag
 	rm.UpdateReplicaLag("replica-east-1", 15.0, nil) // Exceeds threshold
-	fmt.Println("\nAfter updating replica-east-1 lag to 15s:")
+	fmt.Println("
+After updating replica-east-1 lag to 15s:")
 
 	health = rm.GetReplicaHealth()
 	for name, h := range health {
 		if h.Lag != nil {
-			fmt.Printf("  %s: %.2fs lag, healthy=%v\n",
+			fmt.Printf("  %s: %.2fs lag, healthy=%v
+",
 				name, h.Lag.LagSeconds, h.Lag.IsHealthy)
 		}
 	}
 }
 
 func automaticFailover() {
-	fmt.Println("\n4. Automatic Failover")
+	fmt.Println("
+4. Automatic Failover")
 	fmt.Println("----------------------")
 
 	config := dbconn.DefaultReplicaManagerConfig()
@@ -171,50 +189,62 @@ func automaticFailover() {
 	rm.RegisterReplica("replica-1", 1)
 	rm.RegisterReplica("replica-2", 1)
 
-	fmt.Printf("Registered 2 replicas with failover threshold = %d\n",
+	fmt.Printf("Registered 2 replicas with failover threshold = %d
+",
 		config.FailoverThreshold)
 
 	// Simulate failures on replica-1
-	fmt.Println("\nSimulating failures on replica-1:")
+	fmt.Println("
+Simulating failures on replica-1:")
 	for i := 0; i < 3; i++ {
 		rm.RecordFailure("replica-1", fmt.Errorf("connection timeout"))
-		fmt.Printf("  Failure %d recorded\n", i+1)
+		fmt.Printf("  Failure %d recorded
+", i+1)
 
 		health := rm.GetReplicaHealth()
-		fmt.Printf("  replica-1 active: %v, consecutive fails: %d\n",
+		fmt.Printf("  replica-1 active: %v, consecutive fails: %d
+",
 			health["replica-1"].Active,
 			health["replica-1"].ConsecutiveFails)
 	}
 
 	// Try to select replica
-	fmt.Println("\nSelecting replicas after failover:")
+	fmt.Println("
+Selecting replicas after failover:")
 	for i := 0; i < 5; i++ {
 		replica, err := rm.SelectReplica()
 		if err != nil {
 			log.Printf("Error: %v", err)
 			continue
 		}
-		fmt.Printf("  Request %d -> %s\n", i+1, replica)
+		fmt.Printf("  Request %d -> %s
+", i+1, replica)
 	}
 
 	stats := rm.GetStats()
-	fmt.Printf("\nStats: %d healthy replicas (down from 2)\n",
+	fmt.Printf("
+Stats: %d healthy replicas (down from 2)
+",
 		stats.HealthyReplicas)
 
 	// Simulate recovery
-	fmt.Println("\nSimulating recovery of replica-1:")
+	fmt.Println("
+Simulating recovery of replica-1:")
 	rm.RecordSuccess("replica-1", 10*time.Millisecond)
 
 	health := rm.GetReplicaHealth()
-	fmt.Printf("  replica-1 consecutive fails: %d\n",
+	fmt.Printf("  replica-1 consecutive fails: %d
+",
 		health["replica-1"].ConsecutiveFails)
-	fmt.Printf("  replica-1 response time: %v\n",
+	fmt.Printf("  replica-1 response time: %v
+",
 		health["replica-1"].ResponseTime)
 }
 
 // Example integration with actual database connections
 func exampleWithRealDatabase() {
-	fmt.Println("\n5. Integration with Real Database")
+	fmt.Println("
+5. Integration with Real Database")
 	fmt.Println("----------------------------------")
 
 	// Create replica manager
@@ -251,9 +281,12 @@ func exampleWithRealDatabase() {
 	defer rm.StopMonitoring()
 
 	fmt.Println("Started background monitoring:")
-	fmt.Printf("  - Lag checks every %v\n", config.LagCheckInterval)
-	fmt.Printf("  - Max acceptable lag: %.1fs\n", config.MaxReplicaLag)
-	fmt.Printf("  - Auto-recovery: %v\n", config.EnableAutoRecovery)
+	fmt.Printf("  - Lag checks every %v
+", config.LagCheckInterval)
+	fmt.Printf("  - Max acceptable lag: %.1fs
+", config.MaxReplicaLag)
+	fmt.Printf("  - Auto-recovery: %v
+", config.EnableAutoRecovery)
 
 	// In a real application, you would now use the replica manager
 	// to select replicas for read operations:
@@ -289,7 +322,8 @@ func exampleWithRealDatabase() {
 
 // Example: Complete replica management setup
 func exampleCompleteSetup() {
-	fmt.Println("\n6. Complete Setup Example")
+	fmt.Println("
+6. Complete Setup Example")
 	fmt.Println("--------------------------")
 
 	// Step 1: Configure replica manager
@@ -318,21 +352,31 @@ func exampleCompleteSetup() {
 
 	for _, r := range replicas {
 		rm.RegisterReplica(r.name, r.weight)
-		fmt.Printf("Registered: %s (weight: %d)\n", r.name, r.weight)
+		fmt.Printf("Registered: %s (weight: %d)
+", r.name, r.weight)
 	}
 
 	// Step 3: Display configuration
-	fmt.Println("\nConfiguration:")
-	fmt.Printf("  Strategy: %s\n", config.Strategy)
-	fmt.Printf("  Max Lag: %.1fs\n", config.MaxReplicaLag)
-	fmt.Printf("  Failover Threshold: %d\n", config.FailoverThreshold)
-	fmt.Printf("  Auto Recovery: %v\n", config.EnableAutoRecovery)
+	fmt.Println("
+Configuration:")
+	fmt.Printf("  Strategy: %s
+", config.Strategy)
+	fmt.Printf("  Max Lag: %.1fs
+", config.MaxReplicaLag)
+	fmt.Printf("  Failover Threshold: %d
+", config.FailoverThreshold)
+	fmt.Printf("  Auto Recovery: %v
+", config.EnableAutoRecovery)
 
 	// Step 4: Show initial stats
 	stats := rm.GetStats()
-	fmt.Println("\nInitial Stats:")
-	fmt.Printf("  Total Replicas: %d\n", stats.TotalReplicas)
-	fmt.Printf("  Healthy Replicas: %d\n", stats.HealthyReplicas)
+	fmt.Println("
+Initial Stats:")
+	fmt.Printf("  Total Replicas: %d
+", stats.TotalReplicas)
+	fmt.Printf("  Healthy Replicas: %d
+", stats.HealthyReplicas)
 
-	fmt.Println("\nReplica manager is ready for production use!")
+	fmt.Println("
+Replica manager is ready for production use!")
 }

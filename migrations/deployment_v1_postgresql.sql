@@ -1,0 +1,6 @@
+-- Deployment Manager v1 — marker file
+-- All deployment tables (iacpackages, packageactions, packagedeployments,
+-- iacpackagedefs, iacpackagebuilds) are created by:
+--   migrations/deployment_postgresql.sql
+-- Run that file to set up the full deployment schema.
+-- Run date: 2026-03-07

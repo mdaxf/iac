@@ -15,6 +15,7 @@
 package repository
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -44,6 +45,17 @@ func NewPackageRepository(user string, dbTx *sql.Tx) *PackageRepository {
 		dbOp:   dbconn.NewDBOperation(user, dbTx, logger.Framework),
 		logger: iLog,
 	}
+}
+
+// queryRows executes a SELECT using the repository's transaction directly.
+// DBOperation.Query() defers rows.Close() before returning, making the rows
+// unusable by callers. This helper avoids that by using the tx/DB directly.
+func (pr *PackageRepository) queryRows(query string, args ...interface{}) (*sql.Rows, error) {
+	ctx := context.Background()
+	if pr.dbTx != nil {
+		return pr.dbTx.QueryContext(ctx, query, args...)
+	}
+	return dbconn.DB.QueryContext(ctx, query, args...)
 }
 
 // SavePackage saves a package to the database
@@ -117,7 +129,7 @@ func (pr *PackageRepository) SavePackage(pkg *models.Package, environment string
 
 	// Insert package record
 	query := pr.buildInsertPackageQuery()
-	_, err = pr.dbOp.Exec(query,
+	_, err = pr.dbOp.Execute(query,
 		record.ID,
 		record.Name,
 		record.Version,
@@ -154,6 +166,8 @@ func (pr *PackageRepository) SavePackage(pkg *models.Package, environment string
 
 // GetPackage retrieves a package by ID
 func (pr *PackageRepository) GetPackage(packageID string) (*models.Package, error) {
+	// Use queryRows (direct tx/DB) — DBOperation.Query() defers rows.Close() before
+	// returning, making the rows unusable by the caller.
 	query := fmt.Sprintf(`
 		SELECT packagedata
 		FROM %s
@@ -163,7 +177,7 @@ func (pr *PackageRepository) GetPackage(packageID string) (*models.Package, erro
 		pr.dbOp.GetPlaceholder(2),
 		pr.dbOp.GetPlaceholder(3))
 
-	rows, err := pr.dbOp.Query(query, packageID, PackageStatusDeleted, true)
+	rows, err := pr.queryRows(query, packageID, PackageStatusDeleted, true)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +212,7 @@ func (pr *PackageRepository) GetPackageByNameVersion(name, version string) (*mod
 		pr.dbOp.GetPlaceholder(3),
 		pr.dbOp.GetPlaceholder(4))
 
-	rows, err := pr.dbOp.Query(query, name, version, PackageStatusDeleted, true)
+	rows, err := pr.queryRows(query, name, version, PackageStatusDeleted, true)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +285,7 @@ func (pr *PackageRepository) ListPackages(packageType, environment, status strin
 		args = append(args, offset)
 	}
 
-	rows, err := pr.dbOp.Query(query, args...)
+	rows, err := pr.queryRows(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +353,7 @@ func (pr *PackageRepository) SaveAction(action *PackageActionRecord) error {
 	}
 
 	query := pr.buildInsertActionQuery()
-	_, err := pr.dbOp.Exec(query,
+	_, err := pr.dbOp.Execute(query,
 		action.ID,
 		action.PackageID,
 		action.ActionType,
@@ -394,7 +408,7 @@ func (pr *PackageRepository) UpdateActionStatus(actionID, status string, complet
 		pr.dbOp.GetPlaceholder(3),
 		pr.dbOp.GetPlaceholder(4))
 
-	_, err := pr.dbOp.Exec(query, status, completedAt, string(errLogJSON), actionID)
+	_, err := pr.dbOp.Execute(query, status, completedAt, string(errLogJSON), actionID)
 	return err
 }
 
@@ -421,9 +435,9 @@ func (pr *PackageRepository) GetActionsByPackage(packageID string, limit int) ([
 	var err error
 
 	if limit > 0 {
-		rows, err = pr.dbOp.Query(query, packageID, true, limit)
+		rows, err = pr.queryRows(query, packageID, true, limit)
 	} else {
-		rows, err = pr.dbOp.Query(query, packageID, true)
+		rows, err = pr.queryRows(query, packageID, true)
 	}
 
 	if err != nil {
@@ -514,7 +528,7 @@ func (pr *PackageRepository) SaveDeployment(deployment *PackageDeployment) error
 		pr.dbOp.GetPlaceholder(14),
 		pr.dbOp.GetPlaceholder(15))
 
-	_, err := pr.dbOp.Exec(query,
+	_, err := pr.dbOp.Execute(query,
 		deployment.ID,
 		deployment.PackageID,
 		deployment.ActionID,

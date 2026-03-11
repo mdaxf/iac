@@ -3,11 +3,11 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"time"
 
+	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/dbinitializer"
 	"github.com/spf13/cobra"
 )
@@ -29,54 +29,50 @@ func NewHealthCommand() *cobra.Command {
 				return fmt.Errorf("failed to initialize databases: %w", err)
 			}
 
-			poolManager := dbInit.GetPoolManager()
+			poolManager := dbconn.GetPoolManager()
 			if poolManager == nil {
 				return fmt.Errorf("no databases configured")
 			}
 
-			databases := poolManager.GetAllDatabases()
-			if len(databases) == 0 {
-				fmt.Println("No databases configured")
-				return nil
-			}
-
-			fmt.Printf("Checking health of %d database(s)...\n\n", len(databases))
-
 			healthyCount := 0
 			unhealthyCount := 0
 
-			for _, dbType := range databases {
-				db, err := poolManager.GetPrimary(dbType)
-				if err != nil {
-					fmt.Printf("✗ %s: Failed to get connection - %v\n", dbType, err)
-					unhealthyCount++
-					continue
-				}
-
+			checkDB := func(label string, db dbconn.RelationalDB) {
 				start := time.Now()
-				err = db.Ping()
+				err := db.Ping()
 				duration := time.Since(start)
 
 				if err != nil {
-					fmt.Printf("✗ %s: Unhealthy - %v\n", dbType, err)
+					fmt.Printf("✗ %s: Unhealthy - %v\n", label, err)
 					unhealthyCount++
 				} else {
-					fmt.Printf("✓ %s: Healthy (ping: %v)\n", dbType, duration)
+					fmt.Printf("✓ %s: Healthy (ping: %v)\n", label, duration)
 					healthyCount++
 
 					if verbose {
-						dialect := db.GetDialect()
-						fmt.Printf("    Dialect: %s\n", dialect)
+						fmt.Printf("    Dialect: %s\n", db.GetDialect())
 					}
 				}
-
 				db.Close()
+			}
+
+			// Check primary
+			if primary, err := poolManager.GetPrimary(); err == nil {
+				checkDB("primary", primary)
+			} else {
+				fmt.Printf("✗ primary: Failed to get connection - %v\n", err)
+				unhealthyCount++
+			}
+
+			// Check replica (if different from primary)
+			if replica, err := poolManager.GetReplica(); err == nil {
+				checkDB("replica", replica)
 			}
 
 			fmt.Printf("\nSummary:\n")
 			fmt.Printf("  Healthy:   %d\n", healthyCount)
 			fmt.Printf("  Unhealthy: %d\n", unhealthyCount)
-			fmt.Printf("  Total:     %d\n", len(databases))
+			fmt.Printf("  Total:     %d\n", healthyCount+unhealthyCount)
 
 			if unhealthyCount > 0 {
 				os.Exit(1)

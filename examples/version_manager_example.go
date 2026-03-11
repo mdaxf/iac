@@ -1,4 +1,6 @@
-// Copyright 2023 IAC. All Rights Reserved.
+//go:build ignore
+// +build ignore
+Copyright 2023 IAC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,7 +37,8 @@ func main() {
 }
 
 func basicVersioningExample() {
-	fmt.Println("\n1. Basic Database Versioning")
+	fmt.Println("
+1. Basic Database Versioning")
 	fmt.Println("------------------------------")
 
 	db, err := sql.Open("sqlite3", ":memory:")
@@ -56,11 +59,13 @@ func basicVersioningExample() {
 	// Check current version
 	ctx := context.Background()
 	version, _ := vm.GetCurrentVersion(ctx)
-	fmt.Printf("  Current version: %d\n", version)
+	fmt.Printf("  Current version: %d
+", version)
 }
 
 func migrationExample() {
-	fmt.Println("\n2. Schema Migrations")
+	fmt.Println("
+2. Schema Migrations")
 	fmt.Println("---------------------")
 
 	db, _ := sql.Open("sqlite3", ":memory:")
@@ -111,15 +116,19 @@ func migrationExample() {
 			log.Printf("Failed to register migration %d: %v", m.Version, err)
 			continue
 		}
-		fmt.Printf("Registered: v%d - %s\n", m.Version, m.Description)
+		fmt.Printf("Registered: v%d - %s
+", m.Version, m.Description)
 	}
 
 	// Check pending migrations
 	pending, _ := vm.GetPendingMigrations(ctx)
-	fmt.Printf("\nPending migrations: %d\n", len(pending))
+	fmt.Printf("
+Pending migrations: %d
+", len(pending))
 
 	// Apply all migrations
-	fmt.Println("\nApplying migrations...")
+	fmt.Println("
+Applying migrations...")
 	if err := vm.Migrate(ctx); err != nil {
 		log.Printf("Migration failed: %v", err)
 	} else {
@@ -128,22 +137,26 @@ func migrationExample() {
 
 	// Check current version
 	version, _ := vm.GetCurrentVersion(ctx)
-	fmt.Printf("  Current version: %d\n", version)
+	fmt.Printf("  Current version: %d
+", version)
 
 	// Show migration history
 	history, _ := vm.GetMigrationHistory(ctx)
-	fmt.Println("\nMigration History:")
+	fmt.Println("
+Migration History:")
 	for _, record := range history {
 		status := "pending"
 		if record.Applied {
 			status = fmt.Sprintf("applied at %s", record.AppliedAt.Format("2006-01-02 15:04:05"))
 		}
-		fmt.Printf("  v%d: %s (%s)\n", record.Version, record.Description, status)
+		fmt.Printf("  v%d: %s (%s)
+", record.Version, record.Description, status)
 	}
 }
 
 func rollbackExample() {
-	fmt.Println("\n3. Migration Rollback")
+	fmt.Println("
+3. Migration Rollback")
 	fmt.Println("----------------------")
 
 	db, _ := sql.Open("sqlite3", ":memory:")
@@ -176,10 +189,12 @@ func rollbackExample() {
 	fmt.Println("Applied migrations to version 3")
 
 	currentVersion, _ := vm.GetCurrentVersion(ctx)
-	fmt.Printf("  Current version: %d\n", currentVersion)
+	fmt.Printf("  Current version: %d
+", currentVersion)
 
 	// Rollback to version 1
-	fmt.Println("\nRolling back to version 1...")
+	fmt.Println("
+Rolling back to version 1...")
 	if err := vm.MigrateTo(ctx, 1); err != nil {
 		log.Printf("Rollback failed: %v", err)
 	} else {
@@ -187,18 +202,22 @@ func rollbackExample() {
 	}
 
 	currentVersion, _ = vm.GetCurrentVersion(ctx)
-	fmt.Printf("  Current version: %d\n", currentVersion)
+	fmt.Printf("  Current version: %d
+", currentVersion)
 
 	// Migrate forward again
-	fmt.Println("\nMigrating forward to version 2...")
+	fmt.Println("
+Migrating forward to version 2...")
 	vm.MigrateTo(ctx, 2)
 
 	currentVersion, _ = vm.GetCurrentVersion(ctx)
-	fmt.Printf("  Current version: %d\n", currentVersion)
+	fmt.Printf("  Current version: %d
+", currentVersion)
 }
 
 func compatibilityCheckExample() {
-	fmt.Println("\n4. Compatibility Checking")
+	fmt.Println("
+4. Compatibility Checking")
 	fmt.Println("--------------------------")
 
 	db, _ := sql.Open("sqlite3", ":memory:")
@@ -215,39 +234,51 @@ func compatibilityCheckExample() {
 	vm.Migrate(ctx)
 
 	currentVersion, _ := vm.GetCurrentVersion(ctx)
-	fmt.Printf("Database version: %d\n", currentVersion)
+	fmt.Printf("Database version: %d
+", currentVersion)
 
 	// Check compatibility with application requirements
 	minVersion := 3
 	maxVersion := 10
 
-	fmt.Printf("\nApplication requirements:\n")
-	fmt.Printf("  Minimum version: %d\n", minVersion)
-	fmt.Printf("  Maximum version: %d\n", maxVersion)
+	fmt.Printf("
+Application requirements:
+")
+	fmt.Printf("  Minimum version: %d
+", minVersion)
+	fmt.Printf("  Maximum version: %d
+", maxVersion)
 
 	err := vm.CheckCompatibility(ctx, minVersion, maxVersion)
 	if err != nil {
-		fmt.Printf("  Status: INCOMPATIBLE - %v\n", err)
+		fmt.Printf("  Status: INCOMPATIBLE - %v
+", err)
 	} else {
-		fmt.Printf("  Status: COMPATIBLE\n")
+		fmt.Printf("  Status: COMPATIBLE
+")
 	}
 
 	// Test with incompatible requirements
-	fmt.Println("\nTesting with min version 6...")
+	fmt.Println("
+Testing with min version 6...")
 	err = vm.CheckCompatibility(ctx, 6, 10)
 	if err != nil {
-		fmt.Printf("  Status: INCOMPATIBLE - %v\n", err)
+		fmt.Printf("  Status: INCOMPATIBLE - %v
+", err)
 	}
 
-	fmt.Println("\nTesting with max version 4...")
+	fmt.Println("
+Testing with max version 4...")
 	err = vm.CheckCompatibility(ctx, 1, 4)
 	if err != nil {
-		fmt.Printf("  Status: INCOMPATIBLE - %v\n", err)
+		fmt.Printf("  Status: INCOMPATIBLE - %v
+", err)
 	}
 }
 
 func productionExample() {
-	fmt.Println("\n5. Production Setup")
+	fmt.Println("
+5. Production Setup")
 	fmt.Println("--------------------")
 
 	// Connect to production database
@@ -291,12 +322,14 @@ func productionExample() {
 
 	// Check current version
 	currentVersion, _ := vm.GetCurrentVersion(ctx)
-	fmt.Printf("Current database version: %d\n", currentVersion)
+	fmt.Printf("Current database version: %d
+", currentVersion)
 
 	// Check if migrations needed
 	pending, _ := vm.GetPendingMigrations(ctx)
 	if len(pending) > 0 {
-		fmt.Printf("  %d pending migrations\n", len(pending))
+		fmt.Printf("  %d pending migrations
+", len(pending))
 		fmt.Println("  Run 'migrate' command to apply")
 	} else {
 		fmt.Println("  Database is up to date")
@@ -314,7 +347,8 @@ func productionExample() {
 }
 
 func legacyDatabaseExample() {
-	fmt.Println("\n6. Legacy Database Integration")
+	fmt.Println("
+6. Legacy Database Integration")
 	fmt.Println("--------------------------------")
 
 	db, _ := sql.Open("sqlite3", ":memory:")
@@ -334,7 +368,8 @@ func legacyDatabaseExample() {
 	}
 
 	currentVersion, _ := vm.GetCurrentVersion(ctx)
-	fmt.Printf("  Current version: %d\n", currentVersion)
+	fmt.Printf("  Current version: %d
+", currentVersion)
 
 	// Now can register new migrations starting from 11
 	vm.RegisterMigration(&dbconn.Migration{
@@ -344,5 +379,6 @@ func legacyDatabaseExample() {
 	})
 
 	pending, _ := vm.GetPendingMigrations(ctx)
-	fmt.Printf("  Pending migrations: %d\n", len(pending))
+	fmt.Printf("  Pending migrations: %d
+", len(pending))
 }

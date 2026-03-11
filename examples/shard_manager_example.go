@@ -1,4 +1,6 @@
-// Copyright 2023 IAC. All Rights Reserved.
+//go:build ignore
+// +build ignore
+Copyright 2023 IAC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,7 +50,8 @@ func main() {
 }
 
 func hashShardingExample() {
-	fmt.Println("\n1. Hash-Based Sharding (Modulo)")
+	fmt.Println("
+1. Hash-Based Sharding (Modulo)")
 	fmt.Println("--------------------------------")
 
 	// Create shard manager with hash modulo strategy
@@ -86,7 +89,8 @@ func hashShardingExample() {
 		}
 
 		sm.AddShard(shard)
-		fmt.Printf("Added %s\n", shard.Name)
+		fmt.Printf("Added %s
+", shard.Name)
 	}
 
 	// Insert users - they'll be distributed across shards by user ID
@@ -119,7 +123,8 @@ func hashShardingExample() {
 			continue
 		}
 
-		fmt.Printf("  User %d (%s) -> %s\n", user.id, user.name, shard.Name)
+		fmt.Printf("  User %d (%s) -> %s
+", user.id, user.name, shard.Name)
 	}
 
 	// Show distribution
@@ -129,14 +134,17 @@ func hashShardingExample() {
 	}
 
 	distribution := sm.ShardDistribution(keys)
-	fmt.Println("\nDistribution:")
+	fmt.Println("
+Distribution:")
 	for shardID, count := range distribution {
-		fmt.Printf("  Shard %d: %d users\n", shardID, count)
+		fmt.Printf("  Shard %d: %d users
+", shardID, count)
 	}
 }
 
 func consistentHashingExample() {
-	fmt.Println("\n2. Consistent Hashing")
+	fmt.Println("
+2. Consistent Hashing")
 	fmt.Println("----------------------")
 
 	// Consistent hashing provides better distribution when adding/removing shards
@@ -160,7 +168,8 @@ func consistentHashingExample() {
 		sm.AddShard(shard)
 	}
 
-	fmt.Printf("Created %d shards with consistent hashing\n", sm.GetShardCount())
+	fmt.Printf("Created %d shards with consistent hashing
+", sm.GetShardCount())
 
 	// Test distribution with many keys
 	testKeys := 100
@@ -175,14 +184,18 @@ func consistentHashingExample() {
 		distribution[shard.ID]++
 	}
 
-	fmt.Printf("\nDistribution of %d keys:\n", testKeys)
+	fmt.Printf("
+Distribution of %d keys:
+", testKeys)
 	for shardID, count := range distribution {
 		percentage := float64(count) / float64(testKeys) * 100
-		fmt.Printf("  Shard %d: %d keys (%.1f%%)\n", shardID, count, percentage)
+		fmt.Printf("  Shard %d: %d keys (%.1f%%)
+", shardID, count, percentage)
 	}
 
 	// Demonstrate adding a new shard
-	fmt.Println("\nAdding shard-4...")
+	fmt.Println("
+Adding shard-4...")
 	db, _ := sql.Open("sqlite3", ":memory:")
 	defer db.Close()
 
@@ -205,15 +218,19 @@ func consistentHashingExample() {
 		distribution[shard.ID]++
 	}
 
-	fmt.Printf("\nDistribution after adding shard-4:\n")
+	fmt.Printf("
+Distribution after adding shard-4:
+")
 	for shardID, count := range distribution {
 		percentage := float64(count) / float64(testKeys) * 100
-		fmt.Printf("  Shard %d: %d keys (%.1f%%)\n", shardID, count, percentage)
+		fmt.Printf("  Shard %d: %d keys (%.1f%%)
+", shardID, count, percentage)
 	}
 }
 
 func rangeShardingExample() {
-	fmt.Println("\n3. Range-Based Sharding")
+	fmt.Println("
+3. Range-Based Sharding")
 	fmt.Println("------------------------")
 
 	// Range sharding is useful for time-series data or alphabetical distribution
@@ -247,7 +264,8 @@ func rangeShardingExample() {
 		sm.AddShard(shard)
 		sm.AddRangeMapping(sr.id, sr.minRange, sr.maxRange)
 
-		fmt.Printf("Added %s (range: %s to %s)\n",
+		fmt.Printf("Added %s (range: %s to %s)
+",
 			sr.name, sr.minRange, sr.maxRange)
 	}
 
@@ -258,19 +276,23 @@ func rangeShardingExample() {
 		"2022-03-10",
 	}
 
-	fmt.Println("\nRouting queries by date:")
+	fmt.Println("
+Routing queries by date:")
 	for _, date := range dates {
 		shard, err := sm.GetShard(date)
 		if err != nil {
-			fmt.Printf("  %s -> Error: %v\n", date, err)
+			fmt.Printf("  %s -> Error: %v
+", date, err)
 			continue
 		}
-		fmt.Printf("  %s -> %s\n", date, shard.Name)
+		fmt.Printf("  %s -> %s
+", date, shard.Name)
 	}
 }
 
 func lookupShardingExample() {
-	fmt.Println("\n4. Lookup-Based Sharding")
+	fmt.Println("
+4. Lookup-Based Sharding")
 	fmt.Println("-------------------------")
 
 	// Lookup sharding is useful for multi-tenant applications
@@ -305,23 +327,28 @@ func lookupShardingExample() {
 	fmt.Println("Tenant to shard mappings:")
 	for tenant, shardID := range tenantMappings {
 		sm.AddLookupMapping(tenant, shardID)
-		fmt.Printf("  %s -> shard-%d\n", tenant, shardID)
+		fmt.Printf("  %s -> shard-%d
+", tenant, shardID)
 	}
 
 	// Route tenant queries
-	fmt.Println("\nRouting tenant queries:")
+	fmt.Println("
+Routing tenant queries:")
 	for tenant := range tenantMappings {
 		shard, err := sm.GetShard(tenant)
 		if err != nil {
-			fmt.Printf("  %s -> Error: %v\n", tenant, err)
+			fmt.Printf("  %s -> Error: %v
+", tenant, err)
 			continue
 		}
-		fmt.Printf("  %s -> %s\n", tenant, shard.Name)
+		fmt.Printf("  %s -> %s
+", tenant, shard.Name)
 	}
 }
 
 func crossShardQueryExample() {
-	fmt.Println("\n5. Cross-Shard Queries")
+	fmt.Println("
+5. Cross-Shard Queries")
 	fmt.Println("-----------------------")
 
 	config := dbconn.DefaultShardManagerConfig()
@@ -379,7 +406,8 @@ func crossShardQueryExample() {
 	totalAmount := 0.0
 	for _, result := range results {
 		if result.Error != nil {
-			fmt.Printf("  %s: Error - %v\n", result.ShardName, result.Error)
+			fmt.Printf("  %s: Error - %v
+", result.ShardName, result.Error)
 			continue
 		}
 
@@ -390,18 +418,22 @@ func crossShardQueryExample() {
 				continue
 			}
 
-			fmt.Printf("  %s: Order %d, Customer %d, Amount $%.2f\n",
+			fmt.Printf("  %s: Order %d, Customer %d, Amount $%.2f
+",
 				result.ShardName, id, customerID, amount)
 			totalAmount += amount
 		}
 		result.Rows.Close()
 	}
 
-	fmt.Printf("\nTotal amount across all shards: $%.2f\n", totalAmount)
+	fmt.Printf("
+Total amount across all shards: $%.2f
+", totalAmount)
 }
 
 func shardStatisticsExample() {
-	fmt.Println("\n6. Shard Statistics")
+	fmt.Println("
+6. Shard Statistics")
 	fmt.Println("--------------------")
 
 	sm := dbconn.NewShardManager(nil)
@@ -435,20 +467,29 @@ func shardStatisticsExample() {
 	stats := sm.GetShardStats()
 	fmt.Println("Shard Statistics:")
 	for _, stat := range stats {
-		fmt.Printf("  %s:\n", stat.ShardName)
-		fmt.Printf("    Active: %v\n", stat.Active)
-		fmt.Printf("    Queries: %d\n", stat.QueryCount)
-		fmt.Printf("    Errors: %d\n", stat.ErrorCount)
-		fmt.Printf("    Region: %s\n", stat.Region)
+		fmt.Printf("  %s:
+", stat.ShardName)
+		fmt.Printf("    Active: %v
+", stat.Active)
+		fmt.Printf("    Queries: %d
+", stat.QueryCount)
+		fmt.Printf("    Errors: %d
+", stat.ErrorCount)
+		fmt.Printf("    Region: %s
+", stat.Region)
 	}
 
-	fmt.Printf("\nTotal shards: %d\n", sm.GetShardCount())
-	fmt.Printf("Active shards: %d\n", sm.GetActiveShardCount())
+	fmt.Printf("
+Total shards: %d
+", sm.GetShardCount())
+	fmt.Printf("Active shards: %d
+", sm.GetActiveShardCount())
 }
 
 // Example: Production-ready sharding setup
 func productionShardingExample() {
-	fmt.Println("\n7. Production Sharding Setup")
+	fmt.Println("
+7. Production Sharding Setup")
 	fmt.Println("-----------------------------")
 
 	// Configure shard manager for production
@@ -500,12 +541,19 @@ func productionShardingExample() {
 			continue
 		}
 
-		fmt.Printf("Configured: %s in %s\n", sc.name, sc.region)
+		fmt.Printf("Configured: %s in %s
+", sc.name, sc.region)
 	}
 
-	fmt.Printf("\nSharding configuration complete:\n")
-	fmt.Printf("  Strategy: %s\n", config.Strategy)
-	fmt.Printf("  Virtual Nodes: %d\n", config.VirtualNodes)
-	fmt.Printf("  Cross-Shard Enabled: %v\n", config.EnableCrossShard)
-	fmt.Printf("  Total Shards: %d\n", sm.GetShardCount())
+	fmt.Printf("
+Sharding configuration complete:
+")
+	fmt.Printf("  Strategy: %s
+", config.Strategy)
+	fmt.Printf("  Virtual Nodes: %d
+", config.VirtualNodes)
+	fmt.Printf("  Cross-Shard Enabled: %v
+", config.EnableCrossShard)
+	fmt.Printf("  Total Shards: %d
+", sm.GetShardCount())
 }

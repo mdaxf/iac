@@ -1066,6 +1066,59 @@ func (db *DBOperation) TableDelete(TableName string, Where string) (int64, error
 	return lastId, err
 }
 
+// Execute runs a non-SELECT query (INSERT, UPDATE, DELETE) with optional arguments.
+// It follows the same transaction and logging conventions as Query.
+func (db *DBOperation) Execute(querystr string, args ...interface{}) (sql.Result, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		db.iLog.PerformanceWithDuration("dbconn.Execute", elapsed)
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to execute database with error: %s", err))
+		}
+	}()
+
+	db.iLog.Debug(fmt.Sprintf("Execute: %s %v...", querystr, args))
+
+	idbtx := db.DBTx
+	blocaltx := false
+
+	if idbtx == nil {
+		idbtx, err = DB.Begin()
+		blocaltx = true
+		if err != nil {
+			db.iLog.Error(fmt.Sprintf("There is error to begin database transaction with error: %s", err.Error()))
+			return nil, err
+		}
+		defer idbtx.Commit()
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(com.DBTransactionTimeout))
+	defer cancel()
+
+	stmt, err := idbtx.PrepareContext(ctx, querystr)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	result, err := stmt.ExecContext(ctx, args...)
+	if err != nil {
+		idbtx.Rollback()
+		db.iLog.Error(fmt.Sprintf("There is error to execute database with error: %s", err.Error()))
+		return nil, err
+	}
+
+	if blocaltx {
+		idbtx.Commit()
+	}
+
+	return result, nil
+}
+
 func (db *DBOperation) Conto_JsonbyList(rows *sql.Rows) (map[string][]interface{}, int, int, error) {
 	startTime := time.Now()
 	defer func() {

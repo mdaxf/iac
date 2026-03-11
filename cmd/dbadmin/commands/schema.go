@@ -24,16 +24,16 @@ func NewSchemaCommand() *cobra.Command {
 	return cmd
 }
 
-func newSchemaDiscoverCommand() *cobra.Command{
+func newSchemaDiscoverCommand() *cobra.Command {
 	var (
-		dbType     string
-		host       string
-		port       int
-		database   string
-		schema     string
-		username   string
-		password   string
-		sslMode    string
+		dbType   string
+		host     string
+		port     int
+		database string
+		schema   string
+		username string
+		password string
+		sslMode  string
 	)
 
 	cmd := &cobra.Command{
@@ -42,7 +42,7 @@ func newSchemaDiscoverCommand() *cobra.Command{
 		Long:  `Discover all tables and columns in a database`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config := dbconn.DBConfig{
-				Type:         dbType,
+				Type:         dbconn.DBType(dbType),
 				Host:         host,
 				Port:         port,
 				Database:     database,
@@ -60,24 +60,26 @@ func newSchemaDiscoverCommand() *cobra.Command{
 
 			fmt.Printf("Discovering schema for %s database...\n", dbType)
 
-			db, err := dbconn.NewRelationalDB(config)
+			db, err := dbconn.NewRelationalDB(&config)
 			if err != nil {
 				return fmt.Errorf("failed to create database: %w", err)
 			}
 			defer db.Close()
 
-			if err := db.Connect(config); err != nil {
+			if err := db.Connect(&config); err != nil {
 				return fmt.Errorf("failed to connect: %w", err)
 			}
 
-			dialect := db.GetDialect()
+			// use dbType string directly
 			if schema == "" {
 				schema = database
 			}
 
+			ctx := context.Background()
+
 			// Get tables
-			tablesQuery := services.GetTablesQuery(dialect, schema)
-			rows, err := db.Query(tablesQuery)
+			tablesQuery := services.GetTablesQuery(dbType, schema)
+			rows, err := db.Query(ctx, tablesQuery)
 			if err != nil {
 				return fmt.Errorf("failed to query tables: %w", err)
 			}
@@ -100,8 +102,8 @@ func newSchemaDiscoverCommand() *cobra.Command{
 				fmt.Println()
 
 				// Get columns for this table
-				columnsQuery := services.GetColumnsQuery(dialect, schema, tableName)
-				colRows, err := db.Query(columnsQuery)
+				columnsQuery := services.GetColumnsQuery(dbType, schema, tableName)
+				colRows, err := db.Query(ctx, columnsQuery)
 				if err != nil {
 					fmt.Printf("   Error getting columns: %v\n", err)
 					continue
@@ -182,7 +184,7 @@ func newSchemaListCommand() *cobra.Command {
 		Long:  `List all available databases or schemas`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config := dbconn.DBConfig{
-				Type:         dbType,
+				Type:         dbconn.DBType(dbType),
 				Host:         host,
 				Port:         port,
 				Database:     "",
@@ -194,7 +196,7 @@ func newSchemaListCommand() *cobra.Command {
 				Options:      make(map[string]string),
 			}
 
-			db, err := dbconn.NewRelationalDB(config)
+			db, err := dbconn.NewRelationalDB(&config)
 			if err != nil {
 				return fmt.Errorf("failed to create database: %w", err)
 			}
@@ -209,14 +211,14 @@ func newSchemaListCommand() *cobra.Command {
 				config.Database = "master"
 			}
 
-			if err := db.Connect(config); err != nil {
+			if err := db.Connect(&config); err != nil {
 				return fmt.Errorf("failed to connect: %w", err)
 			}
 
-			dialect := db.GetDialect()
-			query := services.GetDatabaseListQuery(dialect)
+			// use dbType string directly
+			query := services.GetDatabaseListQuery(dbType)
 
-			rows, err := db.Query(query)
+			rows, err := db.Query(context.Background(), query)
 			if err != nil {
 				return fmt.Errorf("failed to list databases: %w", err)
 			}

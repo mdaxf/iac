@@ -54,6 +54,9 @@ type ChatMessage struct {
 	ErrorMessage    string      `json:"errormessage" gorm:"column:errormessage;type:text"`
 	ChartMetadata   JSONMap     `json:"chartmetadata" gorm:"column:chartmetadata;type:json"`
 	Provenance      JSONMap     `json:"provenance" gorm:"column:provenance;type:json"`
+	// Rich tool outputs (ui_render, html_report, etc.) saved per agent run.
+	// Stored as {"items":[{"tool":"ui_render","result":{...}}, ...]}
+	ToolResults     JSONMap     `json:"toolresults" gorm:"column:toolresults;type:json"`
 
 	// Standard IAC audit fields (must be at end)
 	Active          bool         `json:"active" gorm:"column:active;default:true"`

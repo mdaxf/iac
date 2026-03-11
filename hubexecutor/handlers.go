@@ -1,6 +1,7 @@
 package hubexecutor
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -293,6 +294,7 @@ func (h *WebServerHandler) createEndpointHandler(endpoint models.HubSimpleEndpoi
 		// Create message payload
 		payload := &MessagePayload{
 			Protocol:    h.protocol,
+			Direction:   "inbound",
 			EndpointID:  endpoint.ID,
 			Path:        c.Request.URL.Path,
 			Method:      c.Request.Method,
@@ -565,6 +567,7 @@ func (h *MQTTHandler) createMessageHandler(topic string) mqtt.MessageHandler {
 		// Create payload
 		payload := &MessagePayload{
 			Protocol:   ProtocolMQTT,
+			Direction:  "inbound",
 			EndpointID: topic,
 			Path:       msg.Topic(),
 			Body:       msg.Payload(),
@@ -832,6 +835,7 @@ func (h *KafkaHandler) handleKafkaMessage(msg *sarama.ConsumerMessage) {
 
 	payload := &MessagePayload{
 		Protocol:   ProtocolKafka,
+		Direction:  "inbound",
 		EndpointID: msg.Topic,
 		Path:       msg.Topic,
 		Body:       msg.Value,
@@ -1297,6 +1301,7 @@ func (h *OPCUAHandler) executeAction(action OPCAction, newValue, oldValue interf
 	// Create payload
 	payload := &MessagePayload{
 		Protocol:   ProtocolOPCUA,
+		Direction:  "inbound", // OPC UA actions are typically triggered by data changes (inbound)
 		EndpointID: action.ID,
 		Metadata: map[string]interface{}{
 			"action_name":    action.Name,
@@ -1648,4 +1653,294 @@ func getBoolFromMap(m map[string]interface{}, key string) bool {
 		return val
 	}
 	return false
+}
+
+// ============================================================================
+// MCP Client Handler (Model Context Protocol – JSON-RPC 2.0 over HTTP)
+// ============================================================================
+
+// MCPClientHandlerConfig holds configuration for the MCP client handler.
+type MCPClientHandlerConfig struct {
+	Name          string
+	ProtocolGroup *models.HubSimpleProtocolGroup
+	MCPConfig     *models.MCPProtocolConfig
+	Direction     string
+	DestExecutor  DestinationExecutor
+	OnMessage     func(payload *MessagePayload)
+	OnError       func(err error, source string)
+	State         *HubExecutorState
+}
+
+// MCPClientHandler connects to an MCP server (JSON-RPC 2.0 over HTTP) and
+// can invoke named tools as part of Integration Hub outbound message routing.
+type MCPClientHandler struct {
+	mu            sync.RWMutex
+	iLog          logger.Log
+	name          string
+	protocolGroup *models.HubSimpleProtocolGroup
+	mcpConfig     *models.MCPProtocolConfig
+	direction     string
+	status        ExecutorStatus
+	sessionID     string // Mcp-Session-Id obtained on initialize
+	destExecutor  DestinationExecutor
+	onMessage     func(payload *MessagePayload)
+	onError       func(err error, source string)
+	state         *HubExecutorState
+}
+
+// NewMCPClientHandler creates a new MCP client handler.
+func NewMCPClientHandler(config MCPClientHandlerConfig) *MCPClientHandler {
+	name := config.Name
+	if name == "" {
+		name = fmt.Sprintf("mcp-%s", config.ProtocolGroup.ID)
+	}
+	return &MCPClientHandler{
+		iLog:          logger.Log{ModuleName: logger.Framework, User: "System", ControllerName: "MCPClientHandler"},
+		name:          name,
+		protocolGroup: config.ProtocolGroup,
+		mcpConfig:     config.MCPConfig,
+		direction:     config.Direction,
+		status:        StatusStopped,
+		destExecutor:  config.DestExecutor,
+		onMessage:     config.OnMessage,
+		onError:       config.OnError,
+		state:         config.State,
+	}
+}
+
+// Start initializes the MCP session by sending the JSON-RPC 2.0 "initialize" request.
+func (h *MCPClientHandler) Start(ctx context.Context) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if h.status == StatusRunning {
+		return nil
+	}
+	h.status = StatusStarting
+
+	cfg := h.mcpConfig
+	if cfg == nil || cfg.ServerURL == "" {
+		h.status = StatusError
+		return fmt.Errorf("MCPClientHandler %s: server_url is required", h.name)
+	}
+
+	timeout := time.Duration(cfg.TimeoutSec) * time.Second
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
+	initCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// Build initialize request
+	mcpPath := cfg.MCPPath
+	if mcpPath == "" {
+		mcpPath = "/mcp"
+	}
+	endpoint := cfg.ServerURL + mcpPath
+
+	reqBody := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "initialize",
+		"params": map[string]interface{}{
+			"protocolVersion": "2024-11-05",
+			"capabilities":    map[string]interface{}{},
+			"clientInfo": map[string]interface{}{
+				"name":    "iac-integration-hub",
+				"version": "1.0.0",
+			},
+		},
+	}
+	bodyBytes, _ := json.Marshal(reqBody)
+
+	httpReq, err := http.NewRequestWithContext(initCtx, http.MethodPost, endpoint, bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		h.status = StatusError
+		return fmt.Errorf("MCPClientHandler %s: build initialize request: %w", h.name, err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json, text/event-stream")
+	for k, v := range cfg.Headers {
+		httpReq.Header.Set(k, v)
+	}
+
+	resp, err := http.DefaultClient.Do(httpReq)
+	if err != nil {
+		// Non-fatal: server may not require initialization
+		h.iLog.Warn(fmt.Sprintf("MCPClientHandler %s: initialize failed (non-fatal): %v", h.name, err))
+		h.status = StatusRunning
+		return nil
+	}
+	defer resp.Body.Close()
+
+	// Capture session ID if the server provides one
+	if sid := resp.Header.Get("Mcp-Session-Id"); sid != "" {
+		h.sessionID = sid
+		h.iLog.Info(fmt.Sprintf("MCPClientHandler %s: MCP session established: %s", h.name, sid))
+	}
+	io.ReadAll(resp.Body) // drain
+
+	h.status = StatusRunning
+	h.iLog.Info(fmt.Sprintf("MCPClientHandler %s started (server: %s)", h.name, cfg.ServerURL))
+	return nil
+}
+
+// Stop sends an MCP shutdown notification and marks the handler as stopped.
+func (h *MCPClientHandler) Stop(ctx context.Context) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if h.status == StatusStopped {
+		return nil
+	}
+
+	cfg := h.mcpConfig
+	if cfg != nil && cfg.ServerURL != "" && h.sessionID != "" {
+		// Best-effort: send shutdown notification
+		mcpPath := cfg.MCPPath
+		if mcpPath == "" {
+			mcpPath = "/mcp"
+		}
+		endpoint := cfg.ServerURL + mcpPath
+		notif := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"method":  "notifications/cancelled",
+		}
+		body, _ := json.Marshal(notif)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBuffer(body))
+		if err == nil {
+			req.Header.Set("Content-Type", "application/json")
+			if h.sessionID != "" {
+				req.Header.Set("Mcp-Session-Id", h.sessionID)
+			}
+			for k, v := range cfg.Headers {
+				req.Header.Set(k, v)
+			}
+			resp, err := http.DefaultClient.Do(req)
+			if err == nil {
+				resp.Body.Close()
+			}
+		}
+	}
+
+	h.status = StatusStopped
+	h.iLog.Info(fmt.Sprintf("MCPClientHandler %s stopped", h.name))
+	return nil
+}
+
+// Status returns the current handler status.
+func (h *MCPClientHandler) Status() ExecutorStatus {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.status
+}
+
+// Name returns the handler name.
+func (h *MCPClientHandler) Name() string { return h.name }
+
+// Type returns the protocol type.
+func (h *MCPClientHandler) Type() ProtocolType { return ProtocolMCP }
+
+// CallTool invokes a named tool on the MCP server with the given JSON arguments string.
+// It uses JSON-RPC 2.0 over HTTP and returns the concatenated text content from the response.
+func (h *MCPClientHandler) CallTool(ctx context.Context, toolName, argsJSON string) (string, error) {
+	h.mu.RLock()
+	cfg := h.mcpConfig
+	sessionID := h.sessionID
+	h.mu.RUnlock()
+
+	if cfg == nil || cfg.ServerURL == "" {
+		return "", fmt.Errorf("MCPClientHandler %s: no server configured", h.name)
+	}
+
+	mcpPath := cfg.MCPPath
+	if mcpPath == "" {
+		mcpPath = "/mcp"
+	}
+	endpoint := cfg.ServerURL + mcpPath
+
+	var arguments interface{}
+	if argsJSON != "" && argsJSON != "null" {
+		if err := json.Unmarshal([]byte(argsJSON), &arguments); err != nil {
+			arguments = map[string]interface{}{}
+		}
+	} else {
+		arguments = map[string]interface{}{}
+	}
+
+	reqBody := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      2,
+		"method":  "tools/call",
+		"params": map[string]interface{}{
+			"name":      toolName,
+			"arguments": arguments,
+		},
+	}
+	body, _ := json.Marshal(reqBody)
+
+	timeout := time.Duration(cfg.TimeoutSec) * time.Second
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
+	callCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	httpReq, err := http.NewRequestWithContext(callCtx, http.MethodPost, endpoint, bytes.NewBuffer(body))
+	if err != nil {
+		return "", fmt.Errorf("MCPClientHandler build request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json, text/event-stream")
+	if sessionID != "" {
+		httpReq.Header.Set("Mcp-Session-Id", sessionID)
+	}
+	for k, v := range cfg.Headers {
+		httpReq.Header.Set(k, v)
+	}
+
+	resp, err := http.DefaultClient.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("MCPClientHandler CallTool request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("MCPClientHandler CallTool HTTP %d: %s", resp.StatusCode, string(b))
+	}
+
+	var rpcResp struct {
+		Result struct {
+			Content []struct {
+				Type string `json:"type"`
+				Text string `json:"text"`
+			} `json:"content"`
+			IsError bool `json:"isError"`
+		} `json:"result"`
+		Error *struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error,omitempty"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&rpcResp); err != nil {
+		return "", fmt.Errorf("MCPClientHandler decode response: %w", err)
+	}
+	if rpcResp.Error != nil {
+		return "", fmt.Errorf("MCP error %d: %s", rpcResp.Error.Code, rpcResp.Error.Message)
+	}
+	if rpcResp.Result.IsError {
+		if len(rpcResp.Result.Content) > 0 {
+			return "", fmt.Errorf("MCP tool error: %s", rpcResp.Result.Content[0].Text)
+		}
+		return "", fmt.Errorf("MCP tool returned error")
+	}
+
+	out := ""
+	for _, c := range rpcResp.Result.Content {
+		if c.Type == "text" {
+			out += c.Text
+		}
+	}
+	return out, nil
 }

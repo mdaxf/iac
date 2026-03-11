@@ -118,6 +118,51 @@ type PackageDeployment struct {
 	RowVersionStamp int       `db:"rowversionstamp" json:"rowversionstamp"`
 }
 
+// PackageDefinitionRecord is the relational DB record for a package definition (iacpackagedefs).
+// A stable row per definition; the full config lives in MongoDB (package_definitions collection).
+type PackageDefinitionRecord struct {
+	ID              string    `db:"id"              json:"id"`
+	Name            string    `db:"name"            json:"name"`
+	PackageType     string    `db:"packagetype"     json:"packagetype"`
+	Description     string    `db:"description"     json:"description"`
+	Environment     string    `db:"environment"     json:"environment"`
+	LatestVersion   int       `db:"latestversion"   json:"latestversion"`
+	// IAC Standard Fields
+	Active          bool      `db:"active"          json:"active"`
+	CreatedBy       string    `db:"createdby"       json:"createdby"`
+	CreatedOn       time.Time `db:"createdon"       json:"createdon"`
+	ModifiedBy      string    `db:"modifiedby"      json:"modifiedby"`
+	ModifiedOn      time.Time `db:"modifiedon"      json:"modifiedon"`
+	RowVersionStamp int       `db:"rowversionstamp" json:"rowversionstamp"`
+}
+
+// PackageBuildRecord tracks a single pack execution (iacpackagebuilds).
+// BuildNumber auto-increments per definition.
+type PackageBuildRecord struct {
+	ID              string     `db:"id"              json:"id"`
+	DefinitionID    string     `db:"definitionid"    json:"definitionid"`
+	DefinitionName  string     `db:"definitionname"  json:"definitionname"`
+	DefVersion      int        `db:"defversion"      json:"defversion"`
+	BuildNumber     int        `db:"buildnumber"     json:"buildnumber"`
+	PackageID       string     `db:"packageid"       json:"packageid"`
+	PackageName     string     `db:"packagename"     json:"packagename"`
+	PackageVersion  string     `db:"packageversion"  json:"packageversion"`
+	Status          string     `db:"status"          json:"status"`
+	StartedAt       *time.Time `db:"startedat"       json:"startedat"`
+	CompletedAt     *time.Time `db:"completedat"     json:"completedat"`
+	DurationSeconds int        `db:"durationseconds" json:"durationseconds"`
+	TriggeredBy     string     `db:"triggeredby"     json:"triggeredby"`
+	ErrorLog        string     `db:"errorlog"        json:"errorlog"`
+	Metadata        string     `db:"metadata"        json:"metadata"`
+	// IAC Standard Fields
+	Active          bool      `db:"active"          json:"active"`
+	CreatedBy       string    `db:"createdby"       json:"createdby"`
+	CreatedOn       time.Time `db:"createdon"       json:"createdon"`
+	ModifiedBy      string    `db:"modifiedby"      json:"modifiedby"`
+	ModifiedOn      time.Time `db:"modifiedon"      json:"modifiedon"`
+	RowVersionStamp int       `db:"rowversionstamp" json:"rowversionstamp"`
+}
+
 // PackageTag represents package tags
 type PackageTag struct {
 	ID        string    `db:"id" json:"id"`

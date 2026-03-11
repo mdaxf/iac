@@ -32,6 +32,8 @@ const (
 	ProtocolOPCUA    ProtocolType = "OPC UA"
 	ProtocolTCP      ProtocolType = "TCP"
 	ProtocolSignalR  ProtocolType = "SignalR"
+	// ProtocolMCP is the Model Context Protocol (JSON-RPC 2.0 over HTTP / stdio)
+	ProtocolMCP ProtocolType = "MCP"
 )
 
 // TriggerMethod represents action trigger methods
@@ -92,6 +94,7 @@ type Destination struct {
 type MessagePayload struct {
 	TransactionID string
 	Protocol      ProtocolType
+	Direction     string // "inbound" or "outbound"
 	EndpointID    string
 	Path          string
 	Method        string

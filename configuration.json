@@ -15,7 +15,7 @@
         "adapter": "memory",
         "documentdb": {
             "collection": "cache",
-            "conn": "mongodb://192.168.6.98:27017",
+            "conn": "mongodb://iacf-bac:27017",
             "db": "IAC_CACHE"
         },
         "file": {
@@ -39,7 +39,7 @@
         "testsessiontimeout": 900
     },
     "database": {
-        "connection": "postgresql://postgres:iacf12345678@192.168.6.98:5432/iac25?sslmode=disable",
+        "connection": "postgresql://postgres:iacf12345678@iacf-bac:5432/iac25?sslmode=disable",
         "maxidleconns": 5,
         "maxopenconns": 10,
         "timeout": 5,
@@ -47,7 +47,7 @@
     },
     "description": "IAC is a framework for building web applications with Go.",
     "documentdb": {
-        "connection": "mongodb://192.168.6.98:27017",
+        "connection": "mongodb://iacf-bac:27017",
         "database": "IAC_CFG",
         "type": "mongodb"
     },
@@ -72,7 +72,7 @@
         "console": {},
         "documentdb": {
             "collection": "logger",
-            "conn": "mongodb://192.168.6.98:27017",
+            "conn": "mongodb://iacf-bac:27017",
             "db": "IAC_CACHE"
         },
         "file": {
@@ -93,6 +93,31 @@
         "performancethread": 1
     },
     "name": "IAC",
+    "notifications": {
+        "smtp": {
+            "host": "smtp.gmail.com",
+            "port": 587,
+            "auth_type": "token",
+            "username": "iacfbots@gmail.com",
+            "password": "pfqh dvng grnb skep",
+            "api_token": "pfqh dvng grnb skep",
+            "from": "IAC System <noreply@example.com>",
+            "use_tls": true,
+            "provider": "Gmail"
+        },
+        "telegram": {
+            "bot_token": "8706136036:AAF12uOKK1hsDIhWBhD5en5nKBV5uUHSoGQ"
+        },
+        "slack": {
+            "webhook_url": ""
+        },
+        "teams": {
+            "webhook_url": ""
+        },
+        "discord": {
+            "webhook_url": ""
+        }
+    },
     "roles": {
         "roles": [
             {
@@ -116,7 +141,7 @@
                 "type": "integration_hub"
             },
             {
-                "enabled": false,
+                "enabled": true,
                 "signalr": {
                     "allowed_origins": [
                         "*,http://127.0.0.1:8080,https://127.0.0.1:8080,http://localhost:8080,https://localhost:8080,https://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"

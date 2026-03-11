@@ -27,6 +27,10 @@ type DataSet struct {
 	// These are stored as a map to allow any custom page node names
 	ExtraPages map[string]interface{} `json:"extrapages,omitempty" bson:"extrapages,omitempty"`
 
+	// Packaging & deployment config — describes how data from this dataset is packaged and deployed
+	PackagingConfig  *DatasetPackagingConfig  `json:"packaging_config,omitempty" bson:"packaging_config,omitempty"`
+	DeploymentConfig *DatasetDeploymentConfig `json:"deployment_config,omitempty" bson:"deployment_config,omitempty"`
+
 	// Audit Fields
 	CreatedBy       string    `json:"createdby" bson:"createdby"`
 	CreatedOn       time.Time `json:"createdon" bson:"createdon"`
@@ -79,4 +83,36 @@ type DataSetUpdateRequest struct {
 type DataSetListResponse struct {
 	Data  []DataSet `json:"data"`
 	Count int       `json:"count"`
+}
+
+// DatasetPackagingConfig defines how a dataset participates in packaging
+type DatasetPackagingConfig struct {
+	// Tables/collections explicitly included; empty = use DataSource
+	Tables          []string            `json:"tables,omitempty" bson:"tables,omitempty"`
+	Collections     []string            `json:"collections,omitempty" bson:"collections,omitempty"`
+	// Global key columns/fields for each table or collection (used for upsert matching)
+	GlobalKeyColumns map[string][]string `json:"global_key_columns,omitempty" bson:"global_key_columns,omitempty"`
+	// FK relations to follow when packaging: table -> list of FK column names (empty = follow all)
+	SelectRelations  map[string][]string `json:"select_relations,omitempty" bson:"select_relations,omitempty"`
+	// FK relations NOT to follow
+	ExcludeRelations map[string][]string `json:"exclude_relations,omitempty" bson:"exclude_relations,omitempty"`
+	// Columns/fields to exclude per table/collection
+	ExcludeColumns   map[string][]string `json:"exclude_columns,omitempty" bson:"exclude_columns,omitempty"`
+	// Whether to auto-include related parent records
+	IncludeRelated   bool                `json:"include_related" bson:"include_related"`
+	// Max traversal depth for FK relationships
+	MaxDepth         int                 `json:"max_depth,omitempty" bson:"max_depth,omitempty"`
+}
+
+// DatasetDeploymentConfig defines deployment behaviour for data from this dataset
+type DatasetDeploymentConfig struct {
+	// If existing record (matched by global key) is found: update or skip
+	UpdateExisting     bool `json:"update_existing" bson:"update_existing"`
+	SkipExisting       bool `json:"skip_existing" bson:"skip_existing"`
+	// Validate FK/document references before deploying
+	ValidateReferences bool `json:"validate_references" bson:"validate_references"`
+	// Regenerate auto-increment PKs (false = preserve original PK where possible)
+	RegeneratePK       bool `json:"regenerate_pk" bson:"regenerate_pk"`
+	// Batch size for INSERT operations
+	BatchSize          int  `json:"batch_size,omitempty" bson:"batch_size,omitempty"`
 }

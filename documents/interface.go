@@ -92,7 +92,13 @@ const (
 
 // FindOptions represents options for find operations
 type FindOptions struct {
-	Sort       map[string]int // field -> 1 (asc) or -1 (desc)
+	// Sort is a single-field sort. For compound (multi-field) sorts use SortFields,
+	// because Go maps have no key-order guarantee and many document databases
+	// require an ordered sort specification.
+	Sort       map[string]int // field -> 1 (asc) or -1 (desc); single-key only
+	// SortFields is an ordered slice of sort keys (using SortField from query_builder.go).
+	// Takes precedence over Sort when set.
+	SortFields []SortField
 	Limit      int64
 	Skip       int64
 	Projection map[string]int // field -> 1 (include) or 0 (exclude)

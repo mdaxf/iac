@@ -1,4 +1,6 @@
-// Copyright 2023 IAC. All Rights Reserved.
+//go:build ignore
+// +build ignore
+Copyright 2023 IAC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,23 +35,31 @@ func main() {
 }
 
 func basicProxyExample() {
-	fmt.Println("\n1. Basic Database Proxy")
+	fmt.Println("
+1. Basic Database Proxy")
 	fmt.Println("------------------------")
 
 	// Create proxy with default config
 	proxy := dbconn.NewDatabaseProxy(nil)
 
 	fmt.Println("Database proxy initialized")
-	fmt.Printf("  Max Connections: %d\n", proxy.config.MaxConnections)
-	fmt.Printf("  Query Timeout: %v\n", proxy.config.QueryTimeout)
-	fmt.Printf("  Slow Query Threshold: %v\n", proxy.config.SlowQueryThreshold)
-	fmt.Printf("  Query Rewrite: %v\n", proxy.config.EnableQueryRewrite)
-	fmt.Printf("  Monitoring: %v\n", proxy.config.EnableMonitoring)
-	fmt.Printf("  Load Balancing: %v\n", proxy.config.EnableLoadBalancing)
+	fmt.Printf("  Max Connections: %d
+", proxy.config.MaxConnections)
+	fmt.Printf("  Query Timeout: %v
+", proxy.config.QueryTimeout)
+	fmt.Printf("  Slow Query Threshold: %v
+", proxy.config.SlowQueryThreshold)
+	fmt.Printf("  Query Rewrite: %v
+", proxy.config.EnableQueryRewrite)
+	fmt.Printf("  Monitoring: %v
+", proxy.config.EnableMonitoring)
+	fmt.Printf("  Load Balancing: %v
+", proxy.config.EnableLoadBalancing)
 }
 
 func queryRewriterExample() {
-	fmt.Println("\n2. Query Rewriting")
+	fmt.Println("
+2. Query Rewriting")
 	fmt.Println("-------------------")
 
 	rewriter := dbconn.NewQueryRewriter()
@@ -72,25 +82,33 @@ func queryRewriterExample() {
 
 	for _, rule := range rules {
 		rewriter.AddRule(rule)
-		fmt.Printf("Added rule: %s\n", rule.Name)
+		fmt.Printf("Added rule: %s
+", rule.Name)
 	}
 
 	// Test query rewriting
-	fmt.Println("\nQuery Rewriting Examples:")
+	fmt.Println("
+Query Rewriting Examples:")
 
 	originalQuery1 := "SELECT * FROM users"
 	rewritten1 := rewriter.Rewrite(originalQuery1)
-	fmt.Printf("  Original:  %s\n", originalQuery1)
-	fmt.Printf("  Rewritten: %s\n", rewritten1)
+	fmt.Printf("  Original:  %s
+", originalQuery1)
+	fmt.Printf("  Rewritten: %s
+", rewritten1)
 
 	originalQuery2 := "SELECT * FROM orders WHERE status = 'pending'"
 	rewritten2 := rewriter.Rewrite(originalQuery2)
-	fmt.Printf("\n  Original:  %s\n", originalQuery2)
-	fmt.Printf("  Rewritten: %s\n", rewritten2)
+	fmt.Printf("
+  Original:  %s
+", originalQuery2)
+	fmt.Printf("  Rewritten: %s
+", rewritten2)
 }
 
 func loadBalancingExample() {
-	fmt.Println("\n3. Load Balancing")
+	fmt.Println("
+3. Load Balancing")
 	fmt.Println("------------------")
 
 	// Create load balancer
@@ -105,15 +123,18 @@ func loadBalancingExample() {
 	// lb.AddDatabase(db2)
 	// lb.AddDatabase(db3)
 
-	fmt.Println("\nQuery distribution simulation:")
+	fmt.Println("
+Query distribution simulation:")
 	for i := 1; i <= 6; i++ {
 		dbNum := (i % 3) + 1 // Simulate round-robin
-		fmt.Printf("  Query %d -> Database %d\n", i, dbNum)
+		fmt.Printf("  Query %d -> Database %d
+", i, dbNum)
 	}
 }
 
 func queryLoggingExample() {
-	fmt.Println("\n4. Query Logging")
+	fmt.Println("
+4. Query Logging")
 	fmt.Println("-----------------")
 
 	logger := dbconn.NewQueryLogger(100)
@@ -133,18 +154,22 @@ func queryLoggingExample() {
 		logger.Log(q.sql, q.duration, nil)
 	}
 
-	fmt.Printf("Logged %d queries\n", len(queries))
+	fmt.Printf("Logged %d queries
+", len(queries))
 
 	// Get recent queries
 	recent := logger.GetRecentQueries(3)
-	fmt.Println("\nMost recent queries:")
+	fmt.Println("
+Most recent queries:")
 	for i, log := range recent {
-		fmt.Printf("  %d. %s (%.2fms)\n", i+1, log.Query, float64(log.Duration.Microseconds())/1000.0)
+		fmt.Printf("  %d. %s (%.2fms)
+", i+1, log.Query, float64(log.Duration.Microseconds())/1000.0)
 	}
 }
 
 func metricsExample() {
-	fmt.Println("\n5. Proxy Metrics")
+	fmt.Println("
+5. Proxy Metrics")
 	fmt.Println("-----------------")
 
 	proxy := dbconn.NewDatabaseProxy(nil)
@@ -159,23 +184,30 @@ func metricsExample() {
 	metrics := proxy.GetMetrics()
 
 	fmt.Println("Proxy Performance Metrics:")
-	fmt.Printf("  Total Queries: %d\n", metrics.TotalQueries)
-	fmt.Printf("  Slow Queries: %d (%.1f%%)\n",
+	fmt.Printf("  Total Queries: %d
+", metrics.TotalQueries)
+	fmt.Printf("  Slow Queries: %d (%.1f%%)
+",
 		metrics.SlowQueries,
 		float64(metrics.SlowQueries)/float64(metrics.TotalQueries)*100)
-	fmt.Printf("  Failed Queries: %d (%.1f%%)\n",
+	fmt.Printf("  Failed Queries: %d (%.1f%%)
+",
 		metrics.FailedQueries,
 		float64(metrics.FailedQueries)/float64(metrics.TotalQueries)*100)
-	fmt.Printf("  Cache Hits: %d (%.1f%%)\n",
+	fmt.Printf("  Cache Hits: %d (%.1f%%)
+",
 		metrics.CacheHits,
 		float64(metrics.CacheHits)/float64(metrics.TotalQueries)*100)
-	fmt.Printf("  Average Duration: %.2fms\n",
+	fmt.Printf("  Average Duration: %.2fms
+",
 		float64(metrics.AverageDuration.Microseconds())/1000.0)
-	fmt.Printf("  Slow Query Threshold: %v\n", metrics.SlowQueryThreshold)
+	fmt.Printf("  Slow Query Threshold: %v
+", metrics.SlowQueryThreshold)
 }
 
 func completeProxyExample() {
-	fmt.Println("\n6. Complete Proxy Setup")
+	fmt.Println("
+6. Complete Proxy Setup")
 	fmt.Println("------------------------")
 
 	// Configure proxy
@@ -192,20 +224,28 @@ func completeProxyExample() {
 	proxy := dbconn.NewDatabaseProxy(config)
 
 	fmt.Println("Production proxy configuration:")
-	fmt.Printf("  Max Connections: %d\n", config.MaxConnections)
-	fmt.Printf("  Idle Timeout: %v\n", config.IdleTimeout)
-	fmt.Printf("  Query Timeout: %v\n", config.QueryTimeout)
-	fmt.Printf("  Query Rewriting: %v\n", config.EnableQueryRewrite)
-	fmt.Printf("  Monitoring: %v\n", config.EnableMonitoring)
-	fmt.Printf("  Load Balancing: %v\n", config.EnableLoadBalancing)
-	fmt.Printf("  Slow Query Alert: >%v\n", config.SlowQueryThreshold)
+	fmt.Printf("  Max Connections: %d
+", config.MaxConnections)
+	fmt.Printf("  Idle Timeout: %v
+", config.IdleTimeout)
+	fmt.Printf("  Query Timeout: %v
+", config.QueryTimeout)
+	fmt.Printf("  Query Rewriting: %v
+", config.EnableQueryRewrite)
+	fmt.Printf("  Monitoring: %v
+", config.EnableMonitoring)
+	fmt.Printf("  Load Balancing: %v
+", config.EnableLoadBalancing)
+	fmt.Printf("  Slow Query Alert: >%v
+", config.SlowQueryThreshold)
 
 	// In production, would set up components:
 	// proxy.SetPoolManager(poolManager)
 	// proxy.SetReplicaManager(replicaManager)
 	// proxy.SetQueryCache(queryCache)
 
-	fmt.Println("\nProxy ready for production use!")
+	fmt.Println("
+Proxy ready for production use!")
 	fmt.Println("Features enabled:")
 	fmt.Println("  ✓ Connection pooling")
 	fmt.Println("  ✓ Query rewriting")

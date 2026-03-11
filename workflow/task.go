@@ -864,6 +864,45 @@ func ExecuteTask(workflowtaskid int64, NodeData wftype.Node, idbTx *sql.Tx, DocD
 		}
 
 		return nil, nil
+
+	} else if NodeData.Type == "outbound" {
+		// Handle Outbound node — calls an Integration Hub outbound endpoint
+		internaltransaction := false
+		err := error(nil)
+
+		if idbTx == nil {
+			idbTx, err = dbconn.DB.Begin()
+			if err != nil {
+				iLog.Error(fmt.Sprintf("Error in creating DB connection: %s", err))
+				return nil, err
+			}
+			internaltransaction = true
+			defer idbTx.Rollback()
+		}
+
+		if DocDBCon == nil {
+			DocDBCon = documents.DocDBCon
+			defer DocDBCon.MongoDBClient.Disconnect(context.Background())
+		}
+
+		wft := NewWorkFlowTaskType(workflowtaskid, UserName)
+		wft.DBTx = idbTx
+		wft.DocDBCon = DocDBCon
+
+		wft.UpdateTaskStatus(2) // In Progress / started
+
+		err = ExecuteOutbound(workflowtaskid, NodeData, idbTx, DocDBCon, UserName)
+		if err != nil {
+			wft.UpdateTaskStatus(4) // executed with Error
+			return nil, err
+		}
+
+		wft.CompleteTask()
+
+		if internaltransaction {
+			idbTx.Commit()
+		}
+
 		return nil, nil
 	}
 

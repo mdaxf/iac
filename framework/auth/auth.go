@@ -69,13 +69,17 @@ func GetUserInformation(c *gin.Context) (string, string, string, error) {
 		}()  */
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
-		log.Error(fmt.Sprintf("Missing Authorization header"))
+		log.Debug(fmt.Sprintf("No Authorization header for %s %s — request is unauthenticated", c.Request.Method, c.Request.URL.Path))
 		return "", "", "", nil
 	}
 
 	bearerToken := strings.Split(authHeader, " ")
-	if len(bearerToken) != 2 || strings.ToLower(bearerToken[0]) != "bearer" {
+	if len(bearerToken) != 2 || (strings.ToLower(bearerToken[0]) != "bearer" && strings.ToLower(bearerToken[0]) != "apikey") {
 		log.Error(fmt.Sprintf("Invalid token format: %s", authHeader))
+		return "", "", "", nil
+	}
+	// APIKey tokens authenticate the client but carry no user identity in the token itself
+	if strings.ToLower(bearerToken[0]) == "apikey" {
 		return "", "", "", nil
 	}
 	tokenString := bearerToken[1]
@@ -241,7 +245,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		authHeader := c.GetHeader("Authorization")
 		//	log.Debug(fmt.Sprintf("Authorization Header:%s %s", authHeader, c.Request.URL.Path))
 
-		if c.Request.URL.Path == "/favicon.ico" || c.Request.URL.Path == "/user/login" || c.Request.URL.Path == "/user/changepwd" || strings.Contains(c.Request.URL.Path, "/user/image") || strings.Contains(c.Request.URL.Path, "/portal") {
+		if c.Request.URL.Path == "/favicon.ico" || c.Request.URL.Path == "/user/login" || c.Request.URL.Path == "/user/changepwd" || c.Request.URL.Path == "/config/sso" || strings.Contains(c.Request.URL.Path, "/user/image") || strings.Contains(c.Request.URL.Path, "/portal") {
 			//	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing Authorization header"})
 			return
 		} else if authHeader == "" {

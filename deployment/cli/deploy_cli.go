@@ -15,7 +15,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -97,7 +96,7 @@ func handlePackage(pkgType, name, version, tables, collections, output string) {
 		}
 
 		// Initialize database
-		dbconn.InitializeDB()
+		dbconn.ConnectDB()
 
 		dbTx, err := dbconn.DB.Begin()
 		if err != nil {
@@ -141,7 +140,7 @@ func handlePackage(pkgType, name, version, tables, collections, output string) {
 		}
 
 		// Initialize document database
-		docDB, err := documents.InitMongoDB(documents.DatabaseConnection, documents.DatabaseName)
+		docDB, err := documents.InitMongoDB("mongodb://localhost:27017", "IAC_CFG")
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
@@ -199,7 +198,7 @@ func handleDeploy(deployType, input string, update, dryRun bool) {
 
 	if deployType == "database" {
 		// Database deployment
-		dbconn.InitializeDB()
+		dbconn.ConnectDB()
 
 		dbTx, err := dbconn.DB.Begin()
 		if err != nil {
@@ -239,7 +238,7 @@ func handleDeploy(deployType, input string, update, dryRun bool) {
 
 	} else if deployType == "document" {
 		// Document deployment
-		docDB, err := documents.InitMongoDB(documents.DatabaseConnection, documents.DatabaseName)
+		docDB, err := documents.InitMongoDB("mongodb://localhost:27017", "IAC_CFG")
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
@@ -267,7 +266,7 @@ func handleDeploy(deployType, input string, update, dryRun bool) {
 func handleVersion(action, objectType, objectID, branch, message string) {
 	fmt.Printf("Version control: %s\n", action)
 
-	docDB, err := documents.InitMongoDB(documents.DatabaseConnection, documents.DatabaseName)
+	docDB, err := documents.InitMongoDB("mongodb://localhost:27017", "IAC_CFG")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
@@ -287,12 +286,7 @@ func handleVersion(action, objectType, objectID, branch, message string) {
 			os.Exit(1)
 		}
 
-		// Get current document
-		collection := docDB.MongoDBDatabase.Collection(objectType)
-		var doc map[string]interface{}
 		// Simplified - would need proper ObjectID parsing
-		// err := collection.FindOne(context.Background(), bson.M{"_id": objectID}).Decode(&doc)
-
 		fmt.Printf("Would commit %s: %s to branch %s\n", objectType, objectID, branch)
 		fmt.Printf("Message: %s\n", message)
 

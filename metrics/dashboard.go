@@ -194,6 +194,15 @@ func (d *Dashboard) handleHealth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(health)
 }
 
+// calcAvgMs returns the average query duration in milliseconds
+func calcAvgMs(m *dbconn.QueryMetrics) float64 {
+	total := m.TotalQueries + m.TotalExecs
+	if total == 0 {
+		return 0
+	}
+	return float64(m.TotalDuration.Milliseconds()) / float64(total)
+}
+
 // collectAllMetrics collects metrics from all databases
 func (d *Dashboard) collectAllMetrics() map[string]*DatabaseMetrics {
 	if d.collector == nil {
@@ -204,25 +213,25 @@ func (d *Dashboard) collectAllMetrics() map[string]*DatabaseMetrics {
 	result := make(map[string]*DatabaseMetrics)
 
 	for dbType, m := range allMetrics {
-		result[dbType] = &DatabaseMetrics{
-			Type:   dbType,
+		result[string(dbType)] = &DatabaseMetrics{
+			Type:   string(dbType),
 			Status: d.getStatus(m),
 			ConnectionPool: ConnectionPoolStats{
-				Active:   m.ActiveConnections,
-				Idle:     m.IdleConnections,
-				MaxOpen:  m.MaxOpenConnections,
-				MaxIdle:  m.MaxIdleConnections,
+				Active:  0,
+				Idle:    0,
+				MaxOpen: 0,
+				MaxIdle: 0,
 			},
 			QueryStats: QueryStats{
 				Total:       m.TotalQueries,
 				Success:     m.TotalQueries - m.TotalErrors,
 				Errors:      m.TotalErrors,
 				Slow:        m.SlowQueries,
-				AvgDuration: m.AvgQueryDuration,
+				AvgDuration: calcAvgMs(m),
 			},
 			Performance: PerformanceStats{
-				QueriesPerSecond: m.QueriesPerSecond,
-				AvgLatency:       m.AvgQueryDuration,
+				QueriesPerSecond: 0,
+				AvgLatency:       calcAvgMs(m),
 				ByType: map[string]int64{
 					"select": m.SelectQueries,
 					"insert": m.InsertQueries,
@@ -412,68 +421,47 @@ const dashboardHTML = `
 
                 // Render summary
                 const summary = document.getElementById('summary');
-                summary.innerHTML = \`
-                    <div class="card">
-                        <h3>Total Databases</h3>
-                        <div class="value">\${data.total_databases}</div>
-                        <div class="label">\${data.healthy_count} healthy</div>
-                    </div>
-                    <div class="card">
-                        <h3>Total Queries</h3>
-                        <div class="value">\${formatNumber(data.total_queries)}</div>
-                        <div class="label">All databases</div>
-                    </div>
-                    <div class="card">
-                        <h3>Total Errors</h3>
-                        <div class="value">\${formatNumber(data.total_errors)}</div>
-                        <div class="label">\${data.avg_error_rate.toFixed(2)}% error rate</div>
-                    </div>
-                    <div class="card">
-                        <h3>Last Updated</h3>
-                        <div class="value" style="font-size: 16px;">\${new Date(data.timestamp).toLocaleTimeString()}</div>
-                        <div class="label">\${new Date(data.timestamp).toLocaleDateString()}</div>
-                    </div>
-                \`;
+                summary.innerHTML =
+                    '<div class="card"><h3>Total Databases</h3>' +
+                    '<div class="value">' + data.total_databases + '</div>' +
+                    '<div class="label">' + data.healthy_count + ' healthy</div></div>' +
+                    '<div class="card"><h3>Total Queries</h3>' +
+                    '<div class="value">' + formatNumber(data.total_queries) + '</div>' +
+                    '<div class="label">All databases</div></div>' +
+                    '<div class="card"><h3>Total Errors</h3>' +
+                    '<div class="value">' + formatNumber(data.total_errors) + '</div>' +
+                    '<div class="label">' + data.avg_error_rate.toFixed(2) + '% error rate</div></div>' +
+                    '<div class="card"><h3>Last Updated</h3>' +
+                    '<div class="value" style="font-size: 16px;">' + new Date(data.timestamp).toLocaleTimeString() + '</div>' +
+                    '<div class="label">' + new Date(data.timestamp).toLocaleDateString() + '</div></div>';
 
                 // Render databases
                 const databases = document.getElementById('databases');
-                dbconn.innerHTML = Object.entries(data.databases).map(([type, db]) => \`
-                    <div class="db-card">
-                        <div class="db-header">
-                            <div class="db-name">\${type.toUpperCase()}</div>
-                            <div class="status \${db.status}">\${db.status}</div>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">Active Connections</span>
-                            <span class="metric-value">\${db.connection_pool.active} / \${db.connection_pool.max_open}</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">Total Queries</span>
-                            <span class="metric-value">\${formatNumber(db.query_stats.total)}</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">Errors</span>
-                            <span class="metric-value">\${formatNumber(db.query_stats.errors)} (\${db.error_rate.toFixed(2)}%)</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">Slow Queries</span>
-                            <span class="metric-value">\${formatNumber(db.query_stats.slow)}</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">Avg Duration</span>
-                            <span class="metric-value">\${formatDuration(db.query_stats.avg_duration_ms)}</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">QPS</span>
-                            <span class="metric-value">\${db.performance.queries_per_second.toFixed(2)}</span>
-                        </div>
-                    </div>
-                \`).join('');
+                databases.innerHTML = Object.entries(data.databases).map(function(entry) {
+                    var type = entry[0]; var db = entry[1];
+                    return '<div class="db-card">' +
+                        '<div class="db-header">' +
+                        '<div class="db-name">' + type.toUpperCase() + '</div>' +
+                        '<div class="status ' + db.status + '">' + db.status + '</div>' +
+                        '</div>' +
+                        '<div class="metric-row"><span class="metric-label">Active Connections</span>' +
+                        '<span class="metric-value">' + db.connection_pool.active + ' / ' + db.connection_pool.max_open + '</span></div>' +
+                        '<div class="metric-row"><span class="metric-label">Total Queries</span>' +
+                        '<span class="metric-value">' + formatNumber(db.query_stats.total) + '</span></div>' +
+                        '<div class="metric-row"><span class="metric-label">Errors</span>' +
+                        '<span class="metric-value">' + formatNumber(db.query_stats.errors) + ' (' + db.error_rate.toFixed(2) + '%)</span></div>' +
+                        '<div class="metric-row"><span class="metric-label">Slow Queries</span>' +
+                        '<span class="metric-value">' + formatNumber(db.query_stats.slow) + '</span></div>' +
+                        '<div class="metric-row"><span class="metric-label">Avg Duration</span>' +
+                        '<span class="metric-value">' + formatDuration(db.query_stats.avg_duration_ms) + '</span></div>' +
+                        '<div class="metric-row"><span class="metric-label">QPS</span>' +
+                        '<span class="metric-value">' + db.performance.queries_per_second.toFixed(2) + '</span></div>' +
+                        '</div>';
+                }).join('');
 
             } catch (error) {
-                document.getElementById('error').innerHTML = \`
-                    <div class="error">Error loading metrics: \${error.message}</div>
-                \`;
+                document.getElementById('error').innerHTML =
+                    '<div class="error">Error loading metrics: ' + error.message + '</div>';
             }
         }
 

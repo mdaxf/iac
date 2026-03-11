@@ -28,6 +28,7 @@ const (
 	JobTypeScheduled
 	JobTypeManual
 	JobTypeSystem
+	JobTypeAgent
 )
 
 // JobDirection represents the direction of message flow

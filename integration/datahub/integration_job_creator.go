@@ -107,7 +107,7 @@ func (ijc *IntegrationJobCreator) createJob(ctx context.Context, jobDef *JobDefi
 	// Create job metadata
 	metadata := map[string]interface{}{
 		"source":             "datahub",
-		"protocol":           protocol,
+		"protocol":           messageData["protocol"],
 		"topic":              jobDef.Trigger.Topic,
 		"job_definition_id":  jobDef.ID,
 		"job_definition_name": jobDef.Name,

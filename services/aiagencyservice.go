@@ -42,18 +42,6 @@ func NewAIAgencyService(
 		ControllerName: "AIAgencyService",
 	}
 
-	// Auto-migrate the conversation sessions table (only if it doesn't exist)
-	migrator := db.Migrator()
-	if !migrator.HasTable(&models.AIConversationSession{}) {
-		if err := db.AutoMigrate(&models.AIConversationSession{}); err != nil {
-			iLog.Error(fmt.Sprintf("Failed to auto-migrate AIConversationSession table: %v", err))
-		} else {
-			iLog.Info("AIConversationSession table created successfully")
-		}
-	} else {
-		iLog.Debug("AIConversationSession table already exists, skipping migration")
-	}
-
 	return &AIAgencyService{
 		DB:                     db,
 		OpenAIKey:              openAIKey,

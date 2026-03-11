@@ -101,19 +101,21 @@ type IndexInfo struct {
 
 // PKMapping defines how primary keys should be handled
 type PKMapping struct {
-	TableName       string   `json:"table_name"`
-	PKColumns       []string `json:"pk_columns"`
-	IsAutoIncrement bool     `json:"is_auto_increment"`
-	SequenceName    string   `json:"sequence_name,omitempty"`
-	Strategy        string   `json:"strategy"` // "auto_increment", "sequence", "preserve" (UUIDs use preserve as they are globally unique)
+	TableName        string   `json:"table_name"`
+	PKColumns        []string `json:"pk_columns"`
+	IsAutoIncrement  bool     `json:"is_auto_increment"`
+	SequenceName     string   `json:"sequence_name,omitempty"`
+	Strategy         string   `json:"strategy"`                         // "auto_increment", "sequence", "preserve"
+	GlobalKeyColumns []string `json:"global_key_columns,omitempty"`     // Natural-key columns for global upsert (e.g. ["name","version"])
 }
 
 // IDMapping defines how document IDs should be handled
 type IDMapping struct {
-	CollectionName  string `json:"collection_name"`
-	IDField         string `json:"id_field"`
-	IDType          string `json:"id_type"`     // "objectid", "uuid", "string", "int"
-	Strategy        string `json:"strategy"`    // "regenerate", "preserve", "skip"
+	CollectionName  string   `json:"collection_name"`
+	IDField         string   `json:"id_field"`
+	IDType          string   `json:"id_type"`                    // "objectid", "uuid", "string", "int"
+	Strategy        string   `json:"strategy"`                   // "regenerate", "preserve", "skip"
+	GlobalKeyFields []string `json:"global_key_fields,omitempty"` // Fields used as global key for upsert (e.g. ["name","version"])
 }
 
 // Relationship tracks foreign key relationships for rebuilding
@@ -156,13 +158,43 @@ type DeploymentRecord struct {
 
 // PackageFilter defines criteria for package selection
 type PackageFilter struct {
-	Tables           []string               `json:"tables,omitempty"`
-	Collections      []string               `json:"collections,omitempty"`
-	WhereClause      map[string]string      `json:"where_clause,omitempty"`      // Table/Collection -> WHERE condition
-	IncludeRelated   bool                   `json:"include_related"`             // Auto-include related records
-	MaxDepth         int                    `json:"max_depth"`                   // Max depth for relationship traversal
-	ExcludeColumns   map[string][]string    `json:"exclude_columns,omitempty"`   // Table -> columns to exclude
-	ExcludeFields    map[string][]string    `json:"exclude_fields,omitempty"`    // Collection -> fields to exclude
+	Tables              []string            `json:"tables,omitempty"`
+	Collections         []string            `json:"collections,omitempty"`
+	WhereClause         map[string]string   `json:"where_clause,omitempty"`        // Table/Collection -> WHERE condition
+	IncludeRelated      bool                `json:"include_related"`               // Auto-include related records
+	MaxDepth            int                 `json:"max_depth"`                     // Max depth for relationship traversal
+	ExcludeColumns      map[string][]string `json:"exclude_columns,omitempty"`     // Table -> columns to exclude
+	ExcludeFields       map[string][]string `json:"exclude_fields,omitempty"`      // Collection -> fields to exclude
+	SelectRelations     map[string][]string `json:"select_relations,omitempty"`    // Table -> FK columns to explicitly follow (empty = follow all)
+	ExcludeRelations    map[string][]string `json:"exclude_relations,omitempty"`   // Table -> FK columns NOT to follow
+	GlobalKeyColumns    map[string][]string `json:"global_key_columns,omitempty"`  // Table/Collection -> global key columns/fields
+}
+
+// AnalysisResult contains pre-packaging analysis of tables/collections
+type AnalysisResult struct {
+	PackageType string                  `json:"package_type"` // "database" or "document"
+	Entities    []EntityAnalysis        `json:"entities"`
+	Relationships []RelationshipAnalysis `json:"relationships"`
+}
+
+// EntityAnalysis contains analysis of a single table or collection
+type EntityAnalysis struct {
+	Name                string     `json:"name"`
+	EntityType          string     `json:"entity_type"`   // "table" or "collection"
+	RowCount            int        `json:"row_count"`
+	Columns             []ColumnInfo `json:"columns,omitempty"` // only for tables
+	PKColumns           []string   `json:"pk_columns,omitempty"`
+	GlobalKeyCandidates [][]string `json:"global_key_candidates,omitempty"` // suggested natural key combos
+}
+
+// RelationshipAnalysis describes a discovered relationship between entities
+type RelationshipAnalysis struct {
+	SourceEntity    string `json:"source_entity"`
+	SourceColumn    string `json:"source_column"`
+	TargetEntity    string `json:"target_entity"`
+	TargetColumn    string `json:"target_column"`
+	ConstraintName  string `json:"constraint_name,omitempty"`
+	IncludeByDefault bool  `json:"include_by_default"` // recommended default
 }
 
 // DeploymentOptions configures deployment behavior

@@ -1,4 +1,6 @@
-// Copyright 2023 IAC. All Rights Reserved.
+//go:build ignore
+// +build ignore
+Copyright 2023 IAC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,7 +47,8 @@ func main() {
 }
 
 func basicBackupExample() {
-	fmt.Println("\n1. Basic Backup")
+	fmt.Println("
+1. Basic Backup")
 	fmt.Println("----------------")
 
 	// Create backup manager with default config
@@ -82,7 +85,8 @@ func basicBackupExample() {
 }
 
 func customConfigExample() {
-	fmt.Println("\n2. Custom Backup Configuration")
+	fmt.Println("
+2. Custom Backup Configuration")
 	fmt.Println("--------------------------------")
 
 	// Configure backup manager
@@ -102,35 +106,50 @@ func customConfigExample() {
 	}
 
 	fmt.Println("Backup Configuration:")
-	fmt.Printf("  Backup Directory: %s\n", config.BackupDir)
-	fmt.Printf("  Format: %s\n", config.Format)
-	fmt.Printf("  Compression: %v\n", config.Compression)
-	fmt.Printf("  Max Backups: %d\n", config.MaxBackups)
-	fmt.Printf("  Retention: %d days\n", config.RetentionDays)
-	fmt.Printf("  Verification: %v\n", config.VerifyBackup)
-	fmt.Printf("  Schedule: %s\n", config.ScheduleExpression)
+	fmt.Printf("  Backup Directory: %s
+", config.BackupDir)
+	fmt.Printf("  Format: %s
+", config.Format)
+	fmt.Printf("  Compression: %v
+", config.Compression)
+	fmt.Printf("  Max Backups: %d
+", config.MaxBackups)
+	fmt.Printf("  Retention: %d days
+", config.RetentionDays)
+	fmt.Printf("  Verification: %v
+", config.VerifyBackup)
+	fmt.Printf("  Schedule: %s
+", config.ScheduleExpression)
 
 	_ = bm // Use bm to avoid unused variable error
 }
 
 func manageBackupsExample() {
-	fmt.Println("\n3. Manage Backups")
+	fmt.Println("
+3. Manage Backups")
 	fmt.Println("------------------")
 
 	bm, _ := dbconn.NewBackupManager(nil)
 
 	// List all backups
 	backups := bm.ListBackups()
-	fmt.Printf("Total backups: %d\n", len(backups))
+	fmt.Printf("Total backups: %d
+", len(backups))
 
 	if len(backups) > 0 {
-		fmt.Println("\nBackup List:")
+		fmt.Println("
+Backup List:")
 		for _, backup := range backups {
-			fmt.Printf("  ID: %s\n", backup.ID)
-			fmt.Printf("    Database: %s (%s)\n", backup.DatabaseName, backup.DatabaseType)
-			fmt.Printf("    Created: %s\n", backup.CreatedAt.Format("2006-01-02 15:04:05"))
-			fmt.Printf("    Size: %d bytes\n", backup.FileSize)
-			fmt.Printf("    Verified: %v\n", backup.Verified)
+			fmt.Printf("  ID: %s
+", backup.ID)
+			fmt.Printf("    Database: %s (%s)
+", backup.DatabaseName, backup.DatabaseType)
+			fmt.Printf("    Created: %s
+", backup.CreatedAt.Format("2006-01-02 15:04:05"))
+			fmt.Printf("    Size: %d bytes
+", backup.FileSize)
+			fmt.Printf("    Verified: %v
+", backup.Verified)
 			fmt.Println()
 		}
 
@@ -139,8 +158,10 @@ func manageBackupsExample() {
 			firstBackup := backups[0]
 			backup, err := bm.GetBackup(firstBackup.ID)
 			if err == nil {
-				fmt.Printf("Retrieved backup: %s\n", backup.ID)
-				fmt.Printf("  Path: %s\n", backup.FilePath)
+				fmt.Printf("Retrieved backup: %s
+", backup.ID)
+				fmt.Printf("  Path: %s
+", backup.FilePath)
 			}
 		}
 	} else {
@@ -149,7 +170,8 @@ func manageBackupsExample() {
 }
 
 func restoreExample() {
-	fmt.Println("\n4. Restore from Backup")
+	fmt.Println("
+4. Restore from Backup")
 	fmt.Println("-----------------------")
 
 	bm, _ := dbconn.NewBackupManager(nil)
@@ -172,15 +194,20 @@ func restoreExample() {
 	}
 
 	fmt.Println("Restore Options:")
-	fmt.Printf("  Drop Existing: %v\n", options.DropExisting)
-	fmt.Printf("  Create Database: %v\n", options.CreateDatabase)
-	fmt.Printf("  Skip Verification: %v\n", options.SkipVerification)
-	fmt.Printf("  Target Database: %s\n", options.TargetDatabase)
+	fmt.Printf("  Drop Existing: %v
+", options.DropExisting)
+	fmt.Printf("  Create Database: %v
+", options.CreateDatabase)
+	fmt.Printf("  Skip Verification: %v
+", options.SkipVerification)
+	fmt.Printf("  Target Database: %s
+", options.TargetDatabase)
 
 	// In production:
 	// err = bm.Restore(ctx, db, "backup_id_here", options)
 	// For this example:
-	fmt.Println("\nRestoring backup...")
+	fmt.Println("
+Restoring backup...")
 	fmt.Println("  Status: Restore completed successfully (simulated)")
 	fmt.Println("  Records restored: 1,234,567")
 	fmt.Println("  Duration: 45 seconds")
@@ -189,7 +216,8 @@ func restoreExample() {
 }
 
 func scheduledBackupExample() {
-	fmt.Println("\n5. Scheduled Backups")
+	fmt.Println("
+5. Scheduled Backups")
 	fmt.Println("---------------------")
 
 	config := dbconn.DefaultBackupConfig()
@@ -204,7 +232,8 @@ func scheduledBackupExample() {
 
 	// Start scheduler
 	fmt.Println("Starting backup scheduler...")
-	fmt.Printf("  Schedule: %s (2 AM daily)\n", config.ScheduleExpression)
+	fmt.Printf("  Schedule: %s (2 AM daily)
+", config.ScheduleExpression)
 
 	// In production:
 	// bm.StartScheduler(ctx, db, "mysql", "production_db")
@@ -218,7 +247,8 @@ func scheduledBackupExample() {
 
 // Complete example with MySQL
 func completeMySQLExample() {
-	fmt.Println("\n6. Complete MySQL Backup Example")
+	fmt.Println("
+6. Complete MySQL Backup Example")
 	fmt.Println("----------------------------------")
 
 	// Configure for MySQL
@@ -244,9 +274,12 @@ func completeMySQLExample() {
 	// defer db.Close()
 
 	fmt.Println("MySQL Backup Configuration:")
-	fmt.Printf("  Backup Directory: %s\n", config.BackupDir)
-	fmt.Printf("  Format: %s (with compression)\n", config.Format)
-	fmt.Printf("  Retention: Keep %d backups for %d days\n",
+	fmt.Printf("  Backup Directory: %s
+", config.BackupDir)
+	fmt.Printf("  Format: %s (with compression)
+", config.Format)
+	fmt.Printf("  Retention: Keep %d backups for %d days
+",
 		config.MaxBackups, config.RetentionDays)
 
 	// Create backup
@@ -256,7 +289,8 @@ func completeMySQLExample() {
 	// 	log.Fatalf("Backup failed: %v", err)
 	// }
 
-	fmt.Println("\nBackup Process:")
+	fmt.Println("
+Backup Process:")
 	fmt.Println("  1. Connecting to database...")
 	fmt.Println("  2. Locking tables for consistent snapshot...")
 	fmt.Println("  3. Dumping database schema...")
@@ -265,18 +299,25 @@ func completeMySQLExample() {
 	fmt.Println("  6. Verifying backup integrity...")
 	fmt.Println("  7. Cleaning up old backups...")
 
-	// fmt.Printf("\nBackup completed:\n")
-	// fmt.Printf("  Backup ID: %s\n", backup.ID)
-	// fmt.Printf("  File: %s\n", backup.FilePath)
-	// fmt.Printf("  Size: %d bytes\n", backup.FileSize)
-	// fmt.Printf("  Duration: %v\n", time.Since(backup.CreatedAt))
+	// fmt.Printf("
+Backup completed:
+")
+	// fmt.Printf("  Backup ID: %s
+", backup.ID)
+	// fmt.Printf("  File: %s
+", backup.FilePath)
+	// fmt.Printf("  Size: %d bytes
+", backup.FileSize)
+	// fmt.Printf("  Duration: %v
+", time.Since(backup.CreatedAt))
 
 	_ = ctx
 }
 
 // Complete example with PostgreSQL
 func completePostgreSQLExample() {
-	fmt.Println("\n7. Complete PostgreSQL Backup Example")
+	fmt.Println("
+7. Complete PostgreSQL Backup Example")
 	fmt.Println("---------------------------------------")
 
 	config := &dbconn.BackupConfig{
@@ -294,9 +335,12 @@ func completePostgreSQLExample() {
 	}
 
 	fmt.Println("PostgreSQL Backup Configuration:")
-	fmt.Printf("  Backup Directory: %s\n", config.BackupDir)
-	fmt.Printf("  Format: %s (pg_dump custom format)\n", config.Format)
-	fmt.Printf("  Retention: Keep last %d backups\n", config.MaxBackups)
+	fmt.Printf("  Backup Directory: %s
+", config.BackupDir)
+	fmt.Printf("  Format: %s (pg_dump custom format)
+", config.Format)
+	fmt.Printf("  Retention: Keep last %d backups
+", config.MaxBackups)
 
 	// Connect to PostgreSQL
 	// db, err := sql.Open("postgres",
@@ -311,13 +355,15 @@ func completePostgreSQLExample() {
 	// Create backup
 	// backup, err := bm.Backup(ctx, db, "postgres", "mydb")
 
-	fmt.Println("\nBackup Process:")
+	fmt.Println("
+Backup Process:")
 	fmt.Println("  Using pg_dump with custom format...")
 	fmt.Println("  Compression level: 9 (maximum)")
 	fmt.Println("  Status: Backup completed successfully (simulated)")
 
 	// Restore example
-	fmt.Println("\nRestore Process:")
+	fmt.Println("
+Restore Process:")
 	options := &dbconn.RestoreOptions{
 		DropExisting:   false,
 		CreateDatabase: false,
@@ -325,7 +371,8 @@ func completePostgreSQLExample() {
 	}
 
 	// err = bm.Restore(ctx, db, backup.ID, options)
-	fmt.Printf("  Restoring to: %s\n", options.TargetDatabase)
+	fmt.Printf("  Restoring to: %s
+", options.TargetDatabase)
 	fmt.Println("  Using pg_restore...")
 	fmt.Println("  Status: Restore completed (simulated)")
 
@@ -334,7 +381,8 @@ func completePostgreSQLExample() {
 
 // Point-in-time recovery example
 func pointInTimeRecoveryExample() {
-	fmt.Println("\n8. Point-in-Time Recovery")
+	fmt.Println("
+8. Point-in-Time Recovery")
 	fmt.Println("--------------------------")
 
 	bm, _ := dbconn.NewBackupManager(nil)
@@ -354,8 +402,11 @@ func pointInTimeRecoveryExample() {
 		// PointInTime:  &targetTime,
 	}
 
-	fmt.Printf("\nRestore Options:\n")
-	fmt.Printf("  Drop Existing: %v\n", options.DropExisting)
+	fmt.Printf("
+Restore Options:
+")
+	fmt.Printf("  Drop Existing: %v
+", options.DropExisting)
 	fmt.Println("  Target Time: 2025-01-15 14:30:00")
 	fmt.Println("  Status: Recovery completed (simulated)")
 

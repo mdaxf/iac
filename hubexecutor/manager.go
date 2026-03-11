@@ -60,6 +60,13 @@ func NewHubExecutorManager(config ManagerConfig) *HubExecutorManager {
 		manager.destExecutor = NewDestinationExecutor()
 	}
 
+	// Set history recorder on destination executor if available
+	if manager.historyRecorder != nil {
+		if destExec, ok := manager.destExecutor.(*DefaultDestinationExecutor); ok {
+			destExec.SetHistoryRecorder(manager.historyRecorder)
+		}
+	}
+
 	return manager
 }
 
@@ -92,6 +99,11 @@ func (m *HubExecutorManager) StartExecutor(hubName string) error {
 	// Check if hub is enabled
 	if !hub.Enabled {
 		return fmt.Errorf("hub %s is not enabled", hub.Name)
+	}
+
+	// Set hub info on destination executor for history recording
+	if destExec, ok := m.destExecutor.(*DefaultDestinationExecutor); ok {
+		destExec.SetHubInfo(hub.ID, hub.Name)
 	}
 
 	// Create and start executor
@@ -151,6 +163,11 @@ func (m *HubExecutorManager) StartExecutorByHubID(hubID string) error {
 	// Check if hub is enabled
 	if !hub.Enabled {
 		return fmt.Errorf("hub %s is not enabled", hub.Name)
+	}
+
+	// Set hub info on destination executor for history recording
+	if destExec, ok := m.destExecutor.(*DefaultDestinationExecutor); ok {
+		destExec.SetHubInfo(hub.ID, hub.Name)
 	}
 
 	// Create and start executor
@@ -515,5 +532,12 @@ type JobExecutorFunc func(ctx context.Context, jobName string, params map[string
 func (m *HubExecutorManager) SetJobExecutor(executor JobExecutorFunc) {
 	if destExec, ok := m.destExecutor.(*DefaultDestinationExecutor); ok {
 		destExec.SetJobExecutor(executor)
+	}
+}
+
+// SetAgentGatewayExecutor sets the agent gateway execution callback on the destination executor.
+func (m *HubExecutorManager) SetAgentGatewayExecutor(fn func(ctx context.Context, gatewayID, input string) (string, error)) {
+	if destExec, ok := m.destExecutor.(*DefaultDestinationExecutor); ok {
+		destExec.SetAgentGatewayExecutor(fn)
 	}
 }

@@ -53,12 +53,22 @@ type HubDirection struct {
 	ProtocolGroups []HubSimpleProtocolGroup `json:"protocol_groups" bson:"protocol_groups"`
 }
 
+// MCPProtocolConfig holds MCP server connection settings for Integration Hub protocol groups.
+// Used when Protocol == "MCP" to route outbound messages to an MCP tool via JSON-RPC 2.0.
+type MCPProtocolConfig struct {
+	ServerURL  string            `json:"server_url" bson:"server_url"`   // MCP server base URL (e.g. http://localhost:3000)
+	MCPPath    string            `json:"mcp_path" bson:"mcp_path"`       // JSON-RPC endpoint path (default "/mcp")
+	ToolName   string            `json:"tool_name" bson:"tool_name"`     // MCP tool to invoke
+	Headers    map[string]string `json:"headers" bson:"headers"`         // Extra HTTP headers
+	TimeoutSec int               `json:"timeout_sec" bson:"timeout_sec"` // Per-call timeout in seconds (default 30)
+}
+
 // HubSimpleProtocolGroup represents a protocol group with its endpoints
 type HubSimpleProtocolGroup struct {
 	ID            string                 `json:"id" bson:"id"`
 	Name          string                 `json:"name" bson:"name"`
 	Description   string                 `json:"description" bson:"description"`
-	Protocol      string                 `json:"protocol" bson:"protocol"` // HTTP, HTTPS, REST, SOAP, MQTT, AMQP, Kafka, etc.
+	Protocol      string                 `json:"protocol" bson:"protocol"` // HTTP, HTTPS, REST, SOAP, MQTT, AMQP, Kafka, MCP, etc.
 	MessageType   string                 `json:"message_type" bson:"message_type"`
 	Timeout       int                    `json:"timeout" bson:"timeout"`
 	RetryAttempts int                    `json:"retry_attempts" bson:"retry_attempts"`
@@ -69,6 +79,9 @@ type HubSimpleProtocolGroup struct {
 
 	// Message Bus Configuration (for MQTT, AMQP, Kafka, etc.)
 	BrokerConfig *MessageBrokerConfig `json:"broker_config,omitempty" bson:"broker_config,omitempty"`
+
+	// MCP Configuration (for Protocol == "MCP")
+	MCPConfig *MCPProtocolConfig `json:"mcp_config,omitempty" bson:"mcp_config,omitempty"`
 
 	Endpoints []HubSimpleEndpoint    `json:"endpoints" bson:"endpoints"`
 	Enabled   bool                   `json:"enabled" bson:"enabled"`

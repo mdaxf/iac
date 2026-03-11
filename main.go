@@ -39,6 +39,7 @@ import (
 	mongodb "github.com/mdaxf/iac/documents"
 	funcs "github.com/mdaxf/iac/engine/function"
 	"github.com/mdaxf/iac/framework/jobqueue"
+	workflow "github.com/mdaxf/iac/workflow"
 	"github.com/mdaxf/iac/framework/middleware"
 	"github.com/mdaxf/iac/gormdb"
 	"github.com/mdaxf/iac/hubexecutor"
@@ -246,7 +247,17 @@ func main() {
 
 	ilog.Info("Initializing IAC application server...")
 
-	router = gin.Default()
+	// Use gin.New() + explicit Logger so we can suppress health-check / root-path
+	// request noise.  gin.Default() would include the same Logger + Recovery but
+	// with no path-skip capability.
+	router = gin.New()
+	router.Use(gin.LoggerWithConfig(gin.LoggerConfig{
+		// Suppress successful GET requests on paths that are polled by load-balancers
+		// and health monitors – they flood logs without adding diagnostic value.
+		// Non-2xx responses on these paths are still emitted (skip func returns false).
+		SkipPaths: []string{"/", "/health/check", "/health", "/status"},
+	}))
+	router.Use(gin.Recovery())
 	// Ensure CORS middleware is registered early so it runs even for preflight requests
 	router.Use(CORSMiddleware("*"))
 
@@ -469,7 +480,43 @@ func initializeAITaskAccessor() {
 		return configuration.GetAIConfig()
 	})
 
-	log.Println("AI task accessor initialized successfully")
+	// Wire up agent runtime callbacks — use lazy service lookup so the functions
+	// are registered immediately but services are resolved at call time (after
+	// controller initialization completes).
+	funcs.InitializeAgentRuntime(
+		func(ctx context.Context, agentID, agentName, prompt string, timeoutSecs int) (string, error) {
+			runner := services.GetGlobalAgentRunnerService()
+			if runner == nil {
+				return "", fmt.Errorf("agent runner service not available")
+			}
+			return runner.RunSync(ctx, agentID, agentName, prompt, timeoutSecs)
+		},
+		func(ctx context.Context, skillName, argsJSON string) (string, error) {
+			registry := services.GetGlobalToolRegistry()
+			if registry == nil {
+				return "", fmt.Errorf("tool registry not available")
+			}
+			return registry.ExecuteTool(ctx, skillName, argsJSON)
+		},
+	)
+
+	// Wire up Integration Hub outbound send function for BPM engine and workflow nodes.
+	// Uses lazy lookup of the global hub manager so it works regardless of init order.
+	outboundSendFn := func(ctx context.Context, hubID, protocolGroupID, endpointID string, payload []byte, contentType, method string) (string, int, error) {
+		mgr := hubexecutor.GetGlobalManager()
+		if mgr == nil {
+			return "", 0, fmt.Errorf("hub executor manager not initialized")
+		}
+		result, err := mgr.SendToEndpoint(ctx, hubID, protocolGroupID, endpointID, payload, contentType, method)
+		if err != nil {
+			return "", 0, err
+		}
+		return result.ResponseBody, result.StatusCode, nil
+	}
+	funcs.InitializeOutboundRuntime(outboundSendFn)
+	workflow.InitializeOutboundRuntime(outboundSendFn)
+
+	log.Println("AI task accessor and agent runtime callbacks initialized successfully")
 }
 
 func waitForTerminationSignal() {
@@ -478,7 +525,13 @@ func waitForTerminationSignal() {
 	<-c
 	fmt.Println("\nShutting down...")
 
-	time.Sleep(2 * time.Second) // Add any cleanup or graceful shutdown logic here
+	// Gracefully stop all channel pollers — each sends its configured stop message
+	// to channel users before the goroutine exits.  Allow up to 15 s for delivery.
+	if monitorSvc := services.GetGlobalAgentMonitorService(); monitorSvc != nil {
+		fmt.Println("Stopping channel pollers and sending shutdown notifications...")
+		monitorSvc.StopAll(15 * time.Second)
+	}
+
 	os.Exit(0)
 }
 

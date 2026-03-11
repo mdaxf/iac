@@ -1,0 +1,4 @@
+-- Agent Channel Chat — OpenClaw Integration (v14)
+-- All channel data is stored in MongoDB (agent_channels, channel_user_mappings, agent_channel_sessions).
+-- This is a marker migration with no PostgreSQL schema changes.
+-- Run date: 2026-03-06

@@ -133,6 +133,7 @@ const (
 	PythonScript
 	AITask
 	AIAgent
+	Outbound
 )
 
 // String returns the string representation of FunctionType
@@ -190,6 +191,8 @@ func (ft FunctionType) String() string {
 		return "AITask"
 	case AIAgent:
 		return "AIAgent"
+	case Outbound:
+		return "Outbound"
 	default:
 		return "Unknown"
 	}

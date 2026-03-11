@@ -13,8 +13,15 @@ import (
 // AIAgentFuncs handles AI Agent and Skills execution
 type AIAgentFuncs struct{}
 
-// AIAgentConfig represents the configuration for an AI Agent/Skills call
+// AIAgentFuncConfig represents the configuration for an AI Agent/Skills call
 type AIAgentFuncConfig struct {
+	// ExecutionMode controls which execution path is taken:
+	//   "agent" — look up the agent by AgentID/AgentName and run it via the agent runner (ReAct loop)
+	//   "skill" — call each skill in Skills directly via the tool registry
+	//   ""      — legacy: build prompts and call the LLM directly
+	ExecutionMode string `json:"executionMode,omitempty"`
+	// AgentID is the UUID of the agent definition (preferred over AgentName)
+	AgentID      string              `json:"agentId,omitempty"`
 	AgentName    string              `json:"agentName,omitempty"`
 	Skills       []string            `json:"skills,omitempty"`
 	AIModel      string              `json:"aiModel,omitempty"`
@@ -24,7 +31,7 @@ type AIAgentFuncConfig struct {
 	Temperature  float64             `json:"temperature,omitempty"`
 	MaxTokens    int                 `json:"maxTokens,omitempty"`
 	Timeout      int                 `json:"timeout,omitempty"`
-	InputData    map[string]interface{} `json:"inputData,omitempty"` // Input values to pass to agent
+	InputData    map[string]interface{} `json:"inputData,omitempty"`
 }
 
 // Execute executes an AI Agent/Skills function
@@ -99,10 +106,26 @@ func (a *AIAgentFuncs) Execute(f *Funcs) {
 
 	f.iLog.Debug(fmt.Sprintf("AI Agent Config: %+v", agentConfig))
 
-	// Execute AI Agent
-	response, err := a.executeAIAgent(f, agentConfig)
-	if err != nil {
-		errMsg := fmt.Sprintf("AI Agent execution failed: %v", err)
+	// Choose execution path based on ExecutionMode
+	var response string
+	var execErr error
+
+	switch agentConfig.ExecutionMode {
+	case "agent":
+		// Run a named agent from the catalog via the AgentRunnerService (full ReAct loop)
+		f.iLog.Info(fmt.Sprintf("AI Agent node: running catalog agent id=%s name=%s", agentConfig.AgentID, agentConfig.AgentName))
+		response, execErr = a.executeViaAgentRuntime(f, agentConfig, inputValues)
+	case "skill":
+		// Call individual skills from the tool registry directly
+		f.iLog.Info(fmt.Sprintf("AI Agent node: executing skills %v", agentConfig.Skills))
+		response, execErr = a.executeViaSkills(f, agentConfig, inputValues)
+	default:
+		// Legacy path: build prompts and call LLM directly
+		response, execErr = a.executeAIAgent(f, agentConfig)
+	}
+
+	if execErr != nil {
+		errMsg := fmt.Sprintf("AI Agent execution failed: %v", execErr)
 		f.iLog.Error(errMsg)
 		f.ErrorMessage = errMsg
 		return
@@ -137,6 +160,61 @@ func (a *AIAgentFuncs) Execute(f *Funcs) {
 	f.FunctionOutputs = append(f.FunctionOutputs, outputs)
 
 	f.iLog.Info(fmt.Sprintf("End AI Agent Function: %s", f.Fobj.Name))
+}
+
+// executeViaAgentRuntime uses the injected RunAgentSyncFunc to run a catalog agent end-to-end.
+// The agent's own system prompt, skills, and MCP servers defined in Agent Studio are used;
+// the user prompt is built from agentConfig.UserPrompt with {{field}} substitution.
+func (a *AIAgentFuncs) executeViaAgentRuntime(f *Funcs, agentConfig AIAgentFuncConfig, inputValues map[string]interface{}) (string, error) {
+	if RunAgentSyncFunc == nil {
+		return "", fmt.Errorf("agent runtime not initialized (RunAgentSyncFunc is nil)")
+	}
+
+	// Build the task prompt
+	prompt := agentConfig.UserPrompt
+	if prompt == "" {
+		inputJSON, _ := json.MarshalIndent(inputValues, "", "  ")
+		prompt = fmt.Sprintf("Process the following data:\n\n%s", string(inputJSON))
+	} else {
+		for key, val := range inputValues {
+			prompt = strings.ReplaceAll(prompt, fmt.Sprintf("{{%s}}", key), fmt.Sprintf("%v", val))
+		}
+	}
+
+	ctx := context.Background()
+	return RunAgentSyncFunc(ctx, agentConfig.AgentID, agentConfig.AgentName, prompt, agentConfig.Timeout)
+}
+
+// executeViaSkills calls each skill in agentConfig.Skills sequentially via the injected
+// ExecuteSkillFunc and concatenates the results. Input values are passed as JSON arguments.
+func (a *AIAgentFuncs) executeViaSkills(f *Funcs, agentConfig AIAgentFuncConfig, inputValues map[string]interface{}) (string, error) {
+	if ExecuteSkillFunc == nil {
+		return "", fmt.Errorf("skill executor not initialized (ExecuteSkillFunc is nil)")
+	}
+	if len(agentConfig.Skills) == 0 {
+		return "", fmt.Errorf("no skills configured for skill execution mode")
+	}
+
+	argsJSON, _ := json.Marshal(inputValues)
+
+	ctx := context.Background()
+	if agentConfig.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(agentConfig.Timeout)*time.Second)
+		defer cancel()
+	}
+
+	results := make([]string, 0, len(agentConfig.Skills))
+	for _, skillName := range agentConfig.Skills {
+		result, err := ExecuteSkillFunc(ctx, skillName, string(argsJSON))
+		if err != nil {
+			f.iLog.Error(fmt.Sprintf("Skill '%s' error: %v", skillName, err))
+			results = append(results, fmt.Sprintf("Skill %s error: %v", skillName, err))
+		} else {
+			results = append(results, result)
+		}
+	}
+	return strings.Join(results, "\n---\n"), nil
 }
 
 // executeAIAgent executes the AI agent/skills call

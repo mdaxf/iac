@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net"
 	"sync"
-	"time"
 
 	"github.com/mdaxf/iac/integration/datahub"
 	"github.com/sirupsen/logrus"

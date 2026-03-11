@@ -5,6 +5,7 @@ package commands
 import (
 	"fmt"
 
+	dbconn "github.com/mdaxf/iac/databases"
 	"github.com/mdaxf/iac/dbinitializer"
 	"github.com/spf13/cobra"
 )
@@ -23,7 +24,7 @@ func NewListCommand() *cobra.Command {
 				return fmt.Errorf("failed to initialize databases: %w", err)
 			}
 
-			poolManager := dbInit.GetPoolManager()
+			poolManager := dbconn.GetPoolManager()
 			if poolManager == nil {
 				fmt.Println("No databases configured")
 				fmt.Println("\nTo configure databases, set environment variables:")
@@ -36,42 +37,50 @@ func NewListCommand() *cobra.Command {
 				return nil
 			}
 
-			databases := poolManager.GetAllDatabases()
-			if len(databases) == 0 {
+			count := 0
+
+			// List primary
+			primary, err := poolManager.GetPrimary()
+			if err == nil {
+				count++
+				fmt.Printf("%d. primary (%s)\n", count, primary.GetType())
+
+				if verbose {
+					status := "Healthy"
+					if err := primary.Ping(); err != nil {
+						status = "Unhealthy"
+					}
+					fmt.Printf("   Status:  %s\n", status)
+					fmt.Printf("   Dialect: %s\n", primary.GetDialect())
+					primary.Close()
+					fmt.Println()
+				}
+			}
+
+			// List replica
+			replica, err := poolManager.GetReplica()
+			if err == nil {
+				count++
+				fmt.Printf("%d. replica (%s)\n", count, replica.GetType())
+
+				if verbose {
+					status := "Healthy"
+					if err := replica.Ping(); err != nil {
+						status = "Unhealthy"
+					}
+					fmt.Printf("   Status:  %s\n", status)
+					fmt.Printf("   Dialect: %s\n", replica.GetDialect())
+					replica.Close()
+					fmt.Println()
+				}
+			}
+
+			if count == 0 {
 				fmt.Println("No databases configured")
 				return nil
 			}
 
-			fmt.Printf("Configured Databases (%d):\n\n", len(databases))
-
-			for i, dbType := range databases {
-				fmt.Printf("%d. %s\n", i+1, dbType)
-
-				if verbose {
-					db, err := poolManager.GetPrimary(dbType)
-					if err != nil {
-						fmt.Printf("   Status:  Error - %v\n", err)
-					} else {
-						status := "Healthy"
-						if err := db.Ping(); err != nil {
-							status = "Unhealthy"
-						}
-
-						fmt.Printf("   Status:  %s\n", status)
-						fmt.Printf("   Dialect: %s\n", db.GetDialect())
-
-						db.Close()
-					}
-
-					// Check for replicas
-					replicas, err := poolManager.GetReplicas(dbType)
-					if err == nil && len(replicas) > 0 {
-						fmt.Printf("   Replicas: %d\n", len(replicas))
-					}
-
-					fmt.Println()
-				}
-			}
+			fmt.Printf("\nConfigured Databases: %d\n", count)
 
 			if !verbose {
 				fmt.Println("\nUse --verbose to see detailed information")

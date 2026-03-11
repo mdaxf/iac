@@ -133,25 +133,31 @@ type APICallHistoryListItem struct {
 
 // APICallHistoryStats represents statistics for API calls
 type APICallHistoryStats struct {
-	TotalCalls    int64          `json:"total_calls"`
-	AvgDurationMs float64        `json:"avg_duration_ms"`
-	ErrorCount    int64          `json:"error_count"`
-	ErrorRate     float64        `json:"error_rate"`
-	EndpointStats []EndpointStat `json:"endpoint_stats"`
-	UserStats     []UserStat     `json:"user_stats"`
+	TotalCalls        int64            `json:"total_calls"`
+	SuccessfulCalls   int64            `json:"successful_calls"`
+	FailedCalls       int64            `json:"failed_calls"`
+	ErrorRate         float64          `json:"error_rate"`
+	AverageDurationMs float64          `json:"average_duration_ms"`
+	MinDurationMs     int64            `json:"min_duration_ms"`
+	MaxDurationMs     int64            `json:"max_duration_ms"`
+	CallsByMethod     map[string]int64 `json:"calls_by_method"`
+	CallsByStatus     map[string]int64 `json:"calls_by_status"`
+	TopEndpoints      []EndpointStat   `json:"top_endpoints"`
+	TopUsers          []UserStat       `json:"top_users"`
 }
 
 // EndpointStat represents statistics for a specific endpoint
 type EndpointStat struct {
 	Endpoint      string  `json:"endpoint"`
-	Count         int64   `json:"count"`
+	TotalCalls    int64   `json:"total_calls"`
 	AvgDurationMs float64 `json:"avg_duration_ms"`
+	ErrorRate     float64 `json:"error_rate"`
 }
 
 // UserStat represents statistics for a specific user
 type UserStat struct {
-	UserID string `json:"user_id"`
-	Count  int64  `json:"count"`
+	UserID     string `json:"user_id"`
+	TotalCalls int64  `json:"total_calls"`
 }
 
 // ListHistoryParams represents parameters for listing history

@@ -38,15 +38,34 @@ func NewIACMessageBus() *IACMessageBus {
 
 var groupname = "IAC_Internal_MessageBus"
 
+// uiGroupname is the group that only frontend (UI) clients join.
+// Backend Go clients never join this group, so agent progress/chat broadcasts
+// sent here are never received by the backend — avoiding "Unknown method" errors.
+var uiGroupname = "IAC_UI_MessageBus"
+
 // Subscribe subscribes a client to a topic
 func (c *IACMessageBus) Subscribe(topic string, connectionID string) {
 	c.ilog.Debug(fmt.Sprintf("Subscribe: topic: %s, sender: %s\n", topic, connectionID))
 }
 
+// SubscribeUI adds the calling connection to the UI-only broadcast group.
+// Frontend clients call this once after connecting so they receive agent
+// progress and chat stream messages.
+func (c *IACMessageBus) SubscribeUI(connectionID string) {
+	c.ilog.Info(fmt.Sprintf("SubscribeUI: connectionID=%s joining group %s", connectionID, uiGroupname))
+	c.Groups().AddToGroup(uiGroupname, connectionID)
+}
+
 // Send sends a message to all clients in the group
 func (c *IACMessageBus) Send(topic string, message string, connectionID string) {
-	c.ilog.Debug(fmt.Sprintf("Send: topic: %s, message: %s, sender: %s\n", topic, message, connectionID))
+	c.ilog.Debug(fmt.Sprintf("Send: topic: %s, sender: %s\n", topic, connectionID))
 	c.Clients().Group(groupname).Send(topic, message)
+}
+
+// SendToUI broadcasts topic+message to the IAC_UI_MessageBus group only.
+func (c *IACMessageBus) SendToUI(topic string, message string, connectionID string) {
+	c.ilog.Info(fmt.Sprintf("SendToUI: topic: %s, sender: %s\n", topic, connectionID))
+	c.Clients().Group(uiGroupname).Send(topic, message)
 }
 
 // SendToBackEnd sends a message to backend clients
@@ -67,16 +86,17 @@ func (c *IACMessageBus) AddMessage(message string, topic string, sender string) 
 	c.Clients().Group(groupname).Send(topic, message)
 }
 
-// OnConnected is called when a client connects
+// OnConnected is called when a client connects — joins the internal group automatically
 func (c *IACMessageBus) OnConnected(connectionID string) {
 	c.ilog.Info(fmt.Sprintf("Client %s connected and joining group %s", connectionID, groupname))
 	c.Groups().AddToGroup(groupname, connectionID)
 }
 
-// OnDisconnected is called when a client disconnects
+// OnDisconnected is called when a client disconnects — removes from both groups
 func (c *IACMessageBus) OnDisconnected(connectionID string) {
-	c.ilog.Info(fmt.Sprintf("Client %s disconnected from group %s", connectionID, groupname))
+	c.ilog.Info(fmt.Sprintf("Client %s disconnected from groups %s and %s", connectionID, groupname, uiGroupname))
 	c.Groups().RemoveFromGroup(groupname, connectionID)
+	c.Groups().RemoveFromGroup(uiGroupname, connectionID)
 }
 
 // Broadcast sends a message to all clients

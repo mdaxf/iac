@@ -1,7 +1,6 @@
 package datahub
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -16,36 +15,36 @@ type JobConfig struct {
 
 // JobDefinition defines a single job configuration
 type JobDefinition struct {
-	ID          string                 `json:"id"`
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Enabled     bool                   `json:"enabled"`
-	Type        string                 `json:"type"` // transform, receive, send, route
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Enabled     bool   `json:"enabled"`
+	Type        string `json:"type"` // transform, receive, send, route
 
 	// Trigger configuration
-	Trigger     JobTrigger             `json:"trigger"`
+	Trigger JobTrigger `json:"trigger"`
 
 	// Job parameters
-	Protocol    string                 `json:"protocol"`
-	Source      string                 `json:"source,omitempty"`
-	Destination string                 `json:"destination,omitempty"`
-	MappingID   string                 `json:"mapping_id,omitempty"`
-	RoutingRule string                 `json:"routing_rule,omitempty"`
+	Protocol    string `json:"protocol"`
+	Source      string `json:"source,omitempty"`
+	Destination string `json:"destination,omitempty"`
+	MappingID   string `json:"mapping_id,omitempty"`
+	RoutingRule string `json:"routing_rule,omitempty"`
 
 	// Job execution settings
-	Priority    int                    `json:"priority"`
-	MaxRetries  int                    `json:"max_retries"`
-	Timeout     int                    `json:"timeout"` // seconds
-	AutoRoute   bool                   `json:"auto_route"`
+	Priority   int  `json:"priority"`
+	MaxRetries int  `json:"max_retries"`
+	Timeout    int  `json:"timeout"` // seconds
+	AutoRoute  bool `json:"auto_route"`
 
 	// Metadata and options
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
-	Options     map[string]interface{} `json:"options,omitempty"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	Options  map[string]interface{} `json:"options,omitempty"`
 }
 
 // JobTrigger defines when a job should be created
 type JobTrigger struct {
-	Type      string                 `json:"type"` // on_receive, on_schedule, on_event, manual
+	Type      string                 `json:"type"`               // on_receive, on_schedule, on_event, manual
 	Protocol  string                 `json:"protocol,omitempty"` // For on_receive triggers
 	Topic     string                 `json:"topic,omitempty"`
 	Schedule  string                 `json:"schedule,omitempty"` // Cron expression

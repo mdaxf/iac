@@ -14,8 +14,30 @@
 
 package funcs
 
+import "context"
+
 // InitializeAITaskConfig sets up the global AI config accessor
 // This should be called from main during initialization to avoid import cycles
 func InitializeAITaskConfig(getConfigFunc func() interface{}) {
 	GetAIConfigFunc = getConfigFunc
+}
+
+// Agent runtime function variables — injected from main to avoid import cycles.
+//
+// RunAgentSyncFunc executes a named agent (by ID or name) synchronously and
+// returns the final assistant text response.
+// agentID takes priority; agentName is used when agentID is empty.
+var RunAgentSyncFunc func(ctx context.Context, agentID, agentName, prompt string, timeoutSecs int) (string, error)
+
+// ExecuteSkillFunc calls a single skill tool by name with a JSON arguments payload.
+var ExecuteSkillFunc func(ctx context.Context, skillName, argsJSON string) (string, error)
+
+// InitializeAgentRuntime wires up the agent runner and skill executor callbacks.
+// Call this from main after both the agent runner service and tool registry are ready.
+func InitializeAgentRuntime(
+	runAgentSync func(ctx context.Context, agentID, agentName, prompt string, timeoutSecs int) (string, error),
+	executeSkill func(ctx context.Context, skillName, argsJSON string) (string, error),
+) {
+	RunAgentSyncFunc = runAgentSync
+	ExecuteSkillFunc = executeSkill
 }

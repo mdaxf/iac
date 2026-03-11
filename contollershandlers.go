@@ -41,6 +41,10 @@ import (
 	"github.com/mdaxf/iac/controllers/function"
 	"github.com/mdaxf/iac/controllers/globalmap"
 	healthcheck "github.com/mdaxf/iac/controllers/health"
+	"github.com/mdaxf/iac/controllers/agentchannel"
+	"github.com/mdaxf/iac/controllers/agentgateway"
+	"github.com/mdaxf/iac/controllers/agentmonitor"
+	"github.com/mdaxf/iac/controllers/agentruntime"
 	"github.com/mdaxf/iac/controllers/iacai"
 	"github.com/mdaxf/iac/controllers/integrationhub"
 	"github.com/mdaxf/iac/controllers/inthubhistory"
@@ -48,6 +52,7 @@ import (
 	"github.com/mdaxf/iac/controllers/lngcodes"
 	"github.com/mdaxf/iac/controllers/models3d"
 	"github.com/mdaxf/iac/controllers/notifications"
+	"github.com/mdaxf/iac/controllers/deployment"
 	"github.com/mdaxf/iac/controllers/planscheduler"
 	"github.com/mdaxf/iac/controllers/plantstudio"
 	"github.com/mdaxf/iac/controllers/processplan"
@@ -61,6 +66,7 @@ import (
 	"github.com/mdaxf/iac/documents"
 	"github.com/mdaxf/iac/framework/auth"
 	"github.com/mdaxf/iac/gormdb"
+	"github.com/mdaxf/iac/hubexecutor"
 	"github.com/mdaxf/iac/services"
 )
 
@@ -389,6 +395,164 @@ func getModule(module string) reflect.Value {
 
 	case "IntHubHistoryController":
 		moduleInstance := inthubhistory.NewIntHubHistoryController()
+		return reflect.ValueOf(moduleInstance)
+
+	case "AgentRuntimeController":
+		if gormdb.DB == nil {
+			ilog.Warn("AgentRuntimeController: gormdb.DB is nil, skipping initialization")
+			return reflect.Value{}
+		}
+		sqlDB, err := gormdb.DB.DB()
+		if err != nil {
+			ilog.Error(fmt.Sprintf("AgentRuntimeController: failed to get sql.DB: %v", err))
+			return reflect.Value{}
+		}
+
+		toolRegistry := services.NewAgentToolRegistryService(gormdb.DB, sqlDB, GetMongoDBConnection(), config.OpenAiKey, config.OpenAiModel)
+		services.SetGlobalToolRegistry(toolRegistry)
+
+		docDB := GetMongoDBConnection()
+		if docDB == nil {
+			ilog.Error("AgentRuntimeController: MongoDB (DocumentDB) connection is nil — agent_skills, agent_definitions, mcp_servers operations will fail. Check DocumentDB configuration in configuration.json and ensure MongoDB is reachable at startup.")
+		} else {
+			ilog.Info(fmt.Sprintf("AgentRuntimeController: DocumentDB connected (type: %s)", docDB.GetType()))
+		}
+
+		defService := services.NewAgentDefinitionService(gormdb.DB, sqlDB, docDB)
+		services.SetGlobalAgentDefinitionService(defService)
+
+		// Re-register installed skills from disk on startup
+		defService.LoadInstalledSkillsFromDisk()
+		// Sync built-in web/search tool skill catalog entries
+		defService.SyncBuiltinWebSkills(toolRegistry)
+		// Sync ui_render skill catalog entry (Content field holds full JSON spec)
+		defService.SyncBuiltinUISkills()
+
+		chatSvc := services.NewAgentChatService(gormdb.DB, sqlDB)
+		services.SetGlobalAgentChatService(chatSvc)
+
+		mcpSvc := services.NewMCPServerService(gormdb.DB, sqlDB, docDB)
+		services.SetGlobalMCPServerService(mcpSvc)
+
+		memorySvc := services.NewAgentMemoryService(gormdb.DB, sqlDB)
+		services.SetGlobalAgentMemoryService(memorySvc)
+
+		sandboxMgr := services.NewAgentSandboxManager()
+		services.SetGlobalAgentSandboxManager(sandboxMgr)
+
+		runnerSvc := services.NewAgentRunnerService(gormdb.DB, sqlDB, defService, chatSvc, toolRegistry, mcpSvc, memorySvc, sandboxMgr)
+		services.SetGlobalAgentRunnerService(runnerSvc)
+
+		// Start memory maintenance goroutine (runs every hour)
+		go func() {
+			ticker := time.NewTicker(1 * time.Hour)
+			defer ticker.Stop()
+			for range ticker.C {
+				if _, err := memorySvc.ArchiveExpiredMemory(); err != nil {
+					ilog.Error(fmt.Sprintf("ArchiveExpiredMemory error: %v", err))
+				}
+				if _, err := memorySvc.ArchiveIntervalMemory(); err != nil {
+					ilog.Error(fmt.Sprintf("ArchiveIntervalMemory error: %v", err))
+				}
+			}
+		}()
+
+		ilog.Info("Agent Runtime services initialized successfully (memory + sandbox)")
+		moduleInstance := &agentruntime.AgentRuntimeController{}
+		return reflect.ValueOf(moduleInstance)
+
+	case "AgentChannelController":
+		docDB := GetMongoDBConnection()
+		channelSvc := services.NewAgentChannelService(docDB)
+		services.SetGlobalAgentChannelService(channelSvc)
+
+		// Inject chat service for conversation management
+		if chatSvc := services.GetGlobalAgentChatService(); chatSvc != nil {
+			channelSvc.SetChatService(chatSvc)
+		} else {
+			ilog.Warn("AgentChannelController: AgentChatService not yet initialized — ensure AgentRuntimeController is loaded first.")
+		}
+
+		// Inject RunSyncInConversation callback — maintains conversation history across channel messages
+		if runnerSvc := services.GetGlobalAgentRunnerService(); runnerSvc != nil {
+			channelSvc.SetRunAgentInConvFunc(runnerSvc.RunSyncInConversation)
+			channelSvc.SetRunAgentFunc(runnerSvc.RunSync) // fallback only
+		} else {
+			ilog.Warn("AgentChannelController: AgentRunnerService not yet initialized — RunSyncInConversation not wired. Ensure AgentRuntimeController is loaded before AgentChannelController in apiconfig.json.")
+		}
+
+		ilog.Info("AgentChannelController: service initialized")
+		moduleInstance := &agentchannel.AgentChannelController{}
+		return reflect.ValueOf(moduleInstance)
+
+	case "AgentMonitorController":
+		// AgentMonitorService:
+		//  1. Wraps RunSyncInConversation so every channel message (interactive/chat mode)
+		//     is tracked for session status and per-channel statistics.
+		//  2. Acts as the execution runtime for all agents with run_instance=channel_monitor.
+		//     On Start() (and every 60 s) it scans for channel_monitor agents + their
+		//     linked channels and registers them as active monitors — equivalent to the
+		//     integration_hub role starting its HubExecutors.
+		monitorSvc := services.NewAgentMonitorService()
+		services.SetGlobalAgentMonitorService(monitorSvc)
+
+		// Wire the conversation-mode execution backend.
+		if runnerSvc := services.GetGlobalAgentRunnerService(); runnerSvc != nil {
+			monitorSvc.SetRunAgentInConvFunc(runnerSvc.RunSyncInConversation)
+		} else {
+			ilog.Warn("AgentMonitorController: AgentRunnerService not initialized — RunSyncInConversation not wired. Ensure AgentRuntimeController loads first.")
+		}
+
+		// Inject AgentDefinitionService so the monitor can query channel_monitor agents.
+		if defSvc := services.GetGlobalAgentDefinitionService(); defSvc != nil {
+			monitorSvc.SetDefinitionService(defSvc)
+		} else {
+			ilog.Warn("AgentMonitorController: AgentDefinitionService not initialized — channel_monitor agent scan disabled.")
+		}
+
+		// Re-wire AgentChannelService to route through the monitor (interactive chat mode).
+		if channelSvc := services.GetGlobalAgentChannelService(); channelSvc != nil {
+			channelSvc.SetRunAgentInConvFunc(monitorSvc.HandleMessage)
+			monitorSvc.SetChannelService(channelSvc)
+		} else {
+			ilog.Warn("AgentMonitorController: AgentChannelService not initialized — monitor not wired. Ensure AgentChannelController loads before AgentMonitorController.")
+		}
+
+		// Start: performs initial channel_monitor scan, then launches background loop.
+		monitorSvc.Start()
+		ilog.Info("AgentMonitorController: service initialized, channel_monitor agents registered, background loop started")
+		moduleInstance := &agentmonitor.AgentMonitorController{}
+		return reflect.ValueOf(moduleInstance)
+
+	case "AgentGatewayController":
+		docDB := GetMongoDBConnection()
+		gatewaySvc := services.NewAgentGatewayService(docDB)
+		services.SetGlobalAgentGatewayService(gatewaySvc)
+
+		// Inject RunSync callback from AgentRunnerService (avoids import cycle).
+		// AgentRunnerService must be initialized first (via AgentRuntimeController).
+		if runnerSvc := services.GetGlobalAgentRunnerService(); runnerSvc != nil {
+			gatewaySvc.SetRunAgentFunc(runnerSvc.RunSync)
+		} else {
+			ilog.Warn("AgentGatewayController: AgentRunnerService not yet initialized — RunSync not wired. Ensure AgentRuntimeController is loaded before AgentGatewayController in apiconfig.json.")
+		}
+
+		// Wire the gateway executor into the hub executor manager so
+		// IntegrationHub destinations of type "Agent Gateway" work.
+		if hubMgr := hubexecutor.GetGlobalManager(); hubMgr != nil {
+			hubMgr.SetAgentGatewayExecutor(gatewaySvc.ExecuteSync)
+		}
+
+		ilog.Info("AgentGatewayController: service initialized")
+		moduleInstance := &agentgateway.AgentGatewayController{}
+		return reflect.ValueOf(moduleInstance)
+
+	case "PackageController":
+		moduleInstance := &deployment.PackageController{}
+		return reflect.ValueOf(moduleInstance)
+
+	case "PackageDefinitionController":
+		moduleInstance := &deployment.PackageDefinitionController{}
 		return reflect.ValueOf(moduleInstance)
 
 	}

@@ -1800,6 +1800,504 @@
           "handler": "GetActions"
         }
       ]
+    },
+    {
+      "path": "agentruntime",
+      "module": "AgentRuntimeController",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/agents",
+          "handler": "ListAgents"
+        },
+        {
+          "method": "GET",
+          "path": "/agents/:id",
+          "handler": "GetAgent"
+        },
+        {
+          "method": "POST",
+          "path": "/agents",
+          "handler": "CreateAgent"
+        },
+        {
+          "method": "PUT",
+          "path": "/agents/:id",
+          "handler": "UpdateAgent"
+        },
+        {
+          "method": "DELETE",
+          "path": "/agents/:id",
+          "handler": "DeleteAgent"
+        },
+        {
+          "method": "GET",
+          "path": "/tools",
+          "handler": "ListTools"
+        },
+        {
+          "method": "GET",
+          "path": "/skills",
+          "handler": "ListSkills"
+        },
+        {
+          "method": "POST",
+          "path": "/skills",
+          "handler": "CreateSkill"
+        },
+        {
+          "method": "POST",
+          "path": "/skills/install",
+          "handler": "InstallSkill"
+        },
+        {
+          "method": "DELETE",
+          "path": "/skills/:id/uninstall",
+          "handler": "UninstallSkill"
+        },
+        {
+          "method": "PUT",
+          "path": "/skills/:id",
+          "handler": "UpdateSkill"
+        },
+        {
+          "method": "DELETE",
+          "path": "/skills/:id",
+          "handler": "DeleteSkill"
+        },
+        {
+          "method": "GET",
+          "path": "/conversations",
+          "handler": "ListConversations"
+        },
+        {
+          "method": "POST",
+          "path": "/conversations",
+          "handler": "CreateConversation"
+        },
+        {
+          "method": "GET",
+          "path": "/conversations/:id",
+          "handler": "GetConversation"
+        },
+        {
+          "method": "DELETE",
+          "path": "/conversations/:id",
+          "handler": "DeleteConversation"
+        },
+        {
+          "method": "POST",
+          "path": "/run",
+          "handler": "RunAgent"
+        },
+        {
+          "method": "DELETE",
+          "path": "/run/:runid",
+          "handler": "AbortRun"
+        },
+        {
+          "method": "GET",
+          "path": "/schedules",
+          "handler": "ListSchedules"
+        },
+        {
+          "method": "POST",
+          "path": "/schedules",
+          "handler": "CreateSchedule"
+        },
+        {
+          "method": "PUT",
+          "path": "/schedules/:id/toggle",
+          "handler": "ToggleSchedule"
+        },
+        {
+          "method": "DELETE",
+          "path": "/schedules/:id",
+          "handler": "DeleteSchedule"
+        },
+        {
+          "method": "GET",
+          "path": "/agents/status",
+          "handler": "GetAgentsStatus"
+        },
+        {
+          "method": "POST",
+          "path": "/agents/:id/toggle",
+          "handler": "ToggleAgent"
+        },
+        {
+          "method": "GET",
+          "path": "/mcp",
+          "handler": "ListMCPServers"
+        },
+        {
+          "method": "POST",
+          "path": "/mcp",
+          "handler": "CreateMCPServer"
+        },
+        {
+          "method": "GET",
+          "path": "/mcp/:id",
+          "handler": "GetMCPServer"
+        },
+        {
+          "method": "PUT",
+          "path": "/mcp/:id",
+          "handler": "UpdateMCPServer"
+        },
+        {
+          "method": "DELETE",
+          "path": "/mcp/:id",
+          "handler": "DeleteMCPServer"
+        },
+        {
+          "method": "GET",
+          "path": "/memory",
+          "handler": "ListMemory"
+        },
+        {
+          "method": "POST",
+          "path": "/memory",
+          "handler": "CreateMemory"
+        },
+        {
+          "method": "GET",
+          "path": "/memory/:id",
+          "handler": "GetMemory"
+        },
+        {
+          "method": "PUT",
+          "path": "/memory/:id",
+          "handler": "UpdateMemory"
+        },
+        {
+          "method": "DELETE",
+          "path": "/memory/:id",
+          "handler": "DeleteMemory"
+        },
+        {
+          "method": "POST",
+          "path": "/memory/:id/archive",
+          "handler": "ArchiveMemory"
+        },
+        {
+          "method": "POST",
+          "path": "/memory/clean",
+          "handler": "CleanMemory"
+        },
+        {
+          "method": "GET",
+          "path": "/sandboxes",
+          "handler": "ListSandboxes"
+        },
+        {
+          "method": "POST",
+          "path": "/sandboxes/:runid/send",
+          "handler": "SendToSandbox"
+        }
+      ]
+    },
+    {
+      "path": "api/agentchannels",
+      "module": "AgentChannelController",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "",
+          "handler": "List"
+        },
+        {
+          "method": "POST",
+          "path": "",
+          "handler": "Create"
+        },
+        {
+          "method": "GET",
+          "path": "/:id",
+          "handler": "GetByID"
+        },
+        {
+          "method": "PUT",
+          "path": "/:id",
+          "handler": "Update"
+        },
+        {
+          "method": "DELETE",
+          "path": "/:id",
+          "handler": "Delete"
+        },
+        {
+          "method": "GET",
+          "path": "/:id/users",
+          "handler": "ListUsers"
+        },
+        {
+          "method": "POST",
+          "path": "/:id/users",
+          "handler": "AuthorizeUser"
+        },
+        {
+          "method": "DELETE",
+          "path": "/:id/users/:userId",
+          "handler": "RevokeUser"
+        },
+        {
+          "method": "POST",
+          "path": "/:id/inbound",
+          "handler": "HandleInbound"
+        },
+        {
+          "method": "GET",
+          "path": "/:id/wechat-callback",
+          "handler": "WeChatCallbackGet"
+        },
+        {
+          "method": "POST",
+          "path": "/:id/wechat-callback",
+          "handler": "WeChatCallbackPost"
+        },
+        {
+          "method": "POST",
+          "path": "/:id/line-webhook",
+          "handler": "LINEWebhookPost"
+        },
+        {
+          "method": "GET",
+          "path": "/:id/whatsapp-webhook",
+          "handler": "WhatsAppWebhookGet"
+        },
+        {
+          "method": "POST",
+          "path": "/:id/whatsapp-webhook",
+          "handler": "WhatsAppWebhookPost"
+        },
+        {
+          "method": "POST",
+          "path": "/:id/teams-webhook",
+          "handler": "TeamsWebhookPost"
+        }
+      ]
+    },
+    {
+      "path": "api/agentmonitor",
+      "module": "AgentMonitorController",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/status",
+          "handler": "GetStatus"
+        },
+        {
+          "method": "GET",
+          "path": "/monitors",
+          "handler": "ListMonitors"
+        },
+        {
+          "method": "GET",
+          "path": "/sessions",
+          "handler": "ListSessions"
+        },
+        {
+          "method": "GET",
+          "path": "/sessions/:channelId",
+          "handler": "ListSessionsByChannel"
+        },
+        {
+          "method": "POST",
+          "path": "/sessions/:channelId/:userId/reset",
+          "handler": "ResetSession"
+        }
+      ]
+    },
+    {
+      "path": "api/agentgateways",
+      "module": "AgentGatewayController",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "",
+          "handler": "List"
+        },
+        {
+          "method": "POST",
+          "path": "",
+          "handler": "Create"
+        },
+        {
+          "method": "GET",
+          "path": "/:id",
+          "handler": "GetByID"
+        },
+        {
+          "method": "PUT",
+          "path": "/:id",
+          "handler": "Update"
+        },
+        {
+          "method": "DELETE",
+          "path": "/:id",
+          "handler": "Delete"
+        },
+        {
+          "method": "GET",
+          "path": "/:id/agent-card",
+          "handler": "GetAgentCard"
+        },
+        {
+          "method": "POST",
+          "path": "/:id/execute",
+          "handler": "Execute"
+        }
+      ]
+    },
+    {
+      "path": ".well-known",
+      "module": "AgentGatewayController",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/agent.json",
+          "handler": "GlobalAgentCard"
+        }
+      ]
+    },
+    {
+      "path": "api/a2a",
+      "module": "AgentGatewayController",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/:gatewayId",
+          "handler": "A2ASubmitTask"
+        },
+        {
+          "method": "GET",
+          "path": "/:gatewayId/tasks/:taskId",
+          "handler": "A2AGetTask"
+        },
+        {
+          "method": "POST",
+          "path": "/:gatewayId/tasks/:taskId/cancel",
+          "handler": "A2ACancelTask"
+        }
+      ]
+    },
+    {
+      "path": "api/packages",
+      "module": "PackageController",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "",
+          "handler": "ListPackages"
+        },
+        {
+          "method": "POST",
+          "path": "",
+          "handler": "CreatePackage"
+        },
+        {
+          "method": "GET",
+          "path": "/sources",
+          "handler": "GetSources"
+        },
+        {
+          "method": "GET",
+          "path": "/sources/:source/records",
+          "handler": "GetTableRecords"
+        },
+        {
+          "method": "GET",
+          "path": "/sources/:source/documents",
+          "handler": "GetCollectionDocuments"
+        },
+        {
+          "method": "POST",
+          "path": "/analyze",
+          "handler": "AnalyzeSource"
+        },
+        {
+          "method": "POST",
+          "path": "/import",
+          "handler": "ImportPackage"
+        },
+        {
+          "method": "POST",
+          "path": "/import-file",
+          "handler": "ImportPackageFile"
+        },
+        {
+          "method": "GET",
+          "path": "/:id",
+          "handler": "GetPackage"
+        },
+        {
+          "method": "PUT",
+          "path": "/:id",
+          "handler": "UpdatePackage"
+        },
+        {
+          "method": "DELETE",
+          "path": "/:id",
+          "handler": "DeletePackage"
+        },
+        {
+          "method": "POST",
+          "path": "/:id/generate",
+          "handler": "GeneratePackageFile"
+        },
+        {
+          "method": "POST",
+          "path": "/:id/deploy",
+          "handler": "DeployPackage"
+        },
+        {
+          "method": "POST",
+          "path": "/:id/push",
+          "handler": "PushPackage"
+        }
+      ]
+    },
+    {
+      "path": "api/package-definitions",
+      "module": "PackageDefinitionController",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "",
+          "handler": "ListDefinitions"
+        },
+        {
+          "method": "POST",
+          "path": "",
+          "handler": "CreateDefinition"
+        },
+        {
+          "method": "GET",
+          "path": "/:id",
+          "handler": "GetDefinition"
+        },
+        {
+          "method": "PUT",
+          "path": "/:id",
+          "handler": "UpdateDefinition"
+        },
+        {
+          "method": "DELETE",
+          "path": "/:id",
+          "handler": "DeleteDefinition"
+        },
+        {
+          "method": "POST",
+          "path": "/:id/pack",
+          "handler": "PackFromDefinition"
+        },
+        {
+          "method": "GET",
+          "path": "/:id/builds",
+          "handler": "ListBuilds"
+        }
+      ]
     }
   ]
 }

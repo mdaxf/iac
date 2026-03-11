@@ -17,6 +17,7 @@ package deploymgr
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -183,20 +184,53 @@ func (dd *DocumentDeployer) deployBatch(collection *mongo.Collection, docs []map
 	return nil
 }
 
-// deployDocument deploys a single document
+// deployDocument deploys a single document with global-key-aware upsert logic
 func (dd *DocumentDeployer) deployDocument(ctx context.Context, collection *mongo.Collection, doc map[string]interface{}, idMapping models.IDMapping, options models.DeploymentOptions) error {
-	// Store old ID value
+	// Store original ID value before any modifications
 	oldID := doc[idMapping.IDField]
 
+	// --- Auto-detect UUID _id → preserve strategy ---
+	effectiveMapping := idMapping
+	if idVal, ok := doc[idMapping.IDField]; ok {
+		if idStr, ok := idVal.(string); ok {
+			if _, err := uuid.Parse(idStr); err == nil {
+				// _id is a UUID string → globally unique, preserve as-is
+				effectiveMapping.Strategy = "preserve"
+				effectiveMapping.IDType = "uuid"
+			}
+		}
+	}
+
+	// --- Global key upsert: find existing doc by natural key fields ---
+	if len(effectiveMapping.GlobalKeyFields) > 0 && effectiveMapping.Strategy != "preserve" {
+		existingID, found, err := dd.findDocumentByGlobalKey(ctx, collection, effectiveMapping.GlobalKeyFields, doc)
+		if err != nil {
+			dd.logger.Warn(fmt.Sprintf("Global key lookup failed for %s: %v", collection.Name(), err))
+		} else if found && existingID != nil {
+			// Map old ID → existing ID for reference rebuilding
+			if oldID != nil {
+				dd.idMappings[collection.Name()][oldID] = existingID
+			}
+			if options.UpdateExisting {
+				return dd.updateDocument(ctx, collection, doc, idMapping.IDField, existingID)
+			}
+			if options.SkipExisting {
+				dd.logger.Debug(fmt.Sprintf("Skipping existing document (global key match) in %s", collection.Name()))
+				return nil
+			}
+			return fmt.Errorf("document already exists in %s (matched by global key)", collection.Name())
+		}
+	}
+
 	// Handle ID based on strategy
-	newID, err := dd.handleIDStrategy(doc, idMapping, options)
+	newID, err := dd.handleIDStrategy(doc, effectiveMapping, options)
 	if err != nil {
 		return err
 	}
 
-	// Check if document exists
+	// Check if document exists by _id
 	if newID != nil {
-		exists, err := dd.documentExists(ctx, collection, idMapping.IDField, newID)
+		exists, err := dd.documentExists(ctx, collection, effectiveMapping.IDField, newID)
 		if err != nil {
 			return err
 		}
@@ -204,15 +238,17 @@ func (dd *DocumentDeployer) deployDocument(ctx context.Context, collection *mong
 		if exists {
 			if options.SkipExisting {
 				dd.logger.Debug(fmt.Sprintf("Skipping existing document in %s", collection.Name()))
-				// Still map the ID even if skipping
-				dd.idMappings[collection.Name()][oldID] = newID
+				if oldID != nil {
+					dd.idMappings[collection.Name()][oldID] = newID
+				}
 				return nil
 			}
-
 			if options.UpdateExisting {
-				return dd.updateDocument(ctx, collection, doc, idMapping.IDField, newID)
+				if oldID != nil {
+					dd.idMappings[collection.Name()][oldID] = newID
+				}
+				return dd.updateDocument(ctx, collection, doc, effectiveMapping.IDField, newID)
 			}
-
 			return fmt.Errorf("document already exists in %s", collection.Name())
 		}
 	}
@@ -223,12 +259,54 @@ func (dd *DocumentDeployer) deployDocument(ctx context.Context, collection *mong
 		return err
 	}
 
-	// Map old ID to new ID
+	// Map old ID → new inserted ID
 	if oldID != nil {
 		dd.idMappings[collection.Name()][oldID] = result.InsertedID
 	}
 
 	return nil
+}
+
+// findDocumentByGlobalKey locates a document by its natural key fields
+// Returns (existing _id value, found, error)
+func (dd *DocumentDeployer) findDocumentByGlobalKey(ctx context.Context, collection *mongo.Collection, globalKeyFields []string, doc map[string]interface{}) (interface{}, bool, error) {
+	filter := bson.M{}
+	for _, field := range globalKeyFields {
+		// Validate field name to prevent NoSQL injection
+		if err := dd.validateFieldName(field); err != nil {
+			return nil, false, fmt.Errorf("invalid global key field %s: %w", field, err)
+		}
+		if val, ok := doc[field]; ok && val != nil {
+			filter[field] = val
+		}
+	}
+
+	if len(filter) == 0 {
+		return nil, false, nil
+	}
+
+	// Project only the _id field
+	findOpts := options.FindOne().SetProjection(bson.M{"_id": 1})
+	var result bson.M
+	err := collection.FindOne(ctx, filter, findOpts).Decode(&result)
+	if err == mongo.ErrNoDocuments {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+
+	return result["_id"], true, nil
+}
+
+// isUUIDString returns true if the string is a valid UUID
+func isUUIDString(s string) bool {
+	parts := strings.Split(s, "-")
+	if len(parts) != 5 {
+		return false
+	}
+	_, err := uuid.Parse(s)
+	return err == nil
 }
 
 // handleIDStrategy handles ID generation based on strategy

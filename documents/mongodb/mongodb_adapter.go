@@ -304,7 +304,17 @@ func (m *MongoDBAdapter) FindMany(ctx context.Context, collection string, filter
 		if opts.Skip > 0 {
 			findOptions.SetSkip(opts.Skip)
 		}
-		if opts.Sort != nil {
+		// SortFields takes precedence: converts to bson.D to preserve key order.
+		// The MongoDB driver rejects map[string]int with multiple keys because maps
+		// are unordered in Go and the sort parameter requires an ordered document.
+		if len(opts.SortFields) > 0 {
+			sortDoc := bson.D{}
+			for _, sf := range opts.SortFields {
+				sortDoc = append(sortDoc, bson.E{Key: sf.Field, Value: sf.Order})
+			}
+			findOptions.SetSort(sortDoc)
+		} else if len(opts.Sort) > 0 {
+			// Single-key map: safe (one entry has no ordering ambiguity).
 			findOptions.SetSort(opts.Sort)
 		}
 		if opts.Projection != nil {
@@ -645,13 +655,17 @@ func (m *MongoDBAdapter) buildConnectionString() string {
 	return fmt.Sprintf("mongodb://%s:%d", m.config.Host, m.config.Port)
 }
 
-// convertBsonMToMap converts bson.M to map[string]interface{}
+// convertBsonMToMap converts bson.M to map[string]interface{}.
+// Handles all BSON-specific types so callers can safely use encoding/json round-trips.
 func (m *MongoDBAdapter) convertBsonMToMap(bsonDoc bson.M) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range bsonDoc {
 		switch val := v.(type) {
 		case primitive.ObjectID:
 			result[k] = val.Hex()
+		case primitive.DateTime:
+			// Convert BSON date to time.Time so JSON round-trip into time.Time fields works.
+			result[k] = val.Time()
 		case bson.M:
 			result[k] = m.convertBsonMToMap(val)
 		case primitive.A:
@@ -659,6 +673,10 @@ func (m *MongoDBAdapter) convertBsonMToMap(bsonDoc bson.M) map[string]interface{
 			for i, item := range val {
 				if bsonM, ok := item.(bson.M); ok {
 					arr[i] = m.convertBsonMToMap(bsonM)
+				} else if oid, ok := item.(primitive.ObjectID); ok {
+					arr[i] = oid.Hex()
+				} else if dt, ok := item.(primitive.DateTime); ok {
+					arr[i] = dt.Time()
 				} else {
 					arr[i] = item
 				}

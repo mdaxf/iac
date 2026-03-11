@@ -1180,6 +1180,10 @@ func (f *Funcs) Execute() {
 		case types.AIAgent:
 			agent := AIAgentFuncs{}
 			agent.Execute(f)
+
+		case types.Outbound:
+			ob := OutboundFuncs{}
+			ob.Execute(f)
 		}
 
 		f.iLog.Debug(fmt.Sprintf("executed function %s with outputs: %s", f.Fobj.Name, logger.ConvertJson(f.FunctionOutputs)))

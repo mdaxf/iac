@@ -21,8 +21,10 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,6 +39,7 @@ type SignalRServer struct {
 	config     *config.SignalRRoleConfig
 	server     *http.Server
 	hub        *IACMessageBus
+	signalrSrv signalr.Server // stored so BroadcastToHub can use HubClients() for proper server push
 	ilog       logger.Log
 	mu         sync.RWMutex
 	running    bool
@@ -62,6 +65,7 @@ func (s *SignalRServer) Start(ctx context.Context) error {
 		return fmt.Errorf("SignalR server is already running")
 	}
 
+	fmt.Printf("[SignalR] Starting embedded SignalR server on port %d, hub: %s\n", s.config.Port, s.config.Hub)
 	s.ilog.Info(fmt.Sprintf("Starting embedded SignalR server on port %d", s.config.Port))
 
 	// Initialize node data
@@ -94,18 +98,13 @@ func (s *SignalRServer) Start(ctx context.Context) error {
 		timeout = 60 // default 60 seconds
 	}
 
-	// Build allowed origins pattern
-	// Note: AllowOriginPatterns expects regex patterns, not wildcards
-	// Convert "*" to ".*" for proper regex matching
-	allowedOrigins := ".*" // default: allow all origins
-	if len(s.config.AllowedOrigins) > 0 {
-		origin := s.config.AllowedOrigins[0]
-		if origin == "*" {
-			allowedOrigins = ".*"
-		} else {
-			allowedOrigins = origin
-		}
-	}
+	// Build allowed origin host patterns.
+	// configuration.json may store origins as a single comma-separated string in
+	// the first array element (e.g. "*,http://localhost:8080,...").
+	// expandOrigins splits into individual entries; buildOriginPatterns extracts
+	// the HOST part so nhooyr.io/websocket filepath.Match works correctly.
+	normalizedOrigins := expandOrigins(s.config.AllowedOrigins)
+	allowedPatterns := buildOriginPatterns(normalizedOrigins)
 
 	// Create SignalR logger adapter
 	logAdapter := NewLogAdapter(s.ilog)
@@ -123,23 +122,39 @@ func (s *SignalRServer) Start(ctx context.Context) error {
 		transports = []signalr.TransportType{signalr.TransportWebSockets}
 	}
 
-	// Create SignalR server
+	// nhooyr.io/websocket (used internally by the signalr library) explicitly
+	// recommends NOT using "*" as an OriginPattern and instead setting
+	// InsecureSkipVerify when all origins should be allowed.
+	// See: nhooyr.io/websocket accept.go — "Do not use * as a pattern to allow
+	// any origin, prefer to use InsecureSkipVerify instead."
+	hasWildcard := containsWildcard(normalizedOrigins)
+	skipVerify := hasWildcard || s.config.InsecureSkipVerify
+
+	// Create SignalR server.
+	// UseHub(s.hub) shares the single IACMessageBus instance (initialised with ilog,
+	// BroadcastToHub etc.) across every connection instead of creating blank
+	// reflection-copies via SimpleHubFactory, which would lose the ilog field.
 	signalrServer, err := signalr.NewServer(ctx,
-		signalr.SimpleHubFactory(s.hub),
+		signalr.UseHub(s.hub),
 		signalr.Logger(logAdapter, false),
 		signalr.HTTPTransports(transports...),
 		signalr.KeepAliveInterval(time.Duration(keepAlive)*time.Second),
 		signalr.TimeoutInterval(time.Duration(timeout)*time.Second),
 		signalr.HandshakeTimeout(15*time.Second),
-		signalr.AllowOriginPatterns([]string{allowedOrigins}),
-		signalr.InsecureSkipVerify(s.config.InsecureSkipVerify))
+		signalr.AllowOriginPatterns(allowedPatterns),
+		signalr.InsecureSkipVerify(skipVerify))
 
 	if err != nil {
 		return fmt.Errorf("failed to create SignalR server: %v", err)
 	}
 
-	// Set allowed clients globally
-	signalr.AllowedClients = allowedOrigins
+	// Store the server so BroadcastToHub can use HubClients() for proper server-to-client push.
+	// The hub's own Clients() method only works correctly inside a SignalR invocation context;
+	// server.HubClients() works from any Go goroutine.
+	s.signalrSrv = signalrServer
+
+	// Set allowed clients globally (store the expanded list joined for display)
+	signalr.AllowedClients = strings.Join(normalizedOrigins, ",")
 
 	// Create HTTP router
 	router := http.NewServeMux()
@@ -157,14 +172,16 @@ func (s *SignalRServer) Start(ctx context.Context) error {
 	// Status endpoint
 	router.HandleFunc("/status", s.statusHandler)
 
-	// Create HTTP server
+	// Create HTTP server.
+	// NOTE: ReadTimeout and WriteTimeout must NOT be set for a server that handles
+	// WebSocket connections. HTTP-level write timeouts kill the hijacked WebSocket
+	// connection after the deadline, producing "Server timeout elapsed without
+	// receiving a message from the server" on the client side.
 	address := fmt.Sprintf(":%d", s.config.Port)
 	s.server = &http.Server{
-		Addr:         address,
-		Handler:      s.corsMiddleware(s.logMiddleware(router)),
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:        address,
+		Handler:     s.corsMiddleware(s.logMiddleware(router)),
+		IdleTimeout: 120 * time.Second,
 	}
 
 	// Configure TLS if specified
@@ -205,8 +222,10 @@ func (s *SignalRServer) Start(ctx context.Context) error {
 	}()
 
 	s.running = true
-	s.ilog.Info(fmt.Sprintf("SignalR server started successfully - Hub: %s, Port: %d, Transports: %v",
-		hubPath, s.config.Port, transports))
+	fmt.Printf("[SignalR] Server started - Hub: %s, Port: %d, Transports: %v, AllowedOrigins: %v, InsecureSkipVerify: %v\n",
+		hubPath, s.config.Port, transports, allowedPatterns, skipVerify)
+	s.ilog.Info(fmt.Sprintf("SignalR server started successfully - Hub: %s, Port: %d, Transports: %v, InsecureSkipVerify: %v",
+		hubPath, s.config.Port, transports, skipVerify))
 
 	return nil
 }
@@ -294,12 +313,16 @@ func (s *SignalRServer) statusHandler(w http.ResponseWriter, r *http.Request) {
 
 // corsMiddleware adds CORS headers
 func (s *SignalRServer) corsMiddleware(next http.Handler) http.Handler {
+	// Pre-expand comma-separated origins once at construction time.
+	expanded := expandOrigins(s.config.AllowedOrigins)
+	allowAll := len(expanded) == 0 || containsWildcard(expanded)
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 
 		// Check if origin is allowed
 		allowed := false
-		if len(s.config.AllowedOrigins) == 0 || (len(s.config.AllowedOrigins) == 1 && s.config.AllowedOrigins[0] == "*") {
+		if allowAll {
 			allowed = true
 			if origin != "" {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -307,7 +330,7 @@ func (s *SignalRServer) corsMiddleware(next http.Handler) http.Handler {
 				w.Header().Set("Access-Control-Allow-Origin", "*")
 			}
 		} else {
-			for _, allowedOrigin := range s.config.AllowedOrigins {
+			for _, allowedOrigin := range expanded {
 				if origin == allowedOrigin {
 					allowed = true
 					w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -319,7 +342,9 @@ func (s *SignalRServer) corsMiddleware(next http.Handler) http.Handler {
 		if allowed {
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, X-Requested-With")
+			// x-signalr-user-agent is sent by the SignalR JS client on every request
+			// and must be explicitly whitelisted or the preflight will fail.
+			w.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, X-Requested-With, x-signalr-user-agent")
 		}
 
 		if r.Method == "OPTIONS" {
@@ -432,4 +457,74 @@ func InitGlobalSignalRServer(cfg *config.SignalRRoleConfig) *SignalRServer {
 	server := NewSignalRServer(cfg)
 	SetGlobalSignalRServer(server)
 	return server
+}
+
+// BroadcastToHub sends a message to all connected SignalR clients on the given topic.
+// Uses server.HubClients().All() which iterates the clients sync.Map — populated
+// synchronously in onConnected() — so it is reliable even immediately after a new
+// connection (no goroutine timing race like group membership has).
+// The topic-based on() handlers on the JS side ensure only interested clients process it.
+func (s *SignalRServer) BroadcastToHub(topic, message string) {
+	s.mu.RLock()
+	srv := s.signalrSrv
+	running := s.running
+	s.mu.RUnlock()
+	if srv == nil || !running {
+		s.ilog.Info(fmt.Sprintf("BroadcastToHub: skipped (srv=%v, running=%v) topic=%s", srv != nil, running, topic))
+		return
+	}
+	s.ilog.Info(fmt.Sprintf("BroadcastToHub: broadcasting topic=%s", topic))
+	srv.HubClients().All().Send(topic, message)
+}
+
+// expandOrigins flattens the AllowedOrigins slice, splitting any comma-separated
+// entries into individual origins and trimming whitespace.
+func expandOrigins(origins []string) []string {
+	var result []string
+	for _, entry := range origins {
+		for _, part := range strings.Split(entry, ",") {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				result = append(result, part)
+			}
+		}
+	}
+	return result
+}
+
+// containsWildcard reports whether the slice contains a bare "*" wildcard.
+func containsWildcard(origins []string) bool {
+	for _, o := range origins {
+		if o == "*" {
+			return true
+		}
+	}
+	return false
+}
+
+// buildOriginPatterns converts expanded origin strings into host patterns suitable
+// for signalr.AllowOriginPatterns, which passes them to nhooyr.io/websocket's
+// AcceptOptions.OriginPatterns.  That library uses filepath.Match against the
+// HOST part of the Origin header (e.g. "localhost:3000"), NOT a full URL regex:
+//
+//   - A bare "*" wildcard stays as "*" — filepath.Match("*", "localhost:3000") matches.
+//   - A full URL like "http://localhost:3000" is parsed; only the host "localhost:3000"
+//     is kept, so the match works correctly.
+//   - If any entry is "*" the returned slice contains only ["*"] (allow all).
+func buildOriginPatterns(origins []string) []string {
+	if len(origins) == 0 || containsWildcard(origins) {
+		return []string{"*"}
+	}
+	patterns := make([]string, 0, len(origins))
+	for _, o := range origins {
+		// If origin looks like a full URL, extract the host so filepath.Match works.
+		if strings.Contains(o, "://") {
+			if u, err := url.Parse(o); err == nil && u.Host != "" {
+				patterns = append(patterns, u.Host)
+				continue
+			}
+		}
+		patterns = append(patterns, o)
+	}
+	return patterns
 }
