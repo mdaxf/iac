@@ -24,7 +24,7 @@ The IACF (Industry AI Core Framework) is an open-source, industrial-grade framew
 
    The IACF solution addresses the four most critical friction points in modern industry:
 
-   Capability                        Impact                                              Industrial Outcome
+   **Capability                        **Impact                                              **Industrial Outcome
    Predictive Maintenance      Anomaly detection & RUL (Remaining Useful Life)              estimation.30% reduction in unplanned downtime.
    Adaptive Quality Control    AI-driven visual inspection & root cause analysis.            90% fewer defects reaching customers.
    Agile Production Planning   Real-time rescheduling based on material/labor availability.  25% improvement in factory throughput.
