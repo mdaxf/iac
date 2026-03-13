@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -970,7 +971,9 @@ func (s *AgentRunnerService) buildOpenAIClient(agent *models.AgentDefinition) (*
 	return openai.NewClientWithConfig(cfg), modelName, nil
 }
 
-// callLLM calls the OpenAI chat completion API
+// callLLM calls the OpenAI/Gemini chat completion API.
+// It normalises Google Gemini's non-standard array error format so callers
+// always receive a meaningful error message.
 func (s *AgentRunnerService) callLLM(
 	ctx context.Context,
 	client *openai.Client,
@@ -989,12 +992,41 @@ func (s *AgentRunnerService) callLLM(
 	}
 	resp, err := client.CreateChatCompletion(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, extractLLMError(err)
 	}
 	if len(resp.Choices) == 0 {
 		return nil, fmt.Errorf("empty response from LLM")
 	}
 	return &resp, nil
+}
+
+// extractLLMError converts go-openai errors into readable messages.
+// Google Gemini returns errors as a JSON array [{"error":{...}}] which
+// go-openai cannot parse (it expects {"error":{...}}), so we extract the
+// real message from RequestError.Body manually.
+func extractLLMError(err error) error {
+	var reqErr *openai.RequestError
+	if !errors.As(err, &reqErr) || len(reqErr.Body) == 0 {
+		return err
+	}
+
+	// Try Google's array error format: [{"error":{"code":N,"message":"...","status":"..."}}]
+	var googleErrs []struct {
+		Error struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+			Status  string `json:"status"`
+		} `json:"error"`
+	}
+	if jsonErr := json.Unmarshal(reqErr.Body, &googleErrs); jsonErr == nil && len(googleErrs) > 0 {
+		e := googleErrs[0].Error
+		if e.Message != "" {
+			return fmt.Errorf("Google API error (HTTP %d, %s): %s", e.Code, e.Status, e.Message)
+		}
+	}
+
+	// Fall back to showing the raw body so the real error is never hidden
+	return fmt.Errorf("LLM error (HTTP %d): %s", reqErr.HTTPStatusCode, string(reqErr.Body))
 }
 
 // toOpenAITools converts ToolDefinition slice to openai.Tool slice
