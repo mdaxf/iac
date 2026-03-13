@@ -98,15 +98,15 @@
             "host": "smtp.gmail.com",
             "port": 587,
             "auth_type": "token",
-            "username": "iacfbots@gmail.com",
-            "password": "pfqh dvng grnb skep",
-            "api_token": "pfqh dvng grnb skep",
+            "username": "xxxx@gmail.com",
+            "password": "xxxxxx",
+            "api_token": "xxxxx",
             "from": "IAC System <noreply@example.com>",
             "use_tls": true,
             "provider": "Gmail"
         },
         "telegram": {
-            "bot_token": "8706136036:AAF12uOKK1hsDIhWBhD5en5nKBV5uUHSoGQ"
+            "bot_token": "xxxxx"
         },
         "slack": {
             "webhook_url": ""
